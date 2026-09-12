@@ -29,6 +29,10 @@ const browser = await chromium.launch({
     "--use-fake-device-for-media-stream",
     `--use-file-for-fake-audio-capture=${micWav}`,
     "--autoplay-policy=no-user-gesture-required",
+    // MagicDNS does not resolve the tailnet name on this machine itself, so a
+    // check against the real origin has to hand the browser the mapping.
+    // RESOLVE="lightbox2.tail15c879.ts.net 100.68.96.43" keeps the certificate strict.
+    ...(process.env.RESOLVE ? [`--host-resolver-rules=MAP ${process.env.RESOLVE}`] : []),
     // INSECURE=1 only for a self-signed pair. A phone will not make this
     // allowance: it refuses the microphone over a certificate it does not
     // trust, and that lands as the same silent failure as plain http.

@@ -1,6 +1,6 @@
 # Where this is, and what the next process should know
 
-Last touched 9 September 2026. Read this before `docs/voice-bridge-spec.md`;
+Last touched 10 September 2026. Read this before `docs/voice-bridge-spec.md`;
 the spec says what the product is, this says how far it got and what is not
 true yet.
 
@@ -18,6 +18,115 @@ Build order is spec section 7.
 
 7.2 and 7.3 are on `main`; 7.4 is on `feature/web-client`. The project bridge that used to be
 in this repository is on `project-bridge` and still runs the story pipeline.
+
+## The car test, 10 September 2026
+
+A real phone, in a moving car, over cellular. This is 18.6, and it is the first
+run with hardware in it. Notes: Drive, "2026-09-10 — Voice bridge car test".
+
+What held. The conversation ran, a code change was driven while driving, the
+latency felt good over cellular, and barge-in worked on real speech.
+
+What the drive found, and what is now done about it:
+
+| finding | state |
+|---|---|
+| the cue sometimes came out unusually loud | fixed, and the cause was not a mystery |
+| road noise cut the bridge off mid-sentence | the barge-in is now its own detector, with its own two settings |
+| the cues are a debugging aid and want a switch | "hey bridge, tones off" |
+| the phases want their own tones | there are three now, and each means one thing |
+| latency is felt, not measured | `src/latency.ts`, and "hey bridge, stats" |
+
+**The loud cue was a sox effect chain.** `:` starts a new chain in sox, and an
+effect belongs to the chain it is written in. The builder ended
+`... synth 0.16 sine 392 : synth 0.20 sine 330 fade ... vol 0.12`, so the fade
+and the volume applied to the second note only. Measured: the first note peaked
+at 0.71 of full scale and the second at 0.12, about six times louder, with no
+fade in front of it either, so it clicked as well. Every note now carries its
+own fade and its own vol. Measured after: every 40 ms window of all three cues
+peaks at 0.12.
+
+**The barge-in and the recording are now two questions.** They were one, and
+that is the whole of the road-noise fault. `Utterances.active` says a recording
+is open: it wants to be quick and forgiving, because the first syllable of a
+word is lost if it is not. `Utterances.bargingIn` stops the playback: it wants
+to be slow and sure, because cutting the bridge off costs a sentence. The
+defaults are `bargeInLevel` 0.05 and `bargeInMs` 400, against `speechLevel`
+0.02 and `speechOnsetMs` 50 — 2.5 times the level, 8 times the length. Those
+two numbers are a starting point and not a measurement. Settling them is a
+drive, not a test.
+
+**The hold, and what each command does to it.** Note 5 asked for a wake command
+that does not cut a running task. Nothing had to change about the task: a
+barge-in never interrupted the agent, and `session.interrupt()` still has one
+caller, the end-the-turn command. What was wrong was the audio. A barge-in bumped
+an epoch and dropped every queued sentence, and sentences the model streamed
+after Chris stopped talking carried the new epoch and played — a hole in the
+middle of an answer, not a pause.
+
+The speech queue is now two lists and a pump. `outbox` is the answer, which a
+barge-in holds; `ahead` is the bridge's own replies, which are said over a hold
+because Chris asked for them in the middle of the answer on purpose. A sentence
+a barge-in cut goes back to the front of the hold, so a resume starts it again
+rather than carrying on from the middle of a word. The disposition of the hold
+is a decision per command, and `run()` returns it; the table is at the top of
+`src/conversation.ts` and in the README.
+
+No clock decides it in the ordinary case. The hold ends when the utterance is
+resolved: resumed for a wake command, for the wake word alone, and for noise
+that carried no words; dropped for a question to the agent, for where-are-we,
+and for the two commands that stop things. `holdBackstopMs` covers only a
+transcription that never returns at all.
+
+Three bugs fell out of writing it, each wrong before the hold existed:
+
+- **Summarize mid-turn corrupted the turn.** It starts a second turn, the agent
+  refuses a second turn, and the rejection was caught by the handler that
+  reports a real failure. So it said "that turn did not finish", dropped the
+  delta sink so the streaming answer stopped being spoken, and left
+  `turnRunning` false while the turn ran on. It now refuses mid-turn, the way a
+  plain question mid-turn already did.
+- **Restate reached for the wrong answer.** `lastReply` is assigned after a turn
+  finishes, so mid-answer "say that again" said the answer *before* the one
+  Chris was listening to. It now says the last sentence actually spoken, and
+  falls back to the last finished answer between turns.
+- **Muting did not stop the noise.** Neither transport consulted the mute state,
+  so road noise still cut the audio off while muted. That was the mitigation
+  note 5 wanted from mute. The barge-in is now `bargingIn && !muted`.
+
+Clearing the context is gated behind the agreement word (10.1 to 10.5). The
+whole match is the single word "clear", with a character of tolerance, and what
+it costs is the conversation.
+
+**The barge-in needed a gap tolerance, and only a real run said so.** With
+`bargeMs` reset by any frame below the level, a five second question barged in
+and "hey bridge, stats" never did: a short phrase has no 400 ms without a dip
+between syllables. `bargeInGapMs` (200 ms) is how long a dip may last before it
+counts as the end of speech. Measured on the real path, before and after:
+
+```
+before:  ... at each end.
+         > Hay Bridge, stats            (no barge-in; the reply merely queued ahead)
+after:   ... at each end.
+         [barge-in: level 0.441, held 400ms]
+         [stopped: Chris started talking, 5ms after it was noticed]
+         > Hay Bridge, Stets
+         The last answer took 5.0 seconds ...
+         A suspension bridge hangs its deck ...   <- said again from the start
+```
+
+Two things the drive raised that are **not** built, because each is a decision
+rather than a repair:
+
+1. **A better voice.** 4.9 makes the voice a setting and piper has other ones.
+   Choosing needs a person listening, not a test.
+2. **Audio out over Android Auto.** The web client only reaches the car over
+   Bluetooth today. This may be nothing the bridge can fix from a browser.
+
+Two more, unchanged by this work: the connection-quality addendum of
+10 September 2026 is still unbuilt, and it is the other half of "is it the
+network or the agent"; and the wake word is still a poor one (see the bottom of
+this file).
 
 ## Corrections to the previous revision of this file
 

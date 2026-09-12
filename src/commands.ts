@@ -12,7 +12,8 @@
  */
 export type CommandName =
   | "mute" | "unmute" | "clearContext" | "usage"
-  | "restate" | "summarize" | "where" | "endTurn";
+  | "restate" | "summarize" | "where" | "endTurn"
+  | "tones" | "tonesOn" | "tonesOff" | "stats";
 
 export type Match =
   /** 9.4 a command to do */
@@ -32,6 +33,12 @@ const COMMANDS: Array<{ name: CommandName; any: string[][] }> = [
   { name: "summarize", any: [["summarize"], ["summarise"], ["summary"]] },
   { name: "where", any: [["where"], ["catch", "up"], ["recap"]] },
   { name: "endTurn", any: [["end", "turn"], ["stop"], ["cancel"], ["never", "mind"]] },
+  // the explicit forms come first: "tones" is inside "tones off", and the
+  // first command whose words are all present wins.
+  { name: "tonesOff", any: [["tones", "off"], ["tone", "off"], ["no", "tones"], ["sounds", "off"]] },
+  { name: "tonesOn", any: [["tones", "on"], ["tone", "on"], ["sounds", "on"]] },
+  { name: "tones", any: [["tones"], ["tone"], ["chimes"]] },
+  { name: "stats", any: [["stats"], ["latency"], ["diagnostics"], ["how", "fast"]] },
 ];
 
 /** Letters and spaces only, collapsed: what the sound was, not how it was written. */

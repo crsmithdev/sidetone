@@ -59,7 +59,8 @@ same hook that will feed the sentence collector when voice arrives.
 | `src/cues.ts` | section 15: a soft tone, so a wait is never plain silence |
 | `src/conversation.ts` | the turn, the commands and the checkpoint, above any transport |
 | `src/transport.ts` | section 4.1: LiveKit over WebRTC, and the control channel of 4.3 |
-| `src/audio.ts` | the ends of a turn, found in frames rather than by sox |
+| `src/audio.ts` | the ends of a turn, and the barge-in, found in frames rather than by sox |
+| `src/latency.ts` | section 18.4: the round trip, measured rather than felt |
 | `src/serve.ts` | section 7.4 and 12: the room, the client page and the pairing |
 | `client/index.html` | the phone client. Keep the screen on (2.4) |
 | `speech/*.py` | the two engines as long-lived workers, warmed at startup |
@@ -106,16 +107,59 @@ The reply is cut at sentence ends and spoken sentence by sentence while the
 model still writes the rest, so the time to first audio is the time to the
 first sentence — 2.3 to 2.7 seconds measured at the desk.
 
-Say "hey bridge" and then a command: mute, unmute, clear the context, report
-the usage, say that again, summarize, report where we are, end the turn. The
-wake word is matched by sound, not spelling, because an engine writes the same
-sound several ways.
+Say "hey bridge" and then a command. The wake word is matched by sound, not
+spelling, because an engine writes the same sound several ways.
+
+A command spoken over an answer stops the speech at once, and what it does to
+the rest of that answer depends on the command. Only two commands touch the
+agent, and both say so in their name.
+
+| say | it does | the rest of the answer | the turn | works muted |
+|---|---|---|---|---|
+| mute | stops acting on speech | resumes | — | yes |
+| unmute | acts on speech again | resumes | — | yes |
+| tones, tones off, tones on | the cues on or off | resumes | — | yes |
+| report the usage | cost, rate limit, context | resumes | — | no |
+| stats | the round trip, measured | resumes | — | no |
+| say that again | the last sentence, or the last answer | resumes | — | no |
+| summarize | a one-sentence summary | dropped; refused mid-turn | a new turn | no |
+| where are we | the last three exchanges | dropped | — | no |
+| end the turn | stops the agent | dropped | interrupted | no |
+| clear the context | a fresh process, after "continue" | dropped | dies with it | no |
+
+The wake word alone, and road noise that carried no words, both leave the
+answer alone: it carries on where it stopped, and a sentence a barge-in cut is
+said again from the start rather than resumed from the middle of a word.
+
+The tones mark three things and nothing else: one short high note says your
+turn ended and the recording was taken, a falling pair says the turn is running
+and has said nothing yet, and a rising pair says the Claude Code process is
+coming back up. "Hey bridge, tones off" silences all three, because they are
+mostly a debugging aid.
+
+"Hey bridge, stats" reads the round trip out loud: the last one, the share of
+it the transcription took, and the median and worst of the last twenty. The
+clock starts when you stop talking, not when the bridge notices you stopped, so
+the end-of-turn pause is not counted as a cost.
 
 At the desk there is no barge-in: without echo cancellation the bridge would
 transcribe its own voice, so every sound it makes stops the microphone. Over
-LiveKit the client cancels the echo and barge-in works — the bridge stops about
-six milliseconds after it notices Chris talking, and abandons the rest of what
-it was going to say.
+LiveKit the client cancels the echo and barge-in works.
+
+Muting also stops the noise. While muted the bridge keeps transcribing, so
+"hey bridge, unmute" is still heard, but sound is no longer a reason to stop
+talking — which is the whole point of muting in a loud car.
+
+Two detectors read the same frames, and they are not the same question. A
+recording opens on `speechLevel` held for `speechOnsetMs` — quiet and quick, so
+the first syllable of a word is never lost. The playback only stops on
+`bargeInLevel` held for `bargeInMs`, allowing dips of up to `bargeInGapMs`
+between syllables — louder and longer, so a lorry going past does not cut the
+bridge off mid-sentence. The gap matters: without it a five second question
+barges in and "hey bridge, stats" never does, because a short phrase has no
+400 ms without a dip. Once a barge-in is declared it holds until that utterance
+ends. The bridge then stops about six milliseconds later
+and abandons the rest of what it was going to say.
 
 ## The phone
 

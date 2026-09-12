@@ -9,10 +9,15 @@ function frame(amplitude: number, ms = 20): Int16Array {
   return out;
 }
 const LOUD = frame(0.3);
+/** Over the level that opens a recording, under the level that stops the bridge. */
+const NOISE = frame(0.03);
 const QUIET = frame(0.0001);
 
 function collector() {
-  return new Utterances({ sampleRate: RATE, pauseMs: 200, onsetMs: 40, speechLevel: 0.02 });
+  return new Utterances({
+    sampleRate: RATE, pauseMs: 200, onsetMs: 40, speechLevel: 0.02,
+    bargeInLevel: 0.05, bargeInMs: 200, bargeInGapMs: 100,
+  });
 }
 
 describe("wav", () => {
@@ -69,6 +74,44 @@ describe("utterances (11.5)", () => {
     // the frames it took to decide speech had started are in there, not thrown away
     expect(said).not.toBeNull();
     expect((said as Int16Array).length).toBeGreaterThan(20 * LOUD.length);
+  });
+  test("road noise opens a recording and does not stop the bridge (11.3)", () => {
+    const u = collector();
+    for (let i = 0; i < 40; i++) u.push(NOISE);
+    expect(u.active).toBe(true);
+    expect(u.bargingIn).toBe(false);
+  });
+  test("speech held long enough is a barge-in", () => {
+    const u = collector();
+    // 200 ms of barge-in is 10 frames of 20 ms; the ninth must not be enough
+    for (let i = 0; i < 9; i++) u.push(LOUD);
+    expect(u.bargingIn).toBe(false);
+    u.push(LOUD);
+    expect(u.bargingIn).toBe(true);
+  });
+  test("a dip between syllables does not reset the count", () => {
+    const u = collector();
+    // 100 ms of speech, a 60 ms gap, 100 ms more: one phrase, not two attempts
+    for (let i = 0; i < 5; i++) u.push(LOUD);
+    for (let i = 0; i < 3; i++) u.push(QUIET);
+    expect(u.bargingIn).toBe(false);
+    for (let i = 0; i < 5; i++) u.push(LOUD);
+    expect(u.bargingIn).toBe(true);
+  });
+  test("a real pause does reset it, so two short noises are not one barge-in", () => {
+    const u = collector();
+    for (let i = 0; i < 20; i++) {
+      for (let j = 0; j < 5; j++) u.push(LOUD);
+      for (let j = 0; j < 6; j++) u.push(QUIET);
+    }
+    expect(u.bargingIn).toBe(false);
+  });
+  test("the barge-in clears with the utterance it belonged to", () => {
+    const u = collector();
+    for (let i = 0; i < 20; i++) u.push(LOUD);
+    expect(u.bargingIn).toBe(true);
+    for (let i = 0; i < 10; i++) u.push(QUIET);
+    expect(u.bargingIn).toBe(false);
   });
   test("what is held when the stream ends is still an utterance", () => {
     const u = collector();

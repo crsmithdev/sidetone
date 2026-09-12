@@ -23,7 +23,9 @@ describe("config (21)", () => {
     expect(DEFAULTS.model).toBe("sonnet");
     expect(DEFAULTS.wakeWord).toBe("hey bridge");
     expect(DEFAULTS.agreementWord).toBe("continue");
-    expect(DEFAULTS.mutedCommands).toEqual(["mute", "unmute"]);
+    // 9.6 the set is a setting, and the tones are on it: you mute because the
+    // car is loud, and the tones are the next noise you want gone.
+    expect(DEFAULTS.mutedCommands).toEqual(["mute", "unmute", "tones", "tonesOn", "tonesOff"]);
   });
   test("a file overrides field by field", () => {
     const config = loadConfig(withFile('{"model":"opus","ceilingMs":60000}'));

@@ -49,10 +49,34 @@ export interface Config {
   speechLevel: number;
   /** how long the level must stay up before the bridge treats it as speech */
   speechOnsetMs: number;
+  /**
+   * 11.3 barge-in is a second, stricter detector. Starting a recording is
+   * cheap and wrong rarely costs anything; cutting the bridge off mid-sentence
+   * on a lorry going past is the fault the car test found. So a barge-in wants
+   * a louder sound, held for longer, than the level that opens a recording.
+   */
+  bargeInLevel: number;
+  bargeInMs: number;
+  /**
+   * How long a dip may last before it counts as the end of speech. Natural
+   * speech drops below the level between syllables, so without this a short
+   * command never reaches bargeInMs and only long sentences barge in.
+   */
+  bargeInGapMs: number;
+  /**
+   * 11.3 the one clock in the hold. A barge-in keeps the sentences until the
+   * bridge knows what Chris said; this covers only the case where the
+   * transcription never comes back at all.
+   */
+  holdBackstopMs: number;
   /** how long to let the speakers drain before listening again, so the bridge does not hear itself */
   listenSettleMs: number;
   /** 6.5 the voice instruction lives in the bridge, not in the aleph identity file */
   voiceInstruction: string;
+  /** 15.4 the cues are mostly a debugging aid, so they can be turned off by voice */
+  tones: boolean;
+  /** 15.6 how loud a cue is, as a fraction of full scale */
+  cueVolume: number;
   /** 15.5 how long a wait has to be before a cue is worth playing */
   audioCueDelayMs: number;
   /** 15.2 how often the cue repeats while the wait goes on */
@@ -102,7 +126,7 @@ export const DEFAULTS: Config = {
   // small.en writes "hey bridge" as "Cambridge" about half the time. 9.3 says
   // the bridge accepts the forms the engine produces; 18.8 says find them by use.
   wakeWordVariants: ["cambridge"],
-  mutedCommands: ["mute", "unmute"],
+  mutedCommands: ["mute", "unmute", "tones", "tonesOn", "tonesOff"],
   agreementWord: "continue",
   narrationDelayMs: 5_000,
   pythonBin: new URL("../.venv/bin/python", import.meta.url).pathname,
@@ -114,6 +138,12 @@ export const DEFAULTS: Config = {
   silenceThreshold: "2%",
   speechLevel: 0.02,
   speechOnsetMs: 50,
+  // 2.5 times the level and 8 times the length of the recording detector.
+  // A starting point, not a measured one: 18.6 settles it on a drive.
+  bargeInLevel: 0.05,
+  bargeInMs: 400,
+  bargeInGapMs: 200,
+  holdBackstopMs: 10_000,
   listenSettleMs: 300,
   // 6.6 a spoken conversation: summarize, and never read a path, a diff, code or a secret aloud
   voiceInstruction: [
@@ -121,6 +151,8 @@ export const DEFAULTS: Config = {
     "Do not read file paths, diffs, code or secrets aloud. Summarize them instead.",
     "Answer in short plain sentences. Do not use markdown, lists, headers or code blocks.",
   ].join(" "),
+  tones: true,
+  cueVolume: 0.12,
   audioCueDelayMs: 4_000,
   audioCueEveryMs: 6_000,
   usageWarnFraction: 0.8,

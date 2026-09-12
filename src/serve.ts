@@ -53,7 +53,7 @@ export async function serve(dir: string, config: Config): Promise<void> {
   const speechDir = new URL("../speech", import.meta.url).pathname;
   const stt = new LocalWhisper(config, speechDir);
   const tts = new LocalPiper(config, speechDir);
-  const cues = new Cues(scratch);
+  const cues = new Cues(scratch, config.cueVolume);
   await Promise.all([stt.start(), tts.start(), cues.build()]);
 
   const transport = new Transport();
@@ -66,23 +66,37 @@ export async function serve(dir: string, config: Config): Promise<void> {
     pauseMs: config.endOfTurnPauseMs,
     onsetMs: config.speechOnsetMs,
     speechLevel: config.speechLevel,
+    bargeInLevel: config.bargeInLevel,
+    bargeInMs: config.bargeInMs,
+    bargeInGapMs: config.bargeInGapMs,
   });
 
+  /**
+   * 9.5 muting is what makes the noise stop costing sentences. While muted the
+   * bridge keeps transcribing, so "hey bridge, unmute" is still heard — it just
+   * stops treating a lorry as a reason to shut up.
+   */
+  const bargingIn = () => utterances.bargingIn && !conversation.isMuted;
+
   const conversation = new Conversation(dir, config, {
-    async say(text: string): Promise<void> {
+    async say(text: string): Promise<boolean> {
       const wav = join(scratch, `say-${++counter}.wav`);
       await tts.synthesize(text, wav);
       console.log(`  ${text}`);
       // 11.3 stop the moment Chris starts to talk. The frames cannot hold the
       // bridge's own voice, because the client cancelled it before sending.
-      const whole = await transport.speak(await Bun.file(wav).bytes(), () => utterances.active);
+      // 18.4 the first sound of the answer closes the round trip. A later
+      // sentence is not a round trip, and the tracker ignores it.
+      conversation.latency.answered();
+      const whole = await transport.speak(await Bun.file(wav).bytes(), bargingIn);
       if (!whole) console.log(`  [stopped: Chris started talking${bargedAt ? `, ${Date.now() - bargedAt}ms after it was noticed` : ""}]`);
+      return whole;
     },
     cue(name) {
       const wav = cues.file(name);
       if (!wav) return;
       void Bun.file(wav).bytes()
-        .then((bytes) => transport.speak(bytes, () => utterances.active))
+        .then((bytes) => transport.speak(bytes, bargingIn))
         .catch((error) => console.log(`[the cue failed: ${(error as Error).message}]`));
     },
     tell(value) { void transport.send(value); },
@@ -101,21 +115,38 @@ export async function serve(dir: string, config: Config): Promise<void> {
 
   transport.onAudio((frame) => {
     const said = utterances.push(frame);
-    // 11.3 the moment Chris starts, the bridge stops — every sentence, not one
-    if (utterances.active !== wasActive) {
-      wasActive = utterances.active;
-      if (wasActive) { bargedAt = Date.now(); conversation.stopSpeaking(); }
+    // 11.3 the moment Chris really starts, the bridge stops — every sentence,
+    // not one. A recording opening is not enough: road noise opens recordings.
+    if (bargingIn() !== wasActive) {
+      wasActive = bargingIn();
+      if (wasActive) {
+        bargedAt = Date.now();
+        // 18.6 what caused it, so the two thresholds stop being a guess
+        const { level, heldMs } = utterances.bargeIn;
+        console.log(`  [barge-in: level ${level.toFixed(3)}, held ${Math.round(heldMs)}ms]`);
+        conversation.latency.barged(level, heldMs);
+        conversation.stopSpeaking();
+      }
     }
     if (!said) return;
+    // The end of the turn was the pause ago, not now. Measuring from here
+    // would charge a setting to the round trip.
+    conversation.latency.spoke(Date.now() - config.endOfTurnPauseMs);
+    conversation.cue("heard");
     const wav = join(scratch, `heard-${++counter}.wav`);
     void Bun.write(wav, encodeWav(said, RTC_RATE))
       .then(() => stt.transcribe(wav))
       .then((text) => {
-        if (!text) return;
+        conversation.latency.transcribed();
+        // 11.3 road noise that carried no words must give the passage back
+        if (!text) { conversation.heardNothing(); return; }
         console.log(`\n> ${text}`);
         return conversation.heard(text);
       })
-      .catch((error) => console.log(`[could not read that: ${(error as Error).message}]`));
+      .catch((error) => {
+        conversation.heardNothing();
+        console.log(`[could not read that: ${(error as Error).message}]`);
+      });
   });
 
   // 9.4.8 and 10.2 also reach the bridge as typed text from the client, because

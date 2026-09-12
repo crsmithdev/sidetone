@@ -97,7 +97,7 @@ async function voice(dir: string, config: Config): Promise<void> {
   const speechDir = new URL("../speech", import.meta.url).pathname;
   const stt = new LocalWhisper(config, speechDir);
   const tts = new LocalPiper(config, speechDir);
-  const cues = new Cues(scratch);
+  const cues = new Cues(scratch, config.cueVolume);
 
   const startedAt = Date.now();
   await Promise.all([stt.start(), tts.start(), cues.build()]);
@@ -122,14 +122,17 @@ async function voice(dir: string, config: Config): Promise<void> {
   }
 
   const conversation = new Conversation(dir, config, {
-    async say(text: string): Promise<void> {
+    async say(text: string): Promise<boolean> {
       const wav = join(scratch, `say-${++counter}.wav`);
       takeTheMicrophone();
       try {
         console.log(`  ${text}`);
+        conversation.latency.answered();
         await tts.synthesize(text, wav);
         await Bun.spawn(["paplay", wav], { stdout: "ignore", stderr: "ignore" }).exited;
       } finally { pending -= 1; }
+      // there is no barge-in at the desk (7.3), so a sentence is always whole
+      return true;
     },
     /**
      * A cue does not take the microphone. It is a tone: the voice detector
@@ -158,8 +161,11 @@ async function voice(dir: string, config: Config): Promise<void> {
     await listening.exited;
     listening = null;
     if (speech !== before || pending > 0) { trace("cut short: the bridge started to speak"); continue; }
+    conversation.latency.spoke(Date.now() - config.endOfTurnPauseMs);
+    conversation.cue("heard");
     const said = await stt.transcribe(wav);
-    if (!said) { trace("nothing in it"); continue; }
+    conversation.latency.transcribed();
+    if (!said) { conversation.heardNothing(); trace("nothing in it"); continue; }
     console.log(`\n> ${said}`);
     await conversation.heard(said);
   }

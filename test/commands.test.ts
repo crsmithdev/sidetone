@@ -71,3 +71,30 @@ describe("muted (9.5, 9.6)", () => {
     expect(match("hey bridge report the usage", WAKE, true, [...MUTED, "usage"])).toEqual({ kind: "command", name: "usage" });
   });
 });
+
+describe("the tone and stats commands", () => {
+  test("the explicit forms win over the toggle", () => {
+    expect(commandIn("tones off")).toBe("tonesOff");
+    expect(commandIn("turn the tones off")).toBe("tonesOff");
+    expect(commandIn("sounds off")).toBe("tonesOff");
+    expect(commandIn("tones on")).toBe("tonesOn");
+    expect(commandIn("tones")).toBe("tones");
+  });
+  test("the diagnostic printout has a few names", () => {
+    for (const said of ["stats", "the stats", "latency", "how fast are we"]) {
+      expect(commandIn(said)).toBe("stats");
+    }
+  });
+  test("the new words do not steal an older command", () => {
+    expect(commandIn("mute")).toBe("mute");
+    expect(commandIn("stop")).toBe("endTurn");
+    expect(commandIn("end the turn")).toBe("endTurn");
+    expect(commandIn("unmute")).toBe("unmute");
+    expect(commandIn("report the usage")).toBe("usage");
+  });
+  test("9.5 the tones can be silenced while muted, and the reports cannot", () => {
+    expect(match("hey bridge tones off", WAKE, true, MUTED)).toEqual({ kind: "command", name: "tonesOff" });
+    expect(match("hey bridge stats", WAKE, true, MUTED)).toEqual({ kind: "unclear" });
+    expect(match("hey bridge stats", WAKE, false, MUTED)).toEqual({ kind: "command", name: "stats" });
+  });
+});

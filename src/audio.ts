@@ -77,6 +77,11 @@ export interface UtteranceOptions {
   onsetMs: number;
   /** the level that counts as speech, as a fraction of full scale */
   speechLevel: number;
+  /** 11.3 the louder level, held for longer, that counts as a barge-in */
+  bargeInLevel: number;
+  bargeInMs: number;
+  /** how long a dip between syllables may last without resetting the count */
+  bargeInGapMs: number;
 }
 
 /**
@@ -90,6 +95,10 @@ export class Utterances {
   private loudMs = 0;
   private quietMs = 0;
   private speaking = false;
+  private bargeMs = 0;
+  private barged = false;
+  private bargePeak = 0;
+  private bargeQuietMs = 0;
 
   constructor(private readonly options: UtteranceOptions) {}
 
@@ -99,9 +108,29 @@ export class Utterances {
 
   /** The utterance this frame completed, or null. */
   push(frame: Int16Array): Int16Array | null {
-    const { sampleRate, pauseMs, onsetMs, speechLevel } = this.options;
+    const { sampleRate, pauseMs, onsetMs, speechLevel, bargeInLevel, bargeInMs, bargeInGapMs } = this.options;
     const ms = (frame.length / sampleRate) * 1000;
-    const loud = level(frame) >= speechLevel;
+    const heard = level(frame);
+    const loud = heard >= speechLevel;
+
+    // 11.3 the barge-in runs alongside the recording and never gates it. The
+    // recording has to start on the quiet first syllable or the word is lost;
+    // the playback must not stop until the sound is loud enough, and has gone
+    // on long enough, to be a person and not a lorry.
+    if (!this.barged) {
+      if (heard >= bargeInLevel) {
+        this.bargeMs += ms;
+        this.bargeQuietMs = 0;
+        this.bargePeak = Math.max(this.bargePeak, heard);
+      } else {
+        // A gap between two syllables is not the end of speech. Measured on a
+        // real run: a five second question barges in and "hey bridge, stats"
+        // never does, because a short phrase has no 400 ms without a dip.
+        this.bargeQuietMs += ms;
+        if (this.bargeQuietMs >= bargeInGapMs) { this.bargeMs = 0; this.bargePeak = 0; }
+      }
+      if (this.bargeMs >= bargeInMs) this.barged = true;
+    }
 
     if (!this.speaking) {
       // keep a little of what came before, so the first word survives the decision
@@ -143,11 +172,25 @@ export class Utterances {
     this.loudMs = 0;
     this.quietMs = 0;
     this.speaking = false;
+    this.bargeMs = 0;
+    this.barged = false;
+    this.bargePeak = 0;
+    this.bargeQuietMs = 0;
   }
 
-  /** 11.3 whether Chris is talking right now, which is what stops the playback. */
+  /** Whether a recording is open, which is not the same question as a barge-in. */
   get active(): boolean {
     return this.speaking;
+  }
+
+  /** 11.3 whether Chris is really talking, which is what stops the playback. */
+  get bargingIn(): boolean {
+    return this.barged;
+  }
+
+  /** 18.6 the sound that caused it: the loudest frame, and how long it held. */
+  get bargeIn(): { level: number; heldMs: number } {
+    return { level: this.bargePeak, heldMs: this.bargeMs };
   }
 }
 
