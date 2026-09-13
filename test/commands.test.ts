@@ -98,3 +98,20 @@ describe("the tone and stats commands", () => {
     expect(match("hey bridge stats", WAKE, false, MUTED)).toEqual({ kind: "command", name: "stats" });
   });
 });
+
+describe("the two voices (9.4)", () => {
+  test("9.3 the forms the engine writes, which is not how it is spelled", () => {
+    expect(commandIn("female voice")).toBe("femaleVoice");
+    expect(commandIn("male voice")).toBe("maleVoice");
+    // both observed on a real run: small.en hears "male" as "mail", and drops
+    // the second word about as often as it keeps it
+    expect(commandIn("mail voice")).toBe("maleVoice");
+    expect(commandIn("mail")).toBe("maleVoice");
+    expect(commandIn("use the man voice")).toBe("maleVoice");
+  });
+  test("it does not steal mute, which is the neighbour that would hurt", () => {
+    expect(commandIn("mute")).toBe("mute");
+    expect(commandIn("stop listening")).toBe("mute");
+    expect(commandIn("female voice")).not.toBe("maleVoice");
+  });
+});

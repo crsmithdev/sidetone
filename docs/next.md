@@ -118,8 +118,32 @@ after:   ... at each end.
 Two things the drive raised that are **not** built, because each is a decision
 rather than a repair:
 
-1. **A better voice.** 4.9 makes the voice a setting and piper has other ones.
-   Choosing needs a person listening, not a test.
+**The voice is Kokoro on the GPU now.** Chris auditioned 31 rendered samples and
+chose `bf_emma`. What made it possible was that the card was idle: piper runs on
+the CPU and takes about a tenth of a second for the first sentence of an answer,
+and Kokoro on the GPU takes 121 to 164 milliseconds, so the swap costs nothing
+in the only number that matters. On the CPU the same model takes a full second,
+so the GPU is not optional here. It holds about 800 MB while loaded, measured as
+a delta in free memory because nvidia-smi cannot report per-process VRAM under
+WSL.
+
+Three things worth keeping:
+
+- **It runs in its own virtual environment, and has to.** onnxruntime wants the
+  CUDA 13 wheels; ctranslate2, which carries whisper, wants the CUDA 12 ones.
+  Both unpack into `nvidia/cudnn/lib`, so one environment cannot hold both.
+- **The CUDA failure is silent.** Without the wheels, onnxruntime takes the
+  graph on the CPU, nothing errors, and everything is ten times slower. The
+  worker reports its provider and the bridge warns, because otherwise the only
+  symptom is that the bridge feels sluggish.
+- **"male voice" comes back as "Mail Voice".** The first attempt required both
+  words, which matched nothing on a real run: the engine writes "mail" and drops
+  the second word about half the time. 9.3 again — accept the forms the engine
+  produces, not the spelling.
+
+1. **A better cue.** The reading says in-vehicle signals want 500 to 1500 Hz and
+   the favourite so far sits at 196 to 262, under the band and in with the
+   engine. Four families built to the literature are with Chris now.
 2. **Audio out over Android Auto.** The web client only reaches the car over
    Bluetooth today. This may be nothing the bridge can fix from a browser.
 

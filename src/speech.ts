@@ -27,6 +27,8 @@ export interface TextToSpeech {
   start(): Promise<void>;
   /** Writes the speech to wavPath and returns it. */
   synthesize(text: string, wavPath: string): Promise<string>;
+  /** 9.4 change voice without a restart. An engine of one voice leaves this out. */
+  use?(voice: string): void;
   stop(): void;
 }
 
@@ -131,6 +133,7 @@ export class LocalWhisper implements SpeechToText {
   stop(): void { this.worker.stop(); }
 }
 
+
 /** 4.9 the first working local voice. The voice is a setting; every choice is local. */
 export class LocalPiper implements TextToSpeech {
   private worker: Worker;
@@ -151,4 +154,49 @@ export class LocalPiper implements TextToSpeech {
   }
 
   stop(): void { this.worker.stop(); }
+}
+
+/**
+ * 4.9 the same job on the GPU, which was idle. All 54 voices share one model,
+ * so `use` costs nothing and can happen between two sentences.
+ */
+export class LocalKokoro implements TextToSpeech {
+  private worker: Worker;
+  private voice: string;
+  sampleRate = 0;
+  /** which onnxruntime provider actually took the graph */
+  provider = "";
+
+  constructor(config: Config, scriptDir: string) {
+    this.voice = config.ttsVoice;
+    this.worker = new Worker(config.kokoroPythonBin,
+      [join(scriptDir, "kokoro_worker.py"), config.kokoroModel, config.kokoroVoices, config.ttsVoice],
+      { LD_LIBRARY_PATH: cudaLibraryPath(config.kokoroPythonBin) });
+  }
+
+  async start(): Promise<void> {
+    const ready = await this.worker.start();
+    this.sampleRate = typeof ready.sample_rate === "number" ? ready.sample_rate : 0;
+    this.provider = typeof ready.provider === "string" ? ready.provider : "";
+    // The silent failure this engine has: without the CUDA libraries
+    // onnxruntime takes the graph on the CPU, nothing errors, and the first
+    // sentence goes from a tenth of a second to a whole one.
+    if (this.provider !== "CUDAExecutionProvider") {
+      console.log(`warning: kokoro is running on ${this.provider || "an unknown provider"}, not the GPU. Expect about a second a sentence.`);
+    }
+  }
+
+  use(voice: string): void { this.voice = voice; }
+
+  async synthesize(text: string, wavPath: string): Promise<string> {
+    const reply = await this.worker.request({ text, wav: wavPath, voice: this.voice });
+    return typeof reply.wav === "string" ? reply.wav : wavPath;
+  }
+
+  stop(): void { this.worker.stop(); }
+}
+
+/** 4.8 the seam: which engine speaks is a setting, and nothing above here knows. */
+export function textToSpeech(config: Config, scriptDir: string): TextToSpeech {
+  return config.ttsEngine === "piper" ? new LocalPiper(config, scriptDir) : new LocalKokoro(config, scriptDir);
 }

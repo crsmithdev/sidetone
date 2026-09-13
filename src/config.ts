@@ -38,8 +38,23 @@ export interface Config {
   modelsDir: string;
   /** 4.6 a small Whisper-family model */
   sttModel: string;
-  /** 4.9 the first working local voice, and a setting from then on */
+  /** 4.9 which engine speaks. kokoro is on the GPU; piper is the CPU fallback. */
+  ttsEngine: "kokoro" | "piper";
+  /** 4.9 the voice, named the way the chosen engine names its voices */
   ttsVoice: string;
+  /**
+   * 9.4 the two Chris switches between out loud. Kokoro keeps all its voices
+   * in one pack, so a switch is a different name on the next request.
+   */
+  voiceChoices: { female: string; male: string };
+  /**
+   * Kokoro runs in its own environment: onnxruntime wants the CUDA 13 wheels
+   * and ctranslate2, which carries whisper, wants the CUDA 12 ones, and both
+   * unpack into the same directory.
+   */
+  kokoroPythonBin: string;
+  kokoroModel: string;
+  kokoroVoices: string;
   /** 5.6 a run of text this long with no punctuation is spoken anyway */
   sentenceMaxChars: number;
   /** 11.5 the pause that ends a turn, and the level that counts as speech */
@@ -132,7 +147,12 @@ export const DEFAULTS: Config = {
   pythonBin: new URL("../.venv/bin/python", import.meta.url).pathname,
   modelsDir: join(homedir(), ".voice-bridge", "models"),
   sttModel: "small.en",
-  ttsVoice: "en_US-lessac-medium",
+  ttsEngine: "kokoro",
+  ttsVoice: "bf_emma",
+  voiceChoices: { female: "bf_emma", male: "bm_daniel" },
+  kokoroPythonBin: join(homedir(), ".voice-bridge", "kokoro-venv", "bin", "python"),
+  kokoroModel: join(homedir(), ".voice-bridge", "models", "kokoro", "kokoro-v1.0.onnx"),
+  kokoroVoices: join(homedir(), ".voice-bridge", "models", "kokoro", "voices-v1.0.bin"),
   sentenceMaxChars: 240,
   endOfTurnPauseMs: 1_500,
   silenceThreshold: "2%",

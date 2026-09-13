@@ -15,7 +15,7 @@ import { Utterances, encodeWav } from "./audio.ts";
 import type { Config } from "./config.ts";
 import { Conversation } from "./conversation.ts";
 import { Cues } from "./cues.ts";
-import { LocalPiper, LocalWhisper } from "./speech.ts";
+import { LocalWhisper, textToSpeech } from "./speech.ts";
 import { advertiseHost, livekitConfig, loadOrCreateKeys } from "./keys.ts";
 import { RTC_RATE, Transport, tokenFor } from "./transport.ts";
 
@@ -52,7 +52,7 @@ export async function serve(dir: string, config: Config): Promise<void> {
   const { host, keys, clientUrl, origin, secure } = endpoints(config);
   const speechDir = new URL("../speech", import.meta.url).pathname;
   const stt = new LocalWhisper(config, speechDir);
-  const tts = new LocalPiper(config, speechDir);
+  const tts = textToSpeech(config, speechDir);
   const cues = new Cues(scratch, config.cueVolume);
   await Promise.all([stt.start(), tts.start(), cues.build()]);
 

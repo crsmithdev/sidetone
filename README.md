@@ -53,7 +53,7 @@ same hook that will feed the sentence collector when voice arrives.
 | `src/protocol.ts` | Claude Code's stream-json output, reduced to what the bridge acts on |
 | `src/supervisor.ts` | the three fault detectors of section 8, as a clock-driven state machine |
 | `src/narrator.ts` | what the bridge says while a tool runs, so a long turn is not silence |
-| `src/speech.ts` | section 4: the two local engines, each behind the interface of 4.8 |
+| `src/speech.ts` | section 4: the local engines, each behind the interface of 4.8 |
 | `src/sentences.ts` | section 5.6: the streamed reply cut at sentence ends |
 | `src/commands.ts` | section 9: the wake word, matched by sound rather than spelling |
 | `src/cues.ts` | section 15: a soft tone, so a wait is never plain silence |
@@ -98,14 +98,38 @@ gigabytes, always between turns, never mid-answer. A healthy claude sits near
 Everything in the voice path is local, and 4.5 makes that a constraint rather
 than a default: there is no cloud engine behind the interface of 4.8 and no
 fallback to one. Speech to text is faster-whisper with `small.en` on the GPU,
-about 657 MiB and 27 times real time. Text to speech is piper on the CPU, about
-a tenth of a second a sentence. Both run as long-lived workers, because both
-cost seconds to load and the bridge pays that at startup instead of on the
-first thing you say.
+about 657 MiB and 27 times real time. Text to speech is Kokoro on the GPU: 82M
+parameters behind one ONNX graph, about a tenth of a second for the first
+sentence of an answer, 800 MB of video memory while loaded. Both run as
+long-lived workers, because both cost seconds to load and the bridge pays that
+at startup instead of on the first thing you say.
 
 The reply is cut at sentence ends and spoken sentence by sentence while the
 model still writes the rest, so the time to first audio is the time to the
 first sentence — 2.3 to 2.7 seconds measured at the desk.
+
+The voice is `bf_emma` and `ttsVoice` is the setting. All 54 Kokoro voices sit
+in one pack, so "hey bridge, male voice" and "hey bridge, female voice" swap
+between the two named in `voiceChoices` without a restart — mid-sentence if you
+like. `ttsEngine: "piper"` puts the old CPU engine back; it has one voice, and
+says so when you ask it to switch.
+
+Kokoro runs in its own virtual environment at `~/.voice-bridge/kokoro-venv`.
+This is not tidiness: onnxruntime wants the CUDA 13 wheels and ctranslate2,
+which carries whisper, wants the CUDA 12 ones, and both unpack into
+`nvidia/cudnn/lib`. Two environments cost nothing, because each engine is
+already its own process.
+
+```bash
+uv venv ~/.voice-bridge/kokoro-venv --python 3.12
+VIRTUAL_ENV=~/.voice-bridge/kokoro-venv uv pip install kokoro-onnx "onnxruntime-gpu[cuda,cudnn]"
+mkdir -p ~/.voice-bridge/models/kokoro   # then put kokoro-v1.0.onnx and voices-v1.0.bin in it
+```
+
+Without those CUDA wheels onnxruntime takes the graph on the CPU, nothing
+errors, and a sentence goes from a tenth of a second to a whole one. The worker
+reports which provider it got and the bridge prints a warning, because that
+failure is otherwise invisible.
 
 Say "hey bridge" and then a command. The wake word is matched by sound, not
 spelling, because an engine writes the same sound several ways.
@@ -125,6 +149,7 @@ agent, and both say so in their name.
 | summarize | a one-sentence summary | dropped; refused mid-turn | a new turn | no |
 | where are we | the last three exchanges | dropped | — | no |
 | end the turn | stops the agent | dropped | interrupted | no |
+| female voice, male voice | swaps the voice mid-sentence | resumes | — | no |
 | clear the context | a fresh process, after "continue" | dropped | dies with it | no |
 
 The wake word alone, and road noise that carried no words, both leave the

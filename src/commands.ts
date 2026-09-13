@@ -13,7 +13,8 @@
 export type CommandName =
   | "mute" | "unmute" | "clearContext" | "usage"
   | "restate" | "summarize" | "where" | "endTurn"
-  | "tones" | "tonesOn" | "tonesOff" | "stats";
+  | "tones" | "tonesOn" | "tonesOff" | "stats"
+  | "femaleVoice" | "maleVoice";
 
 export type Match =
   /** 9.4 a command to do */
@@ -39,6 +40,12 @@ const COMMANDS: Array<{ name: CommandName; any: string[][] }> = [
   { name: "tonesOn", any: [["tones", "on"], ["tone", "on"], ["sounds", "on"]] },
   { name: "tones", any: [["tones"], ["tone"], ["chimes"]] },
   { name: "stats", any: [["stats"], ["latency"], ["diagnostics"], ["how", "fast"]] },
+  // 9.3 the forms the engine produces, not the spelling. small.en writes
+  // "male voice" as "Mail Voice", and sometimes drops the second word, so
+  // "mail" is one of the accepted forms and one word is enough. Requiring
+  // "voice" was the first attempt and it matched nothing on a real run.
+  { name: "femaleVoice", any: [["female"], ["woman"]] },
+  { name: "maleVoice", any: [["male"], ["mail"], ["man"]] },
 ];
 
 /** Letters and spaces only, collapsed: what the sound was, not how it was written. */

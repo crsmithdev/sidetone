@@ -16,7 +16,7 @@ import { Cues } from "./cues.ts";
 import { fetchCert } from "./keys.ts";
 import { endpoints, livekitConfig } from "./serve.ts";
 import { serve } from "./serve.ts";
-import { LocalPiper, LocalWhisper } from "./speech.ts";
+import { LocalWhisper, textToSpeech } from "./speech.ts";
 
 function showConfig(config: Config): void {
   console.log(`config: ${configPath()}`);
@@ -96,12 +96,12 @@ async function voice(dir: string, config: Config): Promise<void> {
   const scratch = mkdtempSync(join(tmpdir(), "voice-bridge-"));
   const speechDir = new URL("../speech", import.meta.url).pathname;
   const stt = new LocalWhisper(config, speechDir);
-  const tts = new LocalPiper(config, speechDir);
+  const tts = textToSpeech(config, speechDir);
   const cues = new Cues(scratch, config.cueVolume);
 
   const startedAt = Date.now();
   await Promise.all([stt.start(), tts.start(), cues.build()]);
-  console.log(`voice ready in ${((Date.now() - startedAt) / 1000).toFixed(1)}s: ${config.sttModel} and ${config.ttsVoice}, both local`);
+  console.log(`voice ready in ${((Date.now() - startedAt) / 1000).toFixed(1)}s: ${config.sttModel} and ${config.ttsEngine} ${config.ttsVoice}, both local`);
 
   let counter = 0;
   let speech = 0;

@@ -306,3 +306,28 @@ describe("the gate on clearing the context (10)", () => {
     expect(r.said).toEqual(["I am about to clear the context and start again. Say continue to let it happen."]);
   });
 });
+
+describe("switching voice (4.9)", () => {
+  test("it changes the engine's voice and leaves the answer alone", async () => {
+    const asked: string[] = [];
+    const speaking = { ...engines, use: (v: string) => { asked.push(v); } };
+    const said: string[] = [];
+    const mouth = { say: async (t: string) => { said.push(t); return true; }, cue: () => {}, tell: () => {} };
+    const c = new Conversation("/tmp", config, mouth as never, engines as never, speaking as never);
+    const guts = c as unknown as { speak(t: string): void };
+    c.stopSpeaking();
+    guts.speak("the rest of the answer.");
+    await c.heard("hey bridge male voice");
+    await new Promise((r) => setTimeout(r, 0));
+    expect(asked).toEqual([config.voiceChoices.male]);
+    expect(said).toEqual(["Switched to the male voice.", "the rest of the answer."]);
+  });
+  test("an engine with one voice says so rather than pretending", async () => {
+    const said: string[] = [];
+    const mouth = { say: async (t: string) => { said.push(t); return true; }, cue: () => {}, tell: () => {} };
+    const c = new Conversation("/tmp", config, mouth as never, engines as never, engines as never);
+    await c.heard("hey bridge female voice");
+    await new Promise((r) => setTimeout(r, 0));
+    expect(said).toEqual(["This engine has only the one voice."]);
+  });
+});

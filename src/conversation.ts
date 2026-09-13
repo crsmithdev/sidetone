@@ -372,6 +372,12 @@ export class Conversation {
       }
       case "stats": this.reply(this.latency.report()); return "resume";
 
+      // 4.9 the voice is a setting, so changing it changes nothing about the
+      // answer. The acknowledgement arrives in the new voice, which is the
+      // only demonstration worth having.
+      case "femaleVoice": return this.switchVoice("female");
+      case "maleVoice": return this.switchVoice("male");
+
       // 9.4.5 you missed something. Mid-answer that is the last sentence said,
       // not the answer before this one, which is what it used to reach for.
       case "restate": {
@@ -412,6 +418,15 @@ export class Conversation {
         });
         return "keep";
     }
+  }
+
+  /** 9.4 the two voices Chris switches between out loud. */
+  private switchVoice(which: "female" | "male"): Hold {
+    const voice = this.config.voiceChoices[which];
+    if (!this.tts.use) { this.reply("This engine has only the one voice."); return "resume"; }
+    this.tts.use(voice);
+    this.reply(`Switched to the ${which} voice.`);
+    return "resume";
   }
 
   /** One utterance of PCM becomes one thing Chris said. */
