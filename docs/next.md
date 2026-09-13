@@ -168,11 +168,29 @@ Measured before and after, over three ordinary questions: mean reply 75 words
 against 74. Brevity is unchanged, and the tempting question that invites the
 agent to read code aloud produced none under either wording.
 
-**One real gap, and it predates this.** Both wordings say a file path out loud
-— "it is in src/audio.ts" — which 6.6 forbids in as many words. It is also a
-perfectly sensible thing to say in a spoken conversation, so the question is
-whether 6.6 is too strict rather than whether the instruction is too weak.
-Left open deliberately.
+**6.6 was too strict about paths, and that is now measured.** Both wordings said
+"it is in src/audio.ts", which 6.6 forbade in as many words. Six ways of naming
+the same file were spoken by the voice and transcribed back to see what a
+listener gets:
+
+| said as | spoken | heard as |
+|---|---|---|
+| the absolute path | 6.63 s | slash home slash CRSMI slash VoiceBridgeMCP slash SRC slash audio TS |
+| `src/audio.ts` | 3.05 s | SRC slash audio, TS |
+| `audio.ts` | 2.15 s | audio TS |
+| "audio dot t s" | 2.33 s | audio.ts |
+| "the audio module" | 2.18 s | the audio module |
+
+The rule was right about directories and wrong about file names. Chris chose
+the relative path: it keeps the directory, which carries real information —
+src, test and scripts are not interchangeable — at less than half the cost of
+the absolute. 6.6.2 says so now.
+
+It is worded as a default rather than an absolute, because that is what it is.
+Told "never speak an absolute path" and then asked outright for one, the agent
+gave it, which is the right answer to that question. An absolute the model
+routinely ignores teaches it that the rules beside it are soft too, and the
+rules beside it are about secrets.
 
 ## Whisper was measured, and is staying put
 

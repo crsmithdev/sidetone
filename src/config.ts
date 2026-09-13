@@ -174,10 +174,22 @@ export const DEFAULTS: Config = {
    * in full (2.8.2). Phrasing the style rule as an absolute is what left a
    * project no way to say otherwise; 6.1 already gives a project its voice,
    * in its own instructions file, and this lets that voice be heard.
+   *
+   * The rule about paths was too strict and is now a default about absolute
+   * paths only. It is worded as a default because that is what it is: asked
+   * outright for the absolute path, the agent gives it, and an absolute the
+   * model routinely ignores teaches it that the rules above are soft too.
+   * Spoken by the voice and transcribed back: "src/audio.ts" takes 3.0 seconds
+   * and is understood as "SRC slash audio, TS", which is how a person says it.
+   * The absolute path it came from takes 6.6 seconds and arrives as "slash home
+   * slash CRSMI slash VoiceBridgeMCP slash SRC slash audio TS", which is the
+   * thing 6.6 was written to prevent. The directory is worth keeping: src,
+   * test and scripts are not interchangeable.
    */
   voiceInstruction: [
     "You are in a spoken conversation. A text to speech engine reads your reply aloud.",
-    "Never read file paths, diffs, code or secrets aloud. Summarize those instead. This rule does not bend.",
+    "Never read diffs, code or secrets aloud. Summarize those instead. This rule does not bend.",
+    "Name a file by its path from the project root, like src/audio.ts. Do not speak an absolute path unless you are asked for one.",
     "Otherwise answer in short plain sentences, without markdown, lists, headers or code blocks.",
     "If this project's instructions ask for something to be read aloud in full, or if you are asked to, read it in full.",
   ].join(" "),
