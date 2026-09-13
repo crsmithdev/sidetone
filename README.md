@@ -61,6 +61,7 @@ same hook that will feed the sentence collector when voice arrives.
 | `src/transport.ts` | section 4.1: LiveKit over WebRTC, and the control channel of 4.3 |
 | `src/audio.ts` | the ends of a turn, and the barge-in, found in frames rather than by sox |
 | `src/latency.ts` | section 18.4: the round trip, measured rather than felt |
+| `src/network.ts` | the connection, as the framework reports it, from both ends |
 | `src/serve.ts` | section 7.4 and 12: the room, the client page and the pairing |
 | `client/index.html` | the phone client. Keep the screen on (2.4) |
 | `speech/*.py` | the two engines as long-lived workers, warmed at startup |
@@ -172,6 +173,13 @@ each runs 160 to 300 ms, because a routine cue wants to stay under about 300.
 Against a road-noise bed filtered to the band that decides audibility, this
 stands about 12 dB above it. `cueVolume` is the setting that closes the rest of
 the gap to the 15 the reading asks for.
+
+The client shows what the connection is doing, and "hey bridge, stats" says it
+out loud along with the round trip. Both ends are kept: this end's reading says
+whether the machine is reaching the room, the phone's says whether the car is,
+and in a car it is the phone's uplink that goes first. Nothing acts on the
+reading yet — what to do about a bad connection wants a drive behind it, and
+this is what makes that drive worth taking.
 
 "Hey bridge, stats" reads the round trip out loud: the last one, the median and
 worst of the last twenty, and how many barge-ins turned out to be nothing. The

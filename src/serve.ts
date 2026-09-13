@@ -17,6 +17,7 @@ import { Conversation } from "./conversation.ts";
 import { Cues } from "./cues.ts";
 import { LocalWhisper, textToSpeech } from "./speech.ts";
 import { advertiseHost, livekitConfig, loadOrCreateKeys } from "./keys.ts";
+import { qualityOf } from "./network.ts";
 import { RTC_RATE, Transport, tokenFor } from "./transport.ts";
 
 /** 12.2 one pairing, then a long-lived token the client keeps. */
@@ -153,6 +154,24 @@ export async function serve(dir: string, config: Config): Promise<void> {
   // a car is loud and a button is sometimes the honest way to say a thing.
   transport.onMessage((value) => {
     if (value.kind === "said" && typeof value.text === "string") void conversation.heard(value.text);
+    // N.1.4 the phone's own reading of its uplink. Measured on a real room,
+    // this end sees the phone's quality too, so the two are the same signal
+    // arriving twice and the tracker ignores the repeat. It is kept because
+    // either source can go quiet, and the phone's is the one that survives a
+    // link the bridge has stopped hearing from.
+    if (value.kind === "quality") {
+      const quality = qualityOf(value.quality);
+      if (conversation.network.saw("phone", quality)) console.log(`[the phone's connection is ${quality}]`);
+    }
+  });
+
+  // N.1 this end's own reading. Both are kept: this one says whether the
+  // machine is reaching the room, the phone's says whether the car is.
+  transport.onQuality((quality, identity) => {
+    const seen = qualityOf(quality);
+    // the bridge is told about every participant, including itself
+    const side = identity === "bridge" ? "bridge" : "phone";
+    if (conversation.network.saw(side, seen)) console.log(`[${side === "bridge" ? "this end" : "the phone"} reports ${seen}]`);
   });
 
   const code = pairingCode();

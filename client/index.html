@@ -30,10 +30,21 @@
   #pair { margin:auto; text-align:center; max-width:340px; }
   #pair p { color:var(--dim); font-size:14px; }
   .hidden { display:none !important; }
+  /* N.2.2 a passive indicator, always visible, so a slow network is never
+     mistaken for a stalled agent */
+  #net { margin-left:auto; display:flex; align-items:center; gap:6px; font-size:13px; color:var(--dim); }
+  #bars { display:flex; align-items:flex-end; gap:2px; height:12px; }
+  #bars i { width:3px; background:currentColor; opacity:.25; border-radius:1px; }
+  #bars i:nth-child(1){ height:4px } #bars i:nth-child(2){ height:8px } #bars i:nth-child(3){ height:12px }
+  #net.excellent { color:#6bbf87 } #net.good { color:#6bbf87 }
+  #net.poor { color:#d8a657 } #net.lost { color:#e07a5f }
+  #net.excellent i, #net.good i:nth-child(-n+2), #net.poor i:nth-child(1) { opacity:1 }
+  #net.lost i { opacity:.9 }
 </style>
 </head>
 <body>
-<header><span id="dot"></span><strong>Voice Bridge</strong><span id="state">not connected</span></header>
+<header><span id="dot"></span><strong>Voice Bridge</strong><span id="state">not connected</span>
+<span id="net" title="the connection, as the framework reports it"><span id="bars"><i></i><i></i><i></i></span><span id="netword">&mdash;</span></span></header>
 
 <section id="pair">
   <h2>Pair this phone</h2>
@@ -117,6 +128,22 @@ async function connect({ url, token }) {
   // 14.2 LiveKit reconnects the transport; the bridge keeps the session behind it
   room.on(RoomEvent.Reconnecting, () => { state.textContent = "reconnecting"; dot.classList.remove("on"); });
   room.on(RoomEvent.Reconnected, () => { state.textContent = "listening"; dot.classList.add("on"); });
+
+  // N.1.4 the phone reads its own uplink and tells the bridge, because the
+  // bridge cannot see this end from where it sits, and in a car this is the
+  // end that goes first.
+  const net = document.getElementById("net");
+  const netword = document.getElementById("netword");
+  let lastQuality = null;
+  room.on(RoomEvent.ConnectionQualityChanged, (quality, participant) => {
+    if (participant?.identity !== room.localParticipant?.identity) return;
+    const seen = String(quality ?? "").toLowerCase();
+    net.className = seen;
+    netword.textContent = seen || "\u2014";
+    if (seen === lastQuality) return;
+    lastQuality = seen;
+    tell({ kind: "quality", quality: seen });
+  });
 
   room.on(RoomEvent.TrackSubscribed, (track) => {
     if (track.kind !== Track.Kind.Audio) return;

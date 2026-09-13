@@ -27,6 +27,7 @@ import { match, type CommandName } from "./commands.ts";
 import type { Config } from "./config.ts";
 import type { CueName } from "./cues.ts";
 import { Latency } from "./latency.ts";
+import { Network } from "./network.ts";
 import { SentenceCollector } from "./sentences.ts";
 import { Session, type Turn } from "./session.ts";
 import type { SpeechToText, TextToSpeech } from "./speech.ts";
@@ -81,6 +82,8 @@ export class Conversation {
   readonly session: Session;
   /** 18.4 the round trip, which the transport marks and the stats command reads. */
   readonly latency = new Latency();
+  /** N.1 what the connection is doing, which the transport feeds and stats reads. */
+  readonly network = new Network();
 
   constructor(
     dir: string,
@@ -370,7 +373,12 @@ export class Conversation {
         if (context !== null) this.reply(`The context is ${Math.round(context * 100)} percent of the compaction threshold.`);
         return "resume";
       }
-      case "stats": this.reply(this.latency.report()); return "resume";
+      // N.2.5 the connection is reported in the same breath as the round trip,
+      // because "is it me or the network" is one question, not two.
+      case "stats":
+        this.reply(this.latency.report());
+        this.reply(this.network.report());
+        return "resume";
 
       // 4.9 the voice is a setting, so changing it changes nothing about the
       // answer. The acknowledgement arrives in the new voice, which is the

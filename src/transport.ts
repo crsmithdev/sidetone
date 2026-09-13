@@ -107,6 +107,17 @@ export class Transport {
     });
   }
 
+  /**
+   * N.1 the framework's own reading of the connection, per participant. The
+   * bridge measures nothing here: WebRTC keeps the round trip, the loss and
+   * the jitter, and LiveKit reduces them to four levels.
+   */
+  onQuality(handle: (quality: unknown, identity: string) => void): void {
+    this.room.on(RoomEvent.ConnectionQualityChanged, (quality: unknown, participant?: { identity?: string }) => {
+      handle(quality, participant?.identity ?? "");
+    });
+  }
+
   /** 14.8 a client that just arrived has to be given what it missed. */
   onParticipant(handle: (identity: string) => void): void {
     this.room.on(RoomEvent.ParticipantConnected, (participant: RemoteParticipant) => handle(participant.identity ?? ""));

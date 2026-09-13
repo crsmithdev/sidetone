@@ -87,13 +87,26 @@ describe("the stats command (18.4)", () => {
     await settled();
     expect(said).toEqual([
       "The last answer took 2.4 seconds from when you stopped talking. 1.5 of that was the end of turn pause and 0.3 the transcription.",
+      "Nothing has reported on the connection yet.",
     ]);
+  });
+  test("it reports the connection in the same breath (N.2.5)", async () => {
+    const { c, said } = watched();
+    const now = Date.now();
+    c.network.saw("phone", "poor", now);
+    c.network.saw("bridge", "excellent", now);
+    await c.heard("hey bridge stats");
+    await settled();
+    expect(said.at(-1)).toBe("The phone's connection is poor and this end is excellent.");
   });
   test("with nothing measured it says so", async () => {
     const { c, said } = watched();
     await c.heard("hey bridge latency");
     await settled();
-    expect(said).toEqual(["No round trip has been measured yet."]);
+    expect(said).toEqual([
+      "No round trip has been measured yet.",
+      "Nothing has reported on the connection yet.",
+    ]);
   });
 });
 

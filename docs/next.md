@@ -141,6 +141,41 @@ Three things worth keeping:
   the second word about half the time. 9.3 again — accept the forms the engine
   produces, not the spelling.
 
+## The network addendum, phase one
+
+Read it, keep it, say it. `src/network.ts` holds what LiveKit reports about the
+connection, the client paints a three-bar indicator, and the stats command says
+it aloud beside the round trip. Nothing acts on the reading.
+
+That is the whole of the recommendation. Every open point in the addendum's
+N.5 — the level that should trigger, the debounce, which degradation earns its
+place, whether the signal tracks the real dead zones on the route — is a
+question a drive answers with data and nobody answers at a desk. Phase one
+costs an afternoon because the framework hands over the numbers, and it turns
+the rest into measurements.
+
+Two things learned wiring it:
+
+- **Both ends see the same signal.** The plan assumed the bridge could not see
+  the phone's uplink and only the phone could report it. On a real room the
+  bridge gets `ConnectionQualityChanged` for the phone as well, so the two are
+  one signal arriving twice. The tracker ignores the repeat. The client's own
+  report is kept because either source can go quiet, and the phone's is the one
+  that survives a link this end has stopped hearing from.
+- **N.4 can be deleted from the addendum.** It asks that a poor network never
+  trigger an agent restart. The silence detector watches the Claude Code
+  process — `supervisor.activity()` fires on events from the child — so a
+  network drop cannot reach it. The safeguard is already implied by where the
+  detector sits.
+
+Phase two is the audible cue on a change, after a drive. Phase three is
+degradation, and only two of the addendum's five are worth building: buffer and
+hold, which is the barge-in hold with a different trigger, and text fallback,
+which mostly exists because the transcript already rides the reliable data
+channel while audio is lossy. Shorter replies would put a new mode in the
+agent for uncertain gain, and deferring non-urgent turns needs the bridge to
+know which turns are urgent, which it cannot.
+
 ## 2.8.2 was answered by finding out it was not a problem
 
 The story pipeline wants a candidate read aloud in full, and 6.6 told the agent
