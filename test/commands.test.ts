@@ -85,6 +85,12 @@ describe("the tone and stats commands", () => {
       expect(commandIn(said)).toBe("stats");
     }
   });
+  test("9.3 \"end the turn\" elides to \"in the turn\", and every engine writes it that way", () => {
+    // five whisper configurations, two voices, five noise levels: all of them
+    // heard "in the turn". It was the only phrase any of them got wrong.
+    expect(commandIn("in the turn")).toBe("endTurn");
+    expect(commandIn("end the turn")).toBe("endTurn");
+  });
   test("the new words do not steal an older command", () => {
     expect(commandIn("mute")).toBe("mute");
     expect(commandIn("stop")).toBe("endTurn");

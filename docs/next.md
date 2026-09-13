@@ -141,6 +141,62 @@ Three things worth keeping:
   the second word about half the time. 9.3 again — accept the forms the engine
   produces, not the spelling.
 
+## Whisper was measured, and is staying put
+
+The plan was to spend the free video memory on a bigger transcription model,
+because the wake word and the commands kept coming back mangled. Measured on
+13 September 2026, that was the wrong diagnosis.
+
+Twelve phrases, two synthetic voices, five noise levels from clean to -5 dB
+signal to noise, scored not by word error but by whether the bridge's own
+matcher reached the right command. Five configurations:
+
+| | correct | mean a clip |
+|---|---|---|
+| small.en, greedy | 115/120 | 97 ms |
+| small.en, beam 5 | 115/120 | 122 ms |
+| medium.en, beam 5 | **120/120** | 192 ms |
+| distil-large-v3, beam 5 | 115/120 | 272 ms |
+| large-v3-turbo, beam 5 | 115/120 | 277 ms |
+
+medium.en looked like the winner until the five failures turned out to be the
+same phrase, in every model, in every condition: "end the turn", which elides
+to "in the turn". Two models larger than medium got it wrong too, so the score
+was never tracking model size. Adding that one form to the vocabulary took
+small.en at greedy decoding to 120/120 — the same as a model twice the size and
+twice the latency, for none of the cost.
+
+What this cannot see: the real mishears came from Chris's voice through a phone
+in a room, and synthetic speech is better articulated than any person. The test
+that would settle it is a recording of Chris saying the twelve phrases in the
+car; the harness scores it in minutes.
+
+## The wake word, measured
+
+Twelve candidates, three commands, two voices, four noise levels, transcribed
+with small.en. The operational question is whether `afterWakeWord` finds it
+with **no variant list at all**, and how often the engine writes it exactly.
+
+| wake word | found | written exactly | what it wrote instead |
+|---|---|---|---|
+| hey jarvis | 24/24 | 24/24 | — |
+| hey compass | 24/24 | 24/24 | — |
+| hey lantern | 24/24 | 24/24 | — |
+| hey mercury | 24/24 | 24/24 | — |
+| computer | 24/24 | 24/24 | — |
+| hey oracle | 24/24 | 24/24 | — |
+| hey atlas | 24/24 | 22/24 | hay atlas |
+| hey beacon | 24/24 | 22/24 | hay beacon |
+| hey pilot | 24/24 | 17/24 | hay pilot |
+| **hey bridge** | 24/24 | **11/24** | hay bridge x13 |
+| hey sable | 19/24 | 8/24 | hei sable, haseable |
+| hey aleph | 16/24 | 16/24 | hay alif, alefstatz |
+
+"hey bridge" is found every time only because the matcher forgives a
+character; the engine writes it correctly less than half the time. Six
+candidates need no forgiveness at all. 18.8 is answered as far as a desk can
+answer it.
+
 **The cue is settled.** Chris chose `warm-low-short` from twenty-six candidates
 on 13 September 2026, and `src/cues.ts` now builds exactly it: C5, a falling
 fourth to G4, a rising third to E5, each note two sines six cents apart, 160 to

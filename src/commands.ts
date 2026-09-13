@@ -33,7 +33,8 @@ const COMMANDS: Array<{ name: CommandName; any: string[][] }> = [
   { name: "restate", any: [["restate"], ["say", "again"], ["repeat"]] },
   { name: "summarize", any: [["summarize"], ["summarise"], ["summary"]] },
   { name: "where", any: [["where"], ["catch", "up"], ["recap"]] },
-  { name: "endTurn", any: [["end", "turn"], ["stop"], ["cancel"], ["never", "mind"]] },
+  // 9.3 "end the" elides, and every engine tried writes it as "in the turn"
+  { name: "endTurn", any: [["end", "turn"], ["in", "turn"], ["stop"], ["cancel"], ["never", "mind"]] },
   // the explicit forms come first: "tones" is inside "tones off", and the
   // first command whose words are all present wins.
   { name: "tonesOff", any: [["tones", "off"], ["tone", "off"], ["no", "tones"], ["sounds", "off"]] },
