@@ -165,11 +165,21 @@ export const DEFAULTS: Config = {
   bargeInGapMs: 200,
   holdBackstopMs: 10_000,
   listenSettleMs: 300,
-  // 6.6 a spoken conversation: summarize, and never read a path, a diff, code or a secret aloud
+  /**
+   * 6.6 is two rules wearing one coat, and only one of them may bend.
+   *
+   * Never reading a path, a diff, code or a secret aloud is a safety rule and
+   * it yields to nothing. Being brief is a style rule, and it is the only
+   * thing the story pipeline collides with when it wants a candidate read out
+   * in full (2.8.2). Phrasing the style rule as an absolute is what left a
+   * project no way to say otherwise; 6.1 already gives a project its voice,
+   * in its own instructions file, and this lets that voice be heard.
+   */
   voiceInstruction: [
     "You are in a spoken conversation. A text to speech engine reads your reply aloud.",
-    "Do not read file paths, diffs, code or secrets aloud. Summarize them instead.",
-    "Answer in short plain sentences. Do not use markdown, lists, headers or code blocks.",
+    "Never read file paths, diffs, code or secrets aloud. Summarize those instead. This rule does not bend.",
+    "Otherwise answer in short plain sentences, without markdown, lists, headers or code blocks.",
+    "If this project's instructions ask for something to be read aloud in full, or if you are asked to, read it in full.",
   ].join(" "),
   tones: true,
   cueVolume: 0.12,

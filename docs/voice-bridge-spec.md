@@ -47,7 +47,7 @@ project bridge stays in place.
 
 2.8.1 A pipeline step takes minutes. A tool call that runs for minutes emits nothing on any channel, so the silence detector of 8.4 would restart the process in the middle of one. See 8.4.5.
 
-2.8.2 The pipeline reads a candidate aloud in full and does not summarize it. The voice instruction of 6.6 says the opposite, and 6.1 gives a project no way to say otherwise. A project needs a seam for this. OPEN.
+2.8.2 The pipeline reads a candidate aloud in full and does not summarize it. This looked like a missing seam and was a phrasing fault. 6.1 already gives a project a voice, in its own instructions file; what blocked it was that the brevity rule of 6.6 was written as an absolute, so nothing could yield to it. 6.6.1 now separates the rule that bends from the rule that does not. ANSWERED.
 
 2.8.3 Work in flight must survive a restart. The agent asks the command-line tool what is in flight; the agent does not hold this in its context.
 
@@ -121,7 +121,9 @@ project bridge stays in place.
 
 6.5 The voice instruction lives in the bridge. The voice instruction does not live in the aleph identity file. This keeps behavioral modes out of aleph.
 
-6.6 The voice instruction tells the agent that it is in a spoken conversation. The agent does not read a file path aloud. The agent does not read a diff aloud. The agent does not read code aloud. The agent does not read secrets aloud. The agent gives a summary instead.
+6.6 The voice instruction tells the agent that it is in a spoken conversation. The agent does not read a file path aloud. The agent does not read a diff aloud. The agent does not read code aloud. The agent does not read secrets aloud. The agent gives a summary instead. This rule does not bend.
+
+6.6.1 The voice instruction also tells the agent to be brief. This is a separate rule and it is a default, not an absolute. If the instructions file of the project asks for something to be read aloud in full, or if Chris asks, the agent reads it in full. 6.6 still holds while it does.
 
 6.7 Every value that this document gives as a default is a setting. Section 21 lists the settings. A builder does not write a value of this kind into the code as a constant.
 

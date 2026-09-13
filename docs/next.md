@@ -141,6 +141,39 @@ Three things worth keeping:
   the second word about half the time. 9.3 again — accept the forms the engine
   produces, not the spelling.
 
+## 2.8.2 was answered by finding out it was not a problem
+
+The story pipeline wants a candidate read aloud in full, and 6.6 told the agent
+to summarize. This sat open as "a project needs a seam". Measured on
+13 September 2026 against a scratch project whose instructions file asks for
+full reading, with the old wording of the instruction:
+
+```
+reply: 183 words
+phrases from the vignette present: 4/4
+verdict: READ IN FULL
+```
+
+The seam was already there. 6.1 gives a project its voice in its own
+instructions file, Claude Code loads that by itself, and it already outweighed
+the appended system prompt for this case. Nothing was blocked.
+
+The instruction was still worth splitting, because it worked by accident
+rather than by intent, and the next person to tighten the brevity rule would
+have broken the pipeline without knowing. 6.6 is now two rules: never reading a
+path, a diff, code or a secret aloud, which does not bend, and being brief,
+which the project or the request may override (6.6.1).
+
+Measured before and after, over three ordinary questions: mean reply 75 words
+against 74. Brevity is unchanged, and the tempting question that invites the
+agent to read code aloud produced none under either wording.
+
+**One real gap, and it predates this.** Both wordings say a file path out loud
+— "it is in src/audio.ts" — which 6.6 forbids in as many words. It is also a
+perfectly sensible thing to say in a spoken conversation, so the question is
+whether 6.6 is too strict rather than whether the instruction is too weak.
+Left open deliberately.
+
 ## Whisper was measured, and is staying put
 
 The plan was to spend the free video memory on a bigger transcription model,
