@@ -156,11 +156,22 @@ The wake word alone, and road noise that carried no words, both leave the
 answer alone: it carries on where it stopped, and a sentence a barge-in cut is
 said again from the start rather than resumed from the middle of a word.
 
-The tones mark three things and nothing else: one short high note says your
-turn ended and the recording was taken, a falling pair says the turn is running
-and has said nothing yet, and a rising pair says the Claude Code process is
-coming back up. "Hey bridge, tones off" silences all three, because they are
-mostly a debugging aid.
+The tones mark three things and nothing else: one note says your turn ended and
+the recording was taken, a falling fourth says the turn is running and has said
+nothing yet, and a rising third says the Claude Code process is coming back up.
+"Hey bridge, tones off" silences all three, because they are mostly a debugging
+aid.
+
+The design was chosen by ear from twenty-six candidates, and three things about
+it are not taste. The notes are C5, G4 and E5, because in-vehicle auditory
+signals want components between 500 and 1500 Hz and the cue this replaced sat
+at 196 to 330, in with the engine, measuring *below* the road noise rather than
+above it. Each note is two sines six cents apart, which beat gently against
+each other; that is the whole difference between a note and a test signal. And
+each runs 160 to 300 ms, because a routine cue wants to stay under about 300.
+Against a road-noise bed filtered to the band that decides audibility, this
+stands about 12 dB above it. `cueVolume` is the setting that closes the rest of
+the gap to the 15 the reading asks for.
 
 "Hey bridge, stats" reads the round trip out loud: the last one, the median and
 worst of the last twenty, and how many barge-ins turned out to be nothing. The

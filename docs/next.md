@@ -141,9 +141,23 @@ Three things worth keeping:
   the second word about half the time. 9.3 again — accept the forms the engine
   produces, not the spelling.
 
-1. **A better cue.** The reading says in-vehicle signals want 500 to 1500 Hz and
-   the favourite so far sits at 196 to 262, under the band and in with the
-   engine. Four families built to the literature are with Chris now.
+**The cue is settled.** Chris chose `warm-low-short` from twenty-six candidates
+on 13 September 2026, and `src/cues.ts` now builds exactly it: C5, a falling
+fourth to G4, a rising third to E5, each note two sines six cents apart, 160 to
+300 ms, with reverb and a peak normalised to `cueVolume`.
+
+What made the choice tractable was measuring the thing that could be measured.
+Each candidate's loudest 100 ms, filtered to 500-2000 Hz, against a road-noise
+bed filtered the same way. That figure explained both of Chris's complaints
+exactly: the favourite at the time measured at -4 dB and the one he called hard
+to hear at -7, both *under* the noise. Moving the same design up into the band
+was worth about 22 dB.
+
+Two things about the number. The reading asks for 15 dB over ambient and the
+chosen cue makes about 12, which is the price of being low and short; that gap
+belongs to `cueVolume`, not to the design. And the noise bed is synthetic —
+brown noise with the top taken off, not a recording of the car — so it ranks
+candidates against each other and predicts nothing about the real thing.
 2. **Audio out over Android Auto.** The web client only reaches the car over
    Bluetooth today. This may be nothing the bridge can fix from a browser.
 

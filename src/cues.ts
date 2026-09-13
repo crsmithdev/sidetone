@@ -8,19 +8,49 @@
  *
  * | cue | when | figure |
  * |---|---|---|
- * | `heard` | your turn ended and the bridge took the recording | one short high note |
- * | `thinking` | the turn is running and has said nothing yet | a falling pair |
- * | `starting` | the Claude Code process is coming back up | a rising pair |
+ * | `heard` | your turn ended and the bridge took the recording | one note |
+ * | `thinking` | the turn is running and has said nothing yet | a falling fourth |
+ * | `starting` | the Claude Code process is coming back up | a rising third |
+ *
+ * The design is "warm-low-short", chosen by ear from twenty-six candidates
+ * on 13 September 2026. Three things about it are not taste:
+ *
+ * - **The register.** In-vehicle auditory signals want components between 500
+ *   and 1500 Hz. The cue this replaced sat at 196 to 330, in with the engine,
+ *   and measured below the road noise rather than above it. C5 is the bottom
+ *   of the useful band and this sits on it.
+ * - **The detuning.** Two sines six cents apart beat gently against each
+ *   other. That is the whole difference between a note and a test signal.
+ * - **The length.** A routine cue wants to be under about 300 ms. These run
+ *   160 to 300.
+ *
+ * Measured against a road-noise bed, filtered to the band that decides
+ * audibility, this stands about 12 dB above it. The reading asks for 15, and
+ * the shortfall is the price of being low and short, which is what Chris
+ * wanted. `cueVolume` is the setting that closes the gap.
  */
 import { join } from "node:path";
 
 export type CueName = "heard" | "thinking" | "starting";
 
-/** Each cue is a run of notes: hertz, then seconds. */
+/** Six cents. The ratio is 2^(6/1200). */
+const DETUNE = 1.00347;
+
+/** A note is a detuned pair with a little octave for body: ratio, then gain. */
+const PARTIALS: Array<[number, number]> = [[1, 0.46], [DETUNE, 0.46], [2, 0.08]];
+
+/** Half-sine fades at both ends, scaled short with the notes. */
+const FADE_IN = 0.02;
+const FADE_OUT = 0.13;
+
+/** How much room the reverb is in: 0 to 100. */
+const REVERB = 18;
+
+/** Each cue is a run of notes: hertz, then seconds. C5, G4 and E5. */
 const CUES: Record<CueName, Array<[number, number]>> = {
-  heard: [[523, 0.09]],
-  thinking: [[392, 0.16], [330, 0.2]],
-  starting: [[330, 0.16], [494, 0.2]],
+  heard: [[523, 0.16]],
+  thinking: [[523, 0.12], [392, 0.18]],
+  starting: [[523, 0.12], [659, 0.18]],
 };
 
 export class Cues {
@@ -31,28 +61,42 @@ export class Cues {
   /** 15.6 pleasant and calm: quiet, short, and faded at both ends so it never clicks. */
   async build(): Promise<void> {
     for (const [name, notes] of Object.entries(CUES) as Array<[CueName, Array<[number, number]>]>) {
-      const wav = join(this.dir, `cue-${name}.wav`);
-      const chains: string[] = [];
-      for (const [hertz, seconds] of notes) {
-        // Every note carries its own fade and its own vol. Sox starts a new
-        // effect chain at ":", and an effect only applies to the chain it is
-        // in, so a single trailing "vol" leaves every note before it at full
-        // scale — which is the cue that came out unusually loud in the car.
-        if (chains.length > 0) chains.push(":");
-        chains.push(
-          "synth", seconds.toFixed(2), "sine", String(hertz),
-          "fade", "q", Math.min(0.03, seconds / 4).toFixed(3), "0", Math.min(0.08, seconds / 3).toFixed(3),
-          "vol", this.volume.toFixed(3),
-        );
+      const parts: string[] = [];
+      for (const [index, [hertz, seconds]] of notes.entries()) {
+        const note = join(this.dir, `cue-${name}-${index}.wav`);
+        if (!await this.note(note, hertz, seconds)) return;
+        parts.push(note);
       }
-      const done = await Bun.spawn([
-        // -b 16 -e signed-integer is not optional: sox writes 32-bit float by
-        // default, which plays locally and is refused by the wav reader that
-        // feeds the transport.
-        "sox", "-n", "-r", "22050", "-c", "1", "-b", "16", "-e", "signed-integer", wav, ...chains,
-      ], { stdout: "ignore", stderr: "ignore" }).exited;
-      if (done === 0) this.files.set(name, wav);
+      const wav = join(this.dir, `cue-${name}.wav`);
+      // The reverb runs before the level is set, and the level is set by
+      // normalising the peak rather than by scaling each note. Scaling each
+      // note is how the old cue ended up with one note six times louder than
+      // the other: an effect in sox belongs to the chain it is written in.
+      const done = await this.sox([...parts, wav,
+        "reverb", String(REVERB), "50", "40", "100", "0", "0",
+        "gain", "-n", (20 * Math.log10(this.volume)).toFixed(2),
+      ]);
+      if (done) this.files.set(name, wav);
     }
+  }
+
+  /** One note: a detuned pair mixed together, then shaped. */
+  private async note(path: string, hertz: number, seconds: number): Promise<boolean> {
+    const partials: string[] = [];
+    for (const [index, [ratio, gain]] of PARTIALS.entries()) {
+      const partial = join(this.dir, `partial-${index}.wav`);
+      if (!await this.sox(["-n", ...FORMAT, partial,
+        "synth", seconds.toFixed(3), "sine", (hertz * ratio).toFixed(2), "vol", gain.toFixed(3),
+      ])) return false;
+      partials.push(partial);
+    }
+    const mixed = join(this.dir, "mixed.wav");
+    if (!await this.sox(["-m", ...partials, mixed])) return false;
+    return this.sox([mixed, path, "fade", "h", FADE_IN.toFixed(3), "0", FADE_OUT.toFixed(3)]);
+  }
+
+  private async sox(args: string[]): Promise<boolean> {
+    return await Bun.spawn(["sox", ...args], { stdout: "ignore", stderr: "ignore" }).exited === 0;
   }
 
   /** The file, for a transport that sends bytes rather than plays them. */
@@ -66,3 +110,9 @@ export class Cues {
     await Bun.spawn(["paplay", wav], { stdout: "ignore", stderr: "ignore" }).exited;
   }
 }
+
+/**
+ * -b 16 -e signed-integer is not optional: sox writes 32-bit float by default,
+ * which plays locally and is refused by the wav reader that feeds the transport.
+ */
+const FORMAT = ["-r", "22050", "-c", "1", "-b", "16", "-e", "signed-integer"];
