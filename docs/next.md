@@ -171,11 +171,24 @@ in a room, and synthetic speech is better articulated than any person. The test
 that would settle it is a recording of Chris saying the twelve phrases in the
 car; the harness scores it in minutes.
 
-## The wake word, measured
+## The wake word is settled, and it stays "hey bridge"
 
-Twelve candidates, three commands, two voices, four noise levels, transcribed
-with small.en. The operational question is whether `afterWakeWord` finds it
-with **no variant list at all**, and how often the engine writes it exactly.
+18.8 says test the wake word in live use and change it only if it collides.
+Chris has now driven with it and reports no trouble with it at all, and the
+session logs agree: every wake word in every run reached the matcher. The two
+things that did fail were command words, "male voice" heard as "Mail Voice"
+and "end the turn" as "in the turn", and both are fixed.
+
+A bench test of twelve candidates below was read the wrong way round when it
+was first written. The operational column is `found` — does `afterWakeWord`
+find it with no variant list at all — and "hey bridge" scores 24/24 there,
+level with every clean candidate. The `exact` column counts how often the
+engine spells it the intended way, which is a cosmetic property: the matcher
+exists precisely so that spelling does not have to be right, it costs nothing
+at runtime, and the variant list has one entry in it.
+
+Keep the table for the day a wake word does need changing. Do not read it as a
+reason to change one.
 
 | wake word | found | written exactly | what it wrote instead |
 |---|---|---|---|
@@ -192,10 +205,16 @@ with **no variant list at all**, and how often the engine writes it exactly.
 | hey sable | 19/24 | 8/24 | hei sable, haseable |
 | hey aleph | 16/24 | 16/24 | hay alif, alefstatz |
 
-"hey bridge" is found every time only because the matcher forgives a
-character; the engine writes it correctly less than half the time. Six
-candidates need no forgiveness at all. 18.8 is answered as far as a desk can
-answer it.
+Ten single words also score 24/24 found and exactly written, with no false
+trigger on eight sentences meant for the agent: kestrel, meridian, juniper,
+lantern, cobalt, mercury, oracle, jarvis, atlas, beacon. Two more, "computer"
+and "compass", are written perfectly and fire on ordinary speech, which is the
+risk a single word carries and the reason to prefer two.
+
+The lesson worth keeping is not about the wake word. It is that a bench
+measurement can rank candidates and still say nothing about whether there is a
+problem, and that the column which looks most like a defect was the one that
+did not matter.
 
 **The cue is settled.** Chris chose `warm-low-short` from twenty-six candidates
 on 13 September 2026, and `src/cues.ts` now builds exactly it: C5, a falling
@@ -493,8 +512,8 @@ Four things that only appear when real audio goes through:
    "bridge". 9.3 says the bridge accepts the forms the engine produces, so
    "cambridge" is now one, and the form list is a setting. Bare "bridge" is
    deliberately not accepted: Chris says "the bridge" constantly about this
-   project. 18.8 says to settle the wake word by use, and the honest reading of
-   this evidence is that "hey bridge" is a poor choice of wake word.
+   project. This paragraph used to end by calling "hey bridge" a poor choice.
+   That conclusion was wrong; see below.
 
 ## Open decisions
 
