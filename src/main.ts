@@ -161,7 +161,7 @@ async function voice(dir: string, config: Config): Promise<void> {
     await listening.exited;
     listening = null;
     if (speech !== before || pending > 0) { trace("cut short: the bridge started to speak"); continue; }
-    conversation.latency.spoke(Date.now() - config.endOfTurnPauseMs);
+    conversation.latency.spoke(Date.now() - config.endOfTurnPauseMs, Date.now());
     conversation.cue("heard");
     const said = await stt.transcribe(wav);
     conversation.latency.transcribed();

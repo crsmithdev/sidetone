@@ -13,7 +13,13 @@
  */
 
 export interface Round {
-  /** the engine's share: recording to text */
+  /**
+   * 11.5 the end-of-turn pause, which is a setting and not a cost. The bridge
+   * cannot know a turn ended until the pause has run, so this sits in every
+   * round trip and belongs on its own line rather than inside the engine's.
+   */
+  pauseMs: number;
+  /** the engine's share: the recording becomes text */
   transcribeMs: number;
   /** the whole of it: the end of speech to the first audio out */
   answerMs: number;
@@ -26,7 +32,7 @@ const KEEP = 20;
 export type Outcome = "speech" | "command" | "nothing";
 
 export class Latency {
-  private open: { endedAt: number; transcribedAt: number } | null = null;
+  private open: { endedAt: number; noticedAt: number; transcribedAt: number } | null = null;
   private readonly rounds: Round[] = [];
   /**
    * 18.6 every barge-in, with the sound that caused it. The two thresholds are
@@ -35,9 +41,14 @@ export class Latency {
    */
   private readonly bargeIns: Array<{ level: number; heldMs: number; as: Outcome | null }> = [];
 
-  /** Chris stopped talking. `endedAt` is when he stopped, not when that was noticed. */
-  spoke(endedAt: number): void {
-    this.open = { endedAt, transcribedAt: 0 };
+  /**
+   * Chris stopped talking. `endedAt` is when he stopped and `noticedAt` is when
+   * the bridge could tell, which is one end-of-turn pause later. Both are
+   * needed: the total has to run from when he stopped, and the engine's share
+   * must not be charged for a wait that a setting decides.
+   */
+  spoke(endedAt: number, noticedAt = Date.now()): void {
+    this.open = { endedAt, noticedAt, transcribedAt: 0 };
   }
 
   /** The recording is text. */
@@ -51,7 +62,8 @@ export class Latency {
     if (!open) return;
     this.open = null;
     this.rounds.push({
-      transcribeMs: open.transcribedAt ? open.transcribedAt - open.endedAt : 0,
+      pauseMs: open.noticedAt - open.endedAt,
+      transcribeMs: open.transcribedAt ? open.transcribedAt - open.noticedAt : 0,
       answerMs: at - open.endedAt,
     });
     if (this.rounds.length > KEEP) this.rounds.shift();
@@ -97,7 +109,8 @@ export class Latency {
     const last = this.last;
     if (!last) return "No round trip has been measured yet.";
     const parts = [
-      `The last answer took ${seconds(last.answerMs)} seconds from when you stopped talking, ${seconds(last.transcribeMs)} of it to transcribe.`,
+      `The last answer took ${seconds(last.answerMs)} seconds from when you stopped talking.`,
+      `${seconds(last.pauseMs)} of that was the end of turn pause and ${seconds(last.transcribeMs)} the transcription.`,
     ];
     if (this.rounds.length > 1) {
       parts.push(`Over the last ${this.rounds.length} the median is ${seconds(this.median())} and the worst was ${seconds(this.worst())}.`);

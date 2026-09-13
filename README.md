@@ -137,10 +137,12 @@ and has said nothing yet, and a rising pair says the Claude Code process is
 coming back up. "Hey bridge, tones off" silences all three, because they are
 mostly a debugging aid.
 
-"Hey bridge, stats" reads the round trip out loud: the last one, the share of
-it the transcription took, and the median and worst of the last twenty. The
-clock starts when you stop talking, not when the bridge notices you stopped, so
-the end-of-turn pause is not counted as a cost.
+"Hey bridge, stats" reads the round trip out loud: the last one, the median and
+worst of the last twenty, and how many barge-ins turned out to be nothing. The
+clock starts when you stop talking, not when the bridge notices, so the
+end-of-turn pause is inside the total — it is real time you wait. It gets its
+own line rather than hiding inside the transcription figure, because
+`endOfTurnPauseMs` is a setting and not a cost the engines can be blamed for.
 
 At the desk there is no barge-in: without echo cancellation the bridge would
 transcribe its own voice, so every sound it makes stops the microphone. Over

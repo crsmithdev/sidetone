@@ -131,7 +131,7 @@ export async function serve(dir: string, config: Config): Promise<void> {
     if (!said) return;
     // The end of the turn was the pause ago, not now. Measuring from here
     // would charge a setting to the round trip.
-    conversation.latency.spoke(Date.now() - config.endOfTurnPauseMs);
+    conversation.latency.spoke(Date.now() - config.endOfTurnPauseMs, Date.now());
     conversation.cue("heard");
     const wav = join(scratch, `heard-${++counter}.wav`);
     void Bun.write(wav, encodeWav(said, RTC_RATE))
