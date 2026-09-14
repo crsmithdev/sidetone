@@ -141,6 +141,38 @@ Three things worth keeping:
   the second word about half the time. 9.3 again — accept the forms the engine
   produces, not the spelling.
 
+## The units came back and the bridge could not run
+
+Found on 13 September 2026, after a reboot at 19:22 that hour: 207 failures in
+a restart loop, every one of them the same line.
+
+```
+error: Executable not found in $PATH: "claude"
+```
+
+`claudeBin` defaults to `claude` and trusts the path. A systemd **user** manager
+starts at boot with a minimal PATH — `/usr/local/sbin` through `/snap/bin`, and
+nothing under the home directory — so `/home/crsmi/.local/bin/claude` was not
+on it. Until the reboot the unit had been running since 11 September, from a
+manager whose environment came from a login somewhere. That environment does
+not survive.
+
+The fix is a `PATH=` line in `~/.voice-bridge/env`, which the unit already
+reads. Setting `claudeBin` to an absolute path would have started the bridge
+and left a subtler fault behind it: the agent inherits this environment and
+runs shell commands of its own, so it needs a real path, not just enough to
+spawn one binary.
+
+Two things worth carrying:
+
+- **"It restarts on its own" and "it works after a reboot" are different
+  claims.** This file asserted the first for two days and it was true. Nothing
+  had tested the second.
+- **A crash loop is quiet.** `Restart=always` with `RestartSec=3` looks
+  identical from outside to a service that is up, unless something reads the
+  state. It failed for an hour and the only reason it was found is that a
+  restart was asked for.
+
 ## The network addendum, phase one
 
 Read it, keep it, say it. `src/network.ts` holds what LiveKit reports about the
@@ -546,9 +578,11 @@ Two operational things, neither of them code that is missing:
 - **The certificate expires on 9 December 2026.** `tailscale cert` renews it,
   but only when something runs it. Nothing does. Re-run `bun src/main.ts cert`,
   or teach `serve` to refresh at startup.
-- **Nothing survives a reboot.** `livekit` and the TLS terminator in front of it
-  are containers started by hand, and the bridge is a foreground process. The
-  machine deploys with systemd units; these should be three of them.
+- **It survives a reboot now, and that was still not enough.** `voice-bridge`
+  is a user unit with `Restart=always`, lingering is on so it starts with
+  nobody logged in, docker is enabled at boot and both containers are
+  `restart=unless-stopped`. All three come back. See the section below on the
+  hour they came back and did nothing.
 
 **What is genuinely untried is a phone.** Every run has been a browser on this
 machine with a wav file for a microphone. 18.4 and 18.6 — the time to first
