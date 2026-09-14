@@ -25,6 +25,8 @@ export interface SpeechToText {
 
 export interface TextToSpeech {
   start(): Promise<void>;
+  /** Non-zero once the engine has answered, which is how the health check knows. */
+  readonly sampleRate: number;
   /** Writes the speech to wavPath and returns it. */
   synthesize(text: string, wavPath: string): Promise<string>;
   /** 9.4 change voice without a restart. An engine of one voice leaves this out. */

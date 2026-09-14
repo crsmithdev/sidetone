@@ -1,0 +1,36 @@
+# ~/.config/systemd/user/voice-bridge.service
+#
+# A user unit, so it needs lingering to start at boot with nobody logged in:
+#   loginctl enable-linger $USER
+#
+# PATH is not optional, and lives in ~/.voice-bridge/env. A user manager boots
+# with nothing from the home directory on its path, so claude and bun are
+# invisible to it. The bridge crash-looped for an hour after a reboot on
+# 13 September 2026 for want of that line, and the agent inherits this
+# environment and runs commands of its own, so it wants a real path and not
+# just enough to spawn one binary.
+[Unit]
+Description=Voice bridge: a Claude Code session driven by voice
+Documentation=https://github.com/crsmithdev/voice-bridge-mcp
+After=network-online.target docker.service tailscaled.service
+# Ten failures inside ten minutes is a fault, not a boot race. Give up then, so
+# the unit sits in failed where it can be seen, rather than restarting forever
+# and looking exactly like a service that works.
+StartLimitIntervalSec=600
+StartLimitBurst=10
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.voice-bridge/env
+WorkingDirectory=%h/voice-bridge-mcp
+ExecStart=/home/crsmi/.bun/bin/bun src/main.ts serve ${VOICE_BRIDGE_DIR}
+Restart=always
+RestartSec=3
+# back off rather than hammer: 3 seconds, then longer, to a minute
+RestartSteps=5
+RestartMaxDelaySec=60
+# the engines take a moment and the models are large
+TimeoutStartSec=120
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,17 @@
+# ~/.config/systemd/user/voice-bridge-cert.service
+#
+# The phone refuses the microphone over a certificate it does not trust, and
+# that arrives as silence rather than as an error, so this runs weekly against
+# a certificate that lasts three months. renew-cert.ts restarts the terminator
+# and the bridge only when the certificate actually changed: Caddy reads the
+# pem once at start, and the other fifty-one restarts a year would cut off
+# whatever was being said for nothing.
+[Unit]
+Description=Renew the tailnet certificate the phone has to trust
+After=tailscaled.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=%h/.voice-bridge/env
+WorkingDirectory=%h/voice-bridge-mcp
+ExecStart=/home/crsmi/.bun/bin/bun scripts/renew-cert.ts

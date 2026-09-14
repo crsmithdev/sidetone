@@ -58,7 +58,8 @@ export async function serve(dir: string, config: Config): Promise<void> {
   await Promise.all([stt.start(), tts.start(), cues.build()]);
 
   const transport = new Transport();
-  await transport.join(keys, config.room);
+  const startedAt = Date.now();
+  await transport.joinWhenReady(keys, config.room, config.livekitWaitMs, (text) => console.log(`[${text}]`));
 
   let counter = 0;
   /** 11.5 the ends of a turn, found in the frames the phone sends. */
@@ -186,6 +187,25 @@ export async function serve(dir: string, config: Config): Promise<void> {
       const url = new URL(request.url);
       if (url.pathname === "/") return new Response(page, { headers: { "content-type": "text/html; charset=utf-8" } });
       if (url.pathname === "/livekit-client.mjs") return new Response(Bun.file(sdk), { headers: { "content-type": "text/javascript" } });
+      /**
+       * Whether this is working, not whether it is running. Restart=always
+       * cannot tell the difference: a process that holds a dead room, or has
+       * lost the agent, looks exactly like a healthy one from outside. On
+       * 13 September 2026 a crash loop went unnoticed for an hour because
+       * nothing ever asked.
+       */
+      if (url.pathname === "/health") {
+        const well = transport.connected && conversation.session.running;
+        return Response.json({
+          ok: well,
+          room: transport.connected ? "connected" : "gone",
+          agent: conversation.session.running ? "running" : "stopped",
+          engines: { speech: tts.sampleRate > 0, transcription: stt.warmupSeconds > 0 },
+          network: { phone: conversation.network.get("phone"), bridge: conversation.network.get("bridge") },
+          turns: conversation.session.turns,
+          upSeconds: Math.round((Date.now() - startedAt) / 1000),
+        }, { status: well ? 200 : 503 });
+      }
       // 12.1 the boundary. Everything below here needs the code or a token.
       if (url.pathname === "/pair" && request.method === "POST") {
         const body = await request.json().catch(() => ({})) as { code?: string };

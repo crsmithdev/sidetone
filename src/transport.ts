@@ -146,6 +146,31 @@ export class Transport {
     return true;
   }
 
+  /** Whether the room is joined right now, for the health check. */
+  get connected(): boolean { return this.room.isConnected; }
+
+  /**
+   * 14.1 the transport is meant to survive a link that comes and goes, but at
+   * startup there is nothing to survive yet: if livekit is not listening the
+   * join throws and the process exits. On a boot that is a race, not a fault --
+   * the unit is ordered after docker, and docker being up does not mean the
+   * container inside it is. So retry, and fail only when it is really not
+   * coming.
+   */
+  async joinWhenReady(keys: Keys, roomName: string, deadlineMs: number, say: (text: string) => void): Promise<void> {
+    const until = Date.now() + deadlineMs;
+    for (let wait = 500; ; wait = Math.min(wait * 2, 5_000)) {
+      try {
+        await this.join(keys, roomName);
+        return;
+      } catch (error) {
+        if (Date.now() + wait >= until) throw error;
+        say(`waiting for livekit at ${keys.url}: ${(error as Error).message}`);
+        await Bun.sleep(wait);
+      }
+    }
+  }
+
   async close(): Promise<void> {
     this.stopped = true;
     await this.room.disconnect();

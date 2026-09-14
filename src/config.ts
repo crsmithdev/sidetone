@@ -98,6 +98,12 @@ export interface Config {
   audioCueEveryMs: number;
   /** 13.2 the reported rate-limit use that earns a spoken warning */
   usageWarnFraction: number;
+  /**
+   * 14.1 how long to keep trying livekit at startup. On a boot the unit is
+   * ordered after docker, and docker being up does not mean the container
+   * inside it is listening yet.
+   */
+  livekitWaitMs: number;
   /** 4.1 the transport. Empty keys mean the pair in ~/.voice-bridge/keys.json. */
   livekitUrl: string;
   livekitApiKey: string;
@@ -202,6 +208,7 @@ export const DEFAULTS: Config = {
   livekitApiKey: process.env.LIVEKIT_API_KEY ?? "",
   livekitApiSecret: process.env.LIVEKIT_API_SECRET ?? "",
   livekitPort: 7880,
+  livekitWaitMs: 120_000,
   advertiseHost: "",
   publicOrigin: "",
   livekitPublicUrl: "",

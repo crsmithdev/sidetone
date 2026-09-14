@@ -45,6 +45,7 @@ const TICK_MS = 1_000;
 
 export class Session {
   private child: Subprocess<"pipe", "pipe", "pipe"> | null = null;
+  private alive = false;
   private supervisor: Supervisor;
   private narrator: Narrator;
   private turnNumber = 0;
@@ -71,6 +72,13 @@ export class Session {
       stdout: "pipe",
       stderr: "pipe",
     }) as Subprocess<"pipe", "pipe", "pipe">;
+    // Bun does not fill in exitCode unless something awaits exited, so a child
+    // that died still reads as running. Watch the exit instead, and check the
+    // identity before recording it: a killed child's promise resolves after
+    // its successor has already started.
+    const started = this.child;
+    this.alive = true;
+    void started.exited.then(() => { if (this.child === started) this.alive = false; });
     void this.pump(this.child);
     this.timer = setInterval(() => this.tick(Date.now()), TICK_MS);
   }
@@ -200,6 +208,18 @@ export class Session {
     this.write({ type: "user", message: { role: "user", content: text } });
     return new Promise<Turn>((resolve, reject) => { this.pending = { resolve, reject }; });
   }
+
+  /**
+   * Whether the agent is actually there, for the health check. Holding a
+   * child object is not the same as having a process: kill claude from
+   * outside and this stayed true through two attempts at writing it, first
+   * on child !== null and then on exitCode. A health check that cannot see
+   * the failure it exists for is worse than none.
+   */
+  get running(): boolean { return this.child !== null && this.alive; }
+
+  /** How many turns this process has taken. */
+  get turns(): number { return this.turnNumber; }
 
   /** 8.9 how close the context is to a compaction, now that claude reports both numbers. */
   contextFraction(): number | null {

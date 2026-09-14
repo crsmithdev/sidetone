@@ -1,0 +1,10 @@
+# ~/.config/systemd/user/voice-bridge-cert.timer
+[Unit]
+Description=Renew the tailnet certificate well before it expires
+
+[Timer]
+OnCalendar=weekly
+Persistent=true
+
+[Install]
+WantedBy=timers.target

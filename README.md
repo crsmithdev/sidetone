@@ -88,6 +88,36 @@ voice" comes back as *Mail Voice*; "end the turn" elides to *in the turn*, and
 sometimes *and the turn*; "never mind" is one word to the engine. Each was
 found in a live run, which is an expensive place to find it.
 
+## Running it as a service
+
+The units are in `deploy/`, copied to `~/.config/systemd/user/`. Four things
+in them are there because something went wrong without them.
+
+**`PATH` in `~/.voice-bridge/env`.** A user manager boots with nothing from the
+home directory on its path. Without this the bridge cannot find `claude`, and
+the agent it starts cannot find anything either.
+
+**A start limit.** `Restart=always` with a three second delay makes a service
+that has never once succeeded look exactly like one that works. Ten failures in
+ten minutes now ends in `failed`, where it can be seen.
+
+**A health check.** `/health` says whether the bridge is *working*: the room is
+joined and the agent is alive. A timer asks every two minutes and restarts the
+bridge if it stops answering — but only while the unit is still active, so a
+bridge that has given up stays given up rather than being quietly papered over.
+
+**A renewal that only interrupts when it has to.** `scripts/renew-cert.ts`
+fetches the certificate weekly and restarts the terminator and the bridge only
+when the fingerprint changed. The certificate lasts three months; the other
+fifty-one restarts a year would cut off whatever was being said for nothing.
+
+```bash
+loginctl enable-linger $USER
+cp deploy/*.service deploy/*.timer ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now voice-bridge.service voice-bridge-cert.timer voice-bridge-health.timer
+```
+
 ## What another repository depends on
 
 The caller project runs this repository's speech workers out of this checkout.

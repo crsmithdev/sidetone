@@ -1,0 +1,11 @@
+# ~/.config/systemd/user/voice-bridge-health.timer
+[Unit]
+Description=Ask the voice bridge whether it is working, every couple of minutes
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=2min
+AccuracySec=15s
+
+[Install]
+WantedBy=timers.target
