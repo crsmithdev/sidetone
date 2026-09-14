@@ -133,10 +133,13 @@ async function connect({ url, token }) {
   const room = new Room({
     adaptiveStream: true,
     audioCaptureDefaults: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-    // cutting the microphone releases the device, so the phone's own recording
+    // Cutting the microphone releases the device, so the phone's own recording
     // indicator goes out. Muting a track that keeps running leaves the light on
     // and asks Chris to trust a button over his own phone.
-    stopMicTrackOnMute: true,
+    //
+    // This belongs in publishDefaults. Set at the top level of the room options
+    // it is silently ignored, and the track reads "live" after a cut.
+    publishDefaults: { stopMicTrackOnMute: true },
   });
 
   room.on(RoomEvent.Connected, () => { state.textContent = "listening"; dot.classList.add("on"); });

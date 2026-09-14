@@ -116,6 +116,7 @@ describe("the stats command (18.4)", () => {
  */
 function room(overrides: Partial<Config> = {}) {
   const said: string[] = [];
+  const cues: string[] = [];
   let gate: (() => void) | null = null;
   let blocking = false;
   let whole = true;
@@ -125,12 +126,12 @@ function room(overrides: Partial<Config> = {}) {
       if (blocking) await new Promise<void>((resolve) => { gate = resolve; });
       return whole;
     },
-    cue: () => {},
+    cue: (name: string) => { cues.push(name); },
     tell: () => {},
   };
   const c = new Conversation("/tmp", { ...config, ...overrides }, mouth as never, engines as never, engines as never);
   return {
-    c, said,
+    c, said, cues,
     guts: c as unknown as {
       speak(text: string): void;
       turnRunning: boolean;
@@ -232,6 +233,35 @@ describe("the hold (11.3)", () => {
     await r.c.heard("what is the config file for");
     await tick();
     expect(r.said).toEqual(["That turn did not finish."]);
+  });
+});
+
+describe("a cue never plays over the voice (15)", () => {
+  test("one transport shares one audio source, and it refuses two writers", async () => {
+    const r = room();
+    r.blockSay(true);
+    r.guts.speak("a long sentence being read out.");
+    await tick();
+    expect(r.said).toEqual(["a long sentence being read out."]);
+    // the end-of-turn cue arrives while that sentence is still playing. On
+    // 14 September this reached the transport and it threw
+    // "InvalidState - failed to capture frame" into a live conversation.
+    r.c.cue("heard");
+    expect(r.cues).toEqual([]);
+    r.blockSay(false);
+    r.release();
+    await tick();
+    // once the voice is done, a cue is welcome again
+    r.c.cue("heard");
+    expect(r.cues).toEqual(["heard"]);
+  });
+
+  test("tones off still silences it, so the two guards do not fight", async () => {
+    const r = room();
+    await r.c.heard("hey bridge tones off");
+    await tick();
+    r.c.cue("thinking");
+    expect(r.cues).toEqual([]);
   });
 });
 
