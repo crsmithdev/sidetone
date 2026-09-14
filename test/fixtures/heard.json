@@ -1,0 +1,197 @@
+{
+ "note": "What faster-whisper wrote when the voice said each phrase, clean and in brown noise at 10, 0 and -5 dB. Regenerate with scripts/heard-refresh.ts.",
+ "phrases": [
+  {
+   "said": "hey bridge, mute",
+   "want": "mute",
+   "heard": [
+    "Haybridge mute.",
+    "Hey Bridge Mute.",
+    "Hey Bridge, mute.",
+    "Hey, bridge mute."
+   ]
+  },
+  {
+   "said": "hey bridge, unmute",
+   "want": "unmute",
+   "heard": [
+    "Hay Bridge on mute.",
+    "Hey Bridge on mute."
+   ]
+  },
+  {
+   "said": "hey bridge, stop listening",
+   "want": "mute",
+   "heard": [
+    "Hey Bridge, stop listening.",
+    "Hey, Bridge, stop listening."
+   ]
+  },
+  {
+   "said": "hey bridge, clear the context",
+   "want": "clearContext",
+   "heard": [
+    "Hay Bridge, clear the context.",
+    "Hey Bridge, clear the context."
+   ]
+  },
+  {
+   "said": "hey bridge, report the usage",
+   "want": "usage",
+   "heard": [
+    "Hey Bridge, report the usage."
+   ]
+  },
+  {
+   "said": "hey bridge, say that again",
+   "want": "restate",
+   "heard": [
+    "Hey Bridge, say that again."
+   ]
+  },
+  {
+   "said": "hey bridge, summarize",
+   "want": "summarize",
+   "heard": [
+    "Hay Bridge Summarize.",
+    "Hay Bridge summarize.",
+    "Hey Bridge Summarize."
+   ]
+  },
+  {
+   "said": "hey bridge, where are we",
+   "want": "where",
+   "heard": [
+    "Hey Bridge, where are we?",
+    "Hey bridge, where are we?",
+    "Hey, Bridge, where are we?"
+   ]
+  },
+  {
+   "said": "hey bridge, end the turn",
+   "want": "endTurn",
+   "heard": [
+    "Hay Bridge and The Turn.",
+    "Hay Bridge and the turn.",
+    "Hey Bridge, end the turn.",
+    "Hey bridge and the turn.",
+    "Hey bridge end the turn",
+    "Hey, Bridge in the turn."
+   ]
+  },
+  {
+   "said": "hey bridge, never mind",
+   "want": "endTurn",
+   "heard": [
+    "Hey Bridge, never mind.",
+    "Hey Bridge, nevermind.",
+    "Hey bridge never mind."
+   ]
+  },
+  {
+   "said": "hey bridge, tones",
+   "want": "tones",
+   "heard": [
+    "Hay Bridge Tones.",
+    "Haybridge Tones.",
+    "Haybridge tones.",
+    "Hey Bridge Tones."
+   ]
+  },
+  {
+   "said": "hey bridge, tones off",
+   "want": "tonesOff",
+   "heard": [
+    "Hay Bridge tones off.",
+    "Haybridge tones off.",
+    "Hey Bridge tones off."
+   ]
+  },
+  {
+   "said": "hey bridge, tones on",
+   "want": "tonesOn",
+   "heard": [
+    "Haybridge tones on.",
+    "Hey Bridge tones on."
+   ]
+  },
+  {
+   "said": "hey bridge, stats",
+   "want": "stats",
+   "heard": [
+    "Hay Bridge stats.",
+    "Hey Bridge stats."
+   ]
+  },
+  {
+   "said": "hey bridge, latency",
+   "want": "stats",
+   "heard": [
+    "Hey Bridge Latency",
+    "Hey Bridge Latency.",
+    "Hey Bridge latency.",
+    "Hey Bridge, Latency."
+   ]
+  },
+  {
+   "said": "hey bridge, male voice",
+   "want": "maleVoice",
+   "heard": [
+    "Haybridge Mail Voice.",
+    "Haybridge, male voice.",
+    "Hey Bridge mail voice.",
+    "Hey Bridge, male voice."
+   ]
+  },
+  {
+   "said": "hey bridge, female voice",
+   "want": "femaleVoice",
+   "heard": [
+    "Hay Bridge, Female Voice.",
+    "Hey Bridge Female Voice.",
+    "Hey Bridge, female voice."
+   ]
+  },
+  {
+   "said": "hey bridge, wobble",
+   "want": "unclear",
+   "heard": [
+    "Hay Bridge Wobble.",
+    "Haybridge Wobble.",
+    "Hey Bridge Wobble.",
+    "Hey bridge wobble.",
+    "Hey, bridge wobble."
+   ]
+  },
+  {
+   "said": "What does the serve command actually do?",
+   "want": null,
+   "heard": [
+    "What does the serve command actually do?"
+   ]
+  },
+  {
+   "said": "The bridge is ready, so let us land it.",
+   "want": null,
+   "heard": [
+    "The bridge is ready, so let us land it."
+   ]
+  },
+  {
+   "said": "Can you summarize the last commit for me?",
+   "want": null,
+   "heard": [
+    "Can you summarize the last commit for me?"
+   ]
+  },
+  {
+   "said": "Tell me where the barge in detector lives.",
+   "want": null,
+   "heard": [
+    "Tell me where the barge and detector lies.",
+    "Tell me where the barge and detector lives.",
+    "Tell me where the barge in detector lives."
+   ]
+  }
+ ]
+}

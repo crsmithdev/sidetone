@@ -68,6 +68,26 @@ same hook that will feed the sentence collector when voice arrives.
 | `src/session.ts` | one long-lived Claude Code process, text in and text out |
 | `src/main.ts` | the text loop |
 
+## Adding a command
+
+The matcher forgives spelling, because a speech engine gives back a word that
+sounded like yours rather than the one you said. So a command is not finished
+when it matches what you meant to say. Add it, then:
+
+```bash
+bun scripts/heard-refresh.ts <a word from the phrase>
+```
+
+It says the phrase in two voices, buries it in brown noise at 10, 0 and -5 dB,
+reads it back with the model that ships, and records every distinct spelling in
+`test/fixtures/heard.json`. `bun test` then checks that each of them reaches the
+right command, with no GPU and no audio.
+
+Two commands have already shipped broken because this did not exist. "male
+voice" comes back as *Mail Voice*; "end the turn" elides to *in the turn*, and
+sometimes *and the turn*; "never mind" is one word to the engine. Each was
+found in a live run, which is an expensive place to find it.
+
 ## What another repository depends on
 
 The caller project runs this repository's speech workers out of this checkout.
