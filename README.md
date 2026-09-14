@@ -68,6 +68,26 @@ same hook that will feed the sentence collector when voice arrives.
 | `src/session.ts` | one long-lived Claude Code process, text in and text out |
 | `src/main.ts` | the text loop |
 
+## The tests
+
+`bun test` is fast, needs nothing, and is the whole suite bar one file. The
+exception wants the card:
+
+```bash
+VOICE_BRIDGE_GPU=1 bun test speech.smoke
+```
+
+It starts both engines against the real models and asserts the one thing that
+otherwise fails silently: that onnxruntime took the graph on the GPU. Without
+its CUDA libraries it does not error — it returns a working session on the CPU
+and every sentence costs a second instead of a tenth, which reads as "this
+feels slow" rather than as a fault. Then the voice says a sentence and the
+transcriber reads it back, so neither engine can rot while the other covers
+for it.
+
+`bun scripts/browser-check.ts` drives the client page in a real browser with a
+wav file for a microphone. Point it at a bridge of your own, not the live one.
+
 ## Adding a command
 
 The matcher forgives spelling, because a speech engine gives back a word that
