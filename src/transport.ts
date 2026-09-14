@@ -159,7 +159,7 @@ export class Transport {
  * fault arrives as silence rather than as a stutter, which is worse to find.
  * The last frame is short and the rest of it is silence.
  */
-function frameAt(samples: Int16Array, at: number, size: number): Int16Array {
+export function frameAt(samples: Int16Array, at: number, size: number): Int16Array {
   const out = new Int16Array(size);
   out.set(samples.subarray(at, Math.min(at + size, samples.length)));
   return out;

@@ -62,9 +62,23 @@ await page.waitForFunction(() => document.getElementById("state")?.textContent =
 console.log("connected; dot lit:", await page.locator("#dot.on").count() === 1);
 console.log("token stored for next time:", await page.evaluate(() => !!localStorage.getItem("voice-bridge-credentials")));
 
-// the fake microphone is already playing the question into the room
-await page.waitForFunction(() => document.querySelectorAll("#log .bridge").length > 0, null, { timeout: 90_000 })
-  .then(() => console.log("the bridge answered"))
+/**
+ * 14.8 replays the turns this client missed, so "a bridge line exists" is true
+ * before the question is even asked, and this check used to pass on somebody
+ * else's answer. Counting the lines at this point does not fix it either: the
+ * replay arrives over the data channel after the room reports listening, so
+ * the count is still zero here and the replay satisfies the wait.
+ *
+ * The client marks the boundary itself, with a "now" note. Wait for a bridge
+ * line after that. With no history the note is absent, lastIndexOf returns -1,
+ * and every line counts, which is what a fresh room should do.
+ */
+await page.waitForFunction(() => {
+  const lines = [...document.querySelectorAll("#log .line")];
+  const boundary = lines.map((el) => el.textContent?.trim()).lastIndexOf("now");
+  return lines.slice(boundary + 1).some((el) => el.classList.contains("bridge"));
+}, null, { timeout: 90_000 })
+  .then(() => console.log("the bridge answered, after the replay"))
   .catch(() => console.log("NO ANSWER within 90s"));
 
 const lines = await page.locator("#log .line").allTextContents();

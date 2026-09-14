@@ -68,6 +68,30 @@ same hook that will feed the sentence collector when voice arrives.
 | `src/session.ts` | one long-lived Claude Code process, text in and text out |
 | `src/main.ts` | the text loop |
 
+## What another repository depends on
+
+The caller project runs this repository's speech workers out of this checkout.
+It spawns `speech/stt_worker.py` and `speech/tts_worker.py` with
+`.venv/bin/python3`, puts the CUDA wheels under
+`.venv/lib/python*/site-packages/nvidia/*/lib` on the library path the same way
+`src/speech.ts` does, and reads models from `~/.voice-bridge/models`. It
+overrides the first two with `VOICE_BRIDGE_HOME` and `VOICE_BRIDGE_MODELS`.
+
+So these are load-bearing outside this repository, and moving them breaks a
+project that nothing here mentions:
+
+| what | why it matters |
+|---|---|
+| `speech/stt_worker.py`, `speech/tts_worker.py` | spawned by path, and their one-JSON-per-line protocol is the interface |
+| `.venv/bin/python3` and its nvidia wheels | caller has no Python environment of its own |
+| `~/.voice-bridge/models` | the piper voices and the whisper cache are shared |
+
+This nearly went wrong on 13 September 2026. Kokoro wants the CUDA 13 wheels
+and ctranslate2, which carries whisper, wants the CUDA 12 ones, and both unpack
+into `nvidia/cudnn/lib`. Installing Kokoro into `.venv` would have taken out
+transcription in both projects. It has its own environment for that reason, and
+that reason is worth keeping written down.
+
 ## Process management
 
 A warm agent process is the thing most likely to break, so section 8 gives it
