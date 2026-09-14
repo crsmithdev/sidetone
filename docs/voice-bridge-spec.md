@@ -389,7 +389,7 @@ project bridge stays in place.
 
 ## 19. POINT STATUS
 
-19.1 Muted command subset. Mute and unmute only. The set is a list in the settings, so Chris adds more later. See 9.5 and 9.6.
+19.1 Muted command subset. Mute, unmute, and the three commands that turn the tones on and off. The set is a list in the settings, so Chris adds more later. The tone commands are on it because Chris mutes when the car is loud, and the tones are the next noise he wants gone; silencing them asks nothing of the microphone. See 9.5 and 9.6.
 
 19.2 Default model. Sonnet. This is final. The model stays a setting. See 8.11.
 
