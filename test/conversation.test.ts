@@ -86,7 +86,7 @@ describe("the stats command (18.4)", () => {
     await c.heard("hey bridge stats");
     await settled();
     expect(said).toEqual([
-      "The last answer took 2.4 seconds from when you stopped talking. 1.5 of that was the end of turn pause and 0.3 the transcription.",
+      "Last answer, 2.4 seconds. 1.5 of it was the end of turn pause.",
       "Nothing has reported on the connection yet.",
     ]);
   });

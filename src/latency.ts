@@ -108,13 +108,12 @@ export class Latency {
   report(): string {
     const last = this.last;
     if (!last) return "No round trip has been measured yet.";
-    const parts = [
-      `The last answer took ${seconds(last.answerMs)} seconds from when you stopped talking.`,
-      `${seconds(last.pauseMs)} of that was the end of turn pause and ${seconds(last.transcribeMs)} the transcription.`,
-    ];
-    if (this.rounds.length > 1) {
-      parts.push(`Over the last ${this.rounds.length} the median is ${seconds(this.median())} and the worst was ${seconds(this.worst())}.`);
-    }
+    // One sentence of all of this ran fourteen seconds on a real run, which is
+    // a long time to be talked at in a car. Short sentences, and the ones a
+    // person is least likely to want come last.
+    const parts = [`Last answer, ${seconds(last.answerMs)} seconds.`];
+    if (this.rounds.length > 1) parts.push(`Median ${seconds(this.median())}, worst ${seconds(this.worst())}.`);
+    parts.push(`${seconds(last.pauseMs)} of it was the end of turn pause.`);
     if (this.bargeIns.length > 0) {
       parts.push(`${this.bargeIns.length} barge-ins, ${this.falseBargeIns} of them nothing.`);
     }

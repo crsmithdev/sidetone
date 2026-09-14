@@ -42,7 +42,10 @@ const COMMANDS: Array<{ name: CommandName; any: string[][] }> = [
   { name: "tonesOff", any: [["tones", "off"], ["tone", "off"], ["no", "tones"], ["sounds", "off"]] },
   { name: "tonesOn", any: [["tones", "on"], ["tone", "on"], ["sounds", "on"]] },
   { name: "tones", any: [["tones"], ["tone"], ["chimes"]] },
-  { name: "stats", any: [["stats"], ["latency"], ["diagnostics"], ["how", "fast"]] },
+  // "stets" is already within tolerance of "stats"; "steph" is not, and the
+  // engine wrote it on a real run. "that's" is deliberately not accepted: it
+  // is a word Chris says, and a wake word in front of it is no protection.
+  { name: "stats", any: [["stats"], ["steph"], ["status"], ["latency"], ["diagnostics"], ["how", "fast"]] },
   // 9.3 the forms the engine produces, not the spelling. small.en writes
   // "male voice" as "Mail Voice", and sometimes drops the second word, so
   // "mail" is one of the accepted forms and one word is enough. Requiring
@@ -101,6 +104,15 @@ export function afterWakeWord(said: string, wakeWord: string, variants: string[]
     for (let take = 1; take <= span && i + take <= words.length; take++) {
       const candidate = words.slice(i, i + take).join("");
       if (targets.some((target) => editDistance(candidate, target) <= WAKE_TOLERANCE)) return words.slice(i + take).join(" ");
+      // 9.3 the engine runs them together: "Hey BridgeMute." is one token and
+      // splitting on spaces never finds it. An exact prefix only -- forgiving
+      // the spelling here as well would let half the language look like a
+      // wake word with something stuck to it.
+      for (const target of targets) {
+        if (candidate.length > target.length && candidate.startsWith(target)) {
+          return [candidate.slice(target.length), ...words.slice(i + take)].join(" ");
+        }
+      }
     }
   }
   return null;

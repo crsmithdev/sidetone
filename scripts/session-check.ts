@@ -46,6 +46,9 @@ function card(): void {
      Then say "hey bridge, unmute". It should answer "Listening."
 
   2. THE COMMANDS. Say each one and wait for the answer before the next.
+     Two words at most after the wake word: the extra ones are what get
+     mangled, and "where are we" or "say that again" only ever worked
+     because the matcher forgave the middle of them.
 `);
   SCRIPT.forEach((step, i) => console.log(`       ${String(i + 1).padStart(2)}. "${step.say}"`));
   console.log(`

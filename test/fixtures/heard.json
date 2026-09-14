@@ -43,10 +43,11 @@
    ]
   },
   {
-   "said": "hey bridge, say that again",
+   "said": "hey bridge, say again",
    "want": "restate",
    "heard": [
-    "Hey Bridge, say that again."
+    "Hey Bridge, say again.",
+    "Hey, Bridge, say again."
    ]
   },
   {
@@ -59,24 +60,24 @@
    ]
   },
   {
-   "said": "hey bridge, where are we",
+   "said": "hey bridge, recap",
    "want": "where",
    "heard": [
-    "Hey Bridge, where are we?",
-    "Hey bridge, where are we?",
-    "Hey, Bridge, where are we?"
+    "Hay Bridge recap.",
+    "Hay Bridge, recap.",
+    "Hey Bridge Recap.",
+    "Hey Bridge recap.",
+    "Hey Bridge, recap."
    ]
   },
   {
-   "said": "hey bridge, end the turn",
+   "said": "hey bridge, end turn",
    "want": "endTurn",
    "heard": [
-    "Hay Bridge and The Turn.",
-    "Hay Bridge and the turn.",
-    "Hey Bridge, end the turn.",
-    "Hey bridge and the turn.",
-    "Hey bridge end the turn",
-    "Hey, Bridge in the turn."
+    "Hay Bridge and Turn.",
+    "Hay Bridge and turn.",
+    "Hey bridge and turn.",
+    "Hey bridge in turn."
    ]
   },
   {
@@ -121,6 +122,14 @@
    "heard": [
     "Hay Bridge stats.",
     "Hey Bridge stats."
+   ]
+  },
+  {
+   "said": "hey bridgemute",
+   "want": "mute",
+   "heard": [
+    "Hey, BridgeMute.",
+    "Hey, bridge mute."
    ]
   },
   {

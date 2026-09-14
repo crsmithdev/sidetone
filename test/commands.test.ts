@@ -121,3 +121,26 @@ describe("the two voices (9.4)", () => {
     expect(commandIn("female voice")).not.toBe("maleVoice");
   });
 });
+
+describe("a wake word run into its command (9.3)", () => {
+  test("the engine writes it as one token, and it is still a command", () => {
+    // observed: the first thing said on 14 September, which cost a turn
+    expect(afterWakeWord("Hey BridgeMute.", WAKE)).toBe("mute");
+    expect(commandIn(afterWakeWord("Hey BridgeMute.", WAKE) as string)).toBe("mute");
+    expect(afterWakeWord("heybridgestats", WAKE)).toBe("stats");
+  });
+
+  test("only an exact prefix splits, or half the language becomes a wake word", () => {
+    // one character out from "heybridge" and then a word: not a split
+    expect(afterWakeWord("heybridgemute", WAKE)).toBe("mute");
+    expect(afterWakeWord("haybridgemute", WAKE)).toBeNull();
+    // and a sentence that merely starts similarly is still speech
+    expect(afterWakeWord("the bridgework is done", WAKE)).toBeNull();
+  });
+
+  test("stats keeps the spellings that have actually been heard", () => {
+    for (const said of ["stats", "stets", "steph", "status"]) expect(commandIn(said)).toBe("stats");
+    // "that's" is a word Chris says, so it is deliberately not one of them
+    expect(commandIn("thats wrong")).not.toBe("stats");
+  });
+});

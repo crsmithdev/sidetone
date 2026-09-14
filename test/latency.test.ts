@@ -43,11 +43,13 @@ describe("latency (18.4)", () => {
   test("the report is sentences a person can hear once", () => {
     const latency = new Latency();
     round(latency, 0, 300, 2_400);
-    expect(latency.report()).toBe(
-      "The last answer took 2.4 seconds from when you stopped talking. 1.5 of that was the end of turn pause and 0.3 the transcription.",
-    );
+    // short sentences: one of these ran fourteen seconds spoken aloud
+    expect(latency.report()).toBe("Last answer, 2.4 seconds. 1.5 of it was the end of turn pause.");
     round(latency, 0, 300, 2_600);
-    expect(latency.report()).toContain("Over the last 2 the median is 2.5 and the worst was 2.6.");
+    expect(latency.report()).toContain("Median 2.5, worst 2.6.");
+    for (const sentence of latency.report().split(". ")) {
+      expect(sentence.split(/\s+/).length).toBeLessThan(12);
+    }
   });
   test("the pause a setting decides is not charged to the engine", () => {
     const latency = new Latency();

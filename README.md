@@ -226,8 +226,13 @@ errors, and a sentence goes from a tenth of a second to a whole one. The worker
 reports which provider it got and the bridge prints a warning, because that
 failure is otherwise invisible.
 
-Say "hey bridge" and then a command. The wake word is matched by sound, not
-spelling, because an engine writes the same sound several ways.
+Say "hey bridge" and then a command, **two words at most**. The extra words are
+the ones that get mangled: "where are we" and "say that again" only ever worked
+because the matcher forgave the middle of them, and on a real run "stats"
+arrived as "that's" and "Steph" while the wake word came through every time.
+The wake word itself is matched by sound rather than spelling, because an
+engine writes the same sound several ways — including running it into the
+command, which is why "Hey BridgeMute." is split on an exact prefix.
 
 A command spoken over an answer stops the speech at once, and what it does to
 the rest of that answer depends on the command. Only two commands touch the
@@ -240,10 +245,10 @@ agent, and both say so in their name.
 | tones, tones off, tones on | the cues on or off | resumes | — | yes |
 | report the usage | cost, rate limit, context | resumes | — | no |
 | stats | the round trip, measured | resumes | — | no |
-| say that again | the last sentence, or the last answer | resumes | — | no |
+| say again | the last sentence, or the last answer | resumes | — | no |
 | summarize | a one-sentence summary | dropped; refused mid-turn | a new turn | no |
-| where are we | the last three exchanges | dropped | — | no |
-| end the turn | stops the agent | dropped | interrupted | no |
+| recap | the last three exchanges | dropped | — | no |
+| end turn | stops the agent | dropped | interrupted | no |
 | female voice, male voice | swaps the voice mid-sentence | resumes | — | no |
 | clear the context | a fresh process, after "continue" | dropped | dies with it | no |
 
