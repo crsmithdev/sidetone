@@ -28,10 +28,11 @@ export interface Heard {
   transcribeMs: number;
 }
 
+export interface Matched { kind: "matched"; at: number; said: string; became: string }
 export interface Barged { kind: "barged"; at: number; level: number; heldMs: number }
 export interface Spoke { kind: "spoke"; at: number; text: string; whole: boolean }
 export interface Note { kind: "note"; at: number; text: string }
-export type Event = Heard | Barged | Spoke | Note;
+export type Event = Heard | Matched | Barged | Spoke | Note;
 
 /** Enough to read a drive back, not so much that it is a log of its own. */
 const KEEP = 120;
@@ -50,6 +51,11 @@ export class Diagnostics {
       ms: utterance.ms, speechMs: utterance.speechMs, peak: utterance.peak,
       gapMs: utterance.gapMs, endedBy: utterance.endedBy,
     });
+  }
+
+  /** What the bridge made of it: a command, plain speech, or a wake word alone. */
+  matched(said: string, became: string, at = Date.now()): void {
+    this.add({ kind: "matched", at, said, became });
   }
 
   barged(level: number, heldMs: number, at = Date.now()): void {

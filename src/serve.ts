@@ -108,6 +108,7 @@ export async function serve(dir: string, config: Config): Promise<void> {
   }, stt, tts, {
     onNarration: (text) => { console.log(`[${text}]`); void transport.send({ kind: "narration", text }); },
     onTurn: (turn) => console.log(`[turn ${turn.number}, $${conversation.session.totalCostUsd().toFixed(4)} this session]`),
+    onMatched: (said, became) => diagnostics.matched(said, became),
   });
   conversation.start();
 

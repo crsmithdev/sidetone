@@ -49,6 +49,8 @@ export interface Mouth {
 export interface ConversationHooks {
   onNarration?(text: string): void;
   onTurn?(turn: Turn): void;
+  /** What the bridge decided a thing Chris said actually was (9.4, 9.7). */
+  onMatched?(said: string, became: string): void;
 }
 
 export class Conversation {
@@ -116,9 +118,11 @@ export class Conversation {
     });
     this.tones = config.tones;
     this.onTurn = hooks.onTurn;
+    this.onMatched = hooks.onMatched;
   }
 
   private onTurn?: (turn: Turn) => void;
+  private onMatched?: (said: string, became: string) => void;
   private deltaSink: ((text: string) => void) | null = null;
 
   get busy(): boolean { return this.turnRunning; }
@@ -272,15 +276,21 @@ export class Conversation {
     if (awaited && heard.kind === "speech") {
       const name = commandIn(plain(said));
       if (name && (!this.muted || this.config.mutedCommands.includes(name))) {
+        this.onMatched?.(said, name);
         this.after(await this.run(name));
         return;
       }
     }
 
-    if (heard.kind === "command") { this.after(await this.run(heard.name)); return; }
+    if (heard.kind === "command") {
+      this.onMatched?.(said, heard.name);
+      this.after(await this.run(heard.name));
+      return;
+    }
     // 9.7 the wake word came through and the command did not. Wait for it
     // rather than complaining: the pause between the two is usually the reason.
     if (heard.kind === "unclear") {
+      this.onMatched?.(said, "waiting for the command");
       this.awaitingCommand = Date.now() + this.config.wakeHoldMs;
       this.resumeHold();
       return;
@@ -303,6 +313,7 @@ export class Conversation {
       this.resumeHold();
       return;
     }
+    this.onMatched?.(said, "speech");
     this.discardHold();
     void this.turn(said);
   }
