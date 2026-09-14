@@ -29,10 +29,12 @@ export interface Heard {
 }
 
 export interface Matched { kind: "matched"; at: number; said: string; became: string }
+/** 18.4 a round trip that closed: the end of speech to the first sound of the answer. */
+export interface Answered { kind: "answered"; at: number; answerMs: number; pauseMs: number; transcribeMs: number }
 export interface Barged { kind: "barged"; at: number; level: number; heldMs: number }
 export interface Spoke { kind: "spoke"; at: number; text: string; whole: boolean }
 export interface Note { kind: "note"; at: number; text: string }
-export type Event = Heard | Matched | Barged | Spoke | Note;
+export type Event = Heard | Matched | Barged | Answered | Spoke | Note;
 
 /** Enough to read a drive back, not so much that it is a log of its own. */
 const KEEP = 120;
@@ -40,9 +42,16 @@ const KEEP = 120;
 export class Diagnostics {
   private readonly events: Event[] = [];
 
+  /**
+   * `sink` is given every event as it happens, so the record on disk outlives
+   * the process. Memory keeps the last KEEP; the sink keeps all of them.
+   */
+  constructor(private readonly sink?: (event: Event) => void) {}
+
   private add(event: Event): void {
     this.events.push(event);
     if (this.events.length > KEEP) this.events.shift();
+    this.sink?.(event);
   }
 
   heard(utterance: Utterance, text: string, transcribeMs: number, at = Date.now()): void {
@@ -56,6 +65,11 @@ export class Diagnostics {
   /** What the bridge made of it: a command, plain speech, or a wake word alone. */
   matched(said: string, became: string, at = Date.now()): void {
     this.add({ kind: "matched", at, said, became });
+  }
+
+  /** 18.4 the round trip Chris lives with, kept with the utterance that caused it. */
+  answered(round: { answerMs: number; pauseMs: number; transcribeMs: number }, at = Date.now()): void {
+    this.add({ kind: "answered", at, ...round });
   }
 
   barged(level: number, heldMs: number, at = Date.now()): void {

@@ -12,12 +12,13 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Utterances, encodeWav, tooQuiet } from "./audio.ts";
-import type { Config } from "./config.ts";
+import { settingsInForce, type Config } from "./config.ts";
 import { Conversation } from "./conversation.ts";
 import { Cues } from "./cues.ts";
 import { LocalWhisper, textToSpeech } from "./speech.ts";
 import { advertiseHost, livekitConfig, loadOrCreateKeys } from "./keys.ts";
 import { Diagnostics } from "./diagnostics.ts";
+import { Recorder } from "./record.ts";
 import { qualityOf } from "./network.ts";
 import { RTC_RATE, Transport, tokenFor } from "./transport.ts";
 
@@ -62,7 +63,11 @@ export async function serve(dir: string, config: Config): Promise<void> {
   const startedAt = Date.now();
   await transport.joinWhenReady(keys, config.room, config.livekitWaitMs, (text) => console.log(`[${text}]`));
 
-  const diagnostics = new Diagnostics();
+  // 18 the record outlives the process: the scorecard is read after a drive,
+  // and a restart in between used to leave nothing to read.
+  const record = new Recorder(config.recordPath);
+  record.session(settingsInForce(config));
+  const diagnostics = new Diagnostics((event) => record.write(event));
   let counter = 0;
   /** 11.5 the ends of a turn, found in the frames the phone sends. */
   const utterances = new Utterances({
@@ -91,7 +96,8 @@ export async function serve(dir: string, config: Config): Promise<void> {
       // bridge's own voice, because the client cancelled it before sending.
       // 18.4 the first sound of the answer closes the round trip. A later
       // sentence is not a round trip, and the tracker ignores it.
-      conversation.latency.answered();
+      const round = conversation.latency.answered();
+      if (round) diagnostics.answered(round);
       const whole = await transport.speak(await Bun.file(wav).bytes(), bargingIn);
       if (!whole) console.log(`  [stopped: Chris started talking${bargedAt ? `, ${Date.now() - bargedAt}ms after it was noticed` : ""}]`);
       diagnostics.spoke(text, whole);
@@ -231,13 +237,7 @@ export async function serve(dir: string, config: Config): Promise<void> {
       if (url.pathname === "/diagnostics") {
         return Response.json({
           summary: diagnostics.summary(),
-          settings: {
-            speechLevel: config.speechLevel, speechOnsetMs: config.speechOnsetMs,
-            endOfTurnPauseMs: config.endOfTurnPauseMs,
-            bargeInLevel: config.bargeInLevel, bargeInMs: config.bargeInMs, bargeInGapMs: config.bargeInGapMs,
-            minSpeechPeak: config.minSpeechPeak, wakeHoldMs: config.wakeHoldMs,
-            cueVolume: config.cueVolume, ttsEngine: config.ttsEngine, ttsVoice: config.ttsVoice,
-          },
+          settings: settingsInForce(config),
           latency: { rounds: conversation.latency.count, medianMs: conversation.latency.median(), worstMs: conversation.latency.worst() },
           network: { phone: conversation.network.get("phone"), bridge: conversation.network.get("bridge") },
           recent: diagnostics.recent(Number(url.searchParams.get("n") ?? 40)),

@@ -9,7 +9,7 @@
  * never heard at all is invisible here, and shows up only as a command missing
  * from the tally.
  */
-import type { Event, Heard, Matched } from "./diagnostics.ts";
+import type { Answered, Event, Heard, Matched } from "./diagnostics.ts";
 
 /** The commands the card asks for, in the order it asks for them. */
 export const SCRIPT: Array<{ say: string; expect: string }> = [
@@ -35,6 +35,8 @@ export interface Scorecard {
   commands: { asked: number; fired: number; missed: string[]; wrong: Array<{ became: string; said: string }> };
   passage: { linesExpected: number; utterances: number; whole: number; fragments: number; accuracy: number };
   heard: { total: number; empty: number; tooQuiet: number; medianMs: number; medianPeak: number };
+  /** 18.4 the round trips this drive closed, from the record rather than from memory */
+  roundTrip: { rounds: number; medianMs: number; worstMs: number };
   bargeIns: number;
   invented: number;
 }
@@ -79,6 +81,7 @@ export function score(events: Event[], script = SCRIPT, passage = PASSAGE): Scor
 
   const ms = heard.map((h) => h.ms).sort((a, b) => a - b);
   const peaks = heard.map((h) => h.peak).sort((a, b) => a - b);
+  const answers = events.filter((e): e is Answered => e.kind === "answered").map((a) => a.answerMs);
   return {
     commands: { asked: script.length, fired: script.length - missed.length, missed, wrong },
     passage: {
@@ -94,6 +97,11 @@ export function score(events: Event[], script = SCRIPT, passage = PASSAGE): Scor
       tooQuiet: heard.filter((h) => !h.text && h.transcribeMs === 0).length,
       medianMs: middle(ms),
       medianPeak: middle(peaks),
+    },
+    roundTrip: {
+      rounds: answers.length,
+      medianMs: Math.round(middle([...answers].sort((a, b) => a - b))),
+      worstMs: answers.reduce((worst, ms) => Math.max(worst, ms), 0),
     },
     bargeIns: events.filter((e) => e.kind === "barged").length,
     // A turn from something nobody said, judged against this session rather

@@ -143,6 +143,12 @@ export interface Config {
   tokenDays: number;
   /** 14.8 how far back "the turns it missed" reaches. A drop in a tunnel is minutes. */
   historyMaxAgeMs: number;
+  /**
+   * 18 where the drive record is appended. The scorecard reads it back, and it
+   * is on disk rather than in memory because a restart used to take a drive
+   * with it.
+   */
+  recordPath: string;
   /** 6.1 the bridge starts Claude Code in the project directory */
   claudeBin: string;
   claudeArgs: string[];
@@ -234,10 +240,26 @@ export const DEFAULTS: Config = {
   room: "bridge",
   tokenDays: 30,
   historyMaxAgeMs: 900_000,
+  recordPath: join(homedir(), ".voice-bridge", "record.jsonl"),
   claudeBin: "claude",
   // --verbose is not optional: claude refuses stream-json output without it
   claudeArgs: ["-p", "--verbose", "--input-format", "stream-json", "--output-format", "stream-json", "--include-partial-messages"],
 };
+
+/**
+ * The settings a drive is judged against: the ones a reading could move, not
+ * every field. `/diagnostics` reports these and the record keeps them, so the
+ * two never drift apart.
+ */
+export function settingsInForce(config: Config): Record<string, unknown> {
+  return {
+    speechLevel: config.speechLevel, speechOnsetMs: config.speechOnsetMs,
+    endOfTurnPauseMs: config.endOfTurnPauseMs,
+    bargeInLevel: config.bargeInLevel, bargeInMs: config.bargeInMs, bargeInGapMs: config.bargeInGapMs,
+    minSpeechPeak: config.minSpeechPeak, wakeHoldMs: config.wakeHoldMs,
+    cueVolume: config.cueVolume, ttsEngine: config.ttsEngine, ttsVoice: config.ttsVoice,
+  };
+}
 
 export function configPath(): string {
   return process.env.VOICE_BRIDGE_CONFIG ?? join(homedir(), ".voice-bridge", "config.json");

@@ -56,17 +56,23 @@ export class Latency {
     if (this.open && !this.open.transcribedAt) this.open.transcribedAt = at;
   }
 
-  /** The first audio of the answer is on its way. Later sentences are not a round. */
-  answered(at = Date.now()): void {
+  /**
+   * The first audio of the answer is on its way. Later sentences are not a
+   * round. Returns the round it closed, or null when it closed none: a caller
+   * that records rounds must not record the one before this again.
+   */
+  answered(at = Date.now()): Round | null {
     const open = this.open;
-    if (!open) return;
+    if (!open) return null;
     this.open = null;
-    this.rounds.push({
+    const round: Round = {
       pauseMs: open.noticedAt - open.endedAt,
       transcribeMs: open.transcribedAt ? open.transcribedAt - open.noticedAt : 0,
       answerMs: at - open.endedAt,
-    });
+    };
+    this.rounds.push(round);
     if (this.rounds.length > KEEP) this.rounds.shift();
+    return round;
   }
 
   /** 11.3 the playback stopped. `level` is the loudest frame that did it. */

@@ -10,21 +10,14 @@
  *   bun scripts/session-check.ts card     what to say, in order
  *   bun scripts/session-check.ts score    how it went
  *
- * Read the card with the bridge connected, then run score before the next
- * restart: the record it reads is held in memory and goes when the process does.
+ * Read the card with the bridge connected, then score it whenever you like:
+ * the record is on disk, and a restart no longer takes the drive with it.
  */
 import { loadConfig } from "../src/config.ts";
+import { readDrive } from "../src/record.ts";
 import { PASSAGE, SCRIPT, score } from "../src/scorecard.ts";
 
 const config = loadConfig();
-/**
- * Over loopback, not the tailnet name. This runs on the machine the bridge is
- * on, and MagicDNS does not resolve here -- the certificate is for a name this
- * host cannot look up. Verification is off for the same reason, and it costs
- * nothing: the request never leaves the machine.
- */
-const scheme = config.tlsCert && config.tlsKey ? "https" : "http";
-const local = `${scheme}://127.0.0.1:${config.servePort}`;
 
 function card(): void {
   console.log(`
@@ -63,15 +56,16 @@ function card(): void {
 `);
 }
 
-async function report(): Promise<void> {
-  const url = `${local}/diagnostics?n=200`;
-  const answer = await fetch(url, { tls: { rejectUnauthorized: false } }).catch(() => null);
-  if (!answer?.ok) {
-    console.error(`could not read ${url}. Is the bridge running on this machine?`);
+function report(): void {
+  // the last session that heard anything, which is the drive. The empty
+  // session a restart leaves behind is not one.
+  const drive = readDrive(config.recordPath);
+  if (!drive) {
+    console.error(`nothing to score in ${config.recordPath}. Has a drive been recorded since the bridge last started?`);
     process.exit(1);
   }
-  const body = await answer.json() as { recent: Parameters<typeof score>[0]; settings: Record<string, unknown>; latency: Record<string, number> };
-  const card = score(body.recent);
+  const card = score(drive.events);
+  const when = new Date(drive.at).toLocaleString();
   const line = (name: string, value: unknown, note = "") => console.log(`  ${name.padEnd(26)} ${String(value).padStart(8)}  ${note}`);
 
   console.log("\n  COMMANDS");
@@ -96,15 +90,16 @@ async function report(): Promise<void> {
   line("barge-ins", card.bargeIns);
 
   console.log("\n  ROUND TRIP");
-  line("median", `${body.latency.medianMs}ms`);
-  line("worst", `${body.latency.worstMs}ms`);
+  line("answers", card.roundTrip.rounds);
+  line("median", `${card.roundTrip.medianMs}ms`);
+  line("worst", `${card.roundTrip.worstMs}ms`);
 
-  console.log("\n  SETTINGS IN FORCE");
-  for (const [name, value] of Object.entries(body.settings)) line(name, String(value));
+  console.log(`\n  SETTINGS IN FORCE  (the drive of ${when})`);
+  for (const [name, value] of Object.entries(drive.settings)) line(name, String(value));
   console.log("");
 }
 
 const what = process.argv[2] ?? "card";
 if (what === "card") card();
-else if (what === "score") await report();
+else if (what === "score") report();
 else { console.error("usage: bun scripts/session-check.ts <card|score>"); process.exit(2); }

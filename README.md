@@ -416,6 +416,25 @@ self-signed pair proves the shape — it is how the https path above was first
 tested — but a phone refuses the microphone over a certificate it does not
 trust, so it is not a place to stop.
 
+## A drive, and reading it back
+
+```bash
+bun scripts/session-check.ts card     # what to say, in order
+bun scripts/session-check.ts score    # how it went
+```
+
+Read the card with the phone connected, then score it. The score is the same
+handful of figures every time, so two builds differ by figures rather than by
+memory: which commands fired, how much of the passage came back word for word,
+the median round trip, and the settings that produced all of it.
+
+The record is appended to `~/.voice-bridge/record.jsonl` (`recordPath`), one
+line of JSON for each event, with a header line opening each session. It is on
+disk because it used to be in memory: on 14 September the service restarted
+twenty seconds after a drive and the score was zeros. `score` reads the last
+session that heard anything, so the empty session a restart leaves behind is
+not mistaken for a drive.
+
 ## Settings
 
 No file is needed. To change one, write `~/.voice-bridge/config.json`

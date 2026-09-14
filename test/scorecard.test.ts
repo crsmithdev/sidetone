@@ -92,3 +92,18 @@ describe("scoring a session", () => {
     expect(score(partial).commands.missed).toEqual(["tonesOff"]);
   });
 });
+
+describe("the round trip", () => {
+  const answered = (answerMs: number): Event =>
+    ({ kind: "answered", at: 0, answerMs, pauseMs: 1_500, transcribeMs: 200 });
+
+  test("it reports the middle and the worst of the answers", () => {
+    const card = score([heard("hello"), answered(1_800), answered(1_600), answered(3_500)]);
+    expect(card.roundTrip).toEqual({ rounds: 3, medianMs: 1_800, worstMs: 3_500 });
+  });
+
+  test("a drive with no answer in it reports nothing rather than zero-ish", () => {
+    const card = score([heard("hello")]);
+    expect(card.roundTrip).toEqual({ rounds: 0, medianMs: 0, worstMs: 0 });
+  });
+});
