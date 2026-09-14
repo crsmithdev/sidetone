@@ -30,6 +30,17 @@
   #pair { margin:auto; text-align:center; max-width:340px; }
   #pair p { color:var(--dim); font-size:14px; }
   .hidden { display:none !important; }
+  /* A hard cut for the microphone, big enough to hit without looking, because
+     the moment you want it is the moment you are driving. */
+  #mic {
+    appearance:none; font:inherit; font-size:15px; font-weight:600;
+    background:#1d2a2f; color:var(--ink); border:1px solid #33454d;
+    border-radius:8px; padding:12px 18px; min-height:48px; cursor:pointer;
+    width:100%; margin-top:12px;
+  }
+  #mic[aria-pressed="true"] { background:#5a2a24; border-color:#8c4034; color:#ffd9d2; }
+  #mic:active { transform:translateY(1px); }
+  #mic:focus-visible { outline:2px solid #6bbf87; outline-offset:2px; }
   /* N.2.2 a passive indicator, always visible, so a slow network is never
      mistaken for a stalled agent */
   #net { margin-left:auto; display:flex; align-items:center; gap:6px; font-size:13px; color:var(--dim); }
@@ -58,6 +69,7 @@
 
 <button id="sound">Tap to hear the bridge</button>
 <main id="log" class="hidden"></main>
+<button id="mic" type="button" hidden aria-pressed="false">Cut the microphone</button>
 <footer id="bar" class="hidden">
   <input id="say" placeholder="or type it" autocomplete="off">
   <button id="send">Send</button>
@@ -121,6 +133,10 @@ async function connect({ url, token }) {
   const room = new Room({
     adaptiveStream: true,
     audioCaptureDefaults: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+    // cutting the microphone releases the device, so the phone's own recording
+    // indicator goes out. Muting a track that keeps running leaves the light on
+    // and asks Chris to trust a button over his own phone.
+    stopMicTrackOnMute: true,
   });
 
   room.on(RoomEvent.Connected, () => { state.textContent = "listening"; dot.classList.add("on"); });
@@ -186,7 +202,38 @@ async function connect({ url, token }) {
   await room.connect(url, token);
   await room.localParticipant.setMicrophoneEnabled(true);
   window.__room = room;
+  wireMic(room);
   keepAwake();
+}
+
+/**
+ * Cut the microphone, properly. setMicrophoneEnabled(false) unpublishes the
+ * track rather than muting a stream that keeps flowing, so nothing reaches the
+ * bridge at all and the indicator on the phone is the truth.
+ *
+ * The bridge is told as well, so it drops whatever it had half recorded. A
+ * paused microphone that hands over the first half of a sentence when it comes
+ * back is worse than no pause.
+ */
+function wireMic(room) {
+  const button = document.getElementById("mic");
+  let off = false;
+  const paint = () => {
+    button.setAttribute("aria-pressed", String(off));
+    button.textContent = off ? "Microphone off — tap to resume" : "Cut the microphone";
+  };
+  paint();
+  button.hidden = false;
+  button.addEventListener("click", async () => {
+    off = !off;
+    paint();
+    button.disabled = true;
+    try {
+      await room.localParticipant.setMicrophoneEnabled(!off);
+      tell({ kind: "mic", on: !off });
+      line(off ? "microphone off" : "microphone on", "note");
+    } finally { button.disabled = false; }
+  });
 }
 
 // The mic only stays open while the screen is on. The lock releases whenever

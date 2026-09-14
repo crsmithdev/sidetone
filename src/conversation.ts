@@ -121,9 +121,16 @@ export class Conversation {
   /** 11.3 whether an answer is waiting to find out what Chris just said. */
   get onHold(): boolean { return this.holding; }
 
-  /** Every cue goes through here, so one command can silence all of them. */
+  /**
+   * Every cue goes through here, so one command can silence all of them, and
+   * so nothing plays a cue over the voice. One transport shares one audio
+   * source and refuses a second writer: on 14 September the cue that marks the
+   * end of a turn fired while the bridge was mid-sentence and the transport
+   * threw `InvalidState - failed to capture frame`. The thinking cue had this
+   * guard at its call site; the others did not, so it lives here now.
+   */
   cue(name: CueName): void {
-    if (this.tones) this.mouth.cue(name);
+    if (this.tones && !this.speaking) this.mouth.cue(name);
   }
 
   /** One sentence of the answer. It is what a barge-in holds. */
@@ -343,7 +350,9 @@ export class Conversation {
       // 15.1 a cue fills silence. Never over the voice — one transport shares a
       // single audio source and refuses two writers — and never while an answer
       // is wanted, because at the checkpoint the bridge has just asked for one.
-      if (!this.checkpointOpen && !this.speaking) this.cue("thinking");
+      // 15.1 never while an answer is wanted: at the checkpoint the bridge has
+      // just asked for one. cue() keeps it off the voice.
+      if (!this.checkpointOpen) this.cue("thinking");
       timer = setTimeout(tick.bind(this), this.config.audioCueEveryMs);
     }.bind(this), this.config.audioCueDelayMs);
     return () => clearTimeout(timer);

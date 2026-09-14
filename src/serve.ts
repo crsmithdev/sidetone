@@ -160,6 +160,14 @@ export async function serve(dir: string, config: Config): Promise<void> {
     // arriving twice and the tracker ignores the repeat. It is kept because
     // either source can go quiet, and the phone's is the one that survives a
     // link the bridge has stopped hearing from.
+    // N/A to the spec, and asked for after a session where the microphone kept
+    // picking up half sentences: a hard cut the phone controls. Anything half
+    // recorded goes with it, or it arrives as a fragment on the way back.
+    if (value.kind === "mic") {
+      const on = value.on !== false;
+      utterances.reset();
+      console.log(`[the phone ${on ? "opened" : "cut"} its microphone]`);
+    }
     if (value.kind === "quality") {
       const quality = qualityOf(value.quality);
       if (conversation.network.saw("phone", quality)) console.log(`[the phone's connection is ${quality}]`);
