@@ -15,8 +15,18 @@ import {
   AudioFrame, AudioSource, AudioStream, LocalAudioTrack, Room, RoomEvent,
   TrackKind, TrackPublishOptions, TrackSource, type RemoteParticipant, type RemoteTrack,
 } from "@livekit/rtc-node";
+import { randomUUID } from "node:crypto";
 import { AccessToken } from "livekit-server-sdk";
 import { decodeWav } from "./audio.ts";
+
+/**
+ * One per process, so a restart never collides with the session it replaces.
+ * The clock alone is not enough: two of these inside a millisecond collided
+ * fourteen times in two hundred, and a collision here is the whole bug.
+ */
+export function uniqueIdentity(prefix = "bridge"): string {
+  return `${prefix}-${Date.now().toString(36)}-${randomUUID().slice(0, 8)}`;
+}
 
 /** WebRTC carries 48 kHz mono; everything is resampled to it before it is sent. */
 export const RTC_RATE = 48_000;
@@ -65,8 +75,18 @@ export class Transport {
     await this.room.localParticipant?.publishTrack(track, options);
   }
 
-  /** Join as the bridge, which does hold the keys. */
-  async join(keys: Keys, roomName: string, identity = "bridge"): Promise<void> {
+  /**
+   * Join as the bridge, which does hold the keys.
+   *
+   * The identity has to be different every time. LiveKit allows one
+   * participant per identity in a room, and a restart arrives while the old
+   * session is still registered: the server logs DUPLICATE_IDENTITY, closes a
+   * participant, and the new process is left holding a room it is not in.
+   * Nothing errors. `connect()` resolves, one quality event arrives, and then
+   * it is simply out. Every restart did this, which is why the bridge had to
+   * run for three days untouched to look reliable.
+   */
+  async join(keys: Keys, roomName: string, identity = uniqueIdentity()): Promise<void> {
     await this.connect(keys.url, await tokenFor(keys, roomName, identity, 24), identity);
   }
 
@@ -149,6 +169,11 @@ export class Transport {
   /** Whether the room is joined right now, for the health check. */
   get connected(): boolean { return this.room.isConnected; }
 
+  /** Whether an identity in the room is this bridge, whatever it called itself. */
+  isSelf(identity: string): boolean {
+    return identity === this.room.localParticipant?.identity;
+  }
+
   /**
    * 14.1 the transport is meant to survive a link that comes and goes, but at
    * startup there is nothing to survive yet: if livekit is not listening the
@@ -159,9 +184,10 @@ export class Transport {
    */
   async joinWhenReady(keys: Keys, roomName: string, deadlineMs: number, say: (text: string) => void): Promise<void> {
     const until = Date.now() + deadlineMs;
+    const identity = uniqueIdentity();
     for (let wait = 500; ; wait = Math.min(wait * 2, 5_000)) {
       try {
-        await this.join(keys, roomName);
+        await this.join(keys, roomName, identity);
         return;
       } catch (error) {
         if (Date.now() + wait >= until) throw error;

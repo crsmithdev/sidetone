@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { RTC_RATE, frameAt, resample, tokenFor } from "../src/transport.ts";
+import { RTC_RATE, frameAt, resample, tokenFor, uniqueIdentity } from "../src/transport.ts";
 
 /**
  * The pure half of the transport. These two functions carry the fault that
@@ -80,5 +80,16 @@ describe("the token a phone is given (12.2)", () => {
     const days = (claims.exp - claims.nbf) / 86_400;
     expect(days).toBeGreaterThan(29.9);
     expect(days).toBeLessThan(30.1);
+  });
+});
+
+describe("the identity the bridge joins under", () => {
+  test("it differs every time, or a restart evicts itself", () => {
+    const seen = new Set(Array.from({ length: 200 }, () => uniqueIdentity()));
+    expect(seen.size).toBe(200);
+  });
+
+  test("it still says what it is, for a log that has to be read", () => {
+    expect(uniqueIdentity()).toStartWith("bridge-");
   });
 });

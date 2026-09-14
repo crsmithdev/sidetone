@@ -171,7 +171,7 @@ export async function serve(dir: string, config: Config): Promise<void> {
   transport.onQuality((quality, identity) => {
     const seen = qualityOf(quality);
     // the bridge is told about every participant, including itself
-    const side = identity === "bridge" ? "bridge" : "phone";
+    const side = transport.isSelf(identity) ? "bridge" : "phone";
     if (conversation.network.saw(side, seen)) console.log(`[${side === "bridge" ? "this end" : "the phone"} reports ${seen}]`);
   });
 
@@ -226,6 +226,21 @@ export async function serve(dir: string, config: Config): Promise<void> {
     console.log("warning: a browser gives no microphone to a page that is not https, except on loopback");
   }
   console.log(`pair the phone with this code: ${code}`);
+
+  // Leave the room on the way out. Without this the participant slot lingers,
+  // and the process that replaces this one arrives to find itself already
+  // there under another name.
+  for (const signal of ["SIGTERM", "SIGINT"] as const) {
+    process.on(signal, () => {
+      void (async () => {
+        console.log(`[${signal}: leaving the room]`);
+        try { await transport.close(); } catch { /* going anyway */ }
+        conversation.stop();
+        server.stop();
+        process.exit(0);
+      })();
+    });
+  }
   await new Promise(() => {});
 }
 
