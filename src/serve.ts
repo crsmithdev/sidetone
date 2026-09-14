@@ -17,6 +17,7 @@ import { Conversation } from "./conversation.ts";
 import { Cues } from "./cues.ts";
 import { LocalWhisper, textToSpeech } from "./speech.ts";
 import { advertiseHost, livekitConfig, loadOrCreateKeys } from "./keys.ts";
+import { Diagnostics } from "./diagnostics.ts";
 import { qualityOf } from "./network.ts";
 import { RTC_RATE, Transport, tokenFor } from "./transport.ts";
 
@@ -61,6 +62,7 @@ export async function serve(dir: string, config: Config): Promise<void> {
   const startedAt = Date.now();
   await transport.joinWhenReady(keys, config.room, config.livekitWaitMs, (text) => console.log(`[${text}]`));
 
+  const diagnostics = new Diagnostics();
   let counter = 0;
   /** 11.5 the ends of a turn, found in the frames the phone sends. */
   const utterances = new Utterances({
@@ -92,6 +94,7 @@ export async function serve(dir: string, config: Config): Promise<void> {
       conversation.latency.answered();
       const whole = await transport.speak(await Bun.file(wav).bytes(), bargingIn);
       if (!whole) console.log(`  [stopped: Chris started talking${bargedAt ? `, ${Date.now() - bargedAt}ms after it was noticed` : ""}]`);
+      diagnostics.spoke(text, whole);
       return whole;
     },
     cue(name) {
@@ -127,6 +130,7 @@ export async function serve(dir: string, config: Config): Promise<void> {
         const { level, heldMs } = utterances.bargeIn;
         console.log(`  [barge-in: level ${level.toFixed(3)}, held ${Math.round(heldMs)}ms]`);
         conversation.latency.barged(level, heldMs);
+        diagnostics.barged(level, heldMs);
         conversation.stopSpeaking();
       }
     }
@@ -136,17 +140,29 @@ export async function serve(dir: string, config: Config): Promise<void> {
     conversation.latency.spoke(Date.now() - config.endOfTurnPauseMs, Date.now());
     conversation.cue("heard");
     const wav = join(scratch, `heard-${++counter}.wav`);
-    void Bun.write(wav, encodeWav(said, RTC_RATE))
+    const readAt = Date.now();
+    void Bun.write(wav, encodeWav(said.samples, RTC_RATE))
       .then(() => stt.transcribe(wav))
       .then((text) => {
         conversation.latency.transcribed();
+        const transcribeMs = Date.now() - readAt;
+        diagnostics.heard(said, text, transcribeMs);
+        // the shape of what was heard, which is what says whether a sentence
+        // was cut in half: a short recording that is mostly quiet, arriving
+        // one end-of-turn pause after the last one, is half a sentence
+        console.log(
+          `\n> ${text || "(nothing)"}` +
+          `\n  [${(said.ms / 1000).toFixed(1)}s heard, ${(said.speechMs / 1000).toFixed(1)}s of speech in it, ` +
+          `peak ${said.peak.toFixed(2)}, ${(said.gapMs / 1000).toFixed(1)}s quiet before, ` +
+          `read in ${transcribeMs}ms]`,
+        );
         // 11.3 road noise that carried no words must give the passage back
         if (!text) { conversation.heardNothing(); return; }
-        console.log(`\n> ${text}`);
         return conversation.heard(text);
       })
       .catch((error) => {
         conversation.heardNothing();
+        diagnostics.note(`could not read that: ${(error as Error).message}`);
         console.log(`[could not read that: ${(error as Error).message}]`);
       });
   });
@@ -202,6 +218,21 @@ export async function serve(dir: string, config: Config): Promise<void> {
        * 13 September 2026 a crash loop went unnoticed for an hour because
        * nothing ever asked.
        */
+      /** Everything measured lately, for reading a session back afterwards. */
+      if (url.pathname === "/diagnostics") {
+        return Response.json({
+          summary: diagnostics.summary(),
+          settings: {
+            speechLevel: config.speechLevel, speechOnsetMs: config.speechOnsetMs,
+            endOfTurnPauseMs: config.endOfTurnPauseMs,
+            bargeInLevel: config.bargeInLevel, bargeInMs: config.bargeInMs, bargeInGapMs: config.bargeInGapMs,
+            cueVolume: config.cueVolume, ttsEngine: config.ttsEngine, ttsVoice: config.ttsVoice,
+          },
+          latency: { rounds: conversation.latency.count, medianMs: conversation.latency.median(), worstMs: conversation.latency.worst() },
+          network: { phone: conversation.network.get("phone"), bridge: conversation.network.get("bridge") },
+          recent: diagnostics.recent(Number(url.searchParams.get("n") ?? 40)),
+        });
+      }
       if (url.pathname === "/health") {
         const well = transport.connected && conversation.session.running;
         return Response.json({

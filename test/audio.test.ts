@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { Utterances, decodeWav, encodeWav, level } from "../src/audio.ts";
+import { Utterances, decodeWav, encodeWav, level, type Utterance } from "../src/audio.ts";
 
 const RATE = 16_000;
 /** 20 ms of frame, the size LiveKit hands over. */
@@ -69,11 +69,11 @@ describe("utterances (11.5)", () => {
     const u = collector();
     for (let i = 0; i < 5; i++) u.push(QUIET);
     for (let i = 0; i < 20; i++) u.push(LOUD);
-    let said: Int16Array | null = null;
+    let said: Utterance | null = null;
     for (let i = 0; i < 10 && !said; i++) said = u.push(QUIET);
     // the frames it took to decide speech had started are in there, not thrown away
     expect(said).not.toBeNull();
-    expect((said as Int16Array).length).toBeGreaterThan(20 * LOUD.length);
+    expect((said as Utterance).samples.length).toBeGreaterThan(20 * LOUD.length);
   });
   test("road noise opens a recording and does not stop the bridge (11.3)", () => {
     const u = collector();
@@ -113,10 +113,27 @@ describe("utterances (11.5)", () => {
     for (let i = 0; i < 10; i++) u.push(QUIET);
     expect(u.bargingIn).toBe(false);
   });
+  test("an utterance says what it was, which is what a fragmented session needs", () => {
+    const u = collector();
+    for (let i = 0; i < 10; i++) u.push(QUIET);   // 200 ms of room
+    for (let i = 0; i < 25; i++) u.push(LOUD);    // 500 ms of speech
+    let said: Utterance | null = null;
+    for (let i = 0; i < 12 && !said; i++) said = u.push(QUIET);
+    expect(said).not.toBeNull();
+    const heard = said as Utterance;
+    expect(heard.endedBy).toBe("pause");
+    // the speech, plus the pause that ended it
+    expect(heard.ms).toBeGreaterThan(600);
+    expect(heard.speechMs).toBeGreaterThan(400);
+    expect(heard.speechMs).toBeLessThan(heard.ms);
+    expect(heard.peak).toBeGreaterThan(0.1);
+    expect(heard.gapMs).toBeGreaterThan(100);
+  });
+
   test("what is held when the stream ends is still an utterance", () => {
     const u = collector();
     for (let i = 0; i < 20; i++) u.push(LOUD);
-    expect(u.flush()).not.toBeNull();
+    expect(u.flush()?.endedBy).toBe("flush");
     expect(u.flush()).toBeNull();
   });
 });

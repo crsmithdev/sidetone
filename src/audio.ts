@@ -85,6 +85,28 @@ export interface UtteranceOptions {
 }
 
 /**
+ * What one utterance turned out to be, so a session can be read back later.
+ * On 14 September Chris's sentences arrived as fragments -- "Okay, it's...",
+ * "It was just, just," -- and nothing recorded enough to say why. These are
+ * the numbers that would have said it: how long it ran, how much of that was
+ * above the speech level, how loud it got, and how long the room had been
+ * quiet before it started.
+ */
+export interface Utterance {
+  samples: Int16Array;
+  /** the whole recording, pre-roll included */
+  ms: number;
+  /** of that, how much was above speechLevel */
+  speechMs: number;
+  /** loudest frame, as a fraction of full scale */
+  peak: number;
+  /** quiet before this one began, which is the pause that ended the one before */
+  gapMs: number;
+  /** what finished it: the end-of-turn pause, or the stream ending */
+  endedBy: "pause" | "flush";
+}
+
+/**
  * Frames in, whole utterances out (11.5). Nothing is emitted while Chris is
  * still talking, and nothing at all while the room is quiet.
  */
@@ -99,6 +121,12 @@ export class Utterances {
   private barged = false;
   private bargePeak = 0;
   private bargeQuietMs = 0;
+  /** what this utterance has looked like so far, for Utterance above */
+  private ranMs = 0;
+  private spokeMs = 0;
+  private peak = 0;
+  private idleMs = 0;
+  private gapMs = 0;
 
   constructor(private readonly options: UtteranceOptions) {}
 
@@ -107,7 +135,7 @@ export class Utterances {
   }
 
   /** The utterance this frame completed, or null. */
-  push(frame: Int16Array): Int16Array | null {
+  push(frame: Int16Array): Utterance | null {
     const { sampleRate, pauseMs, onsetMs, speechLevel, bargeInLevel, bargeInMs, bargeInGapMs } = this.options;
     const ms = (frame.length / sampleRate) * 1000;
     const heard = level(frame);
@@ -133,6 +161,7 @@ export class Utterances {
     }
 
     if (!this.speaking) {
+      this.idleMs += ms;
       // keep a little of what came before, so the first word survives the decision
       this.preRoll.push(frame);
       this.preRollSamples += frame.length;
@@ -146,23 +175,40 @@ export class Utterances {
       this.preRoll = [];
       this.preRollSamples = 0;
       this.quietMs = 0;
+      this.gapMs = Math.max(0, this.idleMs - this.loudMs);
+      this.idleMs = 0;
+      this.ranMs = this.loudMs;
+      this.spokeMs = this.loudMs;
+      this.peak = heard;
       return null;
     }
 
     this.recording.push(frame);
+    this.ranMs += ms;
+    if (loud) this.spokeMs += ms;
+    this.peak = Math.max(this.peak, heard);
     this.quietMs = loud ? 0 : this.quietMs + ms;
     if (this.quietMs < pauseMs) return null;
-    const utterance = concat(this.recording);
+    return this.finish("pause");
+  }
+
+  private finish(endedBy: "pause" | "flush"): Utterance {
+    const utterance: Utterance = {
+      samples: concat(this.recording),
+      ms: Math.round(this.ranMs),
+      speechMs: Math.round(this.spokeMs),
+      peak: Number(this.peak.toFixed(3)),
+      gapMs: Math.round(this.gapMs),
+      endedBy,
+    };
     this.reset();
     return utterance;
   }
 
   /** Anything held when the stream ends is still an utterance. */
-  flush(): Int16Array | null {
+  flush(): Utterance | null {
     if (!this.speaking) return null;
-    const utterance = concat(this.recording);
-    this.reset();
-    return utterance;
+    return this.finish("flush");
   }
 
   reset(): void {
@@ -176,6 +222,9 @@ export class Utterances {
     this.barged = false;
     this.bargePeak = 0;
     this.bargeQuietMs = 0;
+    this.ranMs = 0;
+    this.spokeMs = 0;
+    this.peak = 0;
   }
 
   /** Whether a recording is open, which is not the same question as a barge-in. */
