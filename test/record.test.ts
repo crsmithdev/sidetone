@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Utterance } from "../src/audio.ts";
@@ -88,5 +88,21 @@ describe("the drive record", () => {
     const path = join(scratch(), "record.jsonl");
     new Recorder(path).session({}, 100);
     expect(readDrive(path)).toBeNull();
+  });
+
+  /**
+   * On 14 September a unit with a bad ExecStart restarted every eight seconds
+   * for twenty hours. A header for each start would have been the whole file.
+   */
+  test("a process that hears nothing leaves nothing behind", () => {
+    const path = join(scratch(), "record.jsonl");
+    for (let i = 0; i < 500; i++) new Recorder(path).session({}, i);
+    expect(existsSync(path)).toBe(false);
+
+    const heard = new Recorder(path);
+    heard.session({ cueVolume: 0.12 }, 900);
+    new Diagnostics((e) => heard.write(e)).heard(utterance(), "hey bridge, stats", 150, 950);
+    expect(readFileSync(path, "utf8").trim().split("\n").length).toBe(2);
+    expect(readDrive(path)?.settings).toEqual({ cueVolume: 0.12 });
   });
 });

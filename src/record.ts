@@ -32,13 +32,20 @@ export interface Drive {
 
 export class Recorder {
   private failed = false;
+  private pending: Header | null = null;
 
   constructor(private readonly path: string) {}
 
-  /** Open a session. Everything appended after this belongs to it. */
+  /**
+   * Open a session. Everything appended after this belongs to it.
+   *
+   * The header waits for the first event. A process that starts and hears
+   * nothing writes nothing: on 14 September a unit with a bad ExecStart
+   * restarted every eight seconds for twenty hours, and a header for each of
+   * those would be the whole file.
+   */
   session(settings: Record<string, unknown>, at = Date.now()): void {
-    try { mkdirSync(dirname(this.path), { recursive: true }); } catch { /* the append will say so */ }
-    this.write({ kind: "session", at, settings });
+    this.pending = { kind: "session", at, settings };
   }
 
   /**
@@ -48,7 +55,13 @@ export class Recorder {
    */
   write(line: Line): void {
     if (this.failed) return;
+    const header = this.pending;
+    this.pending = null;
     try {
+      if (header) {
+        mkdirSync(dirname(this.path), { recursive: true });
+        appendFileSync(this.path, `${JSON.stringify(header)}\n`);
+      }
       appendFileSync(this.path, `${JSON.stringify(line)}\n`);
     } catch (error) {
       this.failed = true;
