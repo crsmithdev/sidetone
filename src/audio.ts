@@ -61,6 +61,16 @@ export function encodeWav(samples: Int16Array, sampleRate: number, channels = 1)
   return out;
 }
 
+/**
+ * Too quiet to have been a person. The voice detector inside whisper drops
+ * most of it, but not all: on 14 September a recording peaking at 0.12 came
+ * back as "Thank you." and cost a turn, while every real utterance in the same
+ * session peaked above 0.43.
+ */
+export function tooQuiet(utterance: Utterance, minPeak: number): boolean {
+  return utterance.peak < minPeak;
+}
+
 /** The level of a block of samples, as a fraction of full scale. */
 export function level(samples: Int16Array): number {
   if (samples.length === 0) return 0;

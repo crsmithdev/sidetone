@@ -27,6 +27,20 @@ export interface Config {
   wakeWord: string;
   /** 9.3 the other things the engine writes when it hears the wake word (18.8) */
   wakeWordVariants: string[];
+  /**
+   * 9.1 how long the bridge waits for the command after hearing the wake word
+   * on its own. Measured 14 September: Chris leaves about 1.6 seconds between
+   * "hey bridge" and what follows, which is longer than the end-of-turn pause,
+   * so the two arrive as separate utterances and neither works alone.
+   */
+  wakeHoldMs: number;
+  /**
+   * The quietest an utterance may peak and still be treated as speech. Whisper
+   * writes words for near-silence even with the voice detector on: "Thank you."
+   * came out of a recording that peaked at 0.12 and cost a turn. Real speech in
+   * the same session peaked between 0.43 and 0.55.
+   */
+  minSpeechPeak: number;
   /** 9.5 the only two commands that work while muted; a list so it can grow (9.6) */
   mutedCommands: string[];
   /** 10.2 a specific word, never "yes" */
@@ -147,6 +161,8 @@ export const DEFAULTS: Config = {
   // small.en writes "hey bridge" as "Cambridge" about half the time. 9.3 says
   // the bridge accepts the forms the engine produces; 18.8 says find them by use.
   wakeWordVariants: ["cambridge"],
+  wakeHoldMs: 6_000,
+  minSpeechPeak: 0.15,
   mutedCommands: ["mute", "unmute", "tones", "tonesOn", "tonesOff"],
   agreementWord: "continue",
   narrationDelayMs: 5_000,

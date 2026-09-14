@@ -212,7 +212,9 @@ describe("the hold (11.3)", () => {
     r.guts.speak("the rest.");
     await r.c.heard("hey bridge wtaeuhnt");
     await tick();
-    expect(r.said).toEqual(["Say the command again.", "the rest."]);
+    // it waits for the command rather than saying anything: the pause between
+    // the wake word and what follows is usually why it arrived alone
+    expect(r.said).toEqual(["the rest."]);
   });
 
   test("where are we drops the passage, because it is for reorienting (9.4.7)", async () => {
@@ -262,6 +264,58 @@ describe("a cue never plays over the voice (15)", () => {
     await tick();
     r.c.cue("thinking");
     expect(r.cues).toEqual([]);
+  });
+});
+
+/**
+ * Measured on 14 September: Chris leaves about 1.6 seconds between "hey
+ * bridge" and the command, and the end-of-turn pause is 1.5, so the two arrive
+ * as separate utterances. "Hey, bridge." got "say the command again" and
+ * "Mute." went to the agent, which answered it with four paragraphs about
+ * src/commands.ts and cost eleven cents.
+ */
+describe("the wake word on its own (9.1)", () => {
+  test("the command that follows it is still the command", async () => {
+    const r = room();
+    await r.c.heard("Hey, bridge.");
+    await r.c.heard("Mute.");
+    await tick();
+    expect(r.c.isMuted).toBe(true);
+    expect(r.said).toEqual(["Muted."]);
+  });
+
+  test("a question after a false start reaches the agent rather than vanishing", async () => {
+    const r = room();
+    r.c.session.ask = async () => { throw new Error("no agent in a test"); };
+    await r.c.heard("Hey, bridge.");
+    await r.c.heard("what does the serve command do");
+    await tick();
+    // it is not a command, so it is speech, and speech is not swallowed
+    expect(r.said).toEqual(["That turn did not finish."]);
+  });
+
+  test("it does not wait for ever", async () => {
+    const r = room({ wakeHoldMs: 20 });
+    await r.c.heard("Hey, bridge.");
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    r.c.session.ask = async () => { throw new Error("no agent in a test"); };
+    await r.c.heard("Mute.");
+    await tick();
+    // too late to be the command, so it is what it sounds like: speech
+    expect(r.c.isMuted).toBe(false);
+  });
+
+  test("the hold is spent once, not left armed", async () => {
+    const r = room();
+    r.c.session.ask = async () => { throw new Error("no agent in a test"); };
+    await r.c.heard("Hey, bridge.");
+    await r.c.heard("Mute.");
+    await tick();
+    expect(r.c.isMuted).toBe(true);
+    await r.c.heard("Unmute.");
+    await tick();
+    // the second one had no wake word in front of it, so it was speech
+    expect(r.c.isMuted).toBe(true);
   });
 });
 

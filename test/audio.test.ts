@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { Utterances, decodeWav, encodeWav, level, type Utterance } from "../src/audio.ts";
+import { Utterances, decodeWav, encodeWav, level, tooQuiet, type Utterance } from "../src/audio.ts";
 
 const RATE = 16_000;
 /** 20 ms of frame, the size LiveKit hands over. */
@@ -135,5 +135,21 @@ describe("utterances (11.5)", () => {
     for (let i = 0; i < 20; i++) u.push(LOUD);
     expect(u.flush()?.endedBy).toBe("flush");
     expect(u.flush()).toBeNull();
+  });
+});
+
+describe("too quiet to have been a person", () => {
+  const heard = (peak: number) => ({ samples: new Int16Array(0), ms: 2_100, speechMs: 400, peak, gapMs: 1_500, endedBy: "pause" as const });
+  test("the levels measured on 14 September fall either side of the default", () => {
+    // "Thank you." came out of this one, and Chris never said it
+    expect(tooQuiet(heard(0.12), 0.15)).toBe(true);
+    // and these are what he actually sounded like
+    for (const peak of [0.43, 0.46, 0.48, 0.50, 0.52, 0.55]) {
+      expect(tooQuiet(heard(peak), 0.15)).toBe(false);
+    }
+  });
+  test("the threshold is a setting, not a verdict", () => {
+    expect(tooQuiet(heard(0.30), 0.5)).toBe(true);
+    expect(tooQuiet(heard(0.30), 0.1)).toBe(false);
   });
 });

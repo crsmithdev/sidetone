@@ -23,7 +23,7 @@
  * | end the turn | dropped | interrupted |
  * | clear the context | held until the gate answers | dies with the process |
  */
-import { match, type CommandName } from "./commands.ts";
+import { commandIn, match, type CommandName } from "./commands.ts";
 import type { Config } from "./config.ts";
 import type { CueName } from "./cues.ts";
 import { Latency } from "./latency.ts";
@@ -72,6 +72,14 @@ export class Conversation {
   private holdBackstop: ReturnType<typeof setTimeout> | null = null;
   /** What has actually reached Chris's ears this turn, for 9.4.5. */
   private said: string[] = [];
+  /**
+   * 9.1 the wake word arrived on its own. Chris leaves about 1.6 seconds
+   * before the command, which is longer than the end-of-turn pause, so the two
+   * become separate utterances: "hey bridge" then "mute", and neither works.
+   * Rather than asking him to say it again, wait and read the next utterance
+   * as the command.
+   */
+  private awaitingCommand = 0;
   /** 10.1 an action waiting for the agreement word before it happens. */
   private gate: { act(): void; denied: string; timer: ReturnType<typeof setTimeout> } | null = null;
   /** 9.4.7 the last three request and reply pairs, which the bridge answers from itself */
@@ -256,9 +264,27 @@ export class Conversation {
       this.reply(denied);
     }
 
+    // the wake word arrived a moment ago on its own, so this is its command.
+    // If it is not one, it falls through and reaches the agent as speech: a
+    // question asked after a false start must not be swallowed.
+    const awaited = this.awaitingCommand > Date.now();
+    this.awaitingCommand = 0;
+    if (awaited && heard.kind === "speech") {
+      const name = commandIn(plain(said));
+      if (name && (!this.muted || this.config.mutedCommands.includes(name))) {
+        this.after(await this.run(name));
+        return;
+      }
+    }
+
     if (heard.kind === "command") { this.after(await this.run(heard.name)); return; }
-    // 9.7 the wake word came through and the command did not
-    if (heard.kind === "unclear") { this.reply("Say the command again."); this.resumeHold(); return; }
+    // 9.7 the wake word came through and the command did not. Wait for it
+    // rather than complaining: the pause between the two is usually the reason.
+    if (heard.kind === "unclear") {
+      this.awaitingCommand = Date.now() + this.config.wakeHoldMs;
+      this.resumeHold();
+      return;
+    }
     if (this.muted) { this.resumeHold(); return; }
     // 10.2 the agreement word is a word said plainly, not a wake command
     if (this.agreed(said)) {

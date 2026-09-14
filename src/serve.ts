@@ -11,7 +11,7 @@
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Utterances, encodeWav } from "./audio.ts";
+import { Utterances, encodeWav, tooQuiet } from "./audio.ts";
 import type { Config } from "./config.ts";
 import { Conversation } from "./conversation.ts";
 import { Cues } from "./cues.ts";
@@ -138,6 +138,14 @@ export async function serve(dir: string, config: Config): Promise<void> {
     // The end of the turn was the pause ago, not now. Measuring from here
     // would charge a setting to the round trip.
     conversation.latency.spoke(Date.now() - config.endOfTurnPauseMs, Date.now());
+    // 4.6 whisper writes words for near-silence even with its voice detector
+    // on, and each invention costs a turn. Real speech is louder than this.
+    if (tooQuiet(said, config.minSpeechPeak)) {
+      diagnostics.heard(said, "", 0);
+      console.log(`\n> (too quiet: peak ${said.peak.toFixed(2)}, under ${config.minSpeechPeak})`);
+      conversation.heardNothing();
+      return;
+    }
     conversation.cue("heard");
     const wav = join(scratch, `heard-${++counter}.wav`);
     const readAt = Date.now();
@@ -226,6 +234,7 @@ export async function serve(dir: string, config: Config): Promise<void> {
             speechLevel: config.speechLevel, speechOnsetMs: config.speechOnsetMs,
             endOfTurnPauseMs: config.endOfTurnPauseMs,
             bargeInLevel: config.bargeInLevel, bargeInMs: config.bargeInMs, bargeInGapMs: config.bargeInGapMs,
+            minSpeechPeak: config.minSpeechPeak, wakeHoldMs: config.wakeHoldMs,
             cueVolume: config.cueVolume, ttsEngine: config.ttsEngine, ttsVoice: config.ttsVoice,
           },
           latency: { rounds: conversation.latency.count, medianMs: conversation.latency.median(), worstMs: conversation.latency.worst() },
