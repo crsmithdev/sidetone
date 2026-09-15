@@ -10,5 +10,6 @@
     "skipLibCheck": true,
     "types": ["bun-types"]
   },
-  "include": ["src", "test"]
+  "include": ["src", "test", "scripts"],
+  "exclude": ["scripts/browser-check.ts"]
 }

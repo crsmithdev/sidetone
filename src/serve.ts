@@ -220,6 +220,18 @@ export async function serve(dir: string, config: Config): Promise<void> {
   });
 
   const code = pairingCode();
+  /**
+   * 12.1 three words drawn from twenty-six is 17,576 codes, and until
+   * 15 September a wrong one cost nothing but the round trip. The port is open
+   * to the tailnet for the phone, and a token is thirty days of joining the
+   * room, hearing everything and driving the agent.
+   *
+   * Each wrong code now makes the next one slower, to ten seconds, which turns
+   * the whole space into weeks. It does not stop a caller guessing down many
+   * connections at once: the answer to that is a longer code, not a longer
+   * wait, and the code is read out loud so it stays three words for now.
+   */
+  let wrongCodes = 0;
   const page = await Bun.file(new URL("../client/index.html", import.meta.url).pathname).text();
   const sdk = new URL("../node_modules/livekit-client/dist/livekit-client.esm.mjs", import.meta.url).pathname;
 
@@ -253,7 +265,7 @@ export async function serve(dir: string, config: Config): Promise<void> {
           settings: settingsInForce(config),
           latency: { rounds: conversation.latency.count, medianMs: conversation.latency.median(), worstMs: conversation.latency.worst() },
           network: { phone: conversation.network.get("phone"), bridge: conversation.network.get("bridge") },
-          recent: diagnostics.recent(Number(url.searchParams.get("n") ?? 40)),
+          recent: diagnostics.recent(count(url.searchParams.get("n"), 40)),
         });
       }
       if (url.pathname === "/health") {
@@ -271,7 +283,12 @@ export async function serve(dir: string, config: Config): Promise<void> {
       // 12.1 the boundary. Everything below here needs the code or a token.
       if (url.pathname === "/pair" && request.method === "POST") {
         const body = await request.json().catch(() => ({})) as { code?: string };
-        if (body.code?.trim().toLowerCase() !== code) return Response.json({ error: "that code is not right" }, { status: 403 });
+        if (body.code?.trim().toLowerCase() !== code) {
+          wrongCodes++;
+          await Bun.sleep(Math.min(wrongCodes, 20) * 500);
+          return Response.json({ error: "that code is not right" }, { status: 403 });
+        }
+        wrongCodes = 0;
         const token = await tokenFor(keys, config.room, `phone-${Date.now()}`, config.tokenDays * 24);
         // 12.3 the same answer serves the web client and the Android app. The url
         // is the one the phone can reach, never the loopback the bridge dials.
@@ -304,6 +321,12 @@ export async function serve(dir: string, config: Config): Promise<void> {
     });
   }
   await new Promise(() => {});
+}
+
+/** A window size from the query, or the default: `?n=abc` used to mean the whole buffer. */
+function count(value: string | null, fallback: number): number {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
 }
 
 /** Loopback, in either family. Bun writes an IPv4 client on a dual-stack listener as ::ffff:127.0.0.1. */

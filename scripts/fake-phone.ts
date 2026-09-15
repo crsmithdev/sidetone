@@ -142,7 +142,10 @@ await Bun.sleep(3_000);
 const heard: string[] = [];
 let speakingSince = 0;
 let lastAudioAt = 0;
-const utterances = new Utterances({ sampleRate: RTC_RATE, pauseMs: 900, onsetMs: 80, speechLevel: 0.02 });
+const utterances = new Utterances({
+  sampleRate: RTC_RATE, pauseMs: 900, onsetMs: 80, speechLevel: 0.02,
+  bargeInLevel: 0.05, bargeInMs: 400, bargeInGapMs: 200,
+});
 let index = 0;
 phone.onAudio((frame) => {
   for (const sample of frame) {
@@ -151,7 +154,7 @@ phone.onAudio((frame) => {
   const said = utterances.push(frame);
   if (!said) return;
   const wav = join(scratch, `heard-${++index}.wav`);
-  void Bun.write(wav, encodeWav(said, RTC_RATE))
+  void Bun.write(wav, encodeWav(said.samples, RTC_RATE))
     .then(() => stt.transcribe(wav))
     .then((text) => { if (text) { heard.push(text); console.log(`${at()} heard  | ${text}`); } });
 });
