@@ -116,6 +116,27 @@ describe("the commands, in the order the card asks for them", () => {
     expect(card.commands.fired).toBe(8);
   });
 
+  /**
+   * Step 1 is stats and the card asks for stats again at the end, while
+   * talking over the answer. Taking the first firing after the one before it
+   * matched that last one, left nothing for the eight steps between, and
+   * turned a drive that fired eight of nine into 1 of 9.
+   */
+  test("a step that fires again later does not swallow the steps between", () => {
+    const drive = [
+      heard("the keeper rang the bell"), matched("hey bridge, mute", "mute"), matched("hey bridge, unmute", "unmute"),
+      // step 1, stats, never fires
+      matched("hey bridge, tones off", "tonesOff"), matched("hey bridge, tones on", "tonesOn"),
+      matched("hey bridge, recap", "where"), matched("hey bridge, say again", "restate"),
+      matched("hey bridge, mute", "mute"), matched("hey bridge, unmute", "unmute"),
+      matched("hey bridge, mute", "mute"), matched("hey bridge, unmute", "unmute"),
+      matched("hey bridge, stats", "stats"),
+    ];
+    const card = score(drive);
+    expect(card.commands.missed).toEqual(["stats"]);
+    expect(card.commands.fired).toBe(8);
+  });
+
   test("a missed step does not slide the ones after it", () => {
     const drive = SCRIPT.filter((step) => step.expect !== "tonesOn")
       .map((step) => matched(step.say, step.expect));

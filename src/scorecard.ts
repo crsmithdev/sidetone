@@ -55,25 +55,26 @@ export function score(events: Event[], script = SCRIPT, passage = PASSAGE): Scor
   const heard = events.filter((e): e is Heard => e.kind === "heard");
   const matched = events.filter((e): e is Matched => e.kind === "matched");
 
-  // The commands, matched in the order the card asks for them, each against
-  // the first firing after the one before it.
+  // The commands, aligned against the card in order.
   //
-  // Counting by name instead read 9 of 9 on a drive where step 8 never fired
-  // at all: the card mutes to read the passage and asks for stats while
-  // talking over the answer, so mute, unmute and stats each fire outside the
-  // script and stood in for a step that failed. Step 8 is the wake-word hold,
-  // which is the one thing the card exists to measure.
+  // Two rules that look right are not. Counting each name and comparing the
+  // totals read 9 of 9 on a drive where step 8 never fired at all: the card
+  // mutes to read the passage and asks for stats while talking over the
+  // answer, so mute, unmute and stats each fire outside the script and stood
+  // in for a step that failed. Step 8 is the wake-word hold, which is the one
+  // thing the card exists to measure.
   //
-  // A step that never fires does not slide the ones after it: the search for
-  // the next step carries on from where the last match was found.
+  // Taking the first firing after the one before it is worse. Step 1 is stats
+  // and the card asks for stats again at the end, so a failed step 1 matched
+  // that last firing, every later step then had nothing left to match, and a
+  // drive that fired eight of nine read 1 of 9 with stats not among the
+  // missed.
+  //
+  // The longest run of steps the drive fired in order is the answer to both.
+  // A step that did not fire costs itself and nothing else.
   const fired = matched.map((m) => m.became);
-  const missed: string[] = [];
-  let from = 0;
-  for (const step of script) {
-    const at = fired.indexOf(step.expect, from);
-    if (at === -1) missed.push(step.expect);
-    else from = at + 1;
-  }
+  const hit = alignment(fired, script.map((step) => step.expect));
+  const missed = script.filter((_, at) => !hit[at]).map((step) => step.expect);
   // a command phrase that reached the agent instead is the expensive failure
   const wrong = matched
     // the engine puts a comma in it as often as not: "Hey, BridgeMute."
@@ -135,6 +136,33 @@ function invented(heard: Heard[]): number {
   const median = middle(spoken.map((h) => h.peak).sort((a, b) => a - b));
   if (median <= 0) return 0;
   return spoken.filter((h) => h.peak < median * QUIET_SHARE).length;
+}
+
+/**
+ * Which steps the drive fired, in order: a longest common subsequence of what
+ * fired and what the card asked for. Extra firings between steps cost nothing,
+ * and a step that never fired takes no other step down with it.
+ */
+function alignment(fired: string[], script: string[]): boolean[] {
+  const runs: number[][] = Array.from({ length: fired.length + 1 }, () => new Array<number>(script.length + 1).fill(0));
+  for (let i = fired.length - 1; i >= 0; i--) {
+    for (let j = script.length - 1; j >= 0; j--) {
+      const row = runs[i] as number[];
+      const next = runs[i + 1] as number[];
+      row[j] = fired[i] === script[j]
+        ? (next[j + 1] as number) + 1
+        : Math.max(next[j] as number, row[j + 1] as number);
+    }
+  }
+  const hit = new Array<boolean>(script.length).fill(false);
+  let i = 0;
+  let j = 0;
+  while (i < fired.length && j < script.length) {
+    if (fired[i] === script[j]) { hit[j] = true; i++; j++; continue; }
+    if ((runs[i + 1]?.[j] as number) >= (runs[i]?.[j + 1] as number)) i++;
+    else j++;
+  }
+  return hit;
 }
 
 function middle(sorted: number[]): number {
