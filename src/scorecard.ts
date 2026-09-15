@@ -55,15 +55,24 @@ export function score(events: Event[], script = SCRIPT, passage = PASSAGE): Scor
   const heard = events.filter((e): e is Heard => e.kind === "heard");
   const matched = events.filter((e): e is Matched => e.kind === "matched");
 
-  // commands, counted by what fired rather than by position: a missed one
-  // would otherwise slide every step after it
-  const wanted = new Map<string, number>();
-  for (const step of script) wanted.set(step.expect, (wanted.get(step.expect) ?? 0) + 1);
-  const fired = new Map<string, number>();
-  for (const m of matched) if (wanted.has(m.became)) fired.set(m.became, (fired.get(m.became) ?? 0) + 1);
+  // The commands, matched in the order the card asks for them, each against
+  // the first firing after the one before it.
+  //
+  // Counting by name instead read 9 of 9 on a drive where step 8 never fired
+  // at all: the card mutes to read the passage and asks for stats while
+  // talking over the answer, so mute, unmute and stats each fire outside the
+  // script and stood in for a step that failed. Step 8 is the wake-word hold,
+  // which is the one thing the card exists to measure.
+  //
+  // A step that never fires does not slide the ones after it: the search for
+  // the next step carries on from where the last match was found.
+  const fired = matched.map((m) => m.became);
   const missed: string[] = [];
-  for (const [name, count] of wanted) {
-    for (let i = fired.get(name) ?? 0; i < count; i++) missed.push(name);
+  let from = 0;
+  for (const step of script) {
+    const at = fired.indexOf(step.expect, from);
+    if (at === -1) missed.push(step.expect);
+    else from = at + 1;
   }
   // a command phrase that reached the agent instead is the expensive failure
   const wrong = matched

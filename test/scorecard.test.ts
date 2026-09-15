@@ -93,6 +93,36 @@ describe("scoring a session", () => {
   });
 });
 
+describe("the commands, in the order the card asks for them", () => {
+  /**
+   * The card fires mute and unmute to read the passage and asks for stats
+   * while talking over the answer, all outside the script. Counted by name,
+   * those stood in for a step that never fired, and the one step the card
+   * exists to measure -- the wake-word hold at step 8 -- could not fail.
+   */
+  test("a step that never fired is missed, whatever fired elsewhere", () => {
+    const drive = [
+      heard("the keeper rang the bell"), matched("hey bridge, mute", "mute"), matched("hey bridge, unmute", "unmute"),
+      matched("hey bridge, stats", "stats"), matched("hey bridge, tones off", "tonesOff"),
+      matched("hey bridge, tones on", "tonesOn"), matched("hey bridge, recap", "where"),
+      matched("hey bridge, say again", "restate"),
+      matched("hey bridge, mute", "mute"), matched("hey bridge, unmute", "unmute"),
+      // step 8, the wake-word hold, never fires
+      matched("hey bridge, unmute", "unmute"),
+      matched("hey bridge, stats", "stats"),
+    ];
+    const card = score(drive);
+    expect(card.commands.missed).toEqual(["mute"]);
+    expect(card.commands.fired).toBe(8);
+  });
+
+  test("a missed step does not slide the ones after it", () => {
+    const drive = SCRIPT.filter((step) => step.expect !== "tonesOn")
+      .map((step) => matched(step.say, step.expect));
+    expect(score(drive).commands.missed).toEqual(["tonesOn"]);
+  });
+});
+
 describe("the round trip", () => {
   const answered = (answerMs: number): Event =>
     ({ kind: "answered", at: 0, answerMs, pauseMs: 1_500, transcribeMs: 200 });

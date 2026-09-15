@@ -142,9 +142,6 @@ export async function serve(dir: string, config: Config): Promise<void> {
       }
     }
     if (!said) return;
-    // The end of the turn was the pause ago, not now. Measuring from here
-    // would charge a setting to the round trip.
-    conversation.latency.spoke(Date.now() - config.endOfTurnPauseMs, Date.now());
     // 4.6 whisper writes words for near-silence even with its voice detector
     // on, and each invention costs a turn. Real speech is louder than this.
     if (tooQuiet(said, config.minSpeechPeak)) {
@@ -153,6 +150,14 @@ export async function serve(dir: string, config: Config): Promise<void> {
       conversation.heardNothing();
       return;
     }
+    // 18.4 the clock starts on speech, and a lorry is not speech. Starting it
+    // above the guard opened a round for every passing noise, and the next
+    // sentence of the answer closed that one instead of the real one: an
+    // eight-second round trip was recorded as one and a half.
+    //
+    // The end of the turn was the pause ago, not now. Measuring from here
+    // would charge a setting to the round trip.
+    conversation.latency.spoke(Date.now() - config.endOfTurnPauseMs, Date.now());
     conversation.cue("heard");
     const wav = join(scratch, `heard-${++counter}.wav`);
     const readAt = Date.now();
@@ -222,7 +227,7 @@ export async function serve(dir: string, config: Config): Promise<void> {
     port: config.servePort,
     hostname: "0.0.0.0",
     ...(secure ? { tls: { cert: Bun.file(config.tlsCert), key: Bun.file(config.tlsKey) } } : {}),
-    async fetch(request) {
+    async fetch(request, server) {
       const url = new URL(request.url);
       if (url.pathname === "/") return new Response(page, { headers: { "content-type": "text/html; charset=utf-8" } });
       if (url.pathname === "/livekit-client.mjs") return new Response(Bun.file(sdk), { headers: { "content-type": "text/javascript" } });
@@ -233,8 +238,16 @@ export async function serve(dir: string, config: Config): Promise<void> {
        * 13 September 2026 a crash loop went unnoticed for an hour because
        * nothing ever asked.
        */
-      /** Everything measured lately, for reading a session back afterwards. */
+      /**
+       * Everything measured lately, for reading a session back afterwards.
+       *
+       * 12.1 this one carries the transcript: every word said and every word
+       * answered. It is served to this machine only. The port is open to the
+       * tailnet for the phone, and until 15 September anyone who could reach
+       * it could read the conversation without the pairing code.
+       */
       if (url.pathname === "/diagnostics") {
+        if (!isLocal(server.requestIP(request)?.address)) return new Response("not found", { status: 404 });
         return Response.json({
           summary: diagnostics.summary(),
           settings: settingsInForce(config),
@@ -291,6 +304,11 @@ export async function serve(dir: string, config: Config): Promise<void> {
     });
   }
   await new Promise(() => {});
+}
+
+/** Loopback, in either family. Bun writes an IPv4 client on a dual-stack listener as ::ffff:127.0.0.1. */
+function isLocal(address: string | undefined): boolean {
+  return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
 }
 
 export { livekitConfig };

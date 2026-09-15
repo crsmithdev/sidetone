@@ -39,10 +39,12 @@ export class Recorder {
   /**
    * Open a session. Everything appended after this belongs to it.
    *
-   * The header waits for the first event. A process that starts and hears
-   * nothing writes nothing: on 14 September a unit with a bad ExecStart
-   * restarted every eight seconds for twenty hours, and a header for each of
-   * those would be the whole file.
+   * The header waits for the first event, of any kind: a process that records
+   * nothing at all writes nothing at all. On 14 September a unit with a bad
+   * ExecStart restarted every eight seconds for twenty hours, and a header for
+   * each of those would have been the whole file. A session that speaks but
+   * never hears does write a header, and `readDrive` is what decides such a
+   * session is not a drive.
    */
   session(settings: Record<string, unknown>, at = Date.now()): void {
     this.pending = { kind: "session", at, settings };
