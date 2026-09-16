@@ -154,6 +154,26 @@ export class Transport {
    * is what makes 11.3 possible now that the framework cancels the echo.
    */
   async speak(wavBytes: Uint8Array, until?: () => boolean): Promise<boolean> {
+    // One source takes one writer. A cue that began while a sentence was still
+    // playing used to interleave frames and the transport threw
+    // `InvalidState - failed to capture frame`. The callers guard against it,
+    // but they guard synchronously and then read a file, so the guard could be
+    // true when it was checked and false by the time the frames arrived.
+    const mine = this.writing.then(() => this.write(wavBytes, until), () => this.write(wavBytes, until));
+    this.writing = mine.then(() => undefined, () => undefined);
+    return mine;
+  }
+
+  /** Whether frames are going out right now, so a cue can be dropped rather than queued behind a sentence. */
+  get speaking(): boolean { return this.writers > 0; }
+
+  private async write(wavBytes: Uint8Array, until?: () => boolean): Promise<boolean> {
+    this.writers++;
+    try { return await this.frames(wavBytes, until); }
+    finally { this.writers--; }
+  }
+
+  private async frames(wavBytes: Uint8Array, until?: () => boolean): Promise<boolean> {
     const wav = decodeWav(wavBytes);
     const samples = resample(wav.samples, wav.sampleRate, RTC_RATE);
     const size = (RTC_RATE * FRAME_MS) / 1000;
@@ -165,6 +185,9 @@ export class Transport {
     }
     return true;
   }
+
+  private writing: Promise<void> = Promise.resolve();
+  private writers = 0;
 
   /** Whether the room is joined right now, for the health check. */
   get connected(): boolean { return this.room.isConnected; }

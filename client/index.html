@@ -268,7 +268,25 @@ $("say").addEventListener("keydown", (event) => { if (event.key === "Enter") $("
 $("stop").onclick = () => tell({ kind: "said", text: "hey bridge end the turn" });
 
 const saved = localStorage.getItem(KEY);
-if (saved) connect(JSON.parse(saved)).catch(() => { localStorage.removeItem(KEY); location.reload(); });
+// 12.4 a token that is refused is worth throwing away. Anything else -- the
+// tunnel down, livekit restarting, no signal in a tunnel -- is not, and
+// clearing it sent the phone back to a three-word code that has to be read off
+// the machine. Reloading into the same failure looped.
+const refused = (error) => {
+  const reason = String(error?.reason ?? error?.message ?? error);
+  return /unauthor|invalid token|expired|permission|denied|403|401/i.test(reason);
+};
+if (saved) connect(JSON.parse(saved)).catch((error) => {
+  if (!refused(error)) {
+    // connect() hid the pairing panel on its way in; the message lives there
+    $("pair").classList.remove("hidden");
+    $("pairError").textContent = `cannot reach the bridge: ${error?.message ?? error}. Retrying.`;
+    setTimeout(() => location.reload(), 5000);
+    return;
+  }
+  localStorage.removeItem(KEY);
+  location.reload();
+});
 </script>
 </body>
 </html>

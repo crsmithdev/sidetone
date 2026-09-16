@@ -163,6 +163,8 @@ export class Conversation {
     this.pumping = true;
     try {
       for (;;) {
+        // which queue it came from, so a cut sentence goes back to that one
+        const jumped = this.ahead.length > 0;
         const text = this.ahead.shift() ?? (this.holding ? undefined : this.outbox.shift());
         if (text === undefined) break;
         this.speaking = true;
@@ -171,10 +173,18 @@ export class Conversation {
         catch { /* a transport that dropped is not this loop's problem */ }
         finally { this.speaking = false; }
         // A sentence a barge-in cut is not a sentence Chris heard. It goes back
-        // to the front of the hold, so a resume starts it again rather than
-        // carrying on from the middle of a word.
-        if (whole === false && this.holding) this.outbox.unshift(text);
-        else this.said.push(text);
+        // to the front of the queue it came from, so a resume starts it again
+        // rather than carrying on from the middle of a word. A bridge reply
+        // used to return to the answer queue instead, where the next
+        // discardHold dropped it: "Muted." went unsaid.
+        //
+        // Either way it is not something he heard, so it never joins `said`.
+        // Reading `this.holding` after the await asked the wrong question: a
+        // discardHold while the sentence was still playing flipped it, and a
+        // sentence cut mid-word became the one `restate` read back.
+        if (whole === false) {
+          if (this.holding) (jumped ? this.ahead : this.outbox).unshift(text);
+        } else this.said.push(text);
       }
     } finally {
       this.pumping = false;
@@ -273,7 +283,7 @@ export class Conversation {
     // question asked after a false start must not be swallowed.
     const awaited = this.awaitingCommand > Date.now();
     this.awaitingCommand = 0;
-    if (awaited && heard.kind === "speech") {
+    if (awaited && heard.kind === "speech" && isShort(said)) {
       const name = commandIn(plain(said));
       if (name && (!this.muted || this.config.mutedCommands.includes(name))) {
         this.onMatched?.(said, name);
@@ -494,6 +504,21 @@ export class Conversation {
 
   start(): void { this.session.start(); }
   stop(): void { this.session.stop(); }
+}
+
+/**
+ * Short enough to be a command and nothing else.
+ *
+ * Inside the wake-word hold an utterance is matched with no wake word in front
+ * of it, and the command table holds bare single words: `stop`, `clear`,
+ * `where`, `man`. So "how do I stop the server" ended the turn and the question
+ * never reached the agent. Measured 14 September, a command after the wake word
+ * is one or two words -- the longest the card asks for is "tones off".
+ */
+const HOLD_WORDS = 3;
+
+function isShort(said: string): boolean {
+  return plain(said).split(" ").filter(Boolean).length <= HOLD_WORDS;
 }
 
 function plain(text: string): string {

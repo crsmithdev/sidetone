@@ -428,3 +428,85 @@ describe("switching voice (4.9)", () => {
     expect(said).toEqual(["This engine has only the one voice."]);
   });
 });
+
+/**
+ * 9.1 the wake word arrives alone, and the command follows a moment later. The
+ * utterance in that window is matched with no wake word in front of it, so the
+ * table's bare single words -- stop, clear, where, man -- are live against
+ * anything Chris says next.
+ */
+describe("the wake-word hold", () => {
+  test("a short command still works after the wake word alone", async () => {
+    const { c, said } = watched();
+    await c.heard("hey bridge");
+    await c.heard("mute");
+    expect(said.at(-1)).toBe("Muted.");
+  });
+
+  test("a question is not a command, however it ends", async () => {
+    const commands: string[] = [];
+    const mouth = { say: async () => true, cue: () => {}, tell: () => {} };
+    const asked: string[] = [];
+    const c = new Conversation("/tmp", config, mouth as never, engines as never, engines as never, {
+      onMatched: (_said, became) => { commands.push(became); },
+    });
+    (c as unknown as { toAgent: (text: string) => void }).toAgent = (text: string) => { asked.push(text); };
+    await c.heard("hey bridge");
+    await c.heard("how do i stop the server");
+    expect(commands).not.toContain("endTurn");
+  });
+});
+
+/**
+ * A sentence a barge-in cut is not a sentence Chris heard. Where it goes back
+ * to matters: a bridge reply lives on `ahead`, and returning it to the answer
+ * queue meant the next discardHold threw it away, so "Muted." went unsaid.
+ */
+describe("a sentence a barge-in cut", () => {
+  /** A mouth that reports the first sentence as cut off, the way a barge-in does. */
+  function cutOnce() {
+    const said: string[] = [];
+    let first = true;
+    const mouth = {
+      say: async (text: string) => { said.push(text); if (first) { first = false; return false; } return true; },
+      cue: () => {}, tell: () => {},
+    };
+    const c = new Conversation("/tmp", config, mouth as never, engines as never, engines as never);
+    return { c, said };
+  }
+
+  test("a bridge reply goes back to the queue it came from", async () => {
+    // the pump retries a cut reply at once, so the queues are read from inside
+    // the second attempt rather than after the loop has drained them
+    const seen: Array<{ ahead: string[]; outbox: string[] }> = [];
+    let first = true;
+    let inner!: { ahead: string[]; outbox: string[]; holding: boolean; pump: () => Promise<void> };
+    const mouth = {
+      say: async () => {
+        if (first) { first = false; return false; }
+        seen.push({ ahead: [...inner.ahead], outbox: [...inner.outbox] });
+        return true;
+      },
+      cue: () => {}, tell: () => {},
+    };
+    const c = new Conversation("/tmp", config, mouth as never, engines as never, engines as never);
+    inner = c as unknown as typeof inner;
+    inner.holding = true;
+    inner.ahead.push("Muted.");
+    await inner.pump();
+    // at the retry the reply had been taken off `ahead` again, and `outbox`
+    // -- which a discardHold empties -- never held it
+    expect(seen).toEqual([{ ahead: [], outbox: [] }]);
+  });
+
+  test("it is never counted as something he heard", async () => {
+    const { c } = cutOnce();
+    const inner = c as unknown as { ahead: string[]; said: string[]; holding: boolean; pump: () => Promise<void> };
+    // the hold is discarded while the sentence is still playing, the way a new
+    // question does it, so `holding` is already false when say() returns
+    inner.holding = false;
+    inner.ahead.push("half a sen");
+    await inner.pump();
+    expect(inner.said).toEqual([]);
+  });
+});

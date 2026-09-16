@@ -107,7 +107,10 @@ export async function serve(dir: string, config: Config): Promise<void> {
       const wav = cues.file(name);
       if (!wav) return;
       void Bun.file(wav).bytes()
-        .then((bytes) => transport.speak(bytes, bargingIn))
+        // The caller checked that nothing was speaking before this read began.
+        // If that changed while the file was read, the cue is late: a cue means
+        // "still working", and behind a whole answer it means nothing.
+        .then((bytes) => (transport.speaking ? false : transport.speak(bytes, bargingIn)))
         .catch((error) => console.log(`[the cue failed: ${(error as Error).message}]`));
     },
     tell(value) { void transport.send(value); },
