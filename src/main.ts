@@ -147,7 +147,7 @@ async function voice(dir: string, config: Config): Promise<void> {
     cue(name) { void cues.play(name); },
   }, stt, tts, {
     onNarration: (text) => console.log(`[${text}]`),
-    onTurn: (turn) => console.log(`[turn ${turn.number}, $${conversation.session.totalCostUsd().toFixed(4)} this session]`),
+    onTurn: (turn) => console.log(`[turn ${turn.number}, $${conversation.agent.totalCostUsd().toFixed(4)} this session]`),
   });
   /**
    * 7.3 and 7.4 hear the same way. The desk has no frames to push, so it hands

@@ -229,7 +229,7 @@ describe("the hold (11.3)", () => {
 
   test("a question for the agent drops the passage", async () => {
     const r = room();
-    r.c.session.ask = async () => { throw new Error("no agent in a test"); };
+    r.c.agent.ask = async () => { throw new Error("no agent in a test"); };
     r.c.stopSpeaking();
     r.guts.speak("the rest.");
     await r.c.heard("what is the config file for");
@@ -286,7 +286,7 @@ describe("the wake word on its own (9.1)", () => {
 
   test("a question after a false start reaches the agent rather than vanishing", async () => {
     const r = room();
-    r.c.session.ask = async () => { throw new Error("no agent in a test"); };
+    r.c.agent.ask = async () => { throw new Error("no agent in a test"); };
     await r.c.heard("Hey, bridge.");
     await r.c.heard("what does the serve command do");
     await tick();
@@ -298,7 +298,7 @@ describe("the wake word on its own (9.1)", () => {
     const r = room({ wakeHoldMs: 20 });
     await r.c.heard("Hey, bridge.");
     await new Promise((resolve) => setTimeout(resolve, 40));
-    r.c.session.ask = async () => { throw new Error("no agent in a test"); };
+    r.c.agent.ask = async () => { throw new Error("no agent in a test"); };
     await r.c.heard("Mute.");
     await tick();
     // too late to be the command, so it is what it sounds like: speech
@@ -307,7 +307,7 @@ describe("the wake word on its own (9.1)", () => {
 
   test("the hold is spent once, not left armed", async () => {
     const r = room();
-    r.c.session.ask = async () => { throw new Error("no agent in a test"); };
+    r.c.agent.ask = async () => { throw new Error("no agent in a test"); };
     await r.c.heard("Hey, bridge.");
     await r.c.heard("Mute.");
     await tick();
@@ -359,7 +359,7 @@ describe("the gate on clearing the context (10)", () => {
   test("it reads back what it is about to do and waits", async () => {
     const r = room();
     let restarted = false;
-    r.c.session.restart = () => { restarted = true; };
+    r.c.agent.restart = () => { restarted = true; };
     await r.c.heard("hey bridge clear");
     await tick();
     expect(r.said).toEqual(["I am about to clear the context and start again. Say continue to let it happen."]);
@@ -369,7 +369,7 @@ describe("the gate on clearing the context (10)", () => {
   test("the agreement word lets it happen", async () => {
     const r = room();
     let restarted = false;
-    r.c.session.restart = () => { restarted = true; };
+    r.c.agent.restart = () => { restarted = true; };
     await r.c.heard("hey bridge clear");
     await r.c.heard("continue");
     await tick();
@@ -380,7 +380,7 @@ describe("the gate on clearing the context (10)", () => {
   test("10.5 anything else fails it closed", async () => {
     const r = room();
     let restarted = false;
-    r.c.session.restart = () => { restarted = true; };
+    r.c.agent.restart = () => { restarted = true; };
     await r.c.heard("hey bridge clear");
     await r.c.heard("hey bridge tones off");
     await tick();
@@ -394,7 +394,7 @@ describe("the gate on clearing the context (10)", () => {
 
   test("the held passage waits with the gate rather than resuming under it", async () => {
     const r = room();
-    r.c.session.restart = () => {};
+    r.c.agent.restart = () => {};
     r.c.stopSpeaking();
     r.guts.speak("the rest.");
     await r.c.heard("hey bridge clear");

@@ -29,10 +29,39 @@ import type { CueName } from "./cues.ts";
 import { Latency } from "./latency.ts";
 import { Network } from "./network.ts";
 import { SentenceCollector } from "./sentences.ts";
-import { Session, type Turn } from "./session.ts";
+import { Session, type SessionHooks, type Turn } from "./session.ts";
 import type { SpeechToText, TextToSpeech } from "./speech.ts";
 
 export type { CueName };
+
+/**
+ * The agent, as the conversation needs it (ADR 0001). `Session` is the one
+ * that runs Claude Code; a test gives a scripted one instead, which is the only
+ * way a whole turn — deltas, the checkpoint, a restart — can be driven at all.
+ */
+export interface Agent {
+  start(): void;
+  stop(): void;
+  ask(said: string): Promise<Turn>;
+  agree(): void;
+  interrupt(): void;
+  restart(reason: string): void;
+  readonly running: boolean;
+  readonly turns: number;
+  readonly rateLimit: { fiveHour: number; sevenDay: number };
+  contextFraction(): number | null;
+  totalCostUsd(): number;
+}
+
+/**
+ * How an agent is made. The conversation decides what the agent is told about
+ * being in a spoken conversation (6.5) and hands the amended settings over; the
+ * caller decides what the agent is and where it runs.
+ */
+export type MakeAgent = (hooks: SessionHooks, config: Config) => Agent;
+
+/** The agent of ADR 0001: one Claude Code process, in the project directory. */
+export const claudeCode = (dir: string): MakeAgent => (hooks, config) => new Session(dir, config, hooks);
 
 /** What a command does to the sentences a barge-in held. */
 export type Hold = "resume" | "discard" | "keep";
@@ -89,7 +118,7 @@ export class Conversation {
   /** 14.7 the light transcript, which 14.8 replays to a client that just arrived */
   private readonly transcript: Array<Record<string, unknown>> = [];
 
-  readonly session: Session;
+  readonly agent: Agent;
   /** 18.4 the round trip, which the transport marks and the stats command reads. */
   readonly latency = new Latency();
   /** N.1 what the connection is doing, which the transport feeds and stats reads. */
@@ -102,20 +131,21 @@ export class Conversation {
     private readonly stt: SpeechToText,
     private readonly tts: TextToSpeech,
     hooks: ConversationHooks = {},
+    makeAgent: MakeAgent = claudeCode(dir),
   ) {
     // 6.5 the voice instruction lives in the bridge, not in the agent's identity file
     const args = [...config.claudeArgs, "--append-system-prompt", config.voiceInstruction];
-    this.session = new Session(dir, { ...config, claudeArgs: args }, {
+    this.agent = makeAgent({
       onDelta: (text) => this.deltaSink?.(text),
       onNarration: (text) => hooks.onNarration?.(text),
       // 8.6.3 speak, say how long it has run, and report the usage with the ask (8.6.4)
       onCheckpoint: (ms) => {
         this.checkpointOpen = true;
-        this.reply(`This turn has run ${Math.round(ms / 60_000)} minutes and cost ${this.session.totalCostUsd().toFixed(2)} dollars. Say ${config.agreementWord} to let it run on.`);
+        this.reply(`This turn has run ${Math.round(ms / 60_000)} minutes and cost ${this.agent.totalCostUsd().toFixed(2)} dollars. Say ${config.agreementWord} to let it run on.`);
       },
       onInterrupt: () => { this.checkpointOpen = false; },
       onRestart: () => this.cue("starting"),
-    });
+    }, { ...config, claudeArgs: args });
     this.tones = config.tones;
     this.onTurn = hooks.onTurn;
     this.onMatched = hooks.onMatched;
@@ -311,7 +341,7 @@ export class Conversation {
       if (this.gate) { const act = this.gate.act; this.closeGate(); act(); this.discardHold(); return; }
       if (this.checkpointOpen) {
         this.checkpointOpen = false;
-        this.session.agree();
+        this.agent.agree();
         this.reply("Carrying on.");
         this.resumeHold();
         return;
@@ -368,17 +398,17 @@ export class Conversation {
     };
     const stopCue = this.cueWhileWaiting();
     try {
-      const turn = await this.session.ask(said);
+      const turn = await this.agent.ask(said);
       const tail = sentences.flush();
       if (tail) this.speak(tail);
       await this.drained();
       this.lastReply = this.said.join(" ") || turn.text;
       this.recent.push({ said, reply: this.lastReply });
       if (this.recent.length > 3) this.recent.shift();
-      this.remember({ kind: "turn", number: turn.number, text: this.lastReply, costUsd: this.session.totalCostUsd() });
+      this.remember({ kind: "turn", number: turn.number, text: this.lastReply, costUsd: this.agent.totalCostUsd() });
       this.onTurn?.(turn);
       // 13.2 the warning uses the number claude reports, never an estimate (16.6)
-      const worst = Math.max(this.session.rateLimit.fiveHour, this.session.rateLimit.sevenDay);
+      const worst = Math.max(this.agent.rateLimit.fiveHour, this.agent.rateLimit.sevenDay);
       if (worst >= this.config.usageWarnFraction) this.reply(`A heads up: rate limit use is at ${Math.round(worst * 100)} percent.`);
     } catch (error) {
       this.reply("That turn did not finish.");
@@ -422,9 +452,9 @@ export class Conversation {
 
       // A question about the bridge, not about the work. Report, then carry on.
       case "usage": {
-        const context = this.session.contextFraction();
-        this.reply(`This session has cost ${this.session.totalCostUsd().toFixed(2)} dollars.`);
-        const { fiveHour, sevenDay } = this.session.rateLimit;
+        const context = this.agent.contextFraction();
+        this.reply(`This session has cost ${this.agent.totalCostUsd().toFixed(2)} dollars.`);
+        const { fiveHour, sevenDay } = this.agent.rateLimit;
         if (fiveHour || sevenDay) this.reply(`Rate limit use is ${Math.round(fiveHour * 100)} percent of the five hour window and ${Math.round(sevenDay * 100)} percent of the seven day window.`);
         if (context !== null) this.reply(`The context is ${Math.round(context * 100)} percent of the compaction threshold.`);
         return "resume";
@@ -469,7 +499,7 @@ export class Conversation {
 
       case "endTurn":
         if (!this.turnRunning) { this.reply("Nothing is running."); return "resume"; }
-        this.session.interrupt();
+        this.agent.interrupt();
         this.reply("Stopped.");
         return "discard";
 
@@ -477,7 +507,7 @@ export class Conversation {
       // is the one word "clear", and what it costs is the whole conversation.
       case "clearContext":
         this.askFirst("I am about to clear the context and start again.", "Nothing was cleared.", () => {
-          this.session.restart("cleared by voice");
+          this.agent.restart("cleared by voice");
           this.reply("Context cleared.");
         });
         return "keep";
@@ -502,8 +532,8 @@ export class Conversation {
     return this.tts.synthesize(text, wavPath);
   }
 
-  start(): void { this.session.start(); }
-  stop(): void { this.session.stop(); }
+  start(): void { this.agent.start(); }
+  stop(): void { this.agent.stop(); }
 }
 
 /**

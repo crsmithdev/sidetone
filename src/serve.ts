@@ -111,7 +111,7 @@ export async function serve(dir: string, config: Config): Promise<void> {
     tell(value) { void transport.send(value); },
   }, stt, tts, {
     onNarration: (text) => { console.log(`[${text}]`); void transport.send({ kind: "narration", text }); },
-    onTurn: (turn) => console.log(`[turn ${turn.number}, $${conversation.session.totalCostUsd().toFixed(4)} this session]`),
+    onTurn: (turn) => console.log(`[turn ${turn.number}, $${conversation.agent.totalCostUsd().toFixed(4)} this session]`),
     onMatched: (said, became) => diagnostics.matched(said, became),
   });
   conversation.start();
@@ -221,14 +221,14 @@ export async function serve(dir: string, config: Config): Promise<void> {
         });
       }
       if (url.pathname === "/health") {
-        const well = transport.connected && conversation.session.running;
+        const well = transport.connected && conversation.agent.running;
         return Response.json({
           ok: well,
           room: transport.connected ? "connected" : "gone",
-          agent: conversation.session.running ? "running" : "stopped",
+          agent: conversation.agent.running ? "running" : "stopped",
           engines: { speech: tts.sampleRate > 0, transcription: stt.warmupSeconds > 0 },
           network: { phone: conversation.network.get("phone"), bridge: conversation.network.get("bridge") },
-          turns: conversation.session.turns,
+          turns: conversation.agent.turns,
           upSeconds: Math.round((Date.now() - startedAt) / 1000),
         }, { status: well ? 200 : 503 });
       }
