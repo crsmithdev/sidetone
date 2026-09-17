@@ -26,7 +26,7 @@
 import { commandIn, match, type CommandName } from "./commands.ts";
 import type { Config } from "./config.ts";
 import type { CueName } from "./cues.ts";
-import { Latency } from "./latency.ts";
+import { Measures } from "./measures.ts";
 import { Network } from "./network.ts";
 import { SentenceCollector } from "./sentences.ts";
 import { Session, type SessionHooks, type Turn } from "./session.ts";
@@ -120,7 +120,7 @@ export class Conversation {
 
   readonly agent: Agent;
   /** 18.4 the round trip, which the transport marks and the stats command reads. */
-  readonly latency = new Latency();
+  readonly measures: Measures;
   /** N.1 what the connection is doing, which the transport feeds and stats reads. */
   readonly network = new Network();
 
@@ -132,7 +132,9 @@ export class Conversation {
     private readonly tts: TextToSpeech,
     hooks: ConversationHooks = {},
     makeAgent: MakeAgent = claudeCode(dir),
+    measures: Measures = new Measures(),
   ) {
+    this.measures = measures;
     // 6.5 the voice instruction lives in the bridge, not in the agent's identity file
     const args = [...config.claudeArgs, "--append-system-prompt", config.voiceInstruction];
     this.agent = makeAgent({
@@ -258,7 +260,7 @@ export class Conversation {
 
   /** The utterance held nothing a person said. Road noise must not cost a passage. */
   heardNothing(): void {
-    this.latency.resolved("nothing");
+    this.measures.bargeInWas("nothing");
     this.resumeHold();
   }
 
@@ -298,7 +300,7 @@ export class Conversation {
   async heard(said: string): Promise<void> {
     const heard = match(said, this.config.wakeWord, this.muted, this.config.mutedCommands, this.config.wakeWordVariants);
     this.remember({ kind: "heard", text: said });
-    this.latency.resolved(heard.kind === "command" ? "command" : "speech");
+    this.measures.bargeInWas(heard.kind === "command" ? "command" : "speech");
 
     // 10.5 the gate fails closed: anything that is not the agreement word
     // cancels the action, and is then handled as what it was.
@@ -462,7 +464,7 @@ export class Conversation {
       // N.2.5 the connection is reported in the same breath as the round trip,
       // because "is it me or the network" is one question, not two.
       case "stats":
-        this.reply(this.latency.report());
+        this.reply(this.measures.report());
         this.reply(this.network.report());
         return "resume";
 

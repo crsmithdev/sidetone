@@ -131,7 +131,7 @@ async function voice(dir: string, config: Config): Promise<void> {
       takeTheMicrophone();
       try {
         console.log(`  ${text}`);
-        conversation.latency.answered();
+        conversation.measures.answering();
         await tts.synthesize(text, wav);
         await Bun.spawn(["paplay", wav], { stdout: "ignore", stderr: "ignore" }).exited;
       } finally { pending -= 1; }
@@ -166,7 +166,7 @@ async function voice(dir: string, config: Config): Promise<void> {
     bargeInGapMs: config.bargeInGapMs,
     minSpeechPeak: config.minSpeechPeak,
     endOfTurnPauseMs: config.endOfTurnPauseMs,
-  });
+  }, conversation.measures);
 
   conversation.start();
   console.log(`Claude Code in ${dir}. Speak; a ${(config.endOfTurnPauseMs / 1000).toFixed(1)}s pause ends your turn.`);

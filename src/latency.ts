@@ -47,7 +47,7 @@ export class Latency {
    * needed: the total has to run from when he stopped, and the engine's share
    * must not be charged for a wait that a setting decides.
    */
-  spoke(endedAt: number, noticedAt = Date.now()): void {
+  speechEnded(endedAt: number, noticedAt = Date.now()): void {
     this.open = { endedAt, noticedAt, transcribedAt: 0 };
   }
 

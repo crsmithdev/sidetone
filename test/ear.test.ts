@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { utteranceOf, type Utterance } from "../src/audio.ts";
 import { Ear, type EarOptions } from "../src/ear.ts";
+import { Measures } from "../src/measures.ts";
 
 const OPTIONS: EarOptions = {
   sampleRate: 16_000,
@@ -14,17 +15,21 @@ const OPTIONS: EarOptions = {
   endOfTurnPauseMs: 900,
 };
 
+/** The ear, its listener and its bookkeeper, ready to be driven. */
+function room(transcribe: () => Promise<string>, muted = false) {
+  const to = listener(muted);
+  const measures = new Measures();
+  return { to, measures, ear: new Ear(to, transcribe, OPTIONS, measures, () => {}) };
+}
+
+const kinds = (measures: Measures) => measures.recent().map((event) => event.kind);
+
 /** What the ear tells, written down instead of acted on. */
 function listener(muted = false) {
   const told: string[] = [];
   return {
     told,
     isMuted: muted,
-    latency: {
-      spoke: () => told.push("spoke"),
-      transcribed: () => told.push("transcribed"),
-      barged: (level: number) => told.push(`barged ${level.toFixed(2)}`),
-    },
     cue: (name: string) => told.push(`cue ${name}`),
     stopSpeaking: () => told.push("stop"),
     heard: async (text: string) => { told.push(`heard ${text}`); },
@@ -45,37 +50,33 @@ function frame(level: number, ms = 20): Int16Array {
 
 describe("what is too quiet to have been a person (4.6)", () => {
   test("it costs no turn, and the passage comes back", async () => {
-    const to = listener();
     let asked = 0;
-    const ear = new Ear(to, async () => { asked++; return "Thank you."; }, OPTIONS, undefined, () => {});
+    const { to, measures, ear } = room(async () => { asked++; return "Thank you."; });
     await ear.said(utterance(0.12));
     expect(asked).toBe(0);
     expect(to.told).toEqual(["nothing"]);
+    // it is still written down: a drive has to show what was thrown away
+    expect(measures.recent()).toMatchObject([{ kind: "heard", text: "", transcribeMs: 0 }]);
   });
 
   test("a real utterance is read, and the clock is told in order", async () => {
-    const to = listener();
-    const ear = new Ear(to, async () => "what is two plus two", OPTIONS, undefined, () => {});
+    const { to, measures, ear } = room(async () => "what is two plus two");
     await ear.said(utterance(0.43));
-    expect(to.told).toEqual(["spoke", "cue heard", "transcribed", "heard what is two plus two"]);
+    expect(to.told).toEqual(["cue heard", "heard what is two plus two"]);
+    expect(kinds(measures)).toEqual(["heard"]);
   });
 
   test("road noise that carried no words gives the passage back", async () => {
-    const to = listener();
-    const ear = new Ear(to, async () => "", OPTIONS, undefined, () => {});
+    const { to, ear } = room(async () => "");
     await ear.said(utterance(0.43));
-    expect(to.told).toEqual(["spoke", "cue heard", "transcribed", "nothing"]);
+    expect(to.told).toEqual(["cue heard", "nothing"]);
   });
 
   test("an engine that throws is not a lost passage either", async () => {
-    const to = listener();
-    const notes: string[] = [];
-    const ear = new Ear(to, async () => { throw new Error("worker died"); }, OPTIONS, {
-      barged: () => {}, heard: () => {}, note: (text) => notes.push(text),
-    }, () => {});
+    const { to, measures, ear } = room(async () => { throw new Error("worker died"); });
     await ear.said(utterance(0.43));
-    expect(to.told).toEqual(["spoke", "cue heard", "nothing"]);
-    expect(notes[0]).toContain("worker died");
+    expect(to.told).toEqual(["cue heard", "nothing"]);
+    expect(measures.recent()).toMatchObject([{ kind: "note", text: expect.stringContaining("worker died") }]);
   });
 });
 
@@ -83,23 +84,21 @@ describe("the barge-in edge (11.3)", () => {
   const loud = () => frame(0.30);
 
   test("one crossing stops the speech once, not once per frame", async () => {
-    const to = listener();
-    const ear = new Ear(to, async () => "", OPTIONS, undefined, () => {});
+    const { to, measures, ear } = room(async () => "");
     for (let i = 0; i < 60; i++) ear.frame(loud());
     expect(to.told.filter((line) => line === "stop")).toHaveLength(1);
+    expect(kinds(measures)).toEqual(["barged"]);
   });
 
   test("a muted bridge keeps listening and stops shutting up (9.5)", async () => {
-    const to = listener(true);
-    const ear = new Ear(to, async () => "", OPTIONS, undefined, () => {});
+    const { to, ear } = room(async () => "", true);
     for (let i = 0; i < 60; i++) ear.frame(loud());
     expect(to.told).not.toContain("stop");
     expect(ear.bargingIn).toBe(false);
   });
 
   test("quiet frames are not a barge-in", async () => {
-    const to = listener();
-    const ear = new Ear(to, async () => "", OPTIONS, undefined, () => {});
+    const { to, ear } = room(async () => "");
     for (let i = 0; i < 60; i++) ear.frame(frame(0.005));
     expect(to.told).toEqual([]);
   });
@@ -107,8 +106,7 @@ describe("the barge-in edge (11.3)", () => {
 
 describe("the phone cuts its microphone", () => {
   test("the hold goes with the half recording", async () => {
-    const to = listener();
-    const ear = new Ear(to, async () => "", OPTIONS, undefined, () => {});
+    const { to, ear } = room(async () => "");
     for (let i = 0; i < 60; i++) ear.frame(frame(0.30));
     expect(to.told).toContain("stop");
     // before this, nothing resolved the hold: no utterance could ever arrive,
@@ -118,8 +116,7 @@ describe("the phone cuts its microphone", () => {
   });
 
   test("a cut clears the barge-in, so the next one is heard again", async () => {
-    const to = listener();
-    const ear = new Ear(to, async () => "", OPTIONS, undefined, () => {});
+    const { to, ear } = room(async () => "");
     for (let i = 0; i < 60; i++) ear.frame(frame(0.30));
     ear.reset();
     for (let i = 0; i < 60; i++) ear.frame(frame(0.30));
@@ -139,10 +136,9 @@ describe("a whole recording, from the desk (7.3)", () => {
   });
 
   test("the invention guard now applies at the desk too", async () => {
-    const to = listener();
     const quiet = new Int16Array(16_000);
     quiet.fill(Math.round(0.05 * 32768));
-    const ear = new Ear(to, async () => "Thank you.", OPTIONS, undefined, () => {});
+    const { to, ear } = room(async () => "Thank you.");
     await ear.said(utteranceOf({ sampleRate: 16_000, channels: 1, samples: quiet }, 0.02));
     expect(to.told).toEqual(["nothing"]);
   });

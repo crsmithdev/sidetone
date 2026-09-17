@@ -5,7 +5,7 @@ import { Latency } from "../src/latency.ts";
 const PAUSE = 1_500;
 function round(latency: Latency, endedAt: number, transcribeMs: number, answerMs: number): void {
   // the bridge notices the end of a turn one end-of-turn pause after it happens
-  latency.spoke(endedAt, endedAt + PAUSE);
+  latency.speechEnded(endedAt, endedAt + PAUSE);
   latency.transcribed(endedAt + PAUSE + transcribeMs);
   latency.answered(endedAt + answerMs);
 }
@@ -29,7 +29,7 @@ describe("latency (18.4)", () => {
   });
   test("an utterance that never got an answer does not poison the next one", () => {
     const latency = new Latency();
-    latency.spoke(0);
+    latency.speechEnded(0);
     round(latency, 5_000, 100, 900);
     expect(latency.count).toBe(1);
     expect(latency.last?.answerMs).toBe(900);

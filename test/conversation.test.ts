@@ -80,9 +80,9 @@ describe("the tones (15.4)", () => {
 describe("the stats command (18.4)", () => {
   test("it speaks the measurement, not a guess", async () => {
     const { c, said } = watched();
-    c.latency.spoke(1_000, 2_500);
-    c.latency.transcribed(2_800);
-    c.latency.answered(3_400);
+    c.measures.speechEnded(1_000, 2_500);
+    c.measures.transcribed(2_800);
+    c.measures.answering(3_400);
     await c.heard("hey bridge stats");
     await settled();
     expect(said).toEqual([

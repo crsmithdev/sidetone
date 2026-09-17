@@ -12,26 +12,15 @@
  */
 import { tooQuiet, Utterances, type Utterance, type UtteranceOptions } from "./audio.ts";
 import type { CueName } from "./cues.ts";
+import type { Measures } from "./measures.ts";
 
 /** What the ear tells. `Conversation` is the one that listens. */
 export interface Ears {
   readonly isMuted: boolean;
-  readonly latency: {
-    spoke(endedAt: number, at: number): void;
-    transcribed(): void;
-    barged(level: number, heldMs: number): void;
-  };
   cue(name: CueName): void;
   stopSpeaking(): void;
   heard(text: string): Promise<void>;
   heardNothing(): void;
-}
-
-/** What the ear writes down. `Diagnostics` is the one that keeps it. */
-export interface EarNotes {
-  barged(level: number, heldMs: number): void;
-  heard(utterance: Utterance, text: string, transcribeMs: number): void;
-  note(text: string): void;
 }
 
 export interface EarOptions extends UtteranceOptions {
@@ -50,7 +39,7 @@ export class Ear {
     private readonly to: Ears,
     private readonly transcribe: (utterance: Utterance) => Promise<string>,
     private readonly options: EarOptions,
-    private readonly notes?: EarNotes,
+    private readonly measures: Measures,
     private readonly say: (line: string) => void = console.log,
   ) {
     this.utterances = new Utterances(options);
@@ -82,8 +71,7 @@ export class Ear {
         // 18.6 what caused it, so the two thresholds stop being a guess
         const { level, heldMs } = this.utterances.bargeIn;
         this.say(`  [barge-in: level ${level.toFixed(3)}, held ${Math.round(heldMs)}ms]`);
-        this.to.latency.barged(level, heldMs);
-        this.notes?.barged(level, heldMs);
+        this.measures.bargeIn(level, heldMs);
         this.to.stopSpeaking();
       }
     }
@@ -108,7 +96,7 @@ export class Ear {
     // 4.6 whisper writes words for near-silence even with its voice detector
     // on, and each invention costs a turn. Real speech is louder than this.
     if (tooQuiet(utterance, this.options.minSpeechPeak)) {
-      this.notes?.heard(utterance, "", 0);
+      this.measures.utterance(utterance, "", 0);
       this.say(`\n> (too quiet: peak ${utterance.peak.toFixed(2)}, under ${this.options.minSpeechPeak})`);
       this.to.heardNothing();
       return;
@@ -116,14 +104,14 @@ export class Ear {
     // 18.4 the clock starts on speech, and a lorry is not speech. The end of
     // the turn was the pause ago, not now: measuring from here would charge a
     // setting to the round trip.
-    this.to.latency.spoke(Date.now() - this.options.endOfTurnPauseMs, Date.now());
+    this.measures.speechEnded(Date.now() - this.options.endOfTurnPauseMs, Date.now());
     this.to.cue("heard");
     const readAt = Date.now();
     try {
       const text = await this.transcribe(utterance);
-      this.to.latency.transcribed();
+      this.measures.transcribed();
       const transcribeMs = Date.now() - readAt;
-      this.notes?.heard(utterance, text, transcribeMs);
+      this.measures.utterance(utterance, text, transcribeMs);
       this.say(this.shape(utterance, text, transcribeMs));
       // 11.3 road noise that carried no words must give the passage back
       if (!text) { this.to.heardNothing(); return; }
@@ -131,7 +119,7 @@ export class Ear {
     } catch (error) {
       this.to.heardNothing();
       const message = `could not read that: ${(error as Error).message}`;
-      this.notes?.note(message);
+      this.measures.note(message);
       this.say(`[${message}]`);
     }
   }

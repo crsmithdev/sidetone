@@ -19,7 +19,7 @@ import { Ear } from "./ear.ts";
 import { protocolMessage } from "./messages.ts";
 import { LocalWhisper, textToSpeech } from "./speech.ts";
 import { advertiseHost, livekitConfig, loadOrCreateKeys } from "./keys.ts";
-import { Diagnostics } from "./diagnostics.ts";
+import { Measures } from "./measures.ts";
 import { Recorder } from "./record.ts";
 import { qualityOf } from "./network.ts";
 import { RTC_RATE, Transport, tokenFor } from "./transport.ts";
@@ -79,7 +79,8 @@ export async function serve(dir: string, config: Config): Promise<void> {
   // and a restart in between used to leave nothing to read.
   const record = new Recorder(config.recordPath);
   record.session(settingsInForce(config));
-  const diagnostics = new Diagnostics((event) => record.write(event));
+  // 18 one bookkeeper: the spoken report and the record are the same facts
+  const measures = new Measures((event) => record.write(event));
   let counter = 0;
   const bargingIn = () => ear.bargingIn;
 
@@ -92,11 +93,10 @@ export async function serve(dir: string, config: Config): Promise<void> {
       // bridge's own voice, because the client cancelled it before sending.
       // 18.4 the first sound of the answer closes the round trip. A later
       // sentence is not a round trip, and the tracker ignores it.
-      const round = conversation.latency.answered();
-      if (round) diagnostics.answered(round);
+      measures.answering();
       const whole = await transport.speak(await Bun.file(wav).bytes(), bargingIn);
       if (!whole) console.log(`  [stopped: Chris started talking${ear.bargedAt ? `, ${Date.now() - ear.bargedAt}ms after it was noticed` : ""}]`);
-      diagnostics.spoke(text, whole);
+      measures.spoken(text, whole);
       return whole;
     },
     cue(name) {
@@ -113,8 +113,8 @@ export async function serve(dir: string, config: Config): Promise<void> {
   }, stt, tts, {
     onNarration: (text) => { console.log(`[${text}]`); void transport.send({ kind: "narration", text }); },
     onTurn: (turn) => console.log(`[turn ${turn.number}, $${conversation.agent.totalCostUsd().toFixed(4)} this session]`),
-    onMatched: (said, became) => diagnostics.matched(said, became),
-  });
+    onMatched: (said, became) => measures.matched(said, became),
+  }, undefined, measures);
   conversation.start();
 
   /** 11.5 and 18.4 entire: the listening policy, one module, driven by frames. */
@@ -132,7 +132,7 @@ export async function serve(dir: string, config: Config): Promise<void> {
     bargeInGapMs: config.bargeInGapMs,
     minSpeechPeak: config.minSpeechPeak,
     endOfTurnPauseMs: config.endOfTurnPauseMs,
-  }, diagnostics);
+  }, measures);
 
   // 14.8 a client that dropped in a tunnel gets the turns it missed on the way back
   transport.onParticipant(() => {
@@ -216,11 +216,11 @@ export async function serve(dir: string, config: Config): Promise<void> {
       if (url.pathname === "/diagnostics") {
         if (!isLocal(server.requestIP(request)?.address)) return new Response("not found", { status: 404 });
         return Response.json({
-          summary: diagnostics.summary(),
+          summary: measures.summary(),
           settings: settingsInForce(config),
-          latency: { rounds: conversation.latency.count, medianMs: conversation.latency.median(), worstMs: conversation.latency.worst() },
+          latency: measures.rounds(),
           network: { phone: conversation.network.get("phone"), bridge: conversation.network.get("bridge") },
-          recent: diagnostics.recent(count(url.searchParams.get("n"), 40)),
+          recent: measures.recent(count(url.searchParams.get("n"), 40)),
         });
       }
       if (url.pathname === "/health") {
