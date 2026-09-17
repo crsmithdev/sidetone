@@ -21,11 +21,21 @@ import { Diagnostics } from "./diagnostics.ts";
 import { Recorder } from "./record.ts";
 import { qualityOf } from "./network.ts";
 import { RTC_RATE, Transport, tokenFor } from "./transport.ts";
+import { renderUnicodeCompact } from "uqr";
 
 /** 12.2 one pairing, then a long-lived token the client keeps. */
 function pairingCode(): string {
   const words = "amber,anchor,basalt,cedar,cobalt,dust,ember,fathom,garnet,harbour,indigo,jetty,kelp,lantern,marlin,north,onyx,pewter,quartz,rigging,slate,tide,umber,vellum,willow,zenith".split(",");
   return [0, 0, 0].map(() => words[Math.floor(Math.random() * words.length)]).join("-");
+}
+
+/**
+ * 12.2 the address and the code in one scan, for the Android app (17). The code
+ * goes in the fragment, so a phone camera that opens the link as a web page
+ * never sends it to the server or into a log.
+ */
+export function pairingLink(origin: string, code: string): string {
+  return `${origin}/#pair=${code}`;
 }
 
 /** What the phone must be told, which is never what the bridge itself dials. */
@@ -308,6 +318,8 @@ export async function serve(dir: string, config: Config): Promise<void> {
     console.log("warning: a browser gives no microphone to a page that is not https, except on loopback");
   }
   console.log(`pair the phone with this code: ${code}`);
+  // light blocks on a dark terminal, which is the way round a scanner reads
+  console.log(renderUnicodeCompact(pairingLink(origin, code)));
 
   // Leave the room on the way out. Without this the participant slot lingers,
   // and the process that replaces this one arrives to find itself already

@@ -14,7 +14,7 @@ Build order is spec section 7.
 | 7.2 text round trip | done, on `main` |
 | 7.3 voice | done |
 | 7.4 web client | done, over the tailnet, on a trusted certificate |
-| 7.5 Android app | not started |
+| 7.5 Android app | built and checked on the emulator. Not yet on the phone, or in the car (17.4) |
 
 7.2 and 7.3 are on `main`; 7.4 is on `feature/web-client`. The project bridge that used to be
 in this repository is on `project-bridge` and still runs the story pipeline.

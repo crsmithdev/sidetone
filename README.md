@@ -23,7 +23,7 @@ Build order is spec section 7. Done so far:
 | 7.2 text round trip | **here**, `bun src/main.ts chat <dir>` |
 | 7.3 voice | **here**, `bun src/main.ts voice <dir>` |
 | 7.4 web client | **here**, `bun src/main.ts serve <dir>` |
-| 7.5 Android app | not started |
+| 7.5 Android app | **here**, `android/`, side-loaded |
 
 ```bash
 bun install
@@ -64,6 +64,7 @@ same hook that will feed the sentence collector when voice arrives.
 | `src/network.ts` | the connection, as the framework reports it, from both ends |
 | `src/serve.ts` | section 7.4 and 12: the room, the client page and the pairing |
 | `client/index.html` | the phone client. Keep the screen on (2.4) |
+| `android/` | the Android app of 17: the same client, with the screen off |
 | `speech/*.py` | the two engines as long-lived workers, warmed at startup |
 | `src/session.ts` | one long-lived Claude Code process, text in and text out |
 | `src/main.ts` | the text loop |
@@ -415,6 +416,41 @@ The same three settings, with a certificate from anywhere the phone trusts. A
 self-signed pair proves the shape — it is how the https path above was first
 tested — but a phone refuses the microphone over a certificate it does not
 trust, so it is not a place to stop.
+
+### The Android app
+
+The app is the web client with one addition: it keeps the conversation when the
+screen is off (17.2). A foreground service of type microphone holds the process
+and the microphone. The bridge does not change for it (4.4).
+
+The bridge prints a QR code under the pairing code. The code holds
+`<publicOrigin>/#pair=<code>`, so one scan gives the app the address and the
+code. The app scans it with the Play services scanner, which needs no camera
+permission.
+
+It needs JDK 21 and the Android SDK, with `sdk.dir` in `android/local.properties`.
+
+```bash
+cd android
+./gradlew testDebugUnitTest assembleDebug
+adb pair <phone-ip>:<pairing-port>        # once: Wireless debugging, pair with code
+adb connect <phone-ip>:<port>
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+`test/pairing.test.ts` and `PairingTest.kt` pin the link from each side. Change
+both or neither.
+
+The mic cut unpublishes the track and disposes it. `setMicrophoneEnabled(false)`
+only mutes the track, and a muted track keeps the device recording. Check it
+with `adb shell dumpsys audio`: the RecordActivityMonitor shows no record for
+the app after a cut.
+
+A test bridge for the emulator uses a config of its own, with `servePort`
+3102, a `room` of its own, `publicOrigin` `http://10.0.2.2:3102` and
+`livekitPublicUrl` `ws://10.0.2.2:7880`. Only debug builds allow cleartext,
+and only to `10.0.2.2`. The emulator camera cannot scan a QR code from an
+image, so check the scan on the phone.
 
 ## A drive, and reading it back
 

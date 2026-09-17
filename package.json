@@ -19,6 +19,7 @@
   "dependencies": {
     "@livekit/rtc-node": "^0.13.35",
     "livekit-client": "^2.22.3",
-    "livekit-server-sdk": "^2.19.0"
+    "livekit-server-sdk": "^2.19.0",
+    "uqr": "^0.1.3"
   }
 }
