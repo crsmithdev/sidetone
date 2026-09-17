@@ -23,6 +23,37 @@ export interface Ears {
   heardNothing(): void;
 }
 
+/**
+ * The settings the ear reads, in one place, so the two loops cannot build them
+ * differently. `endOfTurnPauseMs` is `pauseMs` as well: the pause the detector
+ * waits for is the pause the clock has to give back, and when they were two
+ * readings a change to one made every measurement lie.
+ */
+export function earOptions(config: EarSettings, sampleRate: number): EarOptions {
+  return {
+    sampleRate,
+    pauseMs: config.endOfTurnPauseMs,
+    onsetMs: config.speechOnsetMs,
+    speechLevel: config.speechLevel,
+    bargeInLevel: config.bargeInLevel,
+    bargeInMs: config.bargeInMs,
+    bargeInGapMs: config.bargeInGapMs,
+    minSpeechPeak: config.minSpeechPeak,
+    endOfTurnPauseMs: config.endOfTurnPauseMs,
+  };
+}
+
+/** What `earOptions` reads out of the settings. */
+export interface EarSettings {
+  endOfTurnPauseMs: number;
+  speechOnsetMs: number;
+  speechLevel: number;
+  bargeInLevel: number;
+  bargeInMs: number;
+  bargeInGapMs: number;
+  minSpeechPeak: number;
+}
+
 export interface EarOptions extends UtteranceOptions {
   /** 4.6 under this, whisper is writing words for near-silence */
   minSpeechPeak: number;

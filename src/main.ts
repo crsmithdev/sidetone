@@ -14,7 +14,7 @@ import { Session } from "./session.ts";
 import { Conversation } from "./conversation.ts";
 import { Cues } from "./cues.ts";
 import { decodeWav, utteranceOf } from "./audio.ts";
-import { Ear } from "./ear.ts";
+import { Ear, earOptions } from "./ear.ts";
 import { fetchCert } from "./keys.ts";
 import { endpoints, livekitConfig } from "./serve.ts";
 import { serve } from "./serve.ts";
@@ -70,9 +70,12 @@ async function chat(dir: string, config: Config): Promise<void> {
 function recorder(wav: string, config: Config) {
   const onset = (config.speechOnsetMs / 1000).toFixed(2);
   const pause = (config.endOfTurnPauseMs / 1000).toFixed(2);
+  // sox says the same level in percent. It used to be its own setting, in its
+  // own unit, and nothing kept the two in step.
+  const threshold = `${(config.speechLevel * 100).toFixed(1)}%`;
   const record = `parecord --raw --channels=1 --rate=16000 --format=s16le 2>/dev/null` +
     ` | sox -t raw -r 16000 -e signed -b 16 -c 1 - ${wav}` +
-    ` silence 1 ${onset} ${config.silenceThreshold} 1 ${pause} ${config.silenceThreshold}`;
+    ` silence 1 ${onset} ${threshold} 1 ${pause} ${threshold}`;
   return Bun.spawn(["bash", "-c", record], { stdout: "ignore", stderr: "ignore" });
 }
 
@@ -154,19 +157,9 @@ async function voice(dir: string, config: Config): Promise<void> {
    * the ear whole recordings; everything after that — the invention guard, the
    * clock, the cue, an empty transcription — is the module's, not the loop's.
    */
-  const ear = new Ear(conversation, () => stt.transcribe(heardWav), {
-    // the frame settings are inert here: the desk pushes no frames, sox finds
-    // the ends of a turn itself, and the rate is the one it records at
-    sampleRate: 16_000,
-    pauseMs: config.endOfTurnPauseMs,
-    onsetMs: config.speechOnsetMs,
-    speechLevel: config.speechLevel,
-    bargeInLevel: config.bargeInLevel,
-    bargeInMs: config.bargeInMs,
-    bargeInGapMs: config.bargeInGapMs,
-    minSpeechPeak: config.minSpeechPeak,
-    endOfTurnPauseMs: config.endOfTurnPauseMs,
-  }, conversation.measures);
+  // the detector settings are inert here: the desk pushes no frames, sox finds
+  // the ends of a turn itself, and the rate is the one it records at
+  const ear = new Ear(conversation, () => stt.transcribe(heardWav), earOptions(config, 16_000), conversation.measures);
 
   conversation.start();
   console.log(`Claude Code in ${dir}. Speak; a ${(config.endOfTurnPauseMs / 1000).toFixed(1)}s pause ends your turn.`);

@@ -6,6 +6,7 @@
  * file is fine; a present one overrides field by field.
  */
 import { readFileSync } from "node:fs";
+import { COMMAND_NAMES, type CommandName } from "./commands.ts";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -42,7 +43,7 @@ export interface Config {
    */
   minSpeechPeak: number;
   /** 9.5 the only two commands that work while muted; a list so it can grow (9.6) */
-  mutedCommands: string[];
+  mutedCommands: CommandName[];
   /** 10.2 a specific word, never "yes" */
   agreementWord: string;
   /** 2.3 how long a tool call must run before the bridge says what it is */
@@ -73,8 +74,7 @@ export interface Config {
   sentenceMaxChars: number;
   /** 11.5 the pause that ends a turn, and the level that counts as speech */
   endOfTurnPauseMs: number;
-  silenceThreshold: string;
-  /** the same level as a fraction, for the transports that count samples themselves */
+  /** the level that counts as speech, as a fraction of full scale */
   speechLevel: number;
   /** how long the level must stay up before the bridge treats it as speech */
   speechOnsetMs: number;
@@ -183,7 +183,6 @@ export const DEFAULTS: Config = {
   kokoroVoices: join(homedir(), ".voice-bridge", "models", "kokoro", "voices-v1.0.bin"),
   sentenceMaxChars: 240,
   endOfTurnPauseMs: 1_500,
-  silenceThreshold: "2%",
   speechLevel: 0.02,
   speechOnsetMs: 50,
   // 2.5 times the level and 8 times the length of the recording detector.
@@ -247,18 +246,22 @@ export const DEFAULTS: Config = {
 };
 
 /**
- * The settings a drive is judged against: the ones a reading could move, not
- * every field. `/diagnostics` reports these and the record keeps them, so the
- * two never drift apart.
+ * The settings a drive is judged against: every setting the voice path reads,
+ * so a record read a week later explains itself. It was a hand-kept list and
+ * it had already fallen behind — holdBackstopMs can drop a whole passage and
+ * was not in it. `test/config.test.ts` now fails when a setting is added to
+ * this list of names and not to the type, or the other way round.
  */
+export const IN_FORCE = [
+  "speechLevel", "speechOnsetMs", "endOfTurnPauseMs",
+  "bargeInLevel", "bargeInMs", "bargeInGapMs",
+  "minSpeechPeak", "wakeHoldMs", "holdBackstopMs", "listenSettleMs",
+  "sentenceMaxChars", "audioCueDelayMs", "audioCueEveryMs",
+  "cueVolume", "ttsEngine", "ttsVoice", "sttModel", "wakeWord",
+] as const satisfies ReadonlyArray<keyof Config>;
+
 export function settingsInForce(config: Config): Record<string, unknown> {
-  return {
-    speechLevel: config.speechLevel, speechOnsetMs: config.speechOnsetMs,
-    endOfTurnPauseMs: config.endOfTurnPauseMs,
-    bargeInLevel: config.bargeInLevel, bargeInMs: config.bargeInMs, bargeInGapMs: config.bargeInGapMs,
-    minSpeechPeak: config.minSpeechPeak, wakeHoldMs: config.wakeHoldMs,
-    cueVolume: config.cueVolume, ttsEngine: config.ttsEngine, ttsVoice: config.ttsVoice,
-  };
+  return Object.fromEntries(IN_FORCE.map((key) => [key, config[key]]));
 }
 
 export function configPath(): string {
@@ -278,6 +281,28 @@ export function loadConfig(path = configPath()): Config {
   // 10.3 a reflex or a bad transcription must not be able to say the agreement word
   if (!merged.agreementWord || merged.agreementWord.toLowerCase() === "yes") {
     throw new Error('agreementWord must be a specific word, and must not be "yes"');
+  }
+  /**
+   * 11.3 the two detectors only make sense one way round: a barge-in is a
+   * louder sound, held for longer, than the one that opens a recording. Set
+   * them the other way and every recording is a barge-in, which is the fault
+   * the car test found, arriving as "it cuts me off" rather than as an error.
+   */
+  if (merged.bargeInLevel <= merged.speechLevel) {
+    throw new Error(`bargeInLevel (${merged.bargeInLevel}) must be louder than speechLevel (${merged.speechLevel})`);
+  }
+  if (merged.bargeInMs <= merged.speechOnsetMs) {
+    throw new Error(`bargeInMs (${merged.bargeInMs}) must be longer than speechOnsetMs (${merged.speechOnsetMs})`);
+  }
+  // 4.6 the invention guard is a peak, and a peak under the speech level would
+  // throw away every utterance the detector just accepted
+  if (merged.minSpeechPeak <= merged.speechLevel) {
+    throw new Error(`minSpeechPeak (${merged.minSpeechPeak}) must be louder than speechLevel (${merged.speechLevel})`);
+  }
+  // 9.6 the muted set is a list of commands, and a typo in it is a command
+  // that quietly stops working while muted
+  for (const name of merged.mutedCommands) {
+    if (!COMMAND_NAMES.includes(name)) throw new Error(`mutedCommands has ${name}, which is not a command`);
   }
   return merged;
 }

@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DEFAULTS, loadConfig } from "../src/config.ts";
+import { DEFAULTS, loadConfig, settingsInForce } from "../src/config.ts";
 
 const dir = mkdtempSync(join(tmpdir(), "vb-config-"));
 function withFile(body: string): string {
@@ -45,5 +45,39 @@ describe("config (21)", () => {
   test("a broken file is an error, not a silent fallback", () => {
     expect(() => loadConfig(withFile("{oops"))).toThrow(/not valid JSON/);
     expect(() => loadConfig(withFile("[]"))).toThrow(/must hold an object/);
+  });
+});
+
+describe("settings that arrive already checked", () => {
+  const write = (values: Record<string, unknown>): string => {
+    const path = join(tmpdir(), `voice-bridge-config-${Math.random().toString(36).slice(2)}.json`);
+    writeFileSync(path, JSON.stringify(values));
+    return path;
+  };
+
+  test("a barge-in quieter than speech is refused, not obeyed", () => {
+    // 11.3 the wrong way round makes every recording a barge-in, which arrives
+    // as "it keeps cutting me off" rather than as an error
+    expect(() => loadConfig(write({ bargeInLevel: 0.01, speechLevel: 0.02 }))).toThrow(/bargeInLevel/);
+    expect(() => loadConfig(write({ bargeInMs: 40, speechOnsetMs: 50 }))).toThrow(/bargeInMs/);
+  });
+
+  test("an invention guard under the speech level is refused", () => {
+    expect(() => loadConfig(write({ minSpeechPeak: 0.01 }))).toThrow(/minSpeechPeak/);
+  });
+
+  test("a typo in the muted set is refused, not silently dropped", () => {
+    // 9.6 it used to be a list of strings: "tonesoff" simply never matched
+    expect(() => loadConfig(write({ mutedCommands: ["mute", "tonesoff"] }))).toThrow(/tonesoff/);
+    expect(loadConfig(write({ mutedCommands: ["mute", "tonesOff"] })).mutedCommands).toEqual(["mute", "tonesOff"]);
+  });
+
+  test("every setting the voice path reads is in the record", () => {
+    const kept = Object.keys(settingsInForce(DEFAULTS));
+    for (const key of ["holdBackstopMs", "listenSettleMs", "sentenceMaxChars", "audioCueDelayMs", "audioCueEveryMs", "minSpeechPeak"]) {
+      expect(kept).toContain(key);
+    }
+    // the list names real settings, and the defaults answer for each of them
+    for (const key of kept) expect(DEFAULTS[key as keyof typeof DEFAULTS]).toBeDefined();
   });
 });

@@ -118,6 +118,9 @@ export function afterWakeWord(said: string, wakeWord: string, variants: string[]
   return null;
 }
 
+/** 9.6 every command there is, so a setting that names one can be checked. */
+export const COMMAND_NAMES: CommandName[] = COMMANDS.map((command) => command.name);
+
 /** 9.4 which command the words after the wake word name, if any. */
 export function commandIn(rest: string): CommandName | null {
   const words = rest.split(" ").filter(Boolean);

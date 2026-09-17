@@ -15,7 +15,7 @@ import { encodeWav } from "./audio.ts";
 import { settingsInForce, type Config } from "./config.ts";
 import { Conversation } from "./conversation.ts";
 import { Cues } from "./cues.ts";
-import { Ear } from "./ear.ts";
+import { Ear, earOptions } from "./ear.ts";
 import { protocolMessage } from "./messages.ts";
 import { LocalWhisper, textToSpeech } from "./speech.ts";
 import { advertiseHost, livekitConfig, loadOrCreateKeys } from "./keys.ts";
@@ -122,17 +122,7 @@ export async function serve(dir: string, config: Config): Promise<void> {
     const wav = join(scratch, `heard-${++counter}.wav`);
     await Bun.write(wav, encodeWav(utterance.samples, RTC_RATE));
     return stt.transcribe(wav);
-  }, {
-    sampleRate: RTC_RATE,
-    pauseMs: config.endOfTurnPauseMs,
-    onsetMs: config.speechOnsetMs,
-    speechLevel: config.speechLevel,
-    bargeInLevel: config.bargeInLevel,
-    bargeInMs: config.bargeInMs,
-    bargeInGapMs: config.bargeInGapMs,
-    minSpeechPeak: config.minSpeechPeak,
-    endOfTurnPauseMs: config.endOfTurnPauseMs,
-  }, measures);
+  }, earOptions(config, RTC_RATE), measures);
 
   // 14.8 a client that dropped in a tunnel gets the turns it missed on the way back
   transport.onParticipant(() => {
