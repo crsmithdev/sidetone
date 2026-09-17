@@ -128,6 +128,8 @@ object Bridge {
             e.message ?: e.toString()
         } finally {
             events.cancel()
+            // the last reading belonged to a room that is gone
+            _state.update { it.copy(quality = null) }
             this@Bridge.room = null
             mic = null
             // release disposes every published track, the microphone included
@@ -139,7 +141,7 @@ object Bridge {
         when (event) {
             is RoomEvent.Reconnecting -> _state.update { it.copy(status = Status.RECONNECTING) }
             is RoomEvent.Reconnected -> _state.update { it.copy(status = Status.LISTENING) }
-            is RoomEvent.Disconnected -> ended.complete(event.error?.message ?: event.reason.name.lowercase())
+            is RoomEvent.Disconnected -> ended.complete(event.error?.message ?: reasonWord(event.reason))
             // N.1.4 the phone reads its own uplink and tells the bridge
             is RoomEvent.ConnectionQualityChanged -> {
                 if (event.participant != room.localParticipant) return
@@ -210,6 +212,13 @@ object Bridge {
         scope.launch {
             room.localParticipant.publishData(payload).onFailure { Log.w(TAG, "the bridge was not told", it) }
         }
+    }
+
+    /** The room says why it ended as an enum, and the screen says it to Chris. */
+    private fun reasonWord(reason: DisconnectReason): String = when (reason) {
+        // what a link that dies in a tunnel gives back, with no message on it
+        DisconnectReason.UNKNOWN_REASON -> "the connection dropped"
+        else -> reason.name.lowercase().replace('_', ' ')
     }
 
     private fun append(vararg lines: Line) {

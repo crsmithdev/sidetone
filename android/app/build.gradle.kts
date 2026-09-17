@@ -16,6 +16,11 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
+        ndk {
+            // the phone, and the emulator this is checked on. Every other
+            // architecture is 50 MB of WebRTC that nothing here runs.
+            abiFilters += listOf("arm64-v8a", "x86_64")
+        }
     }
 
     buildFeatures {
