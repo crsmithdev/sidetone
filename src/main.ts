@@ -148,7 +148,7 @@ async function voice(dir: string, config: Config): Promise<void> {
      * the microphone, one every seven seconds shredded every listening window.
      */
     cue(name) { void cues.play(name); },
-  }, stt, tts, {
+  }, tts, {
     onNarration: (text) => console.log(`[${text}]`),
     onTurn: (turn) => console.log(`[turn ${turn.number}, $${conversation.agent.totalCostUsd().toFixed(4)} this session]`),
   });

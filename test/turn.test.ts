@@ -59,7 +59,7 @@ function room(script: Script = {}, overrides: Partial<Config> = {}) {
     tell: () => {},
   };
   const turns: Turn[] = [];
-  const c = new Conversation("/tmp", { ...config, ...overrides }, mouth as never, engines as never, engines as never,
+  const c = new Conversation("/tmp", { ...config, ...overrides }, mouth as never, engines as never,
     { onTurn: (turn) => turns.push(turn) }, agent.make);
   return { c, said, cues, turns, agent };
 }

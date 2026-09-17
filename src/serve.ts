@@ -110,7 +110,7 @@ export async function serve(dir: string, config: Config): Promise<void> {
         .catch((error) => console.log(`[the cue failed: ${(error as Error).message}]`));
     },
     tell(value) { void transport.send(value); },
-  }, stt, tts, {
+  }, tts, {
     onNarration: (text) => { console.log(`[${text}]`); void transport.send({ kind: "narration", text }); },
     onTurn: (turn) => console.log(`[turn ${turn.number}, $${conversation.agent.totalCostUsd().toFixed(4)} this session]`),
     onMatched: (said, became) => measures.matched(said, became),

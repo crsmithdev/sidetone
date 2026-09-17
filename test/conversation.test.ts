@@ -7,7 +7,7 @@ const silent = { say: async () => true, cue: () => {}, tell: () => {} };
 const engines = { start: async () => {}, transcribe: async () => "", synthesize: async () => "", stop: () => {} };
 
 function withTranscript(entries: Array<Record<string, unknown>>): Conversation {
-  const c = new Conversation("/tmp", config, silent, engines as never, engines as never);
+  const c = new Conversation("/tmp", config, silent, engines as never);
   (c as unknown as { transcript: Array<Record<string, unknown>> }).transcript.push(...entries);
   return c;
 }
@@ -34,7 +34,7 @@ function watched() {
   const said: string[] = [];
   const cues: string[] = [];
   const mouth = { say: async (text: string) => { said.push(text); return true; }, cue: (name: string) => { cues.push(name); }, tell: () => {} };
-  const c = new Conversation("/tmp", config, mouth as never, engines as never, engines as never);
+  const c = new Conversation("/tmp", config, mouth as never, engines as never);
   return { c, said, cues };
 }
 
@@ -129,7 +129,7 @@ function room(overrides: Partial<Config> = {}) {
     cue: (name: string) => { cues.push(name); },
     tell: () => {},
   };
-  const c = new Conversation("/tmp", { ...config, ...overrides }, mouth as never, engines as never, engines as never);
+  const c = new Conversation("/tmp", { ...config, ...overrides }, mouth as never, engines as never);
   return {
     c, said, cues,
     guts: c as unknown as {
@@ -410,7 +410,7 @@ describe("switching voice (4.9)", () => {
     const speaking = { ...engines, use: (v: string) => { asked.push(v); } };
     const said: string[] = [];
     const mouth = { say: async (t: string) => { said.push(t); return true; }, cue: () => {}, tell: () => {} };
-    const c = new Conversation("/tmp", config, mouth as never, engines as never, speaking as never);
+    const c = new Conversation("/tmp", config, mouth as never, speaking as never);
     const guts = c as unknown as { speak(t: string): void };
     c.stopSpeaking();
     guts.speak("the rest of the answer.");
@@ -422,7 +422,7 @@ describe("switching voice (4.9)", () => {
   test("an engine with one voice says so rather than pretending", async () => {
     const said: string[] = [];
     const mouth = { say: async (t: string) => { said.push(t); return true; }, cue: () => {}, tell: () => {} };
-    const c = new Conversation("/tmp", config, mouth as never, engines as never, engines as never);
+    const c = new Conversation("/tmp", config, mouth as never, engines as never);
     await c.heard("hey bridge female voice");
     await new Promise((r) => setTimeout(r, 0));
     expect(said).toEqual(["This engine has only the one voice."]);
@@ -447,7 +447,7 @@ describe("the wake-word hold", () => {
     const commands: string[] = [];
     const mouth = { say: async () => true, cue: () => {}, tell: () => {} };
     const asked: string[] = [];
-    const c = new Conversation("/tmp", config, mouth as never, engines as never, engines as never, {
+    const c = new Conversation("/tmp", config, mouth as never, engines as never, {
       onMatched: (_said, became) => { commands.push(became); },
     });
     (c as unknown as { toAgent: (text: string) => void }).toAgent = (text: string) => { asked.push(text); };
@@ -471,7 +471,7 @@ describe("a sentence a barge-in cut", () => {
       say: async (text: string) => { said.push(text); if (first) { first = false; return false; } return true; },
       cue: () => {}, tell: () => {},
     };
-    const c = new Conversation("/tmp", config, mouth as never, engines as never, engines as never);
+    const c = new Conversation("/tmp", config, mouth as never, engines as never);
     return { c, said };
   }
 
@@ -489,7 +489,7 @@ describe("a sentence a barge-in cut", () => {
       },
       cue: () => {}, tell: () => {},
     };
-    const c = new Conversation("/tmp", config, mouth as never, engines as never, engines as never);
+    const c = new Conversation("/tmp", config, mouth as never, engines as never);
     inner = c as unknown as typeof inner;
     inner.holding = true;
     inner.ahead.push("Muted.");

@@ -30,7 +30,7 @@ import { Measures } from "./measures.ts";
 import { Network } from "./network.ts";
 import { SentenceCollector } from "./sentences.ts";
 import { Session, type SessionHooks, type Turn } from "./session.ts";
-import type { SpeechToText, TextToSpeech } from "./speech.ts";
+import type { TextToSpeech } from "./speech.ts";
 
 export type { CueName };
 
@@ -128,7 +128,7 @@ export class Conversation {
     dir: string,
     private readonly config: Config,
     private readonly mouth: Mouth,
-    private readonly stt: SpeechToText,
+    /** 9.4 the voice commands, which are the only reason this is here */
     private readonly tts: TextToSpeech,
     hooks: ConversationHooks = {},
     makeAgent: MakeAgent = claudeCode(dir),
@@ -526,14 +526,6 @@ export class Conversation {
   }
 
   /** One utterance of PCM becomes one thing Chris said. */
-  async transcribe(wavPath: string): Promise<string> {
-    return this.stt.transcribe(wavPath);
-  }
-
-  synthesize(text: string, wavPath: string): Promise<string> {
-    return this.tts.synthesize(text, wavPath);
-  }
-
   start(): void { this.agent.start(); }
   stop(): void { this.agent.stop(); }
 }
