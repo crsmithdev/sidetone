@@ -56,10 +56,13 @@ same hook that will feed the sentence collector when voice arrives.
 | `src/supervisor.ts` | the three fault detectors of section 8, as a clock-driven state machine |
 | `src/narrator.ts` | what the bridge says while a tool runs, so a long turn is not silence |
 | `src/speech.ts` | section 4: the local engines, each behind the interface of 4.8 |
+| `src/ear.ts` | 11.5 and 18.4: what the bridge does with sound, whichever loop brought it |
+| `src/measures.ts` | section 18: every fact about a turn, told once, read two ways |
+| `src/messages.ts` | 4.3 the control channel's vocabulary, which the bridge owns |
 | `src/sentences.ts` | section 5.6: the streamed reply cut at sentence ends |
 | `src/commands.ts` | section 9: the wake word, matched by sound rather than spelling |
 | `src/cues.ts` | section 15: a soft tone, so a wait is never plain silence |
-| `src/conversation.ts` | the turn, the commands and the checkpoint, above any transport |
+| `src/conversation.ts` | the turn, the commands and the checkpoint, above any transport. The agent arrives at a seam (ADR 0001) |
 | `src/transport.ts` | section 4.1: LiveKit over WebRTC, and the control channel of 4.3 |
 | `src/audio.ts` | the ends of a turn, and the barge-in, found in frames rather than by sox |
 | `src/latency.ts` | section 18.4: the round trip, measured rather than felt |
