@@ -4,7 +4,9 @@ Drive a Claude Code session by voice, from a phone, over a bridge that runs on
 your own machine. Claude Code does the reasoning; the bridge owns every voice
 decision and does speech locally.
 
-The full specification is [`docs/voice-bridge-spec.md`](docs/voice-bridge-spec.md).
+The words this project uses are in [`CONTEXT.md`](CONTEXT.md), and the decisions
+behind them are in [`docs/adr/`](docs/adr). The full specification is
+[`docs/voice-bridge-spec.md`](docs/voice-bridge-spec.md).
 Section numbers in the source refer to it. Picking this up after a break:
 [`docs/next.md`](docs/next.md) says how far it got, and which parts look
 finished but are not verified.
