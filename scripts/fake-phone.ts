@@ -26,7 +26,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Utterances, encodeWav } from "../src/audio.ts";
 import { loadConfig } from "../src/config.ts";
-import { LocalPiper, LocalWhisper } from "../src/speech.ts";
+import { LocalWhisper, textToSpeech } from "../src/speech.ts";
 import { RTC_RATE, Transport } from "../src/transport.ts";
 
 interface Options {
@@ -126,9 +126,21 @@ const credentials = await paired.json() as { token: string; url: string; room: s
 
 const config = loadConfig();
 const speechDir = new URL("../speech", import.meta.url).pathname;
-const tts = new LocalPiper(config, speechDir);
+/**
+ * The same engine the bridge speaks with (4.9). It was piper, from before
+ * kokoro arrived, and the voice setting is read by whichever engine is
+ * configured: under the kokoro default this script died at startup looking for
+ * a piper model named after a kokoro voice.
+ */
+const tts = textToSpeech(config, speechDir);
 const stt = new LocalWhisper(config, speechDir);
 await Promise.all([tts.start(), stt.start()]);
+/**
+ * The phone speaks in the voice the bridge is not using, so a recording of a
+ * check has two voices in it rather than one talking to itself.
+ */
+const other = config.ttsVoice === config.voiceChoices.female ? config.voiceChoices.male : config.voiceChoices.female;
+tts.use?.(other);
 
 const phone = new Transport();
 await phone.connect(credentials.url, credentials.token, "fake-phone");
@@ -142,6 +154,23 @@ await Bun.sleep(3_000);
 const heard: string[] = [];
 let speakingSince = 0;
 let lastAudioAt = 0;
+/**
+ * A cue is audio and is not the bridge speaking (15.2). Counting it as speech
+ * ended a check two seconds after the tone that says "heard", which is before
+ * the agent has answered at all, and the run then reported that the bridge
+ * said nothing. Measured here: a cue lands as a burst of 83 to 96 ms, and the
+ * shortest spoken answer is several times that.
+ */
+let burstSince = 0;
+const CUE_MS = 300;
+const GAP_MS = 400;
+
+/** Close the burst that has ended, and say whether it was the bridge speaking. */
+function settle(now = Date.now()): void {
+  if (!burstSince || now - lastAudioAt <= GAP_MS) return;
+  if (!speakingSince && lastAudioAt - burstSince >= CUE_MS) speakingSince = burstSince;
+  burstSince = 0;
+}
 const utterances = new Utterances({
   sampleRate: RTC_RATE, pauseMs: 900, onsetMs: 80, speechLevel: 0.02,
   bargeInLevel: 0.05, bargeInMs: 400, bargeInGapMs: 200,
@@ -149,7 +178,13 @@ const utterances = new Utterances({
 let index = 0;
 phone.onAudio((frame) => {
   for (const sample of frame) {
-    if (Math.abs(sample) > 800) { if (!speakingSince) speakingSince = Date.now(); lastAudioAt = Date.now(); break; }
+    if (Math.abs(sample) > 800) {
+      const now = Date.now();
+      settle(now);
+      if (!burstSince) burstSince = now;
+      lastAudioAt = now;
+      break;
+    }
   }
   const said = utterances.push(frame);
   if (!said) return;
@@ -180,10 +215,12 @@ for (const [n, raw] of options.lines.entries()) {
     await Bun.sleep(delay);
     const startedAt = Date.now();
     speakingSince = 0;
+    burstSince = 0;
     await say(line);
     const deadline = Date.now() + options.quietMs;
     while (Date.now() < deadline) {
       await Bun.sleep(250);
+      settle();
       if (speakingSince && Date.now() - lastAudioAt > 2_000) break;
     }
     measurements.push(speakingSince
@@ -194,12 +231,14 @@ for (const [n, raw] of options.lines.entries()) {
   const bargeIn = options.bargeMs > 0 && n > 0;
   if (!bargeIn) {
     speakingSince = 0;
+    burstSince = 0;
     const askedAt = Date.now();
     await say(line);
     // wait for the bridge to answer and then go quiet
     const deadline = Date.now() + options.quietMs;
     while (Date.now() < deadline) {
       await Bun.sleep(250);
+      settle();
       if (speakingSince && Date.now() - lastAudioAt > 2_000) break;
     }
     measurements.push(speakingSince

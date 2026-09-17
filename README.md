@@ -335,8 +335,11 @@ file for a microphone. `PHONE=1` runs it at phone width, and `INSECURE=1` is the
 only way to get past a certificate the browser does not trust.
 
 `scripts/fake-phone.ts` is a phone without the phone: it pairs, joins, speaks
-with the same local voice the bridge uses, and transcribes what the bridge says
-back, so a spoken conversation can be scripted and read.
+with the same local engine the bridge uses — in the other voice, so a recording
+has two voices in it — and transcribes what the bridge says back, so a spoken
+conversation can be scripted and read. It ignores the cues when it decides the
+bridge has finished: a cue is a burst of about 90 ms, and treating one as
+speech ended a check before the agent had answered.
 
 ```bash
 bun scripts/fake-phone.ts "what is two plus two" "say the word done"
