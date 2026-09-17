@@ -11,10 +11,11 @@
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Utterances, encodeWav, tooQuiet } from "./audio.ts";
+import { encodeWav } from "./audio.ts";
 import { settingsInForce, type Config } from "./config.ts";
 import { Conversation } from "./conversation.ts";
 import { Cues } from "./cues.ts";
+import { Ear } from "./ear.ts";
 import { LocalWhisper, textToSpeech } from "./speech.ts";
 import { advertiseHost, livekitConfig, loadOrCreateKeys } from "./keys.ts";
 import { Diagnostics } from "./diagnostics.ts";
@@ -79,23 +80,7 @@ export async function serve(dir: string, config: Config): Promise<void> {
   record.session(settingsInForce(config));
   const diagnostics = new Diagnostics((event) => record.write(event));
   let counter = 0;
-  /** 11.5 the ends of a turn, found in the frames the phone sends. */
-  const utterances = new Utterances({
-    sampleRate: RTC_RATE,
-    pauseMs: config.endOfTurnPauseMs,
-    onsetMs: config.speechOnsetMs,
-    speechLevel: config.speechLevel,
-    bargeInLevel: config.bargeInLevel,
-    bargeInMs: config.bargeInMs,
-    bargeInGapMs: config.bargeInGapMs,
-  });
-
-  /**
-   * 9.5 muting is what makes the noise stop costing sentences. While muted the
-   * bridge keeps transcribing, so "hey bridge, unmute" is still heard — it just
-   * stops treating a lorry as a reason to shut up.
-   */
-  const bargingIn = () => utterances.bargingIn && !conversation.isMuted;
+  const bargingIn = () => ear.bargingIn;
 
   const conversation = new Conversation(dir, config, {
     async say(text: string): Promise<boolean> {
@@ -109,7 +94,7 @@ export async function serve(dir: string, config: Config): Promise<void> {
       const round = conversation.latency.answered();
       if (round) diagnostics.answered(round);
       const whole = await transport.speak(await Bun.file(wav).bytes(), bargingIn);
-      if (!whole) console.log(`  [stopped: Chris started talking${bargedAt ? `, ${Date.now() - bargedAt}ms after it was noticed` : ""}]`);
+      if (!whole) console.log(`  [stopped: Chris started talking${ear.bargedAt ? `, ${Date.now() - ear.bargedAt}ms after it was noticed` : ""}]`);
       diagnostics.spoke(text, whole);
       return whole;
     },
@@ -131,77 +116,30 @@ export async function serve(dir: string, config: Config): Promise<void> {
   });
   conversation.start();
 
-  let wasActive = false;
-  let bargedAt = 0;
+  /** 11.5 and 18.4 entire: the listening policy, one module, driven by frames. */
+  const ear = new Ear(conversation, async (utterance) => {
+    const wav = join(scratch, `heard-${++counter}.wav`);
+    await Bun.write(wav, encodeWav(utterance.samples, RTC_RATE));
+    return stt.transcribe(wav);
+  }, {
+    sampleRate: RTC_RATE,
+    pauseMs: config.endOfTurnPauseMs,
+    onsetMs: config.speechOnsetMs,
+    speechLevel: config.speechLevel,
+    bargeInLevel: config.bargeInLevel,
+    bargeInMs: config.bargeInMs,
+    bargeInGapMs: config.bargeInGapMs,
+    minSpeechPeak: config.minSpeechPeak,
+    endOfTurnPauseMs: config.endOfTurnPauseMs,
+  }, diagnostics);
+
   // 14.8 a client that dropped in a tunnel gets the turns it missed on the way back
   transport.onParticipant(() => {
     void transport.send({ kind: "history", turns: conversation.missed() });
   });
 
-  transport.onAudio((frame) => {
-    const said = utterances.push(frame);
-    // 11.3 the moment Chris really starts, the bridge stops — every sentence,
-    // not one. A recording opening is not enough: road noise opens recordings.
-    if (bargingIn() !== wasActive) {
-      wasActive = bargingIn();
-      if (wasActive) {
-        bargedAt = Date.now();
-        // 18.6 what caused it, so the two thresholds stop being a guess
-        const { level, heldMs } = utterances.bargeIn;
-        console.log(`  [barge-in: level ${level.toFixed(3)}, held ${Math.round(heldMs)}ms]`);
-        conversation.latency.barged(level, heldMs);
-        diagnostics.barged(level, heldMs);
-        conversation.stopSpeaking();
-      }
-    }
-    if (!said) return;
-    // 4.6 whisper writes words for near-silence even with its voice detector
-    // on, and each invention costs a turn. Real speech is louder than this.
-    if (tooQuiet(said, config.minSpeechPeak)) {
-      diagnostics.heard(said, "", 0);
-      console.log(`\n> (too quiet: peak ${said.peak.toFixed(2)}, under ${config.minSpeechPeak})`);
-      conversation.heardNothing();
-      return;
-    }
-    // 18.4 the clock starts on speech, and a lorry is not speech. Starting it
-    // above the guard opened a round for every passing noise, and the next
-    // sentence of the answer closed that one instead of the real one: an
-    // eight-second round trip was recorded as one and a half.
-    //
-    // The end of the turn was the pause ago, not now. Measuring from here
-    // would charge a setting to the round trip.
-    conversation.latency.spoke(Date.now() - config.endOfTurnPauseMs, Date.now());
-    conversation.cue("heard");
-    const wav = join(scratch, `heard-${++counter}.wav`);
-    const readAt = Date.now();
-    void Bun.write(wav, encodeWav(said.samples, RTC_RATE))
-      .then(() => stt.transcribe(wav))
-      .then((text) => {
-        conversation.latency.transcribed();
-        const transcribeMs = Date.now() - readAt;
-        diagnostics.heard(said, text, transcribeMs);
-        // the shape of what was heard, which is what says whether a sentence
-        // was cut in half: a short recording that is mostly quiet, arriving
-        // one end-of-turn pause after the last one, is half a sentence
-        console.log(
-          `\n> ${text || "(nothing)"}` +
-          `\n  [${(said.ms / 1000).toFixed(1)}s heard, ${(said.speechMs / 1000).toFixed(1)}s of speech in it, ` +
-          `peak ${said.peak.toFixed(2)}, ${(said.gapMs / 1000).toFixed(1)}s quiet before, ` +
-          `read in ${transcribeMs}ms]`,
-        );
-        // 11.3 road noise that carried no words must give the passage back
-        if (!text) { conversation.heardNothing(); return; }
-        return conversation.heard(text);
-      })
-      .catch((error) => {
-        conversation.heardNothing();
-        diagnostics.note(`could not read that: ${(error as Error).message}`);
-        console.log(`[could not read that: ${(error as Error).message}]`);
-      });
-  });
+  transport.onAudio((frame) => ear.frame(frame));
 
-  // 9.4.8 and 10.2 also reach the bridge as typed text from the client, because
-  // a car is loud and a button is sometimes the honest way to say a thing.
   transport.onMessage((value) => {
     if (value.kind === "said" && typeof value.text === "string") void conversation.heard(value.text);
     // N.1.4 the phone's own reading of its uplink. Measured on a real room,
@@ -214,7 +152,8 @@ export async function serve(dir: string, config: Config): Promise<void> {
     // recorded goes with it, or it arrives as a fragment on the way back.
     if (value.kind === "mic") {
       const on = value.on !== false;
-      utterances.reset();
+      // the hold goes with the half recording, or nothing resolves it
+      ear.reset();
       console.log(`[the phone ${on ? "opened" : "cut"} its microphone]`);
     }
     if (value.kind === "quality") {

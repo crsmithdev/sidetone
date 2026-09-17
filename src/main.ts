@@ -13,6 +13,8 @@ import { DEFAULTS, configPath, loadConfig, type Config } from "./config.ts";
 import { Session } from "./session.ts";
 import { Conversation } from "./conversation.ts";
 import { Cues } from "./cues.ts";
+import { decodeWav, utteranceOf } from "./audio.ts";
+import { Ear } from "./ear.ts";
 import { fetchCert } from "./keys.ts";
 import { endpoints, livekitConfig } from "./serve.ts";
 import { serve } from "./serve.ts";
@@ -104,6 +106,8 @@ async function voice(dir: string, config: Config): Promise<void> {
   console.log(`voice ready in ${((Date.now() - startedAt) / 1000).toFixed(1)}s: ${config.sttModel} and ${config.ttsEngine} ${config.ttsVoice}, both local`);
 
   let counter = 0;
+  /** The recording the ear is reading, so the engine reads the file sox wrote. */
+  let heardWav = "";
   let speech = 0;
   let pending = 0;
   let listening: ReturnType<typeof recorder> | null = null;
@@ -145,6 +149,25 @@ async function voice(dir: string, config: Config): Promise<void> {
     onNarration: (text) => console.log(`[${text}]`),
     onTurn: (turn) => console.log(`[turn ${turn.number}, $${conversation.session.totalCostUsd().toFixed(4)} this session]`),
   });
+  /**
+   * 7.3 and 7.4 hear the same way. The desk has no frames to push, so it hands
+   * the ear whole recordings; everything after that — the invention guard, the
+   * clock, the cue, an empty transcription — is the module's, not the loop's.
+   */
+  const ear = new Ear(conversation, () => stt.transcribe(heardWav), {
+    // the frame settings are inert here: the desk pushes no frames, sox finds
+    // the ends of a turn itself, and the rate is the one it records at
+    sampleRate: 16_000,
+    pauseMs: config.endOfTurnPauseMs,
+    onsetMs: config.speechOnsetMs,
+    speechLevel: config.speechLevel,
+    bargeInLevel: config.bargeInLevel,
+    bargeInMs: config.bargeInMs,
+    bargeInGapMs: config.bargeInGapMs,
+    minSpeechPeak: config.minSpeechPeak,
+    endOfTurnPauseMs: config.endOfTurnPauseMs,
+  });
+
   conversation.start();
   console.log(`Claude Code in ${dir}. Speak; a ${(config.endOfTurnPauseMs / 1000).toFixed(1)}s pause ends your turn.`);
   console.log(`Say "${config.wakeWord}" then a command. Ctrl-C to leave.`);
@@ -161,13 +184,8 @@ async function voice(dir: string, config: Config): Promise<void> {
     await listening.exited;
     listening = null;
     if (speech !== before || pending > 0) { trace("cut short: the bridge started to speak"); continue; }
-    conversation.latency.spoke(Date.now() - config.endOfTurnPauseMs, Date.now());
-    conversation.cue("heard");
-    const said = await stt.transcribe(wav);
-    conversation.latency.transcribed();
-    if (!said) { conversation.heardNothing(); trace("nothing in it"); continue; }
-    console.log(`\n> ${said}`);
-    await conversation.heard(said);
+    heardWav = wav;
+    await ear.said(utteranceOf(decodeWav(await Bun.file(wav).bytes()), config.speechLevel));
   }
 }
 
