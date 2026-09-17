@@ -19,16 +19,31 @@ sealed interface Incoming {
 
     /** 14.8 the turns that happened while this client was away. */
     data class History(val lines: List<Line>) : Incoming
+
+    /** What only the bridge knows: the words this client has to say back to it. */
+    data class Protocol(val endTurn: String) : Incoming
+
+    /**
+     * A kind this app does not know, which means the two ends have drifted
+     * apart. It is shown rather than dropped: dropping it is how the drift
+     * stayed hidden.
+     */
+    data class Unknown(val kind: String) : Incoming
 }
 
 fun decode(payload: ByteArray): Incoming? {
     val message = runCatching { Json.parseToJsonElement(payload.decodeToString()) as? JsonObject }.getOrNull() ?: return null
-    if (message.string("kind") == "history") {
+    val kind = message.string("kind") ?: return null
+    if (kind == "protocol") {
+        val endTurn = message.string("endTurn") ?: return null
+        return Incoming.Protocol(endTurn)
+    }
+    if (kind == "history") {
         val turns = message["turns"] as? JsonArray ?: return Incoming.History(emptyList())
         val lines = turns.mapNotNull { (it as? JsonObject)?.let(::lineOf) }.filter { it.kind != Line.Kind.NOTE }
         return Incoming.History(lines)
     }
-    return lineOf(message)?.let { Incoming.Said(it) }
+    return lineOf(message)?.let { Incoming.Said(it) } ?: Incoming.Unknown(kind)
 }
 
 private fun lineOf(message: JsonObject): Line? {

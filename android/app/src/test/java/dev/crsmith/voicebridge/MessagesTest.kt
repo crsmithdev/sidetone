@@ -22,8 +22,22 @@ class MessagesTest {
     }
 
     @Test
+    fun takesTheWordsTheBridgeOwns() {
+        // src/messages.ts sends this when the app joins the room
+        assertEquals(
+            Incoming.Protocol("hey bridge end the turn"),
+            decode(bytes("""{"kind":"protocol","endTurn":"hey bridge end the turn","incoming":{},"outgoing":[]}""")),
+        )
+    }
+
+    @Test
+    fun saysSoWhenTheTwoEndsHaveDrifted() {
+        // dropping it silently is how a new kind stayed invisible
+        assertEquals(Incoming.Unknown("stats"), decode(bytes("""{"kind":"stats"}""")))
+    }
+
+    @Test
     fun ignoresWhatItDoesNotKnow() {
-        assertNull(decode(bytes("""{"kind":"stats"}""")))
         assertNull(decode(bytes("not json")))
         assertNull(decode(bytes("[1,2]")))
     }

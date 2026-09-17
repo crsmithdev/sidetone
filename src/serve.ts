@@ -16,6 +16,7 @@ import { settingsInForce, type Config } from "./config.ts";
 import { Conversation } from "./conversation.ts";
 import { Cues } from "./cues.ts";
 import { Ear } from "./ear.ts";
+import { protocolMessage } from "./messages.ts";
 import { LocalWhisper, textToSpeech } from "./speech.ts";
 import { advertiseHost, livekitConfig, loadOrCreateKeys } from "./keys.ts";
 import { Diagnostics } from "./diagnostics.ts";
@@ -135,6 +136,8 @@ export async function serve(dir: string, config: Config): Promise<void> {
 
   // 14.8 a client that dropped in a tunnel gets the turns it missed on the way back
   transport.onParticipant(() => {
+    // 4.3 what only the bridge knows: the words a client has to say back to it
+    void transport.send(protocolMessage(config));
     void transport.send({ kind: "history", turns: conversation.missed() });
   });
 

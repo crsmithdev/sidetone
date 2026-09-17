@@ -196,10 +196,16 @@ async function connect({ url, token }) {
       line("now", "note");
       return;
     }
+    // 4.3 the bridge says what a client has to say back to it, so the Stop
+    // button is never a phrase the wake word has moved away from
+    if (message.kind === "protocol") { endTurn = message.endTurn; $("stop").disabled = false; return; }
     if (message.kind === "heard") line(message.text, "you");
     else if (message.kind === "turn") line(message.text, "bridge");
     else if (message.kind === "narration") line(message.text, "note");
     else if (message.kind === "error") line(message.text, "note");
+    // a kind this page does not know is the two ends drifting apart. Say so
+    // rather than dropping it, which is how it stayed hidden before.
+    else line(`(unknown message: ${message.kind})`, "note");
   });
 
   await room.connect(url, token);
@@ -264,8 +270,11 @@ $("send").onclick = () => {
   tell({ kind: "said", text });
 };
 $("say").addEventListener("keydown", (event) => { if (event.key === "Enter") $("send").click(); });
-// 9.4.8 by hand, for a car that is too loud to be heard in
-$("stop").onclick = () => tell({ kind: "said", text: "hey bridge end the turn" });
+// 9.4.8 by hand, for a car that is too loud to be heard in. The phrase comes
+// from the bridge, which owns the wake word.
+let endTurn = "";
+$("stop").disabled = true;
+$("stop").onclick = () => { if (endTurn) tell({ kind: "said", text: endTurn }); };
 
 const saved = localStorage.getItem(KEY);
 // 12.4 a token that is refused is worth throwing away. Anything else -- the

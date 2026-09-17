@@ -39,6 +39,8 @@ object Bridge {
         val status: Status = Status.IDLE,
         val quality: String? = null,
         val micOn: Boolean = true,
+        /** 9.4.8 what the Stop button says, as the bridge gave it. */
+        val endTurn: String? = null,
         val lines: List<Line> = emptyList(),
         val error: String? = null,
     )
@@ -129,7 +131,8 @@ object Bridge {
         } finally {
             events.cancel()
             // the last reading belonged to a room that is gone
-            _state.update { it.copy(quality = null) }
+            // the protocol and the last reading belonged to a room that is gone
+            _state.update { it.copy(quality = null, endTurn = null) }
             this@Bridge.room = null
             mic = null
             // release disposes every published track, the microphone included
@@ -152,6 +155,8 @@ object Bridge {
             }
             is RoomEvent.DataReceived -> when (val message = decode(event.data)) {
                 is Incoming.Said -> append(message.line)
+                is Incoming.Protocol -> _state.update { it.copy(endTurn = message.endTurn) }
+                is Incoming.Unknown -> append(Line(Line.Kind.NOTE, "(unknown message: ${message.kind})"))
                 is Incoming.History -> {
                     if (historyShown) return
                     historyShown = true
@@ -188,7 +193,10 @@ object Bridge {
     }
 
     /** 9.4.8 by hand, for a car that is too loud to be heard in. */
-    fun endTurn() = say("hey bridge end the turn")
+    fun endTurn() {
+        // the phrase belongs to the bridge, which owns the wake word
+        _state.value.endTurn?.let { say(it) }
+    }
 
     private suspend fun openMic(room: Room) {
         if (mic != null) return
