@@ -14,10 +14,33 @@ Build order is spec section 7.
 | 7.2 text round trip | done, on `main` |
 | 7.3 voice | done |
 | 7.4 web client | done, over the tailnet, on a trusted certificate |
-| 7.5 Android app | built and checked on the emulator. Not yet on the phone, or in the car (17.4) |
+| 7.5 Android app | done. A spoken turn on the Pixel 8a with the screen locked, 17 September 2026. The car is next (17.4) |
 
 7.2 and 7.3 are on `main`; 7.4 is on `feature/web-client`. The project bridge that used to be
 in this repository is on `project-bridge` and still runs the story pipeline.
+
+## The app, 17 September 2026
+
+The app of 7.5 ran a spoken turn on the Pixel 8a over the tailnet, and then
+another one with the screen locked. That is 17.6 and 2.4 answered: the screen-on
+limit is gone.
+
+Measured at the desk, not in the car:
+
+| | |
+|---|---|
+| transcription | 1193 ms for 4.7 s of audio, then 275 ms for 3.0 s |
+| speech peak | 0.34, then 0.44 |
+| barge-in | fired on both turns, at the settings the drive of 10 September set |
+| with the screen locked | Android kept the record active and not silenced, under the foreground service |
+
+What the app still has to prove is 17.4: the echo cancellation is the phone's
+now, not the browser's, and only the car says whether the barge-in settings
+still hold. 17.5, the lock-screen controls, is not built.
+
+The phone needs Tailscale running, and the first run found it off: the app said
+"unable to resolve host" and retried every five seconds. Always-on VPN settles
+it.
 
 ## The car test, 10 September 2026
 
