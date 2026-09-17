@@ -272,9 +272,15 @@ const saved = localStorage.getItem(KEY);
 // tunnel down, livekit restarting, no signal in a tunnel -- is not, and
 // clearing it sent the phone back to a three-word code that has to be read off
 // the machine. Reloading into the same failure looped.
+//
+// "invalid API key" is what livekit says about a token it cannot verify, which
+// is the case after the keys are rewritten. It reads like a fault on the
+// machine and it is a refusal, measured 2026-09-17.
+// The message and the reason are both read: livekit puts the text in the
+// message and a number in the reason, and String(1) matched nothing.
 const refused = (error) => {
-  const reason = String(error?.reason ?? error?.message ?? error);
-  return /unauthor|invalid token|expired|permission|denied|403|401/i.test(reason);
+  const reason = `${error?.message ?? ""} ${error?.reason ?? ""} ${error ?? ""}`;
+  return /unauthor|invalid token|invalid api key|expired|permission|denied|403|401/i.test(reason);
 };
 if (saved) connect(JSON.parse(saved)).catch((error) => {
   if (!refused(error)) {
