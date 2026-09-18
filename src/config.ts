@@ -44,6 +44,16 @@ export interface Config {
    */
   interruptOnSpeech: boolean;
   /**
+   * 11.9 how long to let an interrupted turn end by itself before insisting.
+   *
+   * Insisting is not free: the interrupt reaches an async subagent as a user
+   * interruption and stops it, along with anything it started -- measured
+   * 18 September, `"stoppedByUser": true` in the subagent's own record, three
+   * runs out of three. A turn that is nearly done costs a few seconds to wait
+   * for and loses nothing, and the voice is silent either way.
+   */
+  interruptAfterMs: number;
+  /**
    * The quietest an utterance may peak and still be treated as speech. Whisper
    * writes words for near-silence even with the voice detector on: "Thank you."
    * came out of a recording that peaked at 0.12 and cost a turn. Real speech in
@@ -177,6 +187,7 @@ export const DEFAULTS: Config = {
   wakeWordVariants: ["cambridge"],
   wakeHoldMs: 6_000,
   interruptOnSpeech: false,
+  interruptAfterMs: 5_000,
   minSpeechPeak: 0.15,
   mutedCommands: ["mute", "unmute", "tones", "tonesOn", "tonesOff"],
   agreementWord: "continue",
@@ -271,7 +282,8 @@ export const DEFAULTS: Config = {
 export const IN_FORCE = [
   "speechLevel", "speechOnsetMs", "endOfTurnPauseMs",
   "bargeInLevel", "bargeInMs", "bargeInGapMs",
-  "minSpeechPeak", "wakeHoldMs", "interruptOnSpeech", "holdBackstopMs", "listenSettleMs",
+  "minSpeechPeak", "wakeHoldMs", "interruptOnSpeech", "interruptAfterMs",
+  "holdBackstopMs", "listenSettleMs",
   "sentenceMaxChars", "audioCueDelayMs", "audioCueEveryMs",
   "cueVolume", "ttsEngine", "ttsVoice", "sttModel", "wakeWord",
 ] as const satisfies ReadonlyArray<keyof Config>;

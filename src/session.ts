@@ -37,6 +37,13 @@ export interface SessionHooks {
   onNarration?(text: string): void;
   onRestart?(reason: string): void;
   onInterrupt?(reason: string): void;
+  /**
+   * 11.11 a turn nobody asked for. Claude Code answers a task notification on
+   * its own, so a background job that finishes speaks without being spoken to.
+   * The bridge used to drop every word of it: `onDelta` writes to a sink that
+   * only exists for the length of a turn the bridge started.
+   */
+  onUnprompted?(turn: Turn): void;
   /** 15.2 something to play while a turn is long */
   onEvent?(event: Event): void;
 }
@@ -131,7 +138,8 @@ export class Session {
     this.replyText = "";
     const pending = this.pending;
     this.pending = null;
-    pending?.resolve(turn);
+    if (!pending) { this.hooks.onUnprompted?.(turn); return; }
+    pending.resolve(turn);
   }
 
   private fail(error: Error): void {

@@ -168,6 +168,7 @@ export class Conversation {
         this.reply(`This turn has run ${Math.round(ms / 60_000)} minutes and cost ${this.agent.totalCostUsd().toFixed(2)} dollars. Say ${config.agreementWord} to let it run on.`);
       },
       onInterrupt: () => { this.checkpointOpen = false; },
+      onUnprompted: (turn) => this.unprompted(turn),
       onRestart: () => this.cue("starting"),
     }, { ...config, claudeArgs: args });
     this.tones = config.tones;
@@ -238,7 +239,12 @@ export class Conversation {
         // discardHold while the sentence was still playing flipped it, and a
         // sentence cut mid-word became the one `restate` read back.
         if (whole === false) {
-          if (this.holding) (jumped ? this.ahead : this.outbox).unshift(text);
+          // Put it back and stop. A queue that jumps the hold used to retry the
+          // sentence at once, be cut at once, and retry again for as long as
+          // Chris kept talking: eighteen copies of one refusal in three seconds
+          // on the drive of 18 September. Whatever resolves the utterance --
+          // `resumeHold`, `discardHold`, `heardNothing` -- starts the pump again.
+          if (this.holding) { (jumped ? this.ahead : this.outbox).unshift(text); break; }
         } else this.said.push(text);
       }
     } finally {
@@ -284,6 +290,8 @@ export class Conversation {
     this.clearBackstop();
     this.holding = false;
     if (this.outbox.length > 0) this.tail = this.outbox.splice(0);
+    // a bridge reply put back by the break above is still waiting to be said
+    if (this.ahead.length > 0) { void this.pump(); return; }
     this.settleIfIdle();
   }
 
@@ -301,13 +309,20 @@ export class Conversation {
    * returns one is 8.6.7's to restart, not a reason to hold the microphone.
    */
   private async cutOff(): Promise<string> {
+    // the turn is no longer the one that owns the mouth, whatever becomes of it
     this.turnId++;
-    this.agent.interrupt();
     this.discardHold();
     const unspoken = this.tail.join(" ");
     if (unspoken) this.mouth.tell?.({ kind: "narration", text: `not spoken: ${unspoken}` });
     const last = this.said[this.said.length - 1];
-    await Promise.race([this.running ?? Promise.resolve(), Bun.sleep(this.config.graceMs)]);
+    const running = (this.running ?? Promise.resolve()).then(() => true, () => true);
+    // Give it a moment to end by itself. An interrupt is what costs a subagent,
+    // and the voice is already silent, so waiting is free to listen to.
+    const ended = await Promise.race([running, Bun.sleep(this.config.interruptAfterMs).then(() => false)]);
+    if (!ended) {
+      this.agent.interrupt();
+      await Promise.race([running, Bun.sleep(this.config.graceMs)]);
+    }
     // Measured 18 September: told only that he did not hear the rest, the agent
     // helpfully said the rest again, which is the one thing an interruption is
     // for not doing. It is told what he heard and what not to do about it.
@@ -623,6 +638,25 @@ export class Conversation {
         });
         return "keep";
     }
+  }
+
+  /**
+   * 11.11 a turn nobody asked for, spoken.
+   *
+   * A background job that finishes hands Claude Code a task notification, and
+   * it answers: measured 18 September, four such turns across three runs, every
+   * word of them dropped. They go through `reply`, which jumps a hold, because
+   * what they carry is news and the answer they land on is not.
+   */
+  private unprompted(turn: Turn): void {
+    if (turn.isError) return;
+    const text = turn.text.trim();
+    if (!text) return;
+    const sentences = new SentenceCollector(this.config.sentenceMaxChars);
+    for (const sentence of sentences.push(text)) this.reply(sentence);
+    const last = sentences.flush();
+    if (last) this.reply(last);
+    this.remember({ kind: "turn", number: turn.number, text, costUsd: this.agent.totalCostUsd() });
   }
 
   /** 9.4 the two voices Chris switches between out loud. */

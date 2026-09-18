@@ -171,7 +171,9 @@ describe("11.9 a question that lands mid-answer", () => {
   async function midAnswer(overrides: Partial<Config> = {}) {
     let answer = () => {};
     const hold = new Promise<void>((resolve) => { answer = resolve; });
-    const r = room({ hold, onInterrupt: () => answer(), text: "One. Two. Three." }, overrides);
+    // a turn that ends only when it is made to, so the wait of 11.9 runs out
+    const r = room({ hold, onInterrupt: () => answer(), text: "One. Two. Three." },
+      { interruptAfterMs: 20, ...overrides });
     const turn = r.c.turn("how does a suspension bridge work");
     await tick();
     r.agent.hooks().onDelta?.("One. ");
@@ -241,5 +243,81 @@ describe("11.9 a question that lands mid-answer", () => {
     expect(r.said).toContain("Interrupting off.");
     await r.c.heard("hey bridge interrupt");
     expect(r.said.at(-1)).toBe("Interrupting on.");
+  });
+});
+
+describe("11.9 waiting before insisting", () => {
+  /** A turn that ends on its own a moment after the question lands. */
+  async function endsByItself(afterMs: number, patienceMs: number) {
+    let answer = () => {};
+    const hold = new Promise<void>((resolve) => { answer = resolve; });
+    // the real process returns a result once it takes an interrupt, so the
+    // stub does too: without that this measures the grace timer, not the wait
+    const r = room({ hold, text: "One. Two.", onInterrupt: () => answer() },
+      { interruptOnSpeech: true, interruptAfterMs: patienceMs });
+    const turn = r.c.turn("something");
+    await tick();
+    r.agent.hooks().onDelta?.("One. ");
+    await tick();
+    r.c.stopSpeaking();
+    setTimeout(answer, afterMs);
+    await r.c.heard("what is the tallest one");
+    await turn;
+    return r;
+  }
+
+  test("a turn that ends by itself is never interrupted, so a subagent lives", async () => {
+    const r = await endsByItself(10, 200);
+    expect(r.agent.calls).not.toContain("interrupt");
+    // and the question still gets asked, with the note in front of it
+    expect(r.agent.calls.filter((call) => call.startsWith("ask ")).length).toBe(2);
+  });
+
+  test("a turn that will not end is interrupted after the wait", async () => {
+    const r = await endsByItself(10_000, 20);
+    expect(r.agent.calls).toContain("interrupt");
+  });
+
+  test("the wait is silent: nothing of the stopped answer is said", async () => {
+    const r = await endsByItself(10, 200);
+    expect(r.said).not.toContain("Two.");
+  });
+});
+
+describe("11.11 a turn nobody asked for", () => {
+  const turnOf = (text: string, isError = false) => ({ number: 7, text, costUsd: 0.01, isError });
+
+  test("it is spoken, sentence by sentence, and reaches the client", async () => {
+    const r = room();
+    r.agent.hooks().onUnprompted?.(turnOf("The search finished. It found nine files."));
+    await tick();
+    expect(r.said).toEqual(["The search finished.", "It found nine files."]);
+    expect(r.told.some((value) => value.kind === "turn" && String(value.text).startsWith("The search finished"))).toBe(true);
+  });
+
+  test("it jumps a hold, because news is not the answer it landed on", async () => {
+    const r = room();
+    r.c.stopSpeaking();
+    r.agent.hooks().onUnprompted?.(turnOf("The build is green."));
+    await tick();
+    expect(r.said).toContain("The build is green.");
+  });
+
+  test("talked over, it is said once and waits, rather than spinning", async () => {
+    // the drive of 18 September: one refusal, eighteen times in three seconds
+    const r = room();
+    r.c.stopSpeaking();
+    r.agent.hooks().onUnprompted?.(turnOf("The build is green."));
+    await tick();
+    await tick();
+    expect(r.said.filter((line) => line === "The build is green.").length).toBe(1);
+  });
+
+  test("an empty one and a failed one say nothing", async () => {
+    const r = room();
+    r.agent.hooks().onUnprompted?.(turnOf("   "));
+    r.agent.hooks().onUnprompted?.(turnOf("It broke.", true));
+    await tick();
+    expect(r.said).toEqual([]);
   });
 });

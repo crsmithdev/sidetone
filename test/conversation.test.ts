@@ -475,28 +475,23 @@ describe("a sentence a barge-in cut", () => {
     return { c, said };
   }
 
-  test("a bridge reply goes back to the queue it came from", async () => {
-    // the pump retries a cut reply at once, so the queues are read from inside
-    // the second attempt rather than after the loop has drained them
-    const seen: Array<{ ahead: string[]; outbox: string[] }> = [];
-    let first = true;
-    let inner!: { ahead: string[]; outbox: string[]; holding: boolean; pump: () => Promise<void> };
+  test("a bridge reply goes back to the queue it came from, and the pump stops", async () => {
+    // it used to be retried at once, cut at once and retried again for as long
+    // as Chris kept talking. It goes back and waits for the hold to resolve.
+    const attempts: string[] = [];
     const mouth = {
-      say: async () => {
-        if (first) { first = false; return false; }
-        seen.push({ ahead: [...inner.ahead], outbox: [...inner.outbox] });
-        return true;
-      },
+      say: async (text: string) => { attempts.push(text); return false; },
       cue: () => {}, tell: () => {},
     };
     const c = new Conversation("/tmp", config, mouth as never, engines as never);
-    inner = c as unknown as typeof inner;
+    const inner = c as unknown as { ahead: string[]; outbox: string[]; holding: boolean; pump: () => Promise<void> };
     inner.holding = true;
     inner.ahead.push("Muted.");
     await inner.pump();
-    // at the retry the reply had been taken off `ahead` again, and `outbox`
-    // -- which a discardHold empties -- never held it
-    expect(seen).toEqual([{ ahead: [], outbox: [] }]);
+    expect(attempts).toEqual(["Muted."]);
+    // back on `ahead`, and never on `outbox`, which a discardHold empties
+    expect(inner.ahead).toEqual(["Muted."]);
+    expect(inner.outbox).toEqual([]);
   });
 
   test("it is never counted as something he heard", async () => {
