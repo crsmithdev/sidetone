@@ -120,9 +120,15 @@ function room(overrides: Partial<Config> = {}) {
   let gate: (() => void) | null = null;
   let blocking = false;
   let whole = true;
+  const lookahead: Array<string | undefined> = [];
   const mouth = {
-    say: async (text: string) => {
+    say: async (text: string, next?: () => string | undefined) => {
       said.push(text);
+      // A real mouth makes the sentence before it asks, and the asking is the
+      // point: by then the agent has streamed more of its reply. Yielding once
+      // is the smallest version of that delay.
+      await Promise.resolve();
+      lookahead.push(next?.());
       if (blocking) await new Promise<void>((resolve) => { gate = resolve; });
       return whole;
     },
@@ -131,7 +137,7 @@ function room(overrides: Partial<Config> = {}) {
   };
   const c = new Conversation("/tmp", { ...config, ...overrides }, mouth as never, engines as never);
   return {
-    c, said, cues,
+    c, said, cues, lookahead,
     guts: c as unknown as {
       speak(text: string): void;
       turnRunning: boolean;
@@ -503,5 +509,42 @@ describe("a sentence a barge-in cut", () => {
     inner.ahead.push("half a sen");
     await inner.pump();
     expect(inner.said).toEqual([]);
+  });
+});
+
+/**
+ * 11.6 the gap between two sentences. The bridge says one sentence at a time
+ * and waits for each, so whatever the mouth spends making a sentence lands in
+ * the silence before it. The cloning voice spends three seconds. The pump
+ * therefore tells the mouth which sentence comes next, so the mouth can make
+ * it while the current one plays.
+ */
+describe("the next sentence is named before this one ends (11.6)", () => {
+  test("each sentence is told the one that follows it, and the last is told nothing", async () => {
+    const r = room();
+    // speak() takes one sentence; the splitter is upstream of it
+    r.guts.speak("One."); r.guts.speak("Two."); r.guts.speak("Three.");
+    await tick();
+    expect(r.said).toEqual(["One.", "Two.", "Three."]);
+    expect(r.lookahead).toEqual(["Two.", "Three.", undefined]);
+  });
+
+  test("a sentence a barge-in cut is named again, not skipped past", async () => {
+    const r = room();
+    r.blockSay(true);
+    r.guts.speak("first."); r.guts.speak("second.");
+    await tick();
+    expect(r.said).toEqual(["first."]);
+    expect(r.lookahead).toEqual(["second."]);
+    r.cutSay(true);
+    r.c.stopSpeaking();
+    r.release();
+    await tick();
+    r.blockSay(false); r.cutSay(false);
+    r.c.resumeHold();
+    await tick();
+    // the cut sentence plays again from the start, and still names the one after
+    expect(r.said).toEqual(["first.", "first.", "second."]);
+    expect(r.lookahead).toEqual(["second.", "second.", undefined]);
   });
 });

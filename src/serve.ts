@@ -17,7 +17,7 @@ import { Conversation } from "./conversation.ts";
 import { Cues } from "./cues.ts";
 import { Ear, earOptions, SILENCE_MS } from "./ear.ts";
 import { protocolMessage } from "./messages.ts";
-import { LocalWhisper, textToSpeech } from "./speech.ts";
+import { LocalWhisper, SpokenAhead, textToSpeech } from "./speech.ts";
 import { advertiseHost, livekitConfig, loadOrCreateKeys } from "./keys.ts";
 import { Measures } from "./measures.ts";
 import { Recorder } from "./record.ts";
@@ -68,6 +68,7 @@ export async function serve(dir: string, config: Config): Promise<void> {
   const speechDir = new URL("../speech", import.meta.url).pathname;
   const stt = new LocalWhisper(config, speechDir);
   const tts = textToSpeech(config, speechDir);
+  const ahead = new SpokenAhead(tts, scratch);
   const cues = new Cues(scratch, config.cueVolume);
   await Promise.all([stt.start(), tts.start(), cues.build()]);
 
@@ -88,19 +89,24 @@ export async function serve(dir: string, config: Config): Promise<void> {
   let voice = true;
 
   const conversation = new Conversation(dir, config, {
-    async say(text: string): Promise<boolean> {
+    async say(text: string, next?: () => string | undefined): Promise<boolean> {
       // The round trip is still closed: the answer arrived, and how long that
       // took is the same question whether it is read or heard.
       if (!voice) { console.log(`  ${text}`); measures.answering(); measures.spoken(text, true); return true; }
-      const wav = join(scratch, `say-${++counter}.wav`);
-      await tts.synthesize(text, wav);
+      const wav = await ahead.take(text);
       console.log(`  ${text}`);
       // 11.3 stop the moment Chris starts to talk. The frames cannot hold the
       // bridge's own voice, because the client cancelled it before sending.
       // 18.4 the first sound of the answer closes the round trip. A later
       // sentence is not a round trip, and the tracker ignores it.
       measures.answering();
-      const whole = await transport.speak(await Bun.file(wav).bytes(), bargingIn);
+      const frames = await Bun.file(wav).bytes();
+      // The engine takes one request at a time, so this starts only now that
+      // the current sentence is made. A barge-in during this prefetch makes
+      // the bridge's next word wait for it, which costs one synthesis once and
+      // saves one on every sentence of every answer.
+      ahead.start(next?.());
+      const whole = await transport.speak(frames, bargingIn);
       if (!whole) console.log(`  [stopped: Chris started talking${ear.bargedAt ? `, ${Date.now() - ear.bargedAt}ms after it was noticed` : ""}]`);
       measures.spoken(text, whole);
       return whole;

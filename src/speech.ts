@@ -247,3 +247,52 @@ export function textToSpeech(config: Config, scriptDir: string): TextToSpeech {
   if (config.ttsEngine === "chatterbox") return new LocalChatterbox(config, scriptDir);
   return new LocalKokoro(config, scriptDir);
 }
+
+/**
+ * One sentence of lookahead (5.7, 11.6).
+ *
+ * The bridge speaks one sentence at a time and waits for each to finish, so
+ * before this every gap between sentences was a whole synthesis: about a
+ * tenth of a second with kokoro, which nobody hears, and about three seconds
+ * with the cloning voice, which everybody does. A sentence takes longer to say
+ * than to make, so making the next one while this one plays hides the cost of
+ * every sentence after the first.
+ *
+ * The cache holds exactly one sentence, keyed by its text. A sentence a
+ * barge-in cut comes back to the front of the queue, and the queue can be
+ * jumped, so what plays next is not always what was made ready: a miss just
+ * synthesizes, which is what happened every time before.
+ */
+export class SpokenAhead {
+  private ready: { text: string; wav: Promise<string> } | null = null;
+  private counter = 0;
+
+  constructor(private readonly tts: TextToSpeech, private readonly scratch: string) {}
+
+  /** The wav for this sentence, already made if it was the one expected. */
+  take(text: string): Promise<string> {
+    const ready = this.ready;
+    this.ready = null;
+    if (ready?.text === text) return ready.wav;
+    return this.make(text);
+  }
+
+  /**
+   * Start the next sentence. Call it once the current sentence is playing:
+   * the engine answers one request at a time, so starting earlier would put
+   * this sentence behind the next one.
+   */
+  start(text: string | undefined): void {
+    if (!text || this.ready?.text === text) return;
+    this.ready = { text, wav: this.make(text) };
+  }
+
+  private make(text: string): Promise<string> {
+    const wav = join(this.scratch, `say-${++this.counter}.wav`);
+    // a rejection here is answered where the wav is awaited, and an unobserved
+    // prefetch must not take the process down with it
+    const made = this.tts.synthesize(text, wav);
+    made.catch(() => {});
+    return made;
+  }
+}

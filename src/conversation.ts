@@ -70,8 +70,20 @@ export const claudeCode = (dir: string): MakeAgent => (hooks, config) => new Ses
 export type Hold = "resume" | "discard" | "keep";
 
 export interface Mouth {
-  /** Speak one sentence. False means a barge-in cut it short (11.3). */
-  say(text: string): Promise<boolean>;
+  /**
+   * Speak one sentence. False means a barge-in cut it short (11.3).
+   *
+   * `next` answers what will play after this sentence. A mouth that can make
+   * a sentence ahead of time asks once this one is playing and starts on the
+   * answer, which is what keeps three seconds of synthesis out of every gap.
+   * Ignoring it is correct, just slower.
+   *
+   * It is a question and not a value because the answer changes: the agent
+   * streams its reply a few words at a time, so at the moment a sentence
+   * begins, the one after it has usually not arrived yet. Asked a few seconds
+   * later, when the sentence is playing, it almost always has.
+   */
+  say(text: string, next?: () => string | undefined): Promise<boolean>;
   /** 15.2 a sound that is not speech, for a wait that has gone on. */
   cue(name: CueName): void;
   /** 4.3 the control channel: the transcript and the turn number (14.5, 14.7). */
@@ -225,7 +237,11 @@ export class Conversation {
         if (text === undefined) break;
         this.speaking = true;
         let whole = true;
-        try { whole = await this.mouth.say(text); }
+        // the same choice the next turn of this loop will make, asked whenever
+        // the mouth is ready to act on it
+        const next = (): string | undefined =>
+          this.ahead[0] ?? (this.holding ? undefined : this.outbox[0]);
+        try { whole = await this.mouth.say(text, next); }
         catch { /* a transport that dropped is not this loop's problem */ }
         finally { this.speaking = false; }
         // A sentence a barge-in cut is not a sentence Chris heard. It goes back

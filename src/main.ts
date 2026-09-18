@@ -18,7 +18,7 @@ import { Ear, earOptions } from "./ear.ts";
 import { fetchCert } from "./keys.ts";
 import { endpoints, livekitConfig } from "./serve.ts";
 import { serve } from "./serve.ts";
-import { LocalWhisper, textToSpeech } from "./speech.ts";
+import { LocalWhisper, SpokenAhead, textToSpeech } from "./speech.ts";
 
 function showConfig(config: Config): void {
   console.log(`config: ${configPath()}`);
@@ -102,6 +102,7 @@ async function voice(dir: string, config: Config): Promise<void> {
   const speechDir = new URL("../speech", import.meta.url).pathname;
   const stt = new LocalWhisper(config, speechDir);
   const tts = textToSpeech(config, speechDir);
+  const ahead = new SpokenAhead(tts, scratch);
   const cues = new Cues(scratch, config.cueVolume);
 
   const startedAt = Date.now();
@@ -129,13 +130,14 @@ async function voice(dir: string, config: Config): Promise<void> {
   }
 
   const conversation = new Conversation(dir, config, {
-    async say(text: string): Promise<boolean> {
-      const wav = join(scratch, `say-${++counter}.wav`);
+    async say(text: string, next?: () => string | undefined): Promise<boolean> {
       takeTheMicrophone();
       try {
         console.log(`  ${text}`);
         conversation.measures.answering();
-        await tts.synthesize(text, wav);
+        const wav = await ahead.take(text);
+        // started now, not sooner: the engine answers one request at a time
+        ahead.start(next?.());
         await Bun.spawn(["paplay", wav], { stdout: "ignore", stderr: "ignore" }).exited;
       } finally { pending -= 1; }
       // there is no barge-in at the desk (7.3), so a sentence is always whole
