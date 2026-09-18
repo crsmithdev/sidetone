@@ -35,13 +35,40 @@ bun src/main.ts serve ~/some-project   # the same, for a phone, over LiveKit
 bun src/main.ts config                 # every setting, and which are not default
 ```
 
-Voice needs the two local engines once:
+Voice needs the local engines once. The transcriber and the piper fallback:
 
 ```bash
 uv venv .venv
 uv pip install --python .venv/bin/python faster-whisper piper-tts nvidia-cublas-cu12 nvidia-cudnn-cu12
 .venv/bin/python -m piper.download_voices --download-dir ~/.voice-bridge/models en_US-lessac-medium
 ```
+
+The voice that speaks by default is chatterbox, which clones a voice from a
+recording. It gets its own environment, because the torch it pins has no
+kernels for this card and would fail with "no kernel image is available":
+
+```bash
+uv venv --python 3.12 ~/.voice-bridge/chatterbox-venv
+uv pip install --python ~/.voice-bridge/chatterbox-venv/bin/python torch==2.9.1 torchaudio==2.9.1
+uv pip install --python ~/.voice-bridge/chatterbox-venv/bin/python "numpy<2" librosa==0.11.0 \
+  s3tokenizer transformers==5.2.0 diffusers==0.29.0 resemble-perth conformer==0.3.2 \
+  safetensors==0.5.3 spacy-pkuseg pykakasi==2.3.0 pyloudnorm omegaconf "setuptools<81"
+uv pip install --python ~/.voice-bridge/chatterbox-venv/bin/python chatterbox-tts --no-deps
+```
+
+`--no-deps` is what keeps the pinned torch out, and `setuptools<81` is what
+keeps `pkg_resources` in, which the watermarker still imports.
+
+A voice is a wav under `~/.voice-bridge/models/chatterbox/refs`, named the way
+`ttsVoice` names it. The two that ship are `som_00295` and `sof_01208`, from
+the Crowdsourced UK and Ireland English Dialect data set (OpenSLR 83, CC BY-SA
+4.0); `CREDITS.txt` beside them says so. Any clean fifteen seconds of speech
+works as a reference, and the silence in it is copied into every sentence, so
+cut the dead air out first.
+
+A sentence costs about three seconds this way, against kokoro's fifteenth of a
+second. That is the price of choosing the voice rather than picking one off a
+list. `ttsEngine: "kokoro"` in the config buys the speed back.
 
 The text loop is useful on its own, and it is where the process management gets
 exercised before any audio exists. The reply streams word by word, through the
@@ -56,6 +83,7 @@ same hook that will feed the sentence collector when voice arrives.
 | `src/supervisor.ts` | the three fault detectors of section 8, as a clock-driven state machine |
 | `src/narrator.ts` | what the bridge says while a tool runs, so a long turn is not silence |
 | `src/speech.ts` | section 4: the local engines, each behind the interface of 4.8 |
+| `speech/chatterbox_worker.py` | 4.9 the cloning voice: a reference wav in, a sentence out |
 | `src/ear.ts` | 11.5 and 18.4: what the bridge does with sound, whichever loop brought it |
 | `src/measures.ts` | section 18: every fact about a turn, told once, read two ways |
 | `src/messages.ts` | 4.3 the control channel's vocabulary, which the bridge owns |

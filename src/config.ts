@@ -71,9 +71,15 @@ export interface Config {
   modelsDir: string;
   /** 4.6 a small Whisper-family model */
   sttModel: string;
-  /** 4.9 which engine speaks. kokoro is on the GPU; piper is the CPU fallback. */
-  ttsEngine: "kokoro" | "piper";
-  /** 4.9 the voice, named the way the chosen engine names its voices */
+  /**
+   * 4.9 which engine speaks. kokoro is on the GPU; piper is the CPU fallback;
+   * chatterbox clones a voice from a recording and costs twenty times kokoro.
+   */
+  ttsEngine: "kokoro" | "piper" | "chatterbox";
+  /**
+   * 4.9 the voice, named the way the chosen engine names its voices. Kokoro
+   * names a pack; chatterbox names a wav under `chatterboxRefs`.
+   */
   ttsVoice: string;
   /**
    * 9.4 the two Chris switches between out loud. Kokoro keeps all its voices
@@ -88,6 +94,21 @@ export interface Config {
   kokoroPythonBin: string;
   kokoroModel: string;
   kokoroVoices: string;
+  /**
+   * Chatterbox is a third environment, for the same reason kokoro is a second
+   * one: it pins its own torch, and the pinned one has no kernels for this
+   * card. `chatterboxRefs` holds one wav per voice, named the way `ttsVoice`
+   * names it.
+   */
+  chatterboxPythonBin: string;
+  chatterboxRefs: string;
+  /**
+   * How much the voice performs the line, and how hard it is pulled back
+   * toward the reference recording. 0.5 and 0.5 are the engine's own defaults
+   * and the pair the voices were chosen at.
+   */
+  chatterboxExaggeration: number;
+  chatterboxCfg: number;
   /** 5.6 a run of text this long with no punctuation is spoken anyway */
   sentenceMaxChars: number;
   /** 11.5 the pause that ends a turn, and the level that counts as speech */
@@ -195,12 +216,16 @@ export const DEFAULTS: Config = {
   pythonBin: new URL("../.venv/bin/python", import.meta.url).pathname,
   modelsDir: join(homedir(), ".voice-bridge", "models"),
   sttModel: "small.en",
-  ttsEngine: "kokoro",
-  ttsVoice: "bf_emma",
-  voiceChoices: { female: "bf_emma", male: "bm_daniel" },
+  ttsEngine: "chatterbox",
+  ttsVoice: "som_00295",
+  voiceChoices: { female: "sof_01208", male: "som_00295" },
   kokoroPythonBin: join(homedir(), ".voice-bridge", "kokoro-venv", "bin", "python"),
   kokoroModel: join(homedir(), ".voice-bridge", "models", "kokoro", "kokoro-v1.0.onnx"),
   kokoroVoices: join(homedir(), ".voice-bridge", "models", "kokoro", "voices-v1.0.bin"),
+  chatterboxPythonBin: join(homedir(), ".voice-bridge", "chatterbox-venv", "bin", "python"),
+  chatterboxRefs: join(homedir(), ".voice-bridge", "models", "chatterbox", "refs"),
+  chatterboxExaggeration: 0.5,
+  chatterboxCfg: 0.5,
   sentenceMaxChars: 240,
   endOfTurnPauseMs: 1_500,
   speechLevel: 0.02,
@@ -290,6 +315,7 @@ export const IN_FORCE = [
   "holdBackstopMs", "listenSettleMs",
   "sentenceMaxChars", "audioCueDelayMs", "audioCueEveryMs",
   "cueVolume", "ttsEngine", "ttsVoice", "sttModel", "wakeWord",
+  "chatterboxExaggeration", "chatterboxCfg",
 ] as const satisfies ReadonlyArray<keyof Config>;
 
 export function settingsInForce(config: Config): Record<string, unknown> {

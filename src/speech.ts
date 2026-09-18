@@ -198,7 +198,52 @@ export class LocalKokoro implements TextToSpeech {
   stop(): void { this.worker.stop(); }
 }
 
+/**
+ * 4.9 a voice that is a recording, not a name on a list. The reference clip
+ * decides who speaks, so `voiceChoices` names two files under `chatterboxRefs`
+ * and 9.4 switches between them the same way it always did.
+ *
+ * It is about twenty times slower than kokoro a sentence, which is the reason
+ * kokoro remains the default and the reason 11.6 is worth measuring after a
+ * switch.
+ */
+export class LocalChatterbox implements TextToSpeech {
+  private worker: Worker;
+  private voice: string;
+  sampleRate = 0;
+  /** cuda or cpu, as the worker found it; the CPU path is minutes, not seconds */
+  device = "";
+
+  constructor(config: Config, scriptDir: string) {
+    this.voice = config.ttsVoice;
+    this.worker = new Worker(config.chatterboxPythonBin,
+      [join(scriptDir, "chatterbox_worker.py"), config.chatterboxRefs, config.ttsVoice,
+        String(config.chatterboxExaggeration), String(config.chatterboxCfg)],
+      {});
+  }
+
+  async start(): Promise<void> {
+    const ready = await this.worker.start();
+    this.sampleRate = typeof ready.sample_rate === "number" ? ready.sample_rate : 0;
+    this.device = typeof ready.device === "string" ? ready.device : "";
+    if (this.device !== "cuda") {
+      console.log(`warning: chatterbox is running on ${this.device || "an unknown device"}. A sentence costs minutes there, not seconds.`);
+    }
+  }
+
+  use(voice: string): void { this.voice = voice; }
+
+  async synthesize(text: string, wavPath: string): Promise<string> {
+    const reply = await this.worker.request({ text, wav: wavPath, voice: this.voice });
+    return typeof reply.wav === "string" ? reply.wav : wavPath;
+  }
+
+  stop(): void { this.worker.stop(); }
+}
+
 /** 4.8 the seam: which engine speaks is a setting, and nothing above here knows. */
 export function textToSpeech(config: Config, scriptDir: string): TextToSpeech {
-  return config.ttsEngine === "piper" ? new LocalPiper(config, scriptDir) : new LocalKokoro(config, scriptDir);
+  if (config.ttsEngine === "piper") return new LocalPiper(config, scriptDir);
+  if (config.ttsEngine === "chatterbox") return new LocalChatterbox(config, scriptDir);
+  return new LocalKokoro(config, scriptDir);
 }
