@@ -113,7 +113,17 @@ export async function serve(dir: string, config: Config): Promise<void> {
   }, tts, {
     onNarration: (text) => { console.log(`[${text}]`); void transport.send({ kind: "narration", text }); },
     onTurn: (turn) => console.log(`[turn ${turn.number}, $${conversation.agent.totalCostUsd().toFixed(4)} this session]`),
-    onMatched: (said, became) => measures.matched(said, became),
+    onMatched: (said, became) => {
+      measures.matched(said, became);
+      // 9.7 holds for the command still on its way and says nothing meanwhile,
+      // which is right. Saying nothing anywhere is not: on 18 September the
+      // agent told Chris four times to put the wake word in front of a
+      // sentence, five sentences went this way, and neither end could see it.
+      if (became !== "waiting for the command") return;
+      const text = `the wake word arrived with no command, so nothing was done with: "${said}"`;
+      console.log(`[${text}]`);
+      void transport.send({ kind: "narration", text });
+    },
   }, undefined, measures);
   conversation.start();
 
