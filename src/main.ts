@@ -11,7 +11,7 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { DEFAULTS, configPath, loadConfig, type Config } from "./config.ts";
 import { Session } from "./session.ts";
-import { Conversation } from "./conversation.ts";
+import { Conversation, keptLines } from "./conversation.ts";
 import { Cues } from "./cues.ts";
 import { decodeWav, utteranceOf } from "./audio.ts";
 import { Ear, earOptions } from "./ear.ts";
@@ -102,7 +102,7 @@ async function voice(dir: string, config: Config): Promise<void> {
   const speechDir = new URL("../speech", import.meta.url).pathname;
   const stt = new LocalWhisper(config, speechDir);
   const tts = textToSpeech(config, speechDir);
-  const ahead = new SpokenAhead(tts, scratch);
+  const ahead = new SpokenAhead(tts, scratch, keptLines(config));
   const cues = new Cues(scratch, config.cueVolume);
 
   const startedAt = Date.now();
@@ -184,6 +184,29 @@ async function voice(dir: string, config: Config): Promise<void> {
   }
 }
 
+
+/**
+ * 11.6 make the bridge's own sentences before they are needed.
+ *
+ * Every line it says in its own voice -- "Muted.", "Tones off." -- costs a
+ * synthesis the first time, and with the cloning voice that is two and a half
+ * seconds arriving after a command that should be answered at once. This makes
+ * them all, once, and they are kept until the voice or its settings change.
+ */
+async function warm(config: Config): Promise<void> {
+  const speechDir = new URL("../speech", import.meta.url).pathname;
+  const scratch = mkdtempSync(join(tmpdir(), "voice-bridge-warm-"));
+  const tts = textToSpeech(config, speechDir);
+  const startedAt = Date.now();
+  await tts.start();
+  console.log(`${config.ttsEngine} ${config.ttsVoice} ready in ${((Date.now() - startedAt) / 1000).toFixed(1)}s`);
+  const ahead = new SpokenAhead(tts, scratch, keptLines(config));
+  const at = Date.now();
+  const made = await ahead.warm((text, fresh) => console.log(`  ${fresh ? "made" : "kept"}  ${text}`));
+  console.log(`${made} made in ${((Date.now() - at) / 1000).toFixed(1)}s, under ${config.spokenDir}`);
+  tts.stop();
+}
+
 const [command, ...rest] = process.argv.slice(2);
 const config = loadConfig();
 
@@ -197,6 +220,8 @@ if (command === "config") {
   const dir = rest[0];
   if (!dir) { console.error("usage: bun src/main.ts voice <project-dir>"); process.exit(2); }
   await voice(dir, config);
+} else if (command === "warm") {
+  await warm(config);
 } else if (command === "cert") {
   // 12.1 a phone refuses the microphone over a certificate it does not trust
   const dir = join(homedir(), ".voice-bridge");
@@ -219,6 +244,6 @@ if (command === "config") {
   if (!dir) { console.error("usage: bun src/main.ts serve <project-dir>"); process.exit(2); }
   await serve(dir, config);
 } else {
-  console.error("usage: bun src/main.ts <chat <dir> | voice <dir> | serve <dir> | livekit | cert | config>");
+  console.error("usage: bun src/main.ts <chat <dir> | voice <dir> | serve <dir> | warm | livekit | cert | config>");
   process.exit(2);
 }

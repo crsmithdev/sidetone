@@ -69,6 +69,50 @@ export const claudeCode = (dir: string): MakeAgent => (hooks, config) => new Ses
 /** What a command does to the sentences a barge-in held. */
 export type Hold = "resume" | "discard" | "keep";
 
+/**
+ * The sentences the bridge says in its own voice, word for word, over and
+ * over: an acknowledgement, a refusal, a thing it has nothing to say about.
+ *
+ * They are worth keeping because of what they cost. The cloning voice spends
+ * about two and a half seconds on a sentence, and these are the sentences that
+ * jump the queue precisely because they are answers to a command and should
+ * land at once. Made once and kept on disk, they land at once.
+ *
+ * Nothing checks that this list matches what the code says. A line that is
+ * missing here is made the slow way and then kept, so drift costs one slow
+ * sentence, once, and never a wrong one. Anything with a number or a name in
+ * it belongs nowhere near this list.
+ */
+export const KEPT_LINES = [
+  "Muted.",
+  "Listening.",
+  "Tones on.",
+  "Tones off.",
+  "Carrying on.",
+  "Nothing was cleared.",
+  "That turn did not finish.",
+  "There is nothing to restate yet.",
+  "There is nothing to summarize yet.",
+  "There is nothing left of it.",
+  "We have not started yet.",
+  "This engine has only the one voice.",
+  "Switched to the female voice.",
+  "Switched to the male voice.",
+] as const;
+
+/**
+ * What a run keeps between runs, and under which key. The signature holds
+ * every setting that changes how a voice sounds, so a sentence made at one
+ * setting is never played back at another.
+ */
+export function keptLines(config: Config): { dir: string; signature: string; lines: readonly string[] } {
+  return {
+    dir: config.spokenDir,
+    signature: `${config.ttsEngine}-${config.chatterboxExaggeration}-${config.chatterboxCfg}`,
+    lines: KEPT_LINES,
+  };
+}
+
 export interface Mouth {
   /**
    * Speak one sentence. False means a barge-in cut it short (11.3).

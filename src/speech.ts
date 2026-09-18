@@ -11,6 +11,7 @@
  * and warms them before Chris says anything.
  */
 import { existsSync, readdirSync } from "node:fs";
+import { mkdir, rename } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { Subprocess } from "bun";
 import type { Config } from "./config.ts";
@@ -31,6 +32,12 @@ export interface TextToSpeech {
   synthesize(text: string, wavPath: string): Promise<string>;
   /** 9.4 change voice without a restart. An engine of one voice leaves this out. */
   use?(voice: string): void;
+  /**
+   * Which voice is speaking now. A kept sentence belongs to the voice that
+   * said it, so this is part of the key it is kept under. An engine of one
+   * voice leaves it out and everything it says is kept under the one name.
+   */
+  readonly voice?: string;
   stop(): void;
 }
 
@@ -164,13 +171,13 @@ export class LocalPiper implements TextToSpeech {
  */
 export class LocalKokoro implements TextToSpeech {
   private worker: Worker;
-  private voice: string;
+  private spoken: string;
   sampleRate = 0;
   /** which onnxruntime provider actually took the graph */
   provider = "";
 
   constructor(config: Config, scriptDir: string) {
-    this.voice = config.ttsVoice;
+    this.spoken = config.ttsVoice;
     this.worker = new Worker(config.kokoroPythonBin,
       [join(scriptDir, "kokoro_worker.py"), config.kokoroModel, config.kokoroVoices, config.ttsVoice],
       { LD_LIBRARY_PATH: cudaLibraryPath(config.kokoroPythonBin) });
@@ -188,10 +195,11 @@ export class LocalKokoro implements TextToSpeech {
     }
   }
 
-  use(voice: string): void { this.voice = voice; }
+  get voice(): string { return this.spoken; }
+  use(voice: string): void { this.spoken = voice; }
 
   async synthesize(text: string, wavPath: string): Promise<string> {
-    const reply = await this.worker.request({ text, wav: wavPath, voice: this.voice });
+    const reply = await this.worker.request({ text, wav: wavPath, voice: this.spoken });
     return typeof reply.wav === "string" ? reply.wav : wavPath;
   }
 
@@ -209,13 +217,13 @@ export class LocalKokoro implements TextToSpeech {
  */
 export class LocalChatterbox implements TextToSpeech {
   private worker: Worker;
-  private voice: string;
+  private spoken: string;
   sampleRate = 0;
   /** cuda or cpu, as the worker found it; the CPU path is minutes, not seconds */
   device = "";
 
   constructor(config: Config, scriptDir: string) {
-    this.voice = config.ttsVoice;
+    this.spoken = config.ttsVoice;
     this.worker = new Worker(config.chatterboxPythonBin,
       [join(scriptDir, "chatterbox_worker.py"), config.chatterboxRefs, config.ttsVoice,
         String(config.chatterboxExaggeration), String(config.chatterboxCfg)],
@@ -231,10 +239,11 @@ export class LocalChatterbox implements TextToSpeech {
     }
   }
 
-  use(voice: string): void { this.voice = voice; }
+  get voice(): string { return this.spoken; }
+  use(voice: string): void { this.spoken = voice; }
 
   async synthesize(text: string, wavPath: string): Promise<string> {
-    const reply = await this.worker.request({ text, wav: wavPath, voice: this.voice });
+    const reply = await this.worker.request({ text, wav: wavPath, voice: this.spoken });
     return typeof reply.wav === "string" ? reply.wav : wavPath;
   }
 
@@ -267,14 +276,55 @@ export class SpokenAhead {
   private ready: { text: string; wav: Promise<string> } | null = null;
   private counter = 0;
 
-  constructor(private readonly tts: TextToSpeech, private readonly scratch: string) {}
+  /**
+   * `kept` names the sentences worth keeping between runs and where to keep
+   * them. Leave it out and nothing is kept, which is what the text loop and
+   * every test want.
+   */
+  constructor(
+    private readonly tts: TextToSpeech,
+    private readonly scratch: string,
+    private readonly kept?: { dir: string; signature: string; lines: readonly string[] },
+  ) {}
 
   /** The wav for this sentence, already made if it was the one expected. */
   take(text: string): Promise<string> {
     const ready = this.ready;
     this.ready = null;
     if (ready?.text === text) return ready.wav;
+    const keeping = this.keptPath(text);
+    if (keeping && existsSync(keeping)) return Promise.resolve(keeping);
     return this.make(text);
+  }
+
+  /**
+   * Make every kept line that is missing, and say how many. This is what the
+   * warm command runs: the alternative is paying for each one the first time
+   * it is needed, which is the moment it is least welcome.
+   */
+  async warm(onEach?: (text: string, made: boolean) => void): Promise<number> {
+    let made = 0;
+    for (const text of this.kept?.lines ?? []) {
+      const path = this.keptPath(text);
+      if (!path) continue;
+      const already = existsSync(path);
+      if (!already) { await this.make(text); made += 1; }
+      onEach?.(text, !already);
+    }
+    return made;
+  }
+
+  /**
+   * Where this sentence lives when it is kept, or null when it is not one of
+   * the kept lines. The voice is in the path because a sentence belongs to the
+   * voice that said it, and the signature is there because the settings that
+   * shape a voice change it as surely as the voice does.
+   */
+  private keptPath(text: string): string | null {
+    if (!this.kept || !this.kept.lines.includes(text)) return null;
+    const voice = this.tts.voice ?? "one";
+    const slug = text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 32);
+    return join(this.kept.dir, `${this.kept.signature}-${voice}`, `${slug}.wav`);
   }
 
   /**
@@ -288,10 +338,19 @@ export class SpokenAhead {
   }
 
   private make(text: string): Promise<string> {
+    const keeping = this.keptPath(text);
+    // A kept line is written under a scratch name and moved into place, so a
+    // process that dies mid-sentence leaves no half a wav to be played forever.
     const wav = join(this.scratch, `say-${++this.counter}.wav`);
+    const made = keeping
+      ? this.tts.synthesize(text, wav).then(async (path) => {
+        await mkdir(dirname(keeping), { recursive: true });
+        await rename(path, keeping);
+        return keeping;
+      })
+      : this.tts.synthesize(text, wav);
     // a rejection here is answered where the wav is awaited, and an unobserved
     // prefetch must not take the process down with it
-    const made = this.tts.synthesize(text, wav);
     made.catch(() => {});
     return made;
   }

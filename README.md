@@ -70,6 +70,18 @@ A sentence costs about three seconds this way, against kokoro's fifteenth of a
 second. That is the price of choosing the voice rather than picking one off a
 list. `ttsEngine: "kokoro"` in the config buys the speed back.
 
+The bridge's own lines -- "Muted.", "Tones off.", "Switched to the male voice."
+-- are made once and kept under `~/.voice-bridge/spoken`, so a command is
+answered at once instead of three seconds later. Make them all after changing
+voice or either voice setting:
+
+```bash
+bun src/main.ts warm
+```
+
+Nothing has to be warmed: a line that is missing is made the slow way and then
+kept. Emptying the directory costs one slow sentence each.
+
 The text loop is useful on its own, and it is where the process management gets
 exercised before any audio exists. The reply streams word by word, through the
 same hook that will feed the sentence collector when voice arrives.
@@ -82,7 +94,7 @@ same hook that will feed the sentence collector when voice arrives.
 | `src/protocol.ts` | Claude Code's stream-json output, reduced to what the bridge acts on |
 | `src/supervisor.ts` | the three fault detectors of section 8, as a clock-driven state machine |
 | `src/narrator.ts` | what the bridge says while a tool runs, so a long turn is not silence |
-| `src/speech.ts` | section 4: the local engines, each behind the interface of 4.8 |
+| `src/speech.ts` | section 4: the local engines, each behind the interface of 4.8, and what is kept between runs |
 | `speech/chatterbox_worker.py` | 4.9 the cloning voice: a reference wav in, a sentence out |
 | `src/ear.ts` | 11.5 and 18.4: what the bridge does with sound, whichever loop brought it |
 | `src/measures.ts` | section 18: every fact about a turn, told once, read two ways |

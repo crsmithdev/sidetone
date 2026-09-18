@@ -109,6 +109,12 @@ export interface Config {
    */
   chatterboxExaggeration: number;
   chatterboxCfg: number;
+  /**
+   * Where the bridge keeps its own sentences once it has said them, so an
+   * acknowledgement lands at once rather than after a synthesis. Emptying it
+   * costs nothing: what is missing is made again, and `warm` makes all of it.
+   */
+  spokenDir: string;
   /** 5.6 a run of text this long with no punctuation is spoken anyway */
   sentenceMaxChars: number;
   /** 11.5 the pause that ends a turn, and the level that counts as speech */
@@ -226,6 +232,7 @@ export const DEFAULTS: Config = {
   chatterboxRefs: join(homedir(), ".voice-bridge", "models", "chatterbox", "refs"),
   chatterboxExaggeration: 0.5,
   chatterboxCfg: 0.5,
+  spokenDir: join(homedir(), ".voice-bridge", "spoken"),
   sentenceMaxChars: 240,
   endOfTurnPauseMs: 1_500,
   speechLevel: 0.02,

@@ -13,7 +13,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { encodeWav } from "./audio.ts";
 import { settingsInForce, type Config } from "./config.ts";
-import { Conversation } from "./conversation.ts";
+import { Conversation, keptLines } from "./conversation.ts";
 import { Cues } from "./cues.ts";
 import { Ear, earOptions, SILENCE_MS } from "./ear.ts";
 import { protocolMessage } from "./messages.ts";
@@ -68,7 +68,7 @@ export async function serve(dir: string, config: Config): Promise<void> {
   const speechDir = new URL("../speech", import.meta.url).pathname;
   const stt = new LocalWhisper(config, speechDir);
   const tts = textToSpeech(config, speechDir);
-  const ahead = new SpokenAhead(tts, scratch);
+  const ahead = new SpokenAhead(tts, scratch, keptLines(config));
   const cues = new Cues(scratch, config.cueVolume);
   await Promise.all([stt.start(), tts.start(), cues.build()]);
 
