@@ -277,6 +277,10 @@ project bridge stays in place.
 
 11.8 The product is for one user. The product does not need to separate the voices of more than one person.
 
+11.9 A question that arrives while the bridge is still speaking has one of two treatments, and which one is a setting. Holding keeps the answer and refuses the question. Interrupting stops the answer and asks the question, which is the feel of 11.6. Chris changes the setting out loud, because the car is where the answer is found.
+
+11.10 What the bridge did not say is kept for one turn. The client shows it, a command says it, and the agent is told where Chris stopped hearing, because the agent's own context holds the whole answer either way.
+
 ## 12. SECURITY
 
 12.1 The bridge endpoint needs authentication. Authentication is the security boundary.
@@ -430,6 +434,7 @@ project bridge stays in place.
 | Agreement word | "continue" | 10.2 |
 | Gated action list | to set at 7.2 | 10.1 |
 | End-of-turn pause | 1.5 seconds | 11.5 |
+| A question mid-answer | holds and refuses; interrupting is the other way | 11.9 |
 | Usage warning level | 80 percent of the reported rate limit | 13.2 |
 | Audio cue delay | 4 seconds, then every 6 seconds | 15.5 |
 | GPU budget for the voice path | 8 gigabytes, the whole GPU | 4.10 |

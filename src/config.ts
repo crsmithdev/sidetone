@@ -36,6 +36,14 @@ export interface Config {
    */
   wakeHoldMs: number;
   /**
+   * 11.9 what a question does to a turn that is still running. False holds the
+   * answer and refuses the question, which protects an answer already paid for
+   * from a sentence that was not meant for the bridge. True stops the answer
+   * and asks the question, which is the Claude app's feel (11.6). Chris turns
+   * it over out loud, mid-drive, because only the car says which is right.
+   */
+  interruptOnSpeech: boolean;
+  /**
    * The quietest an utterance may peak and still be treated as speech. Whisper
    * writes words for near-silence even with the voice detector on: "Thank you."
    * came out of a recording that peaked at 0.12 and cost a turn. Real speech in
@@ -168,6 +176,7 @@ export const DEFAULTS: Config = {
   // the bridge accepts the forms the engine produces; 18.8 says find them by use.
   wakeWordVariants: ["cambridge"],
   wakeHoldMs: 6_000,
+  interruptOnSpeech: false,
   minSpeechPeak: 0.15,
   mutedCommands: ["mute", "unmute", "tones", "tonesOn", "tonesOff"],
   agreementWord: "continue",
@@ -255,7 +264,7 @@ export const DEFAULTS: Config = {
 export const IN_FORCE = [
   "speechLevel", "speechOnsetMs", "endOfTurnPauseMs",
   "bargeInLevel", "bargeInMs", "bargeInGapMs",
-  "minSpeechPeak", "wakeHoldMs", "holdBackstopMs", "listenSettleMs",
+  "minSpeechPeak", "wakeHoldMs", "interruptOnSpeech", "holdBackstopMs", "listenSettleMs",
   "sentenceMaxChars", "audioCueDelayMs", "audioCueEveryMs",
   "cueVolume", "ttsEngine", "ttsVoice", "sttModel", "wakeWord",
 ] as const satisfies ReadonlyArray<keyof Config>;

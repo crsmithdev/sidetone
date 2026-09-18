@@ -14,7 +14,8 @@ export type CommandName =
   | "mute" | "unmute" | "clearContext" | "usage"
   | "restate" | "summarize" | "where" | "endTurn"
   | "tones" | "tonesOn" | "tonesOff" | "stats"
-  | "femaleVoice" | "maleVoice";
+  | "femaleVoice" | "maleVoice"
+  | "carryOn" | "interrupt" | "interruptOn" | "interruptOff";
 
 export type Match =
   /** 9.4 a command to do */
@@ -53,6 +54,15 @@ const COMMANDS: Array<{ name: CommandName; any: string[][] }> = [
   // "male voice" as "Mail Voice", and sometimes drops the second word, so
   // "mail" is one of the accepted forms and one word is enough. Requiring
   // "voice" was the first attempt and it matched nothing on a real run.
+  // 11.10 the rest of an answer a barge-in took off the queue. "continue" is
+  // also the agreement word of 10.3, which is said plainly and without the wake
+  // word, so the two never arrive by the same route.
+  { name: "carryOn", any: [["carry", "on"], ["go", "on"], ["continue"], ["the", "rest"]] },
+  // 11.9 the two ways to treat a question that lands mid-answer. The explicit
+  // forms come first: "interrupt" is inside "interrupt off".
+  { name: "interruptOff", any: [["interrupt", "off"], ["interrupting", "off"]] },
+  { name: "interruptOn", any: [["interrupt", "on"], ["interrupting", "on"]] },
+  { name: "interrupt", any: [["interrupt"], ["interrupting"], ["barge", "in"]] },
   { name: "femaleVoice", any: [["female"], ["woman"]] },
   { name: "maleVoice", any: [["male"], ["mail"], ["man"]] },
 ];

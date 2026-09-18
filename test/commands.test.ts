@@ -101,6 +101,21 @@ describe("the tone and stats commands", () => {
     expect(commandIn("share")).toBe("endTurn");
     expect(commandIn("start")).toBe(null);
   });
+  test("11.9 the rest of an answer, and the two ways to treat a question", () => {
+    expect(commandIn("carry on")).toBe("carryOn");
+    expect(commandIn("go on")).toBe("carryOn");
+    expect(commandIn("continue")).toBe("carryOn");
+    expect(commandIn("say the rest")).toBe("carryOn");
+    // the explicit forms first: "interrupt" is inside "interrupt off"
+    expect(commandIn("interrupt off")).toBe("interruptOff");
+    expect(commandIn("interrupt on")).toBe("interruptOn");
+    expect(commandIn("interrupt")).toBe("interrupt");
+    expect(commandIn("barge in")).toBe("interrupt");
+    // and none of them takes a command that was already there
+    expect(commandIn("tones on")).toBe("tonesOn");
+    expect(commandIn("end the turn")).toBe("endTurn");
+    expect(commandIn("clear")).toBe("clearContext");
+  });
   test("the new words do not steal an older command", () => {
     expect(commandIn("mute")).toBe("mute");
     expect(commandIn("stop")).toBe("endTurn");

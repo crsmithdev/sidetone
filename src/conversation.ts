@@ -19,7 +19,10 @@
  * | where are we | dropped | untouched |
  * | summarize, mid-turn | resumes; the command is refused | untouched |
  * | summarize, between turns | dropped | a new turn |
- * | a question for the agent | dropped | a new turn |
+ * | a question for the agent, between turns | dropped | a new turn |
+ * | a question for the agent, mid-turn, holding | resumes; the question is refused | untouched |
+ * | a question for the agent, mid-turn, interrupting | kept for "carry on" | interrupted, then a new turn |
+ * | carry on | the kept rest is said | untouched |
  * | end the turn | dropped | interrupted |
  * | clear the context | held until the gate answers | dies with the process |
  */
@@ -100,6 +103,25 @@ export class Conversation {
   private waiters: Array<() => void> = [];
   /** 11.3 true from the barge-in until what Chris said is resolved. */
   private holding = false;
+  /**
+   * 11.9 whether a question that lands mid-answer stops the answer or is
+   * refused. A setting, and a wake command, because only a drive says which is
+   * right and a restart to change it costs the session.
+   */
+  private interrupting: boolean;
+  /**
+   * What an interrupt took off the queue, so "carry on" can say it and the
+   * client can show it. Chris never heard these, and the agent's own context
+   * holds them as though he did.
+   */
+  private tail: string[] = [];
+  /**
+   * The turn in flight, and which turn that is. An interrupted turn goes on
+   * running until its process returns a result, and it must not speak, record
+   * or clear anything by the time it does.
+   */
+  private running: Promise<void> | null = null;
+  private turnId = 0;
   private holdBackstop: ReturnType<typeof setTimeout> | null = null;
   /** What has actually reached Chris's ears this turn, for 9.4.5. */
   private said: string[] = [];
@@ -149,6 +171,7 @@ export class Conversation {
       onRestart: () => this.cue("starting"),
     }, { ...config, claudeArgs: args });
     this.tones = config.tones;
+    this.interrupting = config.interruptOnSpeech;
     this.onTurn = hooks.onTurn;
     this.onMatched = hooks.onMatched;
   }
@@ -250,12 +273,48 @@ export class Conversation {
     void this.pump();
   }
 
-  /** What Chris said replaces the answer: everything still queued goes. */
+  /**
+   * What Chris said replaces the answer: everything still queued goes.
+   *
+   * It is kept, not dropped. 11.10 says an answer he did not hear is still an
+   * answer: "carry on" says it, the client shows it, and the agent is told
+   * where he stopped, because its own context has the whole thing.
+   */
   discardHold(): void {
     this.clearBackstop();
     this.holding = false;
-    this.outbox.length = 0;
+    if (this.outbox.length > 0) this.tail = this.outbox.splice(0);
     this.settleIfIdle();
+  }
+
+  /**
+   * 11.9 and 11.10 stop the answer, keep what is left of it, and tell the agent where
+   * Chris stopped hearing.
+   *
+   * The agent's context holds the whole answer whatever the mouth managed to
+   * say: measured 18 September, an interrupted agent quoted two paragraphs
+   * Chris never heard and denied being interrupted at all. It is told, or every
+   * turn after an interrupt argues with him.
+   *
+   * The wait is for the process, which goes on until it returns a result and
+   * refuses a second question until then (`Session.ask`). A process that never
+   * returns one is 8.6.7's to restart, not a reason to hold the microphone.
+   */
+  private async cutOff(): Promise<string> {
+    this.turnId++;
+    this.agent.interrupt();
+    this.discardHold();
+    const unspoken = this.tail.join(" ");
+    if (unspoken) this.mouth.tell?.({ kind: "narration", text: `not spoken: ${unspoken}` });
+    const last = this.said[this.said.length - 1];
+    await Promise.race([this.running ?? Promise.resolve(), Bun.sleep(this.config.graceMs)]);
+    // Measured 18 September: told only that he did not hear the rest, the agent
+    // helpfully said the rest again, which is the one thing an interruption is
+    // for not doing. It is told what he heard and what not to do about it.
+    const heard = last
+      ? `The voice stopped mid-answer, after: "${last}" He did not hear anything after that.`
+      : "The voice stopped before he heard any of that answer.";
+    return `[From the bridge, not from Chris: ${heard} Do not repeat any of it; he has it on screen and can ask for the rest. Answer what he says next.]`;
   }
 
   /** The utterance held nothing a person said. Road noise must not cost a passage. */
@@ -351,8 +410,15 @@ export class Conversation {
     }
     // 15.1 a question that arrives mid-turn must not vanish into silence
     if (this.turnRunning) {
-      this.reply(`I am still on the last one. Say ${this.config.wakeWord}, end the turn, to stop it.`);
-      this.resumeHold();
+      if (!this.interrupting) {
+        this.reply(`I am still on the last one. Say ${this.config.wakeWord}, end the turn, to stop it.`);
+        this.resumeHold();
+        return;
+      }
+      // 11.6 and 11.9 the Claude app's feel: the answer stops and the question
+      // is the next turn, with no phrase to say first.
+      this.onMatched?.(said, "speech");
+      void this.turn(said, await this.cutOff());
       return;
     }
     this.onMatched?.(said, "speech");
@@ -391,16 +457,35 @@ export class Conversation {
   }
 
   /** Not awaited by the caller: the microphone has to stay open through a turn. */
-  async turn(said: string): Promise<void> {
+  async turn(said: string, note = ""): Promise<void> {
+    const done = this.runTurn(said, note);
+    this.running = done;
+    await done;
+  }
+
+  /**
+   * One turn. `note` is for the agent alone and never joins the transcript:
+   * 11.10 uses it to say where an interrupt left Chris.
+   *
+   * An interrupted turn runs on until its process returns a result, and by then
+   * a newer turn owns the mouth. `mine` is what keeps the older one from
+   * speaking its last sentence into the middle of the new answer, or from
+   * clearing the flags the new one just set.
+   */
+  private async runTurn(said: string, note: string): Promise<void> {
+    const id = ++this.turnId;
+    const mine = () => id === this.turnId;
     this.turnRunning = true;
     this.said = [];
     const sentences = new SentenceCollector(this.config.sentenceMaxChars);
     this.deltaSink = (text) => {
+      if (!mine()) return;
       for (const sentence of sentences.push(text)) this.speak(sentence);
     };
     const stopCue = this.cueWhileWaiting();
     try {
-      const turn = await this.agent.ask(said);
+      const turn = await this.agent.ask(note ? `${note}\n\n${said}` : said);
+      if (!mine()) return;
       const tail = sentences.flush();
       if (tail) this.speak(tail);
       await this.drained();
@@ -413,13 +498,16 @@ export class Conversation {
       const worst = Math.max(this.agent.rateLimit.fiveHour, this.agent.rateLimit.sevenDay);
       if (worst >= this.config.usageWarnFraction) this.reply(`A heads up: rate limit use is at ${Math.round(worst * 100)} percent.`);
     } catch (error) {
+      if (!mine()) return;
       this.reply("That turn did not finish.");
       this.mouth.tell?.({ kind: "error", text: (error as Error).message });
     } finally {
       stopCue();
-      this.deltaSink = null;
-      this.turnRunning = false;
-      this.checkpointOpen = false;
+      if (mine()) {
+        this.deltaSink = null;
+        this.turnRunning = false;
+        this.checkpointOpen = false;
+      }
     }
   }
 
@@ -498,6 +586,27 @@ export class Conversation {
         if (this.recent.length === 0) { this.reply("We have not started yet."); return "resume"; }
         for (const pair of this.recent) this.reply(`You asked: ${pair.said} I said: ${firstSentence(pair.reply)}`);
         return "discard";
+
+      // 11.10 the rest of an answer a barge-in took off the queue. The agent is
+      // not asked again: these are its own words, already paid for.
+      case "carryOn": {
+        const rest = this.tail.splice(0);
+        if (rest.length === 0) { this.reply("There is nothing left of it."); return "resume"; }
+        // ahead of whatever is queued now, not behind it: measured 18 September,
+        // the rest of a cut answer arrived after the whole of the next one.
+        for (const sentence of rest) this.reply(sentence);
+        return "resume";
+      }
+
+      // 11.9 which of the two things a question mid-answer does. Said out loud
+      // because the answer is a matter of taste and the car is where it is
+      // found, and a restart to change it would cost the session.
+      case "interrupt":
+        this.interrupting = !this.interrupting;
+        this.reply(this.interrupting ? "Interrupting on." : "Interrupting off.");
+        return "resume";
+      case "interruptOn": this.interrupting = true; this.reply("Interrupting on."); return "resume";
+      case "interruptOff": this.interrupting = false; this.reply("Interrupting off."); return "resume";
 
       case "endTurn":
         if (!this.turnRunning) { this.reply("Nothing is running."); return "resume"; }

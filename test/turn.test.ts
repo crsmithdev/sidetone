@@ -14,6 +14,8 @@ interface Script {
   during?: (hooks: SessionHooks) => void;
   /** a turn that is still running: it answers when this resolves */
   hold?: Promise<void>;
+  /** what the real process does with an interrupt: it returns a result */
+  onInterrupt?: () => void;
   fail?: string;
 }
 
@@ -37,7 +39,7 @@ function scripted(script: Script = {}) {
       return { number: 1, text: script.text ?? (script.deltas ?? []).join(""), costUsd: 0.02, isError: false };
     },
     agree: () => calls.push("agree"),
-    interrupt: () => calls.push("interrupt"),
+    interrupt: () => { calls.push("interrupt"); script.onInterrupt?.(); },
     restart: (reason: string) => calls.push(`restart ${reason}`),
     running: true,
     turns: 1,
@@ -52,17 +54,20 @@ function scripted(script: Script = {}) {
 function room(script: Script = {}, overrides: Partial<Config> = {}) {
   const said: string[] = [];
   const cues: string[] = [];
+  const told: Array<Record<string, unknown>> = [];
   const agent = scripted(script);
   const mouth = {
     say: async (text: string) => { said.push(text); return true; },
     cue: (name: string) => { cues.push(name); },
-    tell: () => {},
+    tell: (value: Record<string, unknown>) => { told.push(value); },
   };
   const turns: Turn[] = [];
   const c = new Conversation("/tmp", { ...config, ...overrides }, mouth as never, engines as never,
     { onTurn: (turn) => turns.push(turn) }, agent.make);
-  return { c, said, cues, turns, agent };
+  return { c, said, cues, turns, agent, told };
 }
+
+const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe("a whole turn (5.5, 5.6)", () => {
   test("the answer is spoken as it arrives, sentence by sentence", async () => {
@@ -158,5 +163,83 @@ describe("clearing the context is gated (10.1, ADR 0009)", () => {
     await r.c.heard("yes go on");
     expect(r.agent.calls).not.toContain("restart cleared by voice");
     expect(r.said.at(-1)).toContain("Nothing was cleared.");
+  });
+});
+
+describe("11.9 a question that lands mid-answer", () => {
+  /** A turn in flight, with one sentence heard and two held behind a barge-in. */
+  async function midAnswer(overrides: Partial<Config> = {}) {
+    let answer = () => {};
+    const hold = new Promise<void>((resolve) => { answer = resolve; });
+    const r = room({ hold, onInterrupt: () => answer(), text: "One. Two. Three." }, overrides);
+    const turn = r.c.turn("how does a suspension bridge work");
+    await tick();
+    r.agent.hooks().onDelta?.("One. ");
+    await tick();
+    r.c.stopSpeaking();
+    r.agent.hooks().onDelta?.("Two. Three. ");
+    await tick();
+    return { ...r, turn, answer };
+  }
+
+  test("holding: it is refused and the answer resumes", async () => {
+    const r = await midAnswer({ interruptOnSpeech: false });
+    await r.c.heard("what is the tallest one");
+    expect(r.said.join(" ")).toContain("I am still on the last one");
+    expect(r.agent.calls).not.toContain("interrupt");
+    expect(r.said).toContain("Two.");
+    r.answer();
+    await r.turn;
+  });
+
+  test("interrupting: the answer stops, the question is asked, nothing else is said", async () => {
+    const r = await midAnswer({ interruptOnSpeech: true });
+    await r.c.heard("what is the tallest one");
+    expect(r.agent.calls).toContain("interrupt");
+    expect(r.said.join(" ")).not.toContain("I am still on the last one");
+    expect(r.said).not.toContain("Two.");
+    expect(r.said).not.toContain("Three.");
+  });
+
+  test("interrupting: the agent is told where Chris stopped hearing, and the question is clean", async () => {
+    const r = await midAnswer({ interruptOnSpeech: true });
+    await r.c.heard("what is the tallest one");
+    const asked = r.agent.calls.filter((call) => call.startsWith("ask ")).at(-1) ?? "";
+    expect(asked).toContain('The voice stopped mid-answer, after: "One."');
+    // 18 September: told only that he missed the rest, the agent said it again
+    expect(asked).toContain("Do not repeat any of it");
+    expect(asked).toContain("what is the tallest one");
+    // the note is for the agent; the transcript keeps what Chris actually said
+    expect(r.c.missed().some((entry) => entry.text === "what is the tallest one")).toBe(true);
+  });
+
+  test("interrupting: what was not spoken reaches the client as text", async () => {
+    const r = await midAnswer({ interruptOnSpeech: true });
+    await r.c.heard("what is the tallest one");
+    const note = r.told.find((value) => String(value.text ?? "").startsWith("not spoken:"));
+    expect(String(note?.text)).toBe("not spoken: Two. Three.");
+  });
+
+  test("carry on says the rest, once, without asking the agent again", async () => {
+    const r = await midAnswer({ interruptOnSpeech: true });
+    await r.c.heard("what is the tallest one");
+    const asks = r.agent.calls.filter((call) => call.startsWith("ask ")).length;
+    await r.c.heard("hey bridge carry on");
+    await tick();
+    expect(r.said).toContain("Two.");
+    expect(r.said).toContain("Three.");
+    expect(r.agent.calls.filter((call) => call.startsWith("ask ")).length).toBe(asks);
+    await r.c.heard("hey bridge carry on");
+    expect(r.said.join(" ")).toContain("There is nothing left of it");
+  });
+
+  test("the mode is a wake command, and it says which way it now is", async () => {
+    const r = room({}, { interruptOnSpeech: false });
+    await r.c.heard("hey bridge interrupt on");
+    expect(r.said).toContain("Interrupting on.");
+    await r.c.heard("hey bridge interrupt off");
+    expect(r.said).toContain("Interrupting off.");
+    await r.c.heard("hey bridge interrupt");
+    expect(r.said.at(-1)).toBe("Interrupting on.");
   });
 });
