@@ -84,8 +84,14 @@ export async function serve(dir: string, config: Config): Promise<void> {
   let counter = 0;
   const bargingIn = () => ear.bargingIn;
 
+  /** 11.12 whether the bridge speaks at all. The words go either way. */
+  let voice = true;
+
   const conversation = new Conversation(dir, config, {
     async say(text: string): Promise<boolean> {
+      // The round trip is still closed: the answer arrived, and how long that
+      // took is the same question whether it is read or heard.
+      if (!voice) { console.log(`  ${text}`); measures.answering(); measures.spoken(text, true); return true; }
       const wav = join(scratch, `say-${++counter}.wav`);
       await tts.synthesize(text, wav);
       console.log(`  ${text}`);
@@ -100,6 +106,7 @@ export async function serve(dir: string, config: Config): Promise<void> {
       return whole;
     },
     cue(name) {
+      if (!voice) return;
       const wav = cues.file(name);
       if (!wav) return;
       void Bun.file(wav).bytes()
@@ -186,6 +193,13 @@ export async function serve(dir: string, config: Config): Promise<void> {
       ear.reset();
       said = false;
       console.log(`[the phone ${micOn ? "opened" : "cut"} its microphone]`);
+    }
+    // 11.12 asked for after a drive: somewhere the bridge must not be heard.
+    if (value.kind === "voice") {
+      voice = value.on !== false;
+      const text = voice ? "the voice is on" : "the voice is off; the words carry on in the transcript";
+      console.log(`[${text}]`);
+      void transport.send({ kind: "narration", text });
     }
     if (value.kind === "quality") {
       const quality = qualityOf(value.quality);

@@ -24,8 +24,12 @@ export const INCOMING = {
   protocol: "protocol",
 } as const;
 
-/** What a client sends. */
-export const OUTGOING = ["said", "mic", "quality"] as const;
+/**
+ * What a client sends. `voice` cuts the speech and leaves the words: the
+ * transcript is a data message and does not go down the audio path, so a bridge
+ * with its voice off is still a whole conversation, read rather than heard.
+ */
+export const OUTGOING = ["said", "mic", "quality", "voice"] as const;
 
 /**
  * 9.4.8 the Stop button, said in words, because the bridge hears commands and

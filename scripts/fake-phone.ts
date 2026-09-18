@@ -207,6 +207,15 @@ async function say(text: string): Promise<void> {
 
 const measurements: string[] = [];
 for (const [n, raw] of options.lines.entries()) {
+  // A line that starts with @ is a control message, not speech: the phone has
+  // buttons as well as a voice, and they are the half no spoken line can reach.
+  //   '@{"kind":"voice","on":false}'
+  if (raw.startsWith("@")) {
+    console.log(`${at()} sent   | ${raw.slice(1)}`);
+    await phone.send(JSON.parse(raw.slice(1)) as Record<string, unknown>);
+    await Bun.sleep(750);
+    continue;
+  }
   const timed = /^\+(\d+)(ms|s):(.*)$/s.exec(raw);
   const line = timed ? (timed[3] as string) : raw;
   if (timed) {

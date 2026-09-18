@@ -39,6 +39,8 @@ object Bridge {
         val status: Status = Status.IDLE,
         val quality: String? = null,
         val micOn: Boolean = true,
+        /** 11.12 whether the bridge speaks its answers, or only writes them. */
+        val voiceOn: Boolean = true,
         /** 9.4.8 what the Stop button says, as the bridge gave it. */
         val endTurn: String? = null,
         val lines: List<Line> = emptyList(),
@@ -121,6 +123,9 @@ object Bridge {
         try {
             room.connect(credentials.url, credentials.token)
             _state.update { it.copy(status = Status.LISTENING, error = null) }
+            // the bridge starts every process speaking, so a voice cut has to be
+            // said again to a room this app has only just joined
+            if (!_state.value.voiceOn) tell(room, Outgoing.voice(false))
             if (_state.value.micOn) micLock.withLock { openMic(room) }
             ended.await()
         } catch (e: CancellationException) {
@@ -186,6 +191,19 @@ object Bridge {
                 append(Line(Line.Kind.NOTE, if (on) "microphone on" else "microphone off"))
             }
         }
+    }
+
+    /**
+     * 11.12 stop the bridge speaking, without stopping the conversation. The
+     * transcript is a data message and never went down the audio path, so the
+     * words carry on arriving and only the voice goes.
+     */
+    fun setVoice(on: Boolean) {
+        if (_state.value.voiceOn == on) return
+        _state.update { it.copy(voiceOn = on) }
+        val room = room ?: return
+        tell(room, Outgoing.voice(on))
+        append(Line(Line.Kind.NOTE, if (on) "voice on" else "voice off"))
     }
 
     fun say(text: String) {

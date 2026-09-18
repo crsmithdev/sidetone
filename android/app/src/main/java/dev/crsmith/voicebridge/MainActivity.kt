@@ -192,6 +192,9 @@ private fun Conversation(state: Bridge.State, onLeave: () -> Unit) {
         Button(onClick = { Bridge.setMic(!state.micOn) }, modifier = Modifier.fillMaxWidth()) {
             Text(if (state.micOn) "Cut the microphone" else "Microphone off — tap to resume")
         }
+        Button(onClick = { Bridge.setVoice(!state.voiceOn) }, modifier = Modifier.fillMaxWidth()) {
+            Text(if (state.voiceOn) "Cut the voice" else "Voice off — tap to resume")
+        }
         OutlinedButton(
             onClick = Bridge::endTurn,
             modifier = Modifier.fillMaxWidth(),
