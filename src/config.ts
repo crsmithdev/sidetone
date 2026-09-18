@@ -228,6 +228,12 @@ export const DEFAULTS: Config = {
     "Name a file by its path from the project root, like src/audio.ts. Do not speak an absolute path unless you are asked for one.",
     "Otherwise answer in short plain sentences, without markdown, lists, headers or code blocks.",
     "If this project's instructions ask for something to be read aloud in full, or if you are asked to, read it in full.",
+    // 11.9 a turn that runs for minutes is a voice that cannot be talked to:
+    // the microphone is open the whole time and nothing said into it can be
+    // answered. Short turns are what make a spoken conversation feel like one,
+    // and they are what makes an interruption cheap.
+    "Keep the turn short. If the work will take more than about fifteen seconds, start it in the background, say in one sentence what you have set going, and end the turn.",
+    "Do not narrate the work while it runs and do not wait for it to finish before you answer.",
   ].join(" "),
   tones: true,
   cueVolume: 0.12,
