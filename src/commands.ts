@@ -36,7 +36,10 @@ const COMMANDS: Array<{ name: CommandName; any: string[][] }> = [
   // 9.3 "end the" elides, and every engine tried writes it as "in the turn"
   // "nevermind" is one word to the engine, and "end the" elides far enough
   // that "in the turn" and "and the turn" both come back
-  { name: "endTurn", any: [["end", "turn"], ["in", "turn"], ["stop"], ["cancel"], ["never", "mind"], ["nevermind"]] },
+  // "sharp" is the one-word form, asked for in a car where the whole phrase is
+  // too much to say. A five letter word forgives one character, so "share" and
+  // "shard" end the turn as well; neither follows the wake word in practice.
+  { name: "endTurn", any: [["end", "turn"], ["in", "turn"], ["stop"], ["cancel"], ["never", "mind"], ["nevermind"], ["sharp"]] },
   // the explicit forms come first: "tones" is inside "tones off", and the
   // first command whose words are all present wins.
   { name: "tonesOff", any: [["tones", "off"], ["tone", "off"], ["no", "tones"], ["sounds", "off"]] },

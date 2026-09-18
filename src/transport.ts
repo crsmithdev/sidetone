@@ -110,6 +110,10 @@ export class Transport {
       })();
     };
     this.room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack) => pump(track));
+    // A resubscribe gives the same track back, and a sid left in the set would
+    // then refuse to pump it: the bridge would hold a live microphone it never
+    // reads. Nothing in the room says so, which is how a deaf bridge hides.
+    this.room.on(RoomEvent.TrackUnsubscribed, (track: RemoteTrack) => { if (track.sid) started.delete(track.sid); });
     // A track subscribed before this handler was attached never fires the event
     // again, and the bridge then looks deaf for the life of the room.
     for (const participant of this.room.remoteParticipants.values()) {
@@ -117,6 +121,22 @@ export class Transport {
         if (publication.track) pump(publication.track as RemoteTrack);
       }
     }
+  }
+
+  /**
+   * 18 whether there is a microphone in the room at all.
+   *
+   * On 18 September the phone cut its microphone and reopened it, and the
+   * bridge heard nothing for the next twenty minutes without one line in the
+   * journal about it. Whether a track arrived is the first thing to know and
+   * the bridge was not saying it.
+   */
+  onMicrophone(handle: (on: boolean, sid: string) => void): void {
+    const say = (on: boolean) => (track: RemoteTrack) => {
+      if (track.kind === TrackKind.KIND_AUDIO) handle(on, track.sid ?? "");
+    };
+    this.room.on(RoomEvent.TrackSubscribed, say(true));
+    this.room.on(RoomEvent.TrackUnsubscribed, say(false));
   }
 
   /** 4.3 the control channel: the transcript and the state, not the audio. */

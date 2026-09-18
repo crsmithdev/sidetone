@@ -15,7 +15,7 @@ import { encodeWav } from "./audio.ts";
 import { settingsInForce, type Config } from "./config.ts";
 import { Conversation } from "./conversation.ts";
 import { Cues } from "./cues.ts";
-import { Ear, earOptions } from "./ear.ts";
+import { Ear, earOptions, SILENCE_MS } from "./ear.ts";
 import { protocolMessage } from "./messages.ts";
 import { LocalWhisper, textToSpeech } from "./speech.ts";
 import { advertiseHost, livekitConfig, loadOrCreateKeys } from "./keys.ts";
@@ -133,6 +133,33 @@ export async function serve(dir: string, config: Config): Promise<void> {
 
   transport.onAudio((frame) => ear.frame(frame));
 
+  // 18 what the drive of 18 September had no way to see: whether a microphone
+  // track was there at all. The phone cut its own and reopened it, and every
+  // line after that was about something else.
+  transport.onMicrophone((on, sid) => console.log(`[the room ${on ? "has" : "lost"} a microphone track, ${sid}]`));
+
+  /** Whether the phone says its microphone is open; it only warns about one it claims to have. */
+  let micOn = true;
+  let said = false;
+
+  /**
+   * A microphone that publishes nothing, or publishes zeroes, is the failure
+   * Chris drove twenty minutes with. It is not a state the bridge can mend from
+   * this end -- the track belongs to the phone -- so it says so, on the journal
+   * and in the client, and says what does mend it.
+   */
+  setInterval(() => {
+    const silence = micOn ? ear.silence() : null;
+    if (!silence) { said = false; return; }
+    if (said) return;
+    said = true;
+    const text = silence.kind === "no frames"
+      ? `no audio from the phone for ${Math.round(silence.ms / 1000)}s, though it says its microphone is open`
+      : `the phone's microphone has carried no sound at all for ${Math.round(silence.ms / 1000)}s`;
+    console.log(`[${text}: leave the room and rejoin to publish a new track]`);
+    void transport.send({ kind: "narration", text });
+  }, SILENCE_MS / 3);
+
   transport.onMessage((value) => {
     if (value.kind === "said" && typeof value.text === "string") void conversation.heard(value.text);
     // N.1.4 the phone's own reading of its uplink. Measured on a real room,
@@ -144,10 +171,11 @@ export async function serve(dir: string, config: Config): Promise<void> {
     // picking up half sentences: a hard cut the phone controls. Anything half
     // recorded goes with it, or it arrives as a fragment on the way back.
     if (value.kind === "mic") {
-      const on = value.on !== false;
+      micOn = value.on !== false;
       // the hold goes with the half recording, or nothing resolves it
       ear.reset();
-      console.log(`[the phone ${on ? "opened" : "cut"} its microphone]`);
+      said = false;
+      console.log(`[the phone ${micOn ? "opened" : "cut"} its microphone]`);
     }
     if (value.kind === "quality") {
       const quality = qualityOf(value.quality);

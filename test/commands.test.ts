@@ -91,6 +91,16 @@ describe("the tone and stats commands", () => {
     expect(commandIn("in the turn")).toBe("endTurn");
     expect(commandIn("end the turn")).toBe("endTurn");
   });
+  test("one word ends the turn, and \"sharp\" does not steal a word Chris says", () => {
+    expect(commandIn("sharp")).toBe("endTurn");
+    expect(commandIn("cancel")).toBe("endTurn");
+    expect(commandIn("nevermind")).toBe("endTurn");
+    // the price of a five letter word: one character of tolerance takes
+    // "share" and "shard" with it. Both are words, and neither is one Chris
+    // says straight after the wake word, which is the only place this runs.
+    expect(commandIn("share")).toBe("endTurn");
+    expect(commandIn("start")).toBe(null);
+  });
   test("the new words do not steal an older command", () => {
     expect(commandIn("mute")).toBe("mute");
     expect(commandIn("stop")).toBe("endTurn");

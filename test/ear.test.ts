@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { utteranceOf, type Utterance } from "../src/audio.ts";
-import { Ear, type EarOptions } from "../src/ear.ts";
+import { Ear, SILENCE_MS, type EarOptions } from "../src/ear.ts";
 import { Measures } from "../src/measures.ts";
 
 const OPTIONS: EarOptions = {
@@ -141,5 +141,44 @@ describe("a whole recording, from the desk (7.3)", () => {
     const { to, ear } = room(async () => "Thank you.");
     await ear.said(utteranceOf({ sampleRate: 16_000, channels: 1, samples: quiet }, 0.02));
     expect(to.told).toEqual(["nothing"]);
+  });
+});
+
+describe("18 a microphone that stopped", () => {
+  test("says nothing until a frame has arrived, so a room with no phone in it is quiet", () => {
+    const { ear } = room(async () => "");
+    expect(ear.silence(Date.now() + 10 * SILENCE_MS)).toBe(null);
+  });
+
+  test("frames with nothing in them are a capture that died", () => {
+    const { ear } = room(async () => "");
+    const at = Date.now();
+    ear.frame(frame(0.3), at);
+    ear.frame(frame(0), at + SILENCE_MS - 1);
+    expect(ear.silence(at + SILENCE_MS - 1)).toBe(null);
+    ear.frame(frame(0), at + SILENCE_MS + 10);
+    expect(ear.silence(at + SILENCE_MS + 10)?.kind).toBe("silence");
+  });
+
+  test("a frame with any sound in it starts the clock again", () => {
+    const { ear } = room(async () => "");
+    const at = Date.now();
+    ear.frame(frame(0), at);
+    ear.frame(frame(0.001), at + SILENCE_MS + 10);
+    expect(ear.silence(at + SILENCE_MS + 10)).toBe(null);
+  });
+
+  test("frames that stop arriving are a track that went away", () => {
+    const { ear } = room(async () => "");
+    const at = Date.now();
+    ear.frame(frame(0.3), at);
+    expect(ear.silence(at + SILENCE_MS + 10)?.kind).toBe("no frames");
+  });
+
+  test("a cut microphone is not a fault: the reset puts both clocks back", () => {
+    const { ear } = room(async () => "");
+    ear.frame(frame(0.3));
+    ear.reset();
+    expect(ear.silence(Date.now() + 10 * SILENCE_MS)).toBe(null);
   });
 });

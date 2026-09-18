@@ -10,7 +10,7 @@
  * It was written twice before, once in each loop, in closures that no test
  * could enter: `serve.ts` and `main.ts` at 0b4478b.
  */
-import { tooQuiet, Utterances, type Utterance, type UtteranceOptions } from "./audio.ts";
+import { level, tooQuiet, Utterances, type Utterance, type UtteranceOptions } from "./audio.ts";
 import type { CueName } from "./cues.ts";
 import type { Measures } from "./measures.ts";
 
@@ -61,10 +61,26 @@ export interface EarOptions extends UtteranceOptions {
   endOfTurnPauseMs: number;
 }
 
+/** How long a dead microphone has to stay dead before the bridge says so. */
+export const SILENCE_MS = 30_000;
+
+/**
+ * Below this a track is carrying no room at all.
+ *
+ * Not zero: a track of pure zeroes arrives through opus at a level of 1e-5,
+ * and only 71 frames in 795 come out exactly zero (measured over a real room,
+ * 18 September 2026). Road noise in a moving car reached 0.03 at its quietest
+ * all through the drive, so this sits fifty times above a dead capture and far
+ * below any microphone that is really open.
+ */
+export const SILENT_LEVEL = 0.0005;
+
 export class Ear {
   private readonly utterances: Utterances;
   private barging = false;
   private noticedAt = 0;
+  private frameAt = 0;
+  private soundAt = 0;
 
   constructor(
     private readonly to: Ears,
@@ -90,8 +106,29 @@ export class Ear {
     return this.noticedAt;
   }
 
+  /**
+   * How long the microphone has been dead, and in which of the two ways.
+   *
+   * A real microphone in a car is never silent: road noise alone reached the
+   * recorder every few seconds all through the drive of 18 September. Frames
+   * with nothing in them are a capture that stopped, and no frames at all are a
+   * track that went away. Both looked the same from the outside -- nothing --
+   * and the bridge said nothing about either for twenty minutes.
+   */
+  silence(now = Date.now()): { kind: "no frames" | "silence"; ms: number } | null {
+    if (this.frameAt === 0) return null;
+    if (now - this.frameAt >= SILENCE_MS) return { kind: "no frames", ms: now - this.frameAt };
+    if (now - this.soundAt >= SILENCE_MS) return { kind: "silence", ms: now - this.soundAt };
+    return null;
+  }
+
   /** One frame from the room. Dispatches when the frame ends an utterance. */
-  frame(frame: Int16Array): void {
+  frame(frame: Int16Array, now = Date.now()): void {
+    // the first frame starts both clocks: a capture that was dead from the
+    // start is worth saying once, not the instant it arrives
+    const silent = this.frameAt > 0 && level(frame) < SILENT_LEVEL;
+    this.frameAt = now;
+    if (!silent) this.soundAt = now;
     const said = this.utterances.push(frame);
     // 11.3 the moment Chris really starts, the bridge stops — every sentence,
     // not one. A recording opening is not enough: road noise opens recordings.
@@ -119,6 +156,8 @@ export class Ear {
   reset(): void {
     this.utterances.reset();
     this.barging = false;
+    this.frameAt = 0;
+    this.soundAt = 0;
     this.to.heardNothing();
   }
 
