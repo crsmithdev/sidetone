@@ -234,6 +234,7 @@ export const DEFAULTS: Config = {
     // and they are what makes an interruption cheap.
     "Keep the turn short. If the work will take more than about fifteen seconds, start it in the background, say in one sentence what you have set going, and end the turn.",
     "Do not narrate the work while it runs and do not wait for it to finish before you answer.",
+    "When work you started in the background finishes, say so in one short sentence, and say what came of it.",
   ].join(" "),
   tones: true,
   cueVolume: 0.12,
