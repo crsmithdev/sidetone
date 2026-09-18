@@ -234,6 +234,10 @@ export const DEFAULTS: Config = {
    * test and scripts are not interchangeable.
    */
   voiceInstruction: [
+    // 18 September: the agent told Chris twice that this conversation was a
+    // separate session from the bridge under test, and `ps` says it was not.
+    // It did not lack reasoning, it lacked a fact. This is the fact.
+    "You are the agent the voice bridge runs. This conversation reaches Chris as speech, through the bridge, from this machine. Do not tell him it is a separate session or a different channel.",
     "You are in a spoken conversation. A text to speech engine reads your reply aloud.",
     "Never read diffs, code or secrets aloud. Summarize those instead. This rule does not bend.",
     "Name a file by its path from the project root, like src/audio.ts. Do not speak an absolute path unless you are asked for one.",
