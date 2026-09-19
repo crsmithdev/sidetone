@@ -32,7 +32,7 @@ function scripted(holdBackstopMs = 10_000) {
   const measures = new Measures();
   const mouth = new Mouth(speaker, made, { file: (name) => `${name}.wav` }, measures, { holdBackstopMs });
   return {
-    mouth, played, wavs, cues, started, measures,
+    mouth, played, wavs, cues, started, measures, made,
     blockPlay: (on: boolean) => { blocking = on; },
     cutPlay: (on: boolean) => { whole = !on; },
     release: () => { gate?.(); gate = null; },
@@ -221,6 +221,52 @@ describe("what he heard (9.4.5)", () => {
     m.mouth.say("one."); m.mouth.say("two.");
     await m.mouth.drained();
     expect(m.played).toEqual(["one.", "two."]);
+  });
+});
+
+describe("the round trip's marks (18.4)", () => {
+  /** A round open at the mouth: speech ended, the text went to the agent, its first word is back. */
+  function open(m: ReturnType<typeof scripted>) {
+    const now = Date.now();
+    m.measures.speechEnded(now - 1_500, now);
+    m.measures.transcribed(now);
+    m.measures.firstDelta(now);
+  }
+
+  test("the first sentence of the answer is marked once, and a reply is not the answer", async () => {
+    const m = scripted();
+    open(m);
+    m.mouth.reply("Carrying on.");
+    await tick();
+    // the reply closed the round with no sentence of the answer in it
+    expect(m.measures.recent().find((e) => e.kind === "answered")).toMatchObject({ sentenceMs: 0 });
+    open(m);
+    m.mouth.say("one."); m.mouth.say("two.");
+    await tick();
+    const rounds = m.measures.recent().filter((e) => e.kind === "answered");
+    expect(rounds).toHaveLength(2);
+    expect((rounds[1] as { sentenceMs: number }).sentenceMs).toBeGreaterThanOrEqual(0);
+  });
+
+  test("what the engine spent on that sentence is on the round", async () => {
+    const m = scripted();
+    // an engine that takes a moment, like the real one
+    (m as unknown as { made: { take: (t: string) => Promise<string> } }).made.take = async (t) => { await new Promise((r) => setTimeout(r, 15)); return t; };
+    open(m);
+    m.mouth.say("one.");
+    await m.mouth.drained();
+    const round = m.measures.recent().find((e) => e.kind === "answered") as { synthesisMs: number };
+    expect(round.synthesisMs).toBeGreaterThanOrEqual(10);
+  });
+
+  test("a new turn starts the count again", async () => {
+    const m = scripted();
+    open(m);
+    m.mouth.say("one."); await m.mouth.drained();
+    m.mouth.newTurn();
+    open(m);
+    m.mouth.say("two."); await m.mouth.drained();
+    expect(m.measures.recent().filter((e) => e.kind === "answered")).toHaveLength(2);
   });
 });
 

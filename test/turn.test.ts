@@ -111,6 +111,20 @@ describe("a whole turn (5.5, 5.6)", () => {
   });
 });
 
+describe("the round trip's marks (18.4)", () => {
+  test("the agent's first word is marked, once, on the round the utterance opened", async () => {
+    const r = room({ deltas: ["Two plus two ", "is four. ", "It always ", "was."] });
+    const now = Date.now();
+    r.c.measures.speechEnded(now - 1_500, now);
+    r.c.measures.transcribed(now);
+    await r.c.turn("what is two plus two");
+    const rounds = r.c.measures.recent().filter((e) => e.kind === "answered") as Array<{ agentMs: number; sentenceMs: number }>;
+    expect(rounds).toHaveLength(1);
+    expect(rounds[0]?.agentMs).toBeGreaterThanOrEqual(0);
+    expect(rounds[0]?.sentenceMs).toBeGreaterThanOrEqual(0);
+  });
+});
+
 describe("the rate-limit warning (13.2)", () => {
   test("it speaks the number claude reports, once the turn is done", async () => {
     const r = room({ deltas: ["Done."], rateLimit: { fiveHour: 0.92, sevenDay: 0.1 } }, { usageWarnFraction: 0.8 });

@@ -145,16 +145,32 @@ describe("the commands, in the order the card asks for them", () => {
 });
 
 describe("the round trip", () => {
-  const answered = (answerMs: number): Event =>
-    ({ kind: "answered", at: 0, answerMs, pauseMs: 1_500, transcribeMs: 200 });
+  const answered = (answerMs: number, marks: Partial<{ agentMs: number; sentenceMs: number; synthesisMs: number }> = {}): Event =>
+    ({ kind: "answered", at: 0, answerMs, pauseMs: 1_500, transcribeMs: 200, agentMs: 0, sentenceMs: 0, synthesisMs: 0, ...marks });
 
   test("it reports the middle and the worst of the answers", () => {
     const card = score([heard("hello"), answered(1_800), answered(1_600), answered(3_500)]);
-    expect(card.roundTrip).toEqual({ rounds: 3, medianMs: 1_800, worstMs: 3_500 });
+    expect(card.roundTrip).toEqual({ rounds: 3, medianMs: 1_800, worstMs: 3_500, medianAgentMs: 0, medianSentenceMs: 0, medianSynthesisMs: 0 });
   });
 
   test("a drive with no answer in it reports nothing rather than zero-ish", () => {
     const card = score([heard("hello")]);
-    expect(card.roundTrip).toEqual({ rounds: 0, medianMs: 0, worstMs: 0 });
+    expect(card.roundTrip).toEqual({ rounds: 0, medianMs: 0, worstMs: 0, medianAgentMs: 0, medianSentenceMs: 0, medianSynthesisMs: 0 });
+  });
+
+  test("the split is the median over the rounds that carry the mark", () => {
+    const card = score([
+      answered(4_000, { agentMs: 2_000, sentenceMs: 300, synthesisMs: 120 }),
+      answered(6_000, { agentMs: 3_000, sentenceMs: 500, synthesisMs: 160 }),
+      // a command's reply, or the desk: the marks were never made
+      answered(2_000),
+    ]);
+    expect(card.roundTrip).toMatchObject({ rounds: 3, medianMs: 4_000, medianAgentMs: 2_500, medianSentenceMs: 400, medianSynthesisMs: 140 });
+  });
+
+  test("a record from before the marks existed scores without them", () => {
+    // the field is absent, not zero, on those lines
+    const old = { kind: "answered", at: 0, answerMs: 5_000, pauseMs: 1_500, transcribeMs: 300 } as unknown as Event;
+    expect(score([old]).roundTrip).toMatchObject({ rounds: 1, medianMs: 5_000, medianAgentMs: 0 });
   });
 });

@@ -35,8 +35,12 @@ export interface Scorecard {
   commands: { asked: number; fired: number; missed: string[]; wrong: Array<{ became: string; said: string }> };
   passage: { linesExpected: number; utterances: number; whole: number; fragments: number; accuracy: number };
   heard: { total: number; empty: number; tooQuiet: number; medianMs: number; medianPeak: number };
-  /** 18.4 the round trips this drive closed, from the record rather than from memory */
-  roundTrip: { rounds: number; medianMs: number; worstMs: number };
+  /**
+   * 18.4 the round trips this drive closed, from the record rather than from
+   * memory. The three medians after the worst are over the rounds that carry
+   * the mark, so a record from before 19 September gives zero for each.
+   */
+  roundTrip: { rounds: number; medianMs: number; worstMs: number; medianAgentMs: number; medianSentenceMs: number; medianSynthesisMs: number };
   bargeIns: number;
   invented: number;
 }
@@ -91,7 +95,10 @@ export function score(events: Event[], script = SCRIPT, passage = PASSAGE): Scor
 
   const ms = heard.map((h) => h.ms).sort((a, b) => a - b);
   const peaks = heard.map((h) => h.peak).sort((a, b) => a - b);
-  const answers = events.filter((e): e is Answered => e.kind === "answered").map((a) => a.answerMs);
+  const answered = events.filter((e): e is Answered => e.kind === "answered");
+  const answers = answered.map((a) => a.answerMs);
+  const marked = (pick: (a: Answered) => number | undefined) =>
+    Math.round(middle(answered.map(pick).filter((v): v is number => typeof v === "number" && v > 0).sort((a, b) => a - b)));
   return {
     commands: { asked: script.length, fired: script.length - missed.length, missed, wrong },
     passage: {
@@ -112,6 +119,9 @@ export function score(events: Event[], script = SCRIPT, passage = PASSAGE): Scor
       rounds: answers.length,
       medianMs: Math.round(middle([...answers].sort((a, b) => a - b))),
       worstMs: answers.reduce((worst, ms) => Math.max(worst, ms), 0),
+      medianAgentMs: marked((a) => a.agentMs),
+      medianSentenceMs: marked((a) => a.sentenceMs),
+      medianSynthesisMs: marked((a) => a.synthesisMs),
     },
     bargeIns: events.filter((e) => e.kind === "barged").length,
     // A turn from something nobody said, judged against this session rather

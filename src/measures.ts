@@ -37,6 +37,21 @@ export class Measures {
     this.latency.transcribed(at);
   }
 
+  /** The agent's first word of the answer. */
+  firstDelta(at = Date.now()): void {
+    this.latency.firstDelta(at);
+  }
+
+  /** The first whole sentence of the answer reached the mouth. */
+  firstSentence(at = Date.now()): void {
+    this.latency.firstSentence(at);
+  }
+
+  /** What the engine spent making the sentence about to close the round. */
+  synthesized(ms: number): void {
+    this.latency.synthesized(ms);
+  }
+
   /** What that utterance was, and what the engine made of it. */
   utterance(utterance: Utterance, text: string, transcribeMs: number): void {
     this.diagnostics.heard(utterance, text, transcribeMs);

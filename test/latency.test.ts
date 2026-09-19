@@ -18,7 +18,7 @@ describe("latency (18.4)", () => {
   test("the clock runs from the end of speech to the first audio", () => {
     const latency = new Latency();
     round(latency, 1_000, 300, 2_400);
-    expect(latency.last).toEqual({ pauseMs: PAUSE, transcribeMs: 300, answerMs: 2_400 });
+    expect(latency.last).toEqual({ pauseMs: PAUSE, transcribeMs: 300, answerMs: 2_400, agentMs: 0, sentenceMs: 0, synthesisMs: 0 });
   });
   test("only the first sentence of an answer closes a round", () => {
     const latency = new Latency();
@@ -51,6 +51,32 @@ describe("latency (18.4)", () => {
       expect(sentence.split(/\s+/).length).toBeLessThan(12);
     }
   });
+  test("the rest of the round is split three ways when the marks are made", () => {
+    const latency = new Latency();
+    latency.speechEnded(0, PAUSE);
+    latency.transcribed(PAUSE + 300);        // the text went to the agent
+    latency.firstDelta(PAUSE + 300 + 900);   // its first word came back
+    latency.firstSentence(PAUSE + 300 + 900 + 400);
+    latency.synthesized(150);
+    latency.answered(PAUSE + 300 + 900 + 400 + 150);
+    expect(latency.last).toMatchObject({ transcribeMs: 300, agentMs: 900, sentenceMs: 400, synthesisMs: 150, answerMs: 3_250 });
+  });
+
+  test("a mark with no round open, or made twice, changes nothing", () => {
+    const latency = new Latency();
+    latency.firstDelta(10);
+    latency.synthesized(999);
+    latency.speechEnded(0, PAUSE);
+    latency.transcribed(PAUSE + 100);
+    latency.firstDelta(PAUSE + 600);
+    latency.firstDelta(PAUSE + 5_000);      // a later delta is not the first
+    latency.synthesized(120);
+    latency.synthesized(3_000);             // the second sentence's synthesis is not this round's
+    latency.answered(PAUSE + 900);
+    expect(latency.last).toMatchObject({ agentMs: 500, sentenceMs: 0, synthesisMs: 120 });
+    expect(latency.count).toBe(1);
+  });
+
   test("the pause a setting decides is not charged to the engine", () => {
     const latency = new Latency();
     // 1.5 s of pause, 0.3 s of engine: the old split called all 1.8 transcription

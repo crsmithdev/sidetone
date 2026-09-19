@@ -420,8 +420,11 @@ export class Conversation {
     this.turnRunning = true;
     this.mouth.newTurn();
     const sentences = new SentenceCollector(this.config.sentenceMaxChars);
+    let firstDelta = true;
     this.deltaSink = (text) => {
       if (!mine()) return;
+      // 18.4 the agent's share ends with its first word
+      if (firstDelta) { firstDelta = false; this.measures.firstDelta(); }
       for (const sentence of sentences.push(text)) this.speak(sentence);
     };
     const stopCue = this.cueWhileWaiting();

@@ -23,6 +23,18 @@ describe("one fact, told once", () => {
     expect(answered).toMatchObject({ answerMs: 2400, pauseMs: 1500, transcribeMs: 300 });
   });
 
+  test("the three marks reach the record on the same event", () => {
+    const measures = new Measures();
+    measures.speechEnded(1_000, 2_500);
+    measures.transcribed(2_800);
+    measures.firstDelta(3_000);
+    measures.firstSentence(3_200);
+    measures.synthesized(150);
+    measures.answering(3_400);
+    const answered = measures.recent().find((event) => event.kind === "answered");
+    expect(answered).toMatchObject({ answerMs: 2400, agentMs: 200, sentenceMs: 200, synthesisMs: 150 });
+  });
+
   test("a barge-in reaches both, from one telling", () => {
     const measures = new Measures();
     measures.bargeIn(0.334, 400);

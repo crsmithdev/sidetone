@@ -23,6 +23,18 @@ export interface Round {
   transcribeMs: number;
   /** the whole of it: the end of speech to the first audio out */
   answerMs: number;
+  /**
+   * The rest of it, split three ways, because the remainder used to be one
+   * number that mixed the agent's thinking with the engine's synthesis, and
+   * no change to either could be judged from the record. Zero when the mark
+   * was never made, which the desk loop and a command's reply both do.
+   */
+  /** the agent's share: the text went in, the first word came back */
+  agentMs: number;
+  /** the collector's share: the first word to the first whole sentence */
+  sentenceMs: number;
+  /** the engine's share: that sentence became a wav */
+  synthesisMs: number;
 }
 
 /** Enough rounds to have a median, few enough that a drive ago does not count. */
@@ -32,7 +44,7 @@ const KEEP = 20;
 export type Outcome = "speech" | "command" | "nothing";
 
 export class Latency {
-  private open: { endedAt: number; noticedAt: number; transcribedAt: number } | null = null;
+  private open: { endedAt: number; noticedAt: number; transcribedAt: number; firstDeltaAt: number; firstSentenceAt: number; synthesisMs: number } | null = null;
   private readonly rounds: Round[] = [];
   /**
    * 18.6 every barge-in, with the sound that caused it. The two thresholds are
@@ -48,12 +60,27 @@ export class Latency {
    * must not be charged for a wait that a setting decides.
    */
   speechEnded(endedAt: number, noticedAt = Date.now()): void {
-    this.open = { endedAt, noticedAt, transcribedAt: 0 };
+    this.open = { endedAt, noticedAt, transcribedAt: 0, firstDeltaAt: 0, firstSentenceAt: 0, synthesisMs: 0 };
   }
 
   /** The recording is text. */
   transcribed(at = Date.now()): void {
     if (this.open && !this.open.transcribedAt) this.open.transcribedAt = at;
+  }
+
+  /** The agent's first word of the answer arrived. */
+  firstDelta(at = Date.now()): void {
+    if (this.open && !this.open.firstDeltaAt) this.open.firstDeltaAt = at;
+  }
+
+  /** The first whole sentence of the answer left the collector. */
+  firstSentence(at = Date.now()): void {
+    if (this.open && !this.open.firstSentenceAt) this.open.firstSentenceAt = at;
+  }
+
+  /** What the engine spent on the sentence that will close this round. */
+  synthesized(ms: number): void {
+    if (this.open && !this.open.synthesisMs) this.open.synthesisMs = Math.round(ms);
   }
 
   /**
@@ -65,10 +92,14 @@ export class Latency {
     const open = this.open;
     if (!open) return null;
     this.open = null;
+    const asked = open.transcribedAt || open.noticedAt;
     const round: Round = {
       pauseMs: open.noticedAt - open.endedAt,
       transcribeMs: open.transcribedAt ? open.transcribedAt - open.noticedAt : 0,
       answerMs: at - open.endedAt,
+      agentMs: open.firstDeltaAt ? open.firstDeltaAt - asked : 0,
+      sentenceMs: open.firstDeltaAt && open.firstSentenceAt ? open.firstSentenceAt - open.firstDeltaAt : 0,
+      synthesisMs: open.synthesisMs,
     };
     this.rounds.push(round);
     if (this.rounds.length > KEEP) this.rounds.shift();

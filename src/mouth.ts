@@ -48,6 +48,8 @@ export class Mouth {
   private heard: string[] = [];
   /** 11.12 whether the bridge speaks at all. The words go either way. */
   private voice = true;
+  /** 18.4 whether the next sentence of the answer is the turn's first. */
+  private firstOfTurn = true;
 
   constructor(
     private readonly speaker: Speaker,
@@ -61,6 +63,8 @@ export class Mouth {
 
   /** One sentence of the answer. It is what a barge-in holds. */
   say(text: string): void {
+    // 18.4 the collector's share ends here, whatever the queue does next
+    if (this.firstOfTurn) { this.firstOfTurn = false; this.measures.firstSentence(); }
     this.outbox.push(text);
     void this.pump();
   }
@@ -81,6 +85,7 @@ export class Mouth {
   /** A turn begins: what he heard of the last one is the last one's. */
   newTurn(): void {
     this.heard = [];
+    this.firstOfTurn = true;
   }
 
   /** 11.12 the voice off skips the engine; the round trip still closes. */
@@ -234,9 +239,12 @@ export class Mouth {
       this.measures.spoken(text, whole);
       return whole;
     }
+    const madeAt = Date.now();
     const wav = await this.made.take(text);
-    // 18.4 the first sound of the answer closes the round trip. A later
-    // sentence is not a round trip, and the tracker ignores it.
+    // 18.4 the first sound of the answer closes the round trip, and the engine's
+    // share of it is told first. A later sentence is not a round trip, and the
+    // tracker ignores both.
+    this.measures.synthesized(Date.now() - madeAt);
     this.measures.answering();
     // The engine takes one request at a time, so this starts only now that
     // the current sentence is made. A barge-in during this prefetch makes

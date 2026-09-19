@@ -29,8 +29,15 @@ export interface Heard {
 }
 
 export interface Matched { kind: "matched"; at: number; said: string; became: string }
-/** 18.4 a round trip that closed: the end of speech to the first sound of the answer. */
-export interface Answered { kind: "answered"; at: number; answerMs: number; pauseMs: number; transcribeMs: number }
+/**
+ * 18.4 a round trip that closed: the end of speech to the first sound of the
+ * answer, and how the time between was spent. The last three are zero when
+ * their mark was never made; a record from before 19 September lacks them.
+ */
+export interface Answered {
+  kind: "answered"; at: number; answerMs: number; pauseMs: number; transcribeMs: number;
+  agentMs: number; sentenceMs: number; synthesisMs: number;
+}
 export interface Barged { kind: "barged"; at: number; level: number; heldMs: number }
 export interface Spoke { kind: "spoke"; at: number; text: string; whole: boolean }
 export interface Note { kind: "note"; at: number; text: string }
@@ -68,7 +75,7 @@ export class Diagnostics {
   }
 
   /** 18.4 the round trip Chris lives with, kept with the utterance that caused it. */
-  answered(round: { answerMs: number; pauseMs: number; transcribeMs: number }, at = Date.now()): void {
+  answered(round: Omit<Answered, "kind" | "at">, at = Date.now()): void {
     this.add({ kind: "answered", at, ...round });
   }
 
