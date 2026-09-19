@@ -22,29 +22,19 @@
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { loadConfig } from "../src/config.ts";
+import { spokenForms } from "../src/commands.ts";
+import { DEFAULTS, loadConfig } from "../src/config.ts";
 import { LocalWhisper, textToSpeech } from "../src/speech.ts";
 
-/** Every command, and the speech that must not be mistaken for one. */
+/**
+ * Every command's phrases come from the table in src/commands.ts, so a new
+ * command is in the corpus the next time this runs. The rest is what must not
+ * be mistaken for one: the wake word run into the command, the wake word with
+ * nothing usable after it, and ordinary speech for the agent.
+ */
 const PHRASES: Array<{ said: string; want: string | null }> = [
-  { said: "hey bridge, mute", want: "mute" },
-  { said: "hey bridge, unmute", want: "unmute" },
-  { said: "hey bridge, stop listening", want: "mute" },
-  { said: "hey bridge, clear the context", want: "clearContext" },
-  { said: "hey bridge, report the usage", want: "usage" },
-  { said: "hey bridge, say again", want: "restate" },
-  { said: "hey bridge, summarize", want: "summarize" },
-  { said: "hey bridge, recap", want: "where" },
-  { said: "hey bridge, end turn", want: "endTurn" },
-  { said: "hey bridge, never mind", want: "endTurn" },
-  { said: "hey bridge, tones", want: "tones" },
-  { said: "hey bridge, tones off", want: "tonesOff" },
-  { said: "hey bridge, tones on", want: "tonesOn" },
-  { said: "hey bridge, stats", want: "stats" },
+  ...spokenForms(DEFAULTS.wakeWord),
   { said: "hey bridgemute", want: "mute" },
-  { said: "hey bridge, latency", want: "stats" },
-  { said: "hey bridge, male voice", want: "maleVoice" },
-  { said: "hey bridge, female voice", want: "femaleVoice" },
   // 9.7 the wake word arrives and the command does not
   { said: "hey bridge, wobble", want: "unclear" },
   // ordinary speech, which must reach the agent untouched

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { DEFAULTS, type Config } from "../src/config.ts";
-import { Conversation } from "../src/conversation.ts";
+import { COMMAND_NAMES, spokenForms } from "../src/commands.ts";
+import { Conversation, KEPT_LINES } from "../src/conversation.ts";
 import { Measures } from "../src/measures.ts";
 import { Mouth, type Speaker } from "../src/mouth.ts";
 
@@ -436,4 +437,29 @@ describe("the wake-word hold", () => {
     await c.heard("how do i stop the server");
     expect(commands).not.toContain("endTurn");
   });
+});
+
+/**
+ * 11.6 the kept lines are the sentences the bridge says word for word, made
+ * once and kept. The list used to be kept by hand, and the code drifted from
+ * it: "Interrupting on." and "Stopped." were made the slow way every session.
+ * This says every fixed line a command answers with from a fresh start, and
+ * checks the list has it. A line with a number in it is not fixed and is not
+ * checked, and neither is the one that names the agreement word, which is
+ * built from a setting; usage and clear the context say nothing else.
+ */
+describe("the kept lines (11.6)", () => {
+  const first = new Map<string, string>();
+  for (const { said, want } of spokenForms(config.wakeWord)) if (!first.has(want)) first.set(want, said);
+
+  for (const name of COMMAND_NAMES) {
+    test(`every fixed line "${name}" says from a fresh start is a kept line`, async () => {
+      const { c, said } = watched();
+      await c.heard(first.get(name) as string);
+      await settled();
+      expect(said.length).toBeGreaterThan(0);
+      const fixed = said.filter((line) => !/\d/.test(line) && !line.includes(config.agreementWord));
+      for (const line of fixed) expect(KEPT_LINES as readonly string[]).toContain(line);
+    });
+  }
 });

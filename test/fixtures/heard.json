@@ -2,6 +2,14 @@
  "note": "What faster-whisper wrote when the voice said each phrase, clean and in brown noise at 10, 0 and -5 dB. Regenerate with scripts/heard-refresh.ts.",
  "phrases": [
   {
+   "said": "hey bridge, unmute",
+   "want": "unmute",
+   "heard": [
+    "Hay Bridge on mute.",
+    "Hey Bridge on mute."
+   ]
+  },
+  {
    "said": "hey bridge, mute",
    "want": "mute",
    "heard": [
@@ -9,14 +17,6 @@
     "Hey Bridge Mute.",
     "Hey Bridge, mute.",
     "Hey, bridge mute."
-   ]
-  },
-  {
-   "said": "hey bridge, unmute",
-   "want": "unmute",
-   "heard": [
-    "Hay Bridge on mute.",
-    "Hey Bridge on mute."
    ]
   },
   {
@@ -90,16 +90,6 @@
    ]
   },
   {
-   "said": "hey bridge, tones",
-   "want": "tones",
-   "heard": [
-    "Hay Bridge Tones.",
-    "Haybridge Tones.",
-    "Haybridge tones.",
-    "Hey Bridge Tones."
-   ]
-  },
-  {
    "said": "hey bridge, tones off",
    "want": "tonesOff",
    "heard": [
@@ -117,19 +107,21 @@
    ]
   },
   {
+   "said": "hey bridge, tones",
+   "want": "tones",
+   "heard": [
+    "Hay Bridge Tones.",
+    "Haybridge Tones.",
+    "Haybridge tones.",
+    "Hey Bridge Tones."
+   ]
+  },
+  {
    "said": "hey bridge, stats",
    "want": "stats",
    "heard": [
     "Hay Bridge stats.",
     "Hey Bridge stats."
-   ]
-  },
-  {
-   "said": "hey bridgemute",
-   "want": "mute",
-   "heard": [
-    "Hey, BridgeMute.",
-    "Hey, bridge mute."
    ]
   },
   {
@@ -143,6 +135,50 @@
    ]
   },
   {
+   "said": "hey bridge, carry on",
+   "want": "carryOn",
+   "heard": [
+    "Hay Bridge Carry On.",
+    "Hey Bridge, carry on.",
+    "Hey bridge carry on.",
+    "Heybridge carry on."
+   ]
+  },
+  {
+   "said": "hey bridge, interrupt off",
+   "want": "interruptOff",
+   "heard": [
+    "Hay Bridge, interrupt off.",
+    "Hey Bridge interrupt off.",
+    "Hey Bridge, interrupt off."
+   ]
+  },
+  {
+   "said": "hey bridge, interrupt on",
+   "want": "interruptOn",
+   "heard": [
+    "Hay Bridge, interrupt on.",
+    "Hey Bridge interrupt on."
+   ]
+  },
+  {
+   "said": "hey bridge, interrupt",
+   "want": "interrupt",
+   "heard": [
+    "Hay Bridge Interrupt.",
+    "Hey Bridge interrupt."
+   ]
+  },
+  {
+   "said": "hey bridge, female voice",
+   "want": "femaleVoice",
+   "heard": [
+    "Hay Bridge, Female Voice.",
+    "Hey Bridge Female Voice.",
+    "Hey Bridge, female voice."
+   ]
+  },
+  {
    "said": "hey bridge, male voice",
    "want": "maleVoice",
    "heard": [
@@ -153,12 +189,11 @@
    ]
   },
   {
-   "said": "hey bridge, female voice",
-   "want": "femaleVoice",
+   "said": "hey bridgemute",
+   "want": "mute",
    "heard": [
-    "Hay Bridge, Female Voice.",
-    "Hey Bridge Female Voice.",
-    "Hey Bridge, female voice."
+    "Hey, BridgeMute.",
+    "Hey, bridge mute."
    ]
   },
   {

@@ -25,31 +25,37 @@ export type Match =
   /** no wake word: this is a thing Chris said to the agent */
   | { kind: "speech" };
 
-/** Every word that names a command, and the words that have to be there. */
-const COMMANDS: Array<{ name: CommandName; any: string[][] }> = [
-  { name: "unmute", any: [["unmute"], ["un", "mute"], ["listen", "again"]] },
-  { name: "mute", any: [["mute"], ["stop", "listening"]] },
-  { name: "clearContext", any: [["clear"]] },
-  { name: "usage", any: [["usage"], ["cost"], ["spent"]] },
-  { name: "restate", any: [["restate"], ["say", "again"], ["repeat"]] },
-  { name: "summarize", any: [["summarize"], ["summarise"], ["summary"]] },
-  { name: "where", any: [["where"], ["catch", "up"], ["recap"]] },
+/**
+ * Every command: the words that have to be there for it to match, and the
+ * phrases the corpus is recorded from (ADR 0006). `any` is what the matcher
+ * reads; `phrases` is what `scripts/heard-refresh.ts` says aloud, after the
+ * wake word, and what `test/heard.test.ts` checks every command has. A
+ * command with no phrase is a command that ships unheard, and four did.
+ */
+const COMMANDS: Array<{ name: CommandName; any: string[][]; phrases: string[] }> = [
+  { name: "unmute", any: [["unmute"], ["un", "mute"], ["listen", "again"]], phrases: ["unmute"] },
+  { name: "mute", any: [["mute"], ["stop", "listening"]], phrases: ["mute", "stop listening"] },
+  { name: "clearContext", any: [["clear"]], phrases: ["clear the context"] },
+  { name: "usage", any: [["usage"], ["cost"], ["spent"]], phrases: ["report the usage"] },
+  { name: "restate", any: [["restate"], ["say", "again"], ["repeat"]], phrases: ["say again"] },
+  { name: "summarize", any: [["summarize"], ["summarise"], ["summary"]], phrases: ["summarize"] },
+  { name: "where", any: [["where"], ["catch", "up"], ["recap"]], phrases: ["recap"] },
   // 9.3 "end the" elides, and every engine tried writes it as "in the turn"
   // "nevermind" is one word to the engine, and "end the" elides far enough
   // that "in the turn" and "and the turn" both come back
   // "sharp" is the one-word form, asked for in a car where the whole phrase is
   // too much to say. A five letter word forgives one character, so "share" and
   // "shard" end the turn as well; neither follows the wake word in practice.
-  { name: "endTurn", any: [["end", "turn"], ["in", "turn"], ["stop"], ["cancel"], ["never", "mind"], ["nevermind"], ["sharp"]] },
+  { name: "endTurn", any: [["end", "turn"], ["in", "turn"], ["stop"], ["cancel"], ["never", "mind"], ["nevermind"], ["sharp"]], phrases: ["end turn", "never mind"] },
   // the explicit forms come first: "tones" is inside "tones off", and the
   // first command whose words are all present wins.
-  { name: "tonesOff", any: [["tones", "off"], ["tone", "off"], ["no", "tones"], ["sounds", "off"]] },
-  { name: "tonesOn", any: [["tones", "on"], ["tone", "on"], ["sounds", "on"]] },
-  { name: "tones", any: [["tones"], ["tone"], ["chimes"]] },
+  { name: "tonesOff", any: [["tones", "off"], ["tone", "off"], ["no", "tones"], ["sounds", "off"]], phrases: ["tones off"] },
+  { name: "tonesOn", any: [["tones", "on"], ["tone", "on"], ["sounds", "on"]], phrases: ["tones on"] },
+  { name: "tones", any: [["tones"], ["tone"], ["chimes"]], phrases: ["tones"] },
   // "stets" is already within tolerance of "stats"; "steph" is not, and the
   // engine wrote it on a real run. "that's" is deliberately not accepted: it
   // is a word Chris says, and a wake word in front of it is no protection.
-  { name: "stats", any: [["stats"], ["steph"], ["status"], ["latency"], ["diagnostics"], ["how", "fast"]] },
+  { name: "stats", any: [["stats"], ["steph"], ["status"], ["latency"], ["diagnostics"], ["how", "fast"]], phrases: ["stats", "latency"] },
   // 9.3 the forms the engine produces, not the spelling. small.en writes
   // "male voice" as "Mail Voice", and sometimes drops the second word, so
   // "mail" is one of the accepted forms and one word is enough. Requiring
@@ -57,14 +63,14 @@ const COMMANDS: Array<{ name: CommandName; any: string[][] }> = [
   // 11.10 the rest of an answer a barge-in took off the queue. "continue" is
   // also the agreement word of 10.3, which is said plainly and without the wake
   // word, so the two never arrive by the same route.
-  { name: "carryOn", any: [["carry", "on"], ["go", "on"], ["continue"], ["the", "rest"]] },
+  { name: "carryOn", any: [["carry", "on"], ["go", "on"], ["continue"], ["the", "rest"]], phrases: ["carry on"] },
   // 11.9 the two ways to treat a question that lands mid-answer. The explicit
   // forms come first: "interrupt" is inside "interrupt off".
-  { name: "interruptOff", any: [["interrupt", "off"], ["interrupting", "off"]] },
-  { name: "interruptOn", any: [["interrupt", "on"], ["interrupting", "on"]] },
-  { name: "interrupt", any: [["interrupt"], ["interrupting"], ["barge", "in"]] },
-  { name: "femaleVoice", any: [["female"], ["woman"]] },
-  { name: "maleVoice", any: [["male"], ["mail"], ["man"]] },
+  { name: "interruptOff", any: [["interrupt", "off"], ["interrupting", "off"]], phrases: ["interrupt off"] },
+  { name: "interruptOn", any: [["interrupt", "on"], ["interrupting", "on"]], phrases: ["interrupt on"] },
+  { name: "interrupt", any: [["interrupt"], ["interrupting"], ["barge", "in"]], phrases: ["interrupt"] },
+  { name: "femaleVoice", any: [["female"], ["woman"]], phrases: ["female voice"] },
+  { name: "maleVoice", any: [["male"], ["mail"], ["man"]], phrases: ["male voice"] },
 ];
 
 /** Letters and spaces only, collapsed: what the sound was, not how it was written. */
@@ -133,6 +139,11 @@ export function afterWakeWord(said: string, wakeWord: string, variants: string[]
 
 /** 9.6 every command there is, so a setting that names one can be checked. */
 export const COMMAND_NAMES: CommandName[] = COMMANDS.map((command) => command.name);
+
+/** 18.8 every phrase the corpus is recorded from, with the wake word in front, and what each must reach. */
+export function spokenForms(wakeWord: string): Array<{ said: string; want: CommandName }> {
+  return COMMANDS.flatMap(({ name, phrases }) => phrases.map((phrase) => ({ said: `${wakeWord}, ${phrase}`, want: name })));
+}
 
 /** 9.4 which command the words after the wake word name, if any. */
 export function commandIn(rest: string): CommandName | null {

@@ -140,7 +140,9 @@ wav file for a microphone. Point it at a bridge of your own, not the live one.
 
 The matcher forgives spelling, because a speech engine gives back a word that
 sounded like yours rather than the one you said. So a command is not finished
-when it matches what you meant to say. Add it, then:
+when it matches what you meant to say. A command is one row in `src/commands.ts`:
+its name, the words that have to be there, and the phrase the corpus is recorded
+from. Add the row and what it does in `src/conversation.ts`, then:
 
 ```bash
 bun scripts/heard-refresh.ts <a word from the phrase>
@@ -149,7 +151,9 @@ bun scripts/heard-refresh.ts <a word from the phrase>
 It says the phrase in two voices, buries it in brown noise at 10, 0 and -5 dB,
 reads it back with the model that ships, and records every distinct spelling in
 `test/fixtures/heard.json`. `bun test` then checks that each of them reaches the
-right command, with no GPU and no audio.
+right command, with no GPU and no audio. Until the corpus has the phrase, the
+test that says every command is in it fails, and the test that says every fixed
+line a command answers with is a kept line fails until `KEPT_LINES` has it.
 
 Two commands have already shipped broken because this did not exist. "male
 voice" comes back as *Mail Voice*; "end the turn" elides to *in the turn*, and

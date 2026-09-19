@@ -79,17 +79,26 @@ export type Hold = "resume" | "discard" | "keep";
  * jump the queue precisely because they are answers to a command and should
  * land at once. Made once and kept on disk, they land at once.
  *
- * Nothing checks that this list matches what the code says. A line that is
- * missing here is made the slow way and then kept, so drift costs one slow
- * sentence, once, and never a wrong one. Anything with a number or a name in
- * it belongs nowhere near this list.
+ * `test/conversation.test.ts` says every command from a fresh start and checks
+ * that each fixed line it answers with is here: until 19 September the list was
+ * kept by hand and five lines had drifted out of it. A line that is missing is
+ * made the slow way and then kept, so the drift costs one slow sentence, once,
+ * and never a wrong one. Anything with a number or a name in it belongs
+ * nowhere near this list.
  */
 export const KEPT_LINES = [
   "Muted.",
   "Listening.",
   "Tones on.",
   "Tones off.",
+  "Interrupting on.",
+  "Interrupting off.",
   "Carrying on.",
+  "Stopped.",
+  "Nothing is running.",
+  "Context cleared.",
+  "No round trip has been measured yet.",
+  "Nothing has reported on the connection yet.",
   "Nothing was cleared.",
   "That turn did not finish.",
   "There is nothing to restate yet.",

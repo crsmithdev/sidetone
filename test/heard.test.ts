@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import fixture from "./fixtures/heard.json";
-import { match, type CommandName } from "../src/commands.ts";
+import { COMMAND_NAMES, match } from "../src/commands.ts";
 import { DEFAULTS } from "../src/config.ts";
 
 /**
@@ -38,11 +38,8 @@ describe("what the engine wrote, and what the bridge made of it (9.3)", () => {
 describe("the corpus covers what it claims to", () => {
   test("every command has a phrase, so a new one cannot ship unheard", () => {
     const covered = new Set(phrases.map((p) => p.want).filter(Boolean));
-    const all: CommandName[] = [
-      "mute", "unmute", "clearContext", "usage", "restate", "summarize", "where",
-      "endTurn", "tones", "tonesOn", "tonesOff", "stats", "femaleVoice", "maleVoice",
-    ];
-    expect(all.filter((name) => !covered.has(name))).toEqual([]);
+    // the list is the table's, not a copy of it: a copy missed four commands
+    expect(COMMAND_NAMES.filter((name) => !covered.has(name))).toEqual([]);
   });
 
   test("the fixture is evidence, not the phrase list written twice", () => {
