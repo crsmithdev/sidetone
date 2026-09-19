@@ -126,33 +126,6 @@ export interface Utterance {
 }
 
 /**
- * What a whole recording turned out to be, for a path that never saw the
- * frames (7.3). The desk records through sox, which decides the ends of a turn
- * itself, so the numbers are measured here rather than counted as they arrive.
- * There is no gap to report: nothing was listening before the recording began.
- */
-export function utteranceOf(wav: Wav, speechLevel: number, frameMs = 20): Utterance {
-  const size = Math.max(1, Math.round((wav.sampleRate * frameMs) / 1000));
-  let peak = 0;
-  let speechMs = 0;
-  for (let at = 0; at + size <= wav.samples.length; at += size) {
-    const heard = level(wav.samples.subarray(at, at + size));
-    peak = Math.max(peak, heard);
-    if (heard >= speechLevel) speechMs += frameMs;
-  }
-  return {
-    samples: wav.samples,
-    ms: Math.round((wav.samples.length / wav.sampleRate) * 1000),
-    speechMs,
-    peak: Number(peak.toFixed(3)),
-    gapMs: 0,
-    endedBy: "pause",
-    // sox found the end itself, and it does not say what it passed over
-    falseEnds: 0,
-  };
-}
-
-/**
  * Frames in, whole utterances out (11.5). Nothing is emitted while Chris is
  * still talking, and nothing at all while the room is quiet.
  */

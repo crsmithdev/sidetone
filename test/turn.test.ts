@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { Channel } from "../src/channel.ts";
 import { DEFAULTS, type Config } from "../src/config.ts";
+import type { Outgoing } from "../src/messages.ts";
 import { Conversation, type Agent, type MakeAgent } from "../src/conversation.ts";
 import { Measures } from "../src/measures.ts";
 import { Mouth, type Speaker } from "../src/mouth.ts";
@@ -56,7 +58,7 @@ function scripted(script: Script = {}) {
 function room(script: Script = {}, overrides: Partial<Config> = {}) {
   const said: string[] = [];
   const cues: string[] = [];
-  const told: Array<Record<string, unknown>> = [];
+  const told: Outgoing[] = [];
   const agent = scripted(script);
   const speaker: Speaker = {
     async play(text) { said.push(text); return true; },
@@ -65,10 +67,13 @@ function room(script: Script = {}, overrides: Partial<Config> = {}) {
   const settings = { ...config, ...overrides };
   const mouth = new Mouth(speaker, { take: async (text: string) => text, start: () => {} }, { file: (name) => name }, new Measures(), settings);
   const turns: Turn[] = [];
-  const c = new Conversation("/tmp", settings, mouth, engines as never,
-    { onTurn: (turn) => turns.push(turn), tell: (value) => { told.push(value); } }, agent.make);
-  return { c, said, cues, turns, agent, told };
+  const channel = new Channel(settings, (message) => { told.push(message); }, ends, () => {});
+  const c = new Conversation("/tmp", settings, mouth, engines as never, channel, { onTurn: (turn) => turns.push(turn) }, agent.make);
+  return { c, said, cues, turns, agent, told, channel };
 }
+
+/** The channel's other end, which no test here drives. */
+const ends = { heard: async () => {}, microphone: () => {}, voice: () => {}, quality: () => false };
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -84,7 +89,7 @@ describe("a whole turn (5.5, 5.6)", () => {
     const r = room({ deltas: ["Four."], text: "the whole answer, unspoken" });
     await r.c.turn("what is two plus two");
     expect(r.turns).toHaveLength(1);
-    expect(r.c.missed().at(-1)).toMatchObject({ kind: "turn", number: 1, text: "Four." });
+    expect(r.channel.missed().at(-1)).toMatchObject({ kind: "turn", number: 1, text: "Four." });
   });
 
   test("a turn that does not finish says so, and does not end the conversation", async () => {
@@ -115,7 +120,7 @@ describe("the answer reaches the client a sentence at a time (14.7)", () => {
   test("each sentence is told as it is known, and the turn carries the whole", async () => {
     const r = room({ deltas: ["Two plus two ", "is four. ", "It always ", "was."] });
     await r.c.turn("what is two plus two");
-    const sentences = r.told.filter((value) => value.kind === "sentence").map((value) => value.text);
+    const sentences = r.told.flatMap((value) => (value.kind === "sentence" ? [value.text] : []));
     expect(sentences).toEqual(["Two plus two is four.", "It always was."]);
     expect(r.told.find((value) => value.kind === "turn")).toMatchObject({ text: "Two plus two is four. It always was." });
   });
@@ -241,14 +246,14 @@ describe("11.9 a question that lands mid-answer", () => {
     expect(asked).toContain("Do not repeat any of it");
     expect(asked).toContain("what is the tallest one");
     // the note is for the agent; the transcript keeps what Chris actually said
-    expect(r.c.missed().some((entry) => entry.text === "what is the tallest one")).toBe(true);
+    expect(r.channel.missed().some((entry) => entry.text === "what is the tallest one")).toBe(true);
   });
 
   test("interrupting: what was not spoken reaches the client as text", async () => {
     const r = await midAnswer({ interruptOnSpeech: true });
     await r.c.heard("what is the tallest one");
-    const note = r.told.find((value) => String(value.text ?? "").startsWith("not spoken:"));
-    expect(String(note?.text)).toBe("not spoken: Two. Three.");
+    const notes = r.told.flatMap((value) => (value.kind === "narration" && value.text.startsWith("not spoken:") ? [value.text] : []));
+    expect(notes).toEqual(["not spoken: Two. Three."]);
   });
 
   test("carry on says the rest, once, without asking the agent again", async () => {

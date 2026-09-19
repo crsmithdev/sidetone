@@ -153,8 +153,6 @@ export interface Config {
    * transcription never comes back at all.
    */
   holdBackstopMs: number;
-  /** how long to let the speakers drain before listening again, so the bridge does not hear itself */
-  listenSettleMs: number;
   /** 6.5 the voice instruction lives in the bridge, not in the aleph identity file */
   voiceInstruction: string;
   /** 15.4 the cues are mostly a debugging aid, so they can be turned off by voice */
@@ -266,7 +264,6 @@ export const DEFAULTS: Config = {
   bargeInMs: 400,
   bargeInGapMs: 200,
   holdBackstopMs: 10_000,
-  listenSettleMs: 300,
   /**
    * 6.6 is two rules wearing one coat, and only one of them may bend.
    *
@@ -345,7 +342,7 @@ export const IN_FORCE = [
   "speechLevel", "speechOnsetMs", "endOfTurnPauseMs", "earlyTranscribeMs",
   "bargeInLevel", "bargeInMs", "bargeInGapMs",
   "minSpeechPeak", "wakeHoldMs", "interruptOnSpeech", "interruptAfterMs",
-  "holdBackstopMs", "listenSettleMs",
+  "holdBackstopMs",
   "sentenceMaxChars", "audioCueDelayMs", "audioCueEveryMs",
   "cueVolume", "ttsEngine", "ttsVoice", "sttModel", "wakeWord",
   "chatterboxExaggeration", "chatterboxCfg",

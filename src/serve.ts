@@ -8,21 +8,9 @@
  * what makes barge-in possible at all (11.1 to 11.3), and it is why 11.4 says
  * not to hand-build a canceller.
  */
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { encodeWav } from "./audio.ts";
-import { saveSettings, settingsInForce, type Config } from "./config.ts";
-import { Conversation, keptLines } from "./conversation.ts";
-import { Cues } from "./cues.ts";
-import { Ear, SILENCE_MS } from "./ear.ts";
-import { protocolMessage } from "./messages.ts";
-import { LocalWhisper, SpokenAhead, textToSpeech } from "./speech.ts";
+import { assemble } from "./bridge.ts";
+import { settingsInForce, type Config } from "./config.ts";
 import { advertiseHost, livekitConfig, loadOrCreateKeys } from "./keys.ts";
-import { Measures } from "./measures.ts";
-import { Mouth } from "./mouth.ts";
-import { Recorder } from "./record.ts";
-import { qualityOf } from "./network.ts";
 import { RTC_RATE, Transport, tokenFor } from "./transport.ts";
 import { renderUnicodeCompact } from "uqr";
 
@@ -64,39 +52,19 @@ export function endpoints(config: Config) {
 }
 
 export async function serve(dir: string, config: Config): Promise<void> {
-  const scratch = mkdtempSync(join(tmpdir(), "voice-bridge-"));
   const { host, keys, clientUrl, origin, secure } = endpoints(config);
-  const speechDir = new URL("../speech", import.meta.url).pathname;
-  const stt = new LocalWhisper(config, speechDir);
-  const tts = textToSpeech(config, speechDir);
-  const ahead = new SpokenAhead(tts, scratch, keptLines(config));
-  const cues = new Cues(scratch, config.cueVolume);
   const transport = new Transport();
   const startedAt = Date.now();
-  // the engines warm and the room is joined at the same time: whisper's warmup
-  // is about seven seconds, and the wait for LiveKit does not need them
-  await Promise.all([
-    stt.start(), tts.start(), cues.build(),
-    transport.joinWhenReady(keys, config.room, config.livekitWaitMs, (text) => console.log(`[${text}]`)),
-  ]);
 
-  // 18 the record outlives the process: the scorecard is read after a drive,
-  // and a restart in between used to leave nothing to read.
-  const record = new Recorder(config.recordPath);
-  record.session(settingsInForce(config));
-  // 18 one bookkeeper: the spoken report and the record are the same facts
-  const measures = new Measures((event) => record.write(event));
-  let counter = 0;
-  const bargingIn = () => ear.bargingIn;
-
-  /** 7.4 the one thing the room does that the desk does not: it plays over LiveKit. */
-  const mouth = new Mouth({
+  /** 7.4 the one thing the room supplies: it plays over LiveKit, and stops when Chris talks. */
+  const bridge = assemble(dir, config, RTC_RATE, {
     async play(text, wav) {
       console.log(`  ${text}`);
       if (!wav) return true;
       // 11.3 stop the moment Chris starts to talk. The frames cannot hold the
       // bridge's own voice, because the client cancelled it before sending.
-      const whole = await transport.speak(await Bun.file(wav).bytes(), bargingIn);
+      const ear = bridge.ear;
+      const whole = await transport.speak(await Bun.file(wav).bytes(), () => ear.bargingIn);
       if (!whole) console.log(`  [stopped: Chris started talking${ear.bargedAt ? `, ${Date.now() - ear.bargedAt}ms after it was noticed` : ""}]`);
       return whole;
     },
@@ -105,115 +73,30 @@ export async function serve(dir: string, config: Config): Promise<void> {
         // The mouth checked that nothing was speaking before this read began.
         // If that changed while the file was read, the cue is late: a cue means
         // "still working", and behind a whole answer it means nothing.
-        .then((bytes) => (transport.speaking ? false : transport.speak(bytes, bargingIn)))
+        .then((bytes) => (transport.speaking ? false : transport.speak(bytes, () => bridge.ear.bargingIn)))
         .catch((error) => console.log(`[the cue failed: ${(error as Error).message}]`));
     },
-  }, ahead, cues, measures, config);
+  }, (message) => { void transport.send(message); });
 
-  const conversation = new Conversation(dir, config, mouth, tts, {
-    onNarration: (text) => { console.log(`[${text}]`); void transport.send({ kind: "narration", text }); },
-    tell: (value) => { void transport.send(value); },
-    // 9.4 the file is for the next run; the live copy is what /diagnostics and
-    // the health line report now. Until 19 September only the file changed, and
-    // a drive that switched voices was recorded as running in the first one.
-    onSetting: (patch) => { Object.assign(config, patch); saveSettings(patch); measures.setting(patch); },
-    onTurn: (turn) => console.log(`[turn ${turn.number}, $${conversation.agent.totalCostUsd().toFixed(4)} this session]`),
-    onMatched: (said, became) => {
-      measures.matched(said, became);
-      // 9.7 holds for the command still on its way and says nothing meanwhile,
-      // which is right. Saying nothing anywhere is not: on 18 September the
-      // agent told Chris four times to put the wake word in front of a
-      // sentence, five sentences went this way, and neither end could see it.
-      if (became !== "waiting for the command") return;
-      const text = `the wake word arrived with no command, so nothing was done with: "${said}"`;
-      console.log(`[${text}]`);
-      void transport.send({ kind: "narration", text });
-    },
-  });
-  conversation.start();
-
-  /** 11.5 and 18.4 entire: the listening policy, one module, driven by frames. */
-  const ear = new Ear(conversation, async (utterance) => {
-    const wav = join(scratch, `heard-${++counter}.wav`);
-    await Bun.write(wav, encodeWav(utterance.samples, RTC_RATE));
-    return stt.transcribe(wav);
-  }, { ...config, sampleRate: RTC_RATE }, measures);
+  // the engines warm and the room is joined at the same time: whisper's warmup
+  // is about seven seconds, and the wait for LiveKit does not need them
+  await Promise.all([
+    bridge.ready,
+    transport.joinWhenReady(keys, config.room, config.livekitWaitMs, (text) => console.log(`[${text}]`)),
+  ]);
+  const { channel, ear, conversation, measures, stt, tts } = bridge;
 
   // 14.8 a client that dropped in a tunnel gets the turns it missed on the way back
-  transport.onParticipant(() => {
-    // 4.3 what only the bridge knows: the words a client has to say back to it
-    void transport.send(protocolMessage(config));
-    void transport.send({ kind: "history", turns: conversation.missed() });
-  });
-
+  transport.onParticipant(() => channel.joined());
   transport.onAudio((frame) => ear.frame(frame));
-
   // 18 what the drive of 18 September had no way to see: whether a microphone
   // track was there at all. The phone cut its own and reopened it, and every
   // line after that was about something else.
   transport.onMicrophone((on, sid) => console.log(`[the room ${on ? "has" : "lost"} a microphone track, ${sid}]`));
-
-  /** Whether the phone says its microphone is open; it only warns about one it claims to have. */
-  let micOn = true;
-  let said = false;
-
-  /**
-   * A microphone that publishes nothing, or publishes zeroes, is the failure
-   * Chris drove twenty minutes with. It is not a state the bridge can mend from
-   * this end -- the track belongs to the phone -- so it says so, on the journal
-   * and in the client, and says what does mend it.
-   */
-  setInterval(() => {
-    const silence = micOn ? ear.silence() : null;
-    if (!silence) { said = false; return; }
-    if (said) return;
-    said = true;
-    const text = silence.kind === "no frames"
-      ? `no audio from the phone for ${Math.round(silence.ms / 1000)}s, though it says its microphone is open`
-      : `the phone's microphone has carried no sound at all for ${Math.round(silence.ms / 1000)}s`;
-    console.log(`[${text}: leave the room and rejoin to publish a new track]`);
-    void transport.send({ kind: "narration", text });
-  }, SILENCE_MS / 3);
-
-  transport.onMessage((value) => {
-    if (value.kind === "said" && typeof value.text === "string") void conversation.heard(value.text);
-    // N.1.4 the phone's own reading of its uplink. Measured on a real room,
-    // this end sees the phone's quality too, so the two are the same signal
-    // arriving twice and the tracker ignores the repeat. It is kept because
-    // either source can go quiet, and the phone's is the one that survives a
-    // link the bridge has stopped hearing from.
-    // N/A to the spec, and asked for after a session where the microphone kept
-    // picking up half sentences: a hard cut the phone controls. Anything half
-    // recorded goes with it, or it arrives as a fragment on the way back.
-    if (value.kind === "mic") {
-      micOn = value.on !== false;
-      // the hold goes with the half recording, or nothing resolves it
-      ear.reset();
-      said = false;
-      console.log(`[the phone ${micOn ? "opened" : "cut"} its microphone]`);
-    }
-    // 11.12 asked for after a drive: somewhere the bridge must not be heard.
-    if (value.kind === "voice") {
-      const voice = value.on !== false;
-      mouth.setVoice(voice);
-      const text = voice ? "the voice is on" : "the voice is off; the words carry on in the transcript";
-      console.log(`[${text}]`);
-      void transport.send({ kind: "narration", text });
-    }
-    if (value.kind === "quality") {
-      const quality = qualityOf(value.quality);
-      if (conversation.network.saw("phone", quality)) console.log(`[the phone's connection is ${quality}]`);
-    }
-  });
-
+  transport.onMessage((value) => channel.receive(value));
   // N.1 this end's own reading. Both are kept: this one says whether the
   // machine is reaching the room, the phone's says whether the car is.
-  transport.onQuality((quality, identity) => {
-    const seen = qualityOf(quality);
-    // the bridge is told about every participant, including itself
-    const side = transport.isSelf(identity) ? "bridge" : "phone";
-    if (conversation.network.saw(side, seen)) console.log(`[${side === "bridge" ? "this end" : "the phone"} reports ${seen}]`);
-  });
+  transport.onQuality((quality, identity) => channel.quality(transport.isSelf(identity) ? "bridge" : "phone", quality));
 
   const code = pairingCode();
   /**
@@ -312,7 +195,7 @@ export async function serve(dir: string, config: Config): Promise<void> {
       void (async () => {
         console.log(`[${signal}: leaving the room]`);
         try { await transport.close(); } catch { /* going anyway */ }
-        conversation.stop();
+        bridge.stop();
         server.stop();
         process.exit(0);
       })();

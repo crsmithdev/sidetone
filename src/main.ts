@@ -1,7 +1,9 @@
 #!/usr/bin/env bun
 /**
- * The text round trip (spec 7.2). Voice comes at 7.3; this loop is useful on
- * its own, and it is where the process management gets tested.
+ * The command line. The text round trip of 7.2 is here, because it is where
+ * the process management gets tested; the spoken one is `serve`, in serve.ts.
+ * The desk loop that built 7.3 is gone: it had no barge-in, no record and no
+ * test, and the fake phone is the scripted spoken run now.
  *
  *   bun src/main.ts chat <project-dir>    a spoken conversation, typed
  *   bun src/main.ts chat <dir> --record-stream <file>
@@ -11,18 +13,12 @@
 import { mkdtempSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
-import { DEFAULTS, configPath, loadConfig, saveSettings, type Config } from "./config.ts";
+import { DEFAULTS, configPath, loadConfig, type Config } from "./config.ts";
 import { Session, recorded, spawnClaude } from "./session.ts";
-import { Conversation, keptLines } from "./conversation.ts";
-import { Cues } from "./cues.ts";
-import { decodeWav, utteranceOf } from "./audio.ts";
-import { Ear } from "./ear.ts";
-import { Measures } from "./measures.ts";
-import { Mouth } from "./mouth.ts";
+import { keptLines } from "./conversation.ts";
 import { fetchCert } from "./keys.ts";
-import { endpoints, livekitConfig } from "./serve.ts";
-import { serve } from "./serve.ts";
-import { LocalWhisper, SpokenAhead, textToSpeech } from "./speech.ts";
+import { endpoints, livekitConfig, serve } from "./serve.ts";
+import { SpokenAhead, textToSpeech } from "./speech.ts";
 
 function showConfig(config: Config): void {
   console.log(`config: ${configPath()}`);
@@ -69,129 +65,6 @@ async function chat(dir: string, config: Config, recordStream = ""): Promise<voi
 }
 
 /**
- * 5.1-5.2 the microphone, with the end of a turn found by the pause after it
- * (11.5). The recorder starts when the level comes up and stops itself after
- * the pause, so one call is one thing Chris said.
- */
-function recorder(wav: string, config: Config) {
-  const onset = (config.speechOnsetMs / 1000).toFixed(2);
-  const pause = (config.endOfTurnPauseMs / 1000).toFixed(2);
-  // sox says the same level in percent. It used to be its own setting, in its
-  // own unit, and nothing kept the two in step.
-  const threshold = `${(config.speechLevel * 100).toFixed(1)}%`;
-  const record = `parecord --raw --channels=1 --rate=16000 --format=s16le 2>/dev/null` +
-    ` | sox -t raw -r 16000 -e signed -b 16 -c 1 - ${wav}` +
-    ` silence 1 ${onset} ${threshold} 1 ${pause} ${threshold}`;
-  return Bun.spawn(["bash", "-c", record], { stdout: "ignore", stderr: "ignore" });
-}
-
-/** 5.9 play one sentence. Sentences are played in order, never on top of each other. */
-async function play(wav: string): Promise<void> {
-  await Bun.spawn(["paplay", wav], { stdout: "ignore", stderr: "ignore" }).exited;
-}
-
-/** VOICE_BRIDGE_DEBUG=1 traces the microphone, which is the part that cannot be watched. */
-const trace = process.env.VOICE_BRIDGE_DEBUG
-  ? (text: string) => console.log(`    . ${new Date().toISOString().slice(14, 22)} ${text}`)
-  : () => {};
-
-/**
- * 7.3 the spoken loop at the desk, on the machine's own devices.
- *
- * Every sound the bridge makes stops the microphone first. There is no echo
- * cancellation here, so a recording that ran through the bridge's own voice
- * would be transcribed back as a question. 7.4 hands that problem to LiveKit
- * (4.2) and this loop becomes the local fallback.
- */
-async function voice(dir: string, config: Config): Promise<void> {
-  const scratch = mkdtempSync(join(tmpdir(), "voice-bridge-"));
-  const speechDir = new URL("../speech", import.meta.url).pathname;
-  const stt = new LocalWhisper(config, speechDir);
-  const tts = textToSpeech(config, speechDir);
-  const ahead = new SpokenAhead(tts, scratch, keptLines(config));
-  const cues = new Cues(scratch, config.cueVolume);
-
-  const startedAt = Date.now();
-  await Promise.all([stt.start(), tts.start(), cues.build()]);
-  console.log(`voice ready in ${((Date.now() - startedAt) / 1000).toFixed(1)}s: ${config.sttModel} and ${config.ttsEngine} ${config.ttsVoice}, both local`);
-
-  let counter = 0;
-  /** The recording the ear is reading, so the engine reads the file sox wrote. */
-  let heardWav = "";
-  let speech = 0;
-  let pending = 0;
-  let listening: ReturnType<typeof recorder> | null = null;
-
-  /**
-   * Every sound the bridge makes stops the microphone first. Without this a
-   * single recording spans the bridge's own voice and the answer to it, and the
-   * whole recording is then thrown away as self-heard: the checkpoint asks for
-   * the agreement word and cannot hear it.
-   */
-  function takeTheMicrophone(): void {
-    speech += 1;
-    pending += 1;
-    try { listening?.kill(); } catch { /* already gone */ }
-    listening = null;
-  }
-
-  /** 7.3 the one thing the desk does that the room does not: it plays on the machine's own devices. */
-  const mouth = new Mouth({
-    async play(text, wav) {
-      takeTheMicrophone();
-      try {
-        console.log(`  ${text}`);
-        if (wav) await play(wav);
-      } finally { pending -= 1; }
-      // there is no barge-in at the desk (7.3), so a sentence is always whole
-      return true;
-    },
-    /**
-     * A cue does not take the microphone. It is a tone: the voice detector
-     * drops it and no transcription can mistake it for words, so it may sit
-     * inside a recording that also holds what Chris said. When cues did take
-     * the microphone, one every seven seconds shredded every listening window.
-     */
-    cue(wav) { void play(wav); },
-  }, ahead, cues, new Measures(), config);
-
-  const conversation = new Conversation(dir, config, mouth, tts, {
-    onNarration: (text) => console.log(`[${text}]`),
-    onSetting: (patch) => { Object.assign(config, patch); saveSettings(patch); conversation.measures.setting(patch); },
-    onTurn: (turn) => console.log(`[turn ${turn.number}, $${conversation.agent.totalCostUsd().toFixed(4)} this session]`),
-  });
-  /**
-   * 7.3 and 7.4 hear the same way. The desk has no frames to push, so it hands
-   * the ear whole recordings; everything after that — the invention guard, the
-   * clock, the cue, an empty transcription — is the module's, not the loop's.
-   */
-  // the detector settings are inert here: the desk pushes no frames, sox finds
-  // the ends of a turn itself, and the rate is the one it records at
-  const ear = new Ear(conversation, () => stt.transcribe(heardWav), { ...config, sampleRate: 16_000 }, conversation.measures);
-
-  conversation.start();
-  console.log(`Claude Code in ${dir}. Speak; a ${(config.endOfTurnPauseMs / 1000).toFixed(1)}s pause ends your turn.`);
-  console.log(`Say "${config.wakeWord}" then a command. Ctrl-C to leave.`);
-
-  for (;;) {
-    while (pending > 0) await Bun.sleep(50);
-    // the speakers hold a little audio after the last sentence ends
-    await Bun.sleep(config.listenSettleMs);
-    if (pending > 0) continue;
-    const before = speech;
-    const wav = join(scratch, `heard-${++counter}.wav`);
-    trace("listening");
-    listening = recorder(wav, config);
-    await listening.exited;
-    listening = null;
-    if (speech !== before || pending > 0) { trace("cut short: the bridge started to speak"); continue; }
-    heardWav = wav;
-    await ear.said(utteranceOf(decodeWav(await Bun.file(wav).bytes()), config.speechLevel));
-  }
-}
-
-
-/**
  * 11.6 make the bridge's own sentences before they are needed.
  *
  * Every line it says in its own voice -- "Muted.", "Tones off." -- costs a
@@ -223,10 +96,6 @@ if (command === "config") {
   if (!dir) { console.error("usage: bun src/main.ts chat <project-dir> [--record-stream <file>]"); process.exit(2); }
   const at = rest.indexOf("--record-stream");
   await chat(dir, config, at >= 0 ? rest[at + 1] ?? "" : "");
-} else if (command === "voice") {
-  const dir = rest[0];
-  if (!dir) { console.error("usage: bun src/main.ts voice <project-dir>"); process.exit(2); }
-  await voice(dir, config);
 } else if (command === "warm") {
   await warm(config);
 } else if (command === "cert") {
@@ -251,6 +120,6 @@ if (command === "config") {
   if (!dir) { console.error("usage: bun src/main.ts serve <project-dir>"); process.exit(2); }
   await serve(dir, config);
 } else {
-  console.error("usage: bun src/main.ts <chat <dir> | voice <dir> | serve <dir> | warm | livekit | cert | config>");
+  console.error("usage: bun src/main.ts <chat <dir> | serve <dir> | warm | livekit | cert | config>");
   process.exit(2);
 }

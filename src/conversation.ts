@@ -26,6 +26,7 @@
  * | end the turn | dropped, a replay too | interrupted |
  * | clear the context | held until the gate answers | dies with the process |
  */
+import type { Channel } from "./channel.ts";
 import { commandIn, match, type CommandName } from "./commands.ts";
 import type { Config } from "./config.ts";
 import type { CueName } from "./cues.ts";
@@ -120,12 +121,7 @@ export function keptLines(config: Config): { dir: string; signature: string; lin
 }
 
 export interface ConversationHooks {
-  onNarration?(text: string): void;
-  /** 4.3 the control channel: the transcript and the turn number (14.5, 14.7). */
-  tell?(value: Record<string, unknown>): void;
   onTurn?(turn: Turn): void;
-  /** What the bridge decided a thing Chris said actually was (9.4, 9.7). */
-  onMatched?(said: string, became: string): void;
   /** 9.4 a setting Chris changed out loud, for whoever keeps settings. */
   onSetting?(patch: Partial<Config>): void;
 }
@@ -161,8 +157,6 @@ export class Conversation {
   private gate: { act(): void; denied: string; timer: ReturnType<typeof setTimeout> } | null = null;
   /** 9.4.7 the last three request and reply pairs, which the bridge answers from itself */
   private readonly recent: Array<{ said: string; reply: string }> = [];
-  /** 14.7 the light transcript, which 14.8 replays to a client that just arrived */
-  private readonly transcript: Array<Record<string, unknown>> = [];
 
   readonly agent: Agent;
   /** 18.4 the round trip, which the mouth marks and the stats command reads. */
@@ -177,6 +171,8 @@ export class Conversation {
     private readonly mouth: Mouth,
     /** 9.4 the voice commands, which are the only reason this is here */
     private readonly tts: TextToSpeech,
+    /** 4.3 what the client is told, and what a returning one is owed */
+    private readonly channel: Channel,
     hooks: ConversationHooks = {},
     makeAgent: MakeAgent = claudeCode(dir),
   ) {
@@ -185,7 +181,7 @@ export class Conversation {
     const args = [...config.claudeArgs, "--append-system-prompt", config.voiceInstruction];
     this.agent = makeAgent({
       onDelta: (text) => this.deltaSink?.(text),
-      onNarration: (text) => hooks.onNarration?.(text),
+      onNarration: (text) => this.channel.narrate(text),
       // 8.6.3 speak, say how long it has run, and report the usage with the ask (8.6.4)
       onCheckpoint: (ms) => {
         this.checkpointOpen = true;
@@ -198,14 +194,10 @@ export class Conversation {
     this.tones = config.tones;
     this.interrupting = config.interruptOnSpeech;
     this.onTurn = hooks.onTurn;
-    this.onMatched = hooks.onMatched;
-    this.tell = hooks.tell;
     this.onSetting = hooks.onSetting;
   }
 
   private onTurn?: (turn: Turn) => void;
-  private onMatched?: (said: string, became: string) => void;
-  private tell?: (value: Record<string, unknown>) => void;
   private onSetting?: (patch: Partial<Config>) => void;
   private deltaSink: ((text: string) => void) | null = null;
 
@@ -264,7 +256,7 @@ export class Conversation {
     // the turn is no longer the one that owns the mouth, whatever becomes of it
     this.turnId++;
     const unspoken = this.mouth.discard().join(" ");
-    if (unspoken) this.tell?.({ kind: "narration", text: `not spoken: ${unspoken}` });
+    if (unspoken) this.channel.narrate(`not spoken: ${unspoken}`);
     const last = this.mouth.said.at(-1);
     const running = (this.running ?? Promise.resolve()).then(() => true, () => true);
     // Give it a moment to end by itself. An interrupt is what costs a subagent,
@@ -289,27 +281,10 @@ export class Conversation {
     this.resumeHold();
   }
 
-  /** Say it on the control channel and keep it, so 14.8 can say it again. */
-  private remember(value: Record<string, unknown>): void {
-    this.transcript.push({ ...value, at: Date.now() });
-    if (this.transcript.length > 40) this.transcript.shift();
-    this.tell?.(value);
-  }
-
-  /**
-   * 14.8 what a client missed while it was away — which is a drop in a tunnel,
-   * measured in minutes. Replaying an exchange from hours ago is not that: it
-   * arrives looking like the conversation in progress, and the reader has no
-   * way to tell that they are being shown something they did not say.
-   */
-  missed(now = Date.now()): Array<Record<string, unknown>> {
-    return this.transcript.filter((entry) => now - (entry.at as number) <= this.config.historyMaxAgeMs);
-  }
-
   /** One thing Chris said, and what it does to a held answer. */
   async heard(said: string): Promise<void> {
     const heard = match(said, this.config.wakeWord, this.muted, this.config.mutedCommands, this.config.wakeWordVariants);
-    this.remember({ kind: "heard", text: said });
+    this.channel.tell({ kind: "heard", text: said });
     this.measures.bargeInWas(heard.kind === "command" ? "command" : "speech");
 
     // 10.5 the gate fails closed: anything that is not the agreement word
@@ -328,21 +303,25 @@ export class Conversation {
     if (awaited && heard.kind === "speech" && isShort(said)) {
       const name = commandIn(plain(said));
       if (name && (!this.muted || this.config.mutedCommands.includes(name))) {
-        this.onMatched?.(said, name);
+        this.measures.matched(said, name);
         this.after(await this.run(name));
         return;
       }
     }
 
     if (heard.kind === "command") {
-      this.onMatched?.(said, heard.name);
+      this.measures.matched(said, heard.name);
       this.after(await this.run(heard.name));
       return;
     }
     // 9.7 the wake word came through and the command did not. Wait for it
     // rather than complaining: the pause between the two is usually the reason.
     if (heard.kind === "unclear") {
-      this.onMatched?.(said, "waiting for the command");
+      this.measures.matched(said, "waiting for the command");
+      // Holding for the command and saying nothing is right. Saying nothing
+      // anywhere is not: on 18 September the agent told Chris four times to put
+      // the wake word in front of a sentence, and neither end could see why.
+      this.channel.narrate(`the wake word arrived with no command, so nothing was done with: "${said}"`);
       this.awaitingCommand = Date.now() + this.config.wakeHoldMs;
       this.resumeHold();
       return;
@@ -368,11 +347,11 @@ export class Conversation {
       }
       // 11.6 and 11.9 the Claude app's feel: the answer stops and the question
       // is the next turn, with no phrase to say first.
-      this.onMatched?.(said, "speech");
+      this.measures.matched(said, "speech");
       void this.turn(said, await this.cutOff());
       return;
     }
-    this.onMatched?.(said, "speech");
+    this.measures.matched(said, "speech");
     this.discardHold();
     void this.turn(said);
   }
@@ -433,7 +412,7 @@ export class Conversation {
     // 14.7 a sentence reaches the client as soon as it is known, which is
     // before the voice reaches it: asked for on the drive of 18 September,
     // when the words arrived only after the whole answer had been spoken.
-    const say = (sentence: string) => { this.tell?.({ kind: "sentence", text: sentence }); this.speak(sentence); };
+    const say = (sentence: string) => { this.channel.tell({ kind: "sentence", text: sentence }); this.speak(sentence); };
     this.deltaSink = (text) => {
       if (!mine()) return;
       // 18.4 the agent's share ends with its first word
@@ -450,7 +429,7 @@ export class Conversation {
       this.lastReply = this.mouth.said.join(" ") || turn.text;
       this.recent.push({ said, reply: this.lastReply });
       if (this.recent.length > 3) this.recent.shift();
-      this.remember({ kind: "turn", number: turn.number, text: this.lastReply, costUsd: this.agent.totalCostUsd() });
+      this.channel.tell({ kind: "turn", number: turn.number, text: this.lastReply, costUsd: this.agent.totalCostUsd() });
       this.onTurn?.(turn);
       // 13.2 the warning uses the number claude reports, never an estimate (16.6)
       const worst = Math.max(this.agent.rateLimit.fiveHour, this.agent.rateLimit.sevenDay);
@@ -458,7 +437,7 @@ export class Conversation {
     } catch (error) {
       if (!mine()) return;
       this.reply("That turn did not finish.");
-      this.tell?.({ kind: "error", text: (error as Error).message });
+      this.channel.tell({ kind: "error", text: (error as Error).message });
     } finally {
       stopCue();
       if (mine()) {
@@ -593,7 +572,7 @@ export class Conversation {
     for (const sentence of sentences.push(text)) this.reply(sentence);
     const last = sentences.flush();
     if (last) this.reply(last);
-    this.remember({ kind: "turn", number: turn.number, text, costUsd: this.agent.totalCostUsd() });
+    this.channel.tell({ kind: "turn", number: turn.number, text, costUsd: this.agent.totalCostUsd() });
   }
 
   /** 9.4 the two voices Chris switches between out loud. */

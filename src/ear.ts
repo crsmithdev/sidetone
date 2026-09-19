@@ -1,14 +1,13 @@
 /**
  * What the bridge does with sound, whatever carried it (spec 11.5, 18.4).
  *
- * The room and the desk differ in how audio arrives: the phone sends frames,
- * the desk hands over a whole recording. Everything after that is the same and
- * lives here — when a barge-in stops the speech, which utterances are too quiet
- * to have been a person, what the clock is told, and what a transcription that
- * comes back empty means.
+ * The phone sends frames; everything after that lives here — when a barge-in
+ * stops the speech, which utterances are too quiet to have been a person,
+ * what the clock is told, and what a transcription that comes back empty
+ * means. `said` takes a whole utterance, which is what a test hands it.
  *
- * It was written twice before, once in each loop, in closures that no test
- * could enter: `serve.ts` and `main.ts` at 0b4478b.
+ * It was written twice before, once in each of two loops, in closures that no
+ * test could enter: `serve.ts` and `main.ts` at 0b4478b.
  */
 import { level, tooQuiet, Utterances, type Utterance, type UtteranceOptions } from "./audio.ts";
 import type { CueName } from "./cues.ts";

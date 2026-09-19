@@ -35,8 +35,12 @@ The part of the bridge between a sentence and the sound of it: the queues, the h
 _Avoid_: the output, the player, the speech queue.
 
 **The speaker**:
-What plays one sentence once the mouth has made it. The room has one, over LiveKit; the desk has one, on the machine's own devices.
+What plays one sentence once the mouth has made it. The room's plays over LiveKit; a test's writes the sentence down.
 _Avoid_: the sink, the audio output.
+
+**The control channel**:
+The words between the bridge and a client, apart from the audio: what was heard, each sentence as it is known, a turn, a note, and what a returning client missed. One module owns its vocabulary in both directions.
+_Avoid_: the data channel, the transcript feed, the messages.
 
 ### The conversation
 

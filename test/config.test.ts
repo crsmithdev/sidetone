@@ -114,7 +114,7 @@ describe("settings that arrive already checked", () => {
 
   test("every setting the voice path reads is in the record", () => {
     const kept = Object.keys(settingsInForce(DEFAULTS));
-    for (const key of ["holdBackstopMs", "listenSettleMs", "sentenceMaxChars", "audioCueDelayMs", "audioCueEveryMs", "minSpeechPeak"]) {
+    for (const key of ["holdBackstopMs", "sentenceMaxChars", "audioCueDelayMs", "audioCueEveryMs", "minSpeechPeak"]) {
       expect(kept).toContain(key);
     }
     // the list names real settings, and the defaults answer for each of them

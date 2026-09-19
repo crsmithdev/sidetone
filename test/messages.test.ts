@@ -19,7 +19,7 @@ test("the message a client joins to carries the vocabulary", () => {
   const message = protocolMessage(DEFAULTS) as { kind: string; endTurn: string; incoming: Record<string, string> };
   expect(message.kind).toBe("protocol");
   expect(message.endTurn).toBe("hey bridge end the turn");
-  expect(Object.keys(message.incoming)).toEqual(["heard", "turn", "narration", "error", "history", "protocol"]);
+  expect(Object.keys(message.incoming)).toEqual(["heard", "sentence", "turn", "narration", "error", "history", "protocol"]);
   expect(OUTGOING).toEqual(["said", "mic", "quality", "voice"]);
 });
 

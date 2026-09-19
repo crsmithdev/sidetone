@@ -23,15 +23,14 @@ Build order is spec section 7. Done so far:
 |---|---|
 | 7.1 narration hook | removed from the spec; the bridge narrates from the stream |
 | 7.2 text round trip | **here**, `bun src/main.ts chat <dir>` |
-| 7.3 voice | **here**, `bun src/main.ts voice <dir>` |
+| 7.3 voice | done. The desk loop that built it is gone; the fake phone is the scripted spoken run |
 | 7.4 web client | **here**, `bun src/main.ts serve <dir>` |
 | 7.5 Android app | **here**, `android/`, side-loaded |
 
 ```bash
 bun install
 bun src/main.ts chat ~/some-project    # a spoken conversation, typed
-bun src/main.ts voice ~/some-project   # a spoken conversation, at the desk
-bun src/main.ts serve ~/some-project   # the same, for a phone, over LiveKit
+bun src/main.ts serve ~/some-project   # a spoken conversation, for a phone, over LiveKit
 bun src/main.ts config                 # every setting, and which are not default
 bun src/main.ts chat ~/some-project --record-stream run.ndjson   # keep what Claude Code printed, as a fixture
 ```
@@ -99,7 +98,8 @@ same hook that will feed the sentence collector when voice arrives.
 | `speech/chatterbox_worker.py` | 4.9 the cloning voice: a reference wav in, a sentence out |
 | `src/ear.ts` | 11.5 and 18.4: what the bridge does with sound, whichever loop brought it |
 | `src/measures.ts` | section 18: every fact about a turn, told once, read two ways |
-| `src/messages.ts` | 4.3 the control channel's vocabulary, which the bridge owns |
+| `src/messages.ts` | 4.3 the control channel's vocabulary, which the bridge owns: every kind it may send, typed |
+| `src/channel.ts` | 4.3 the control channel: what a client is told, what a returning one missed (14.8), and what a client's message does |
 | `src/sentences.ts` | section 5.6: the streamed reply cut at sentence ends |
 | `src/commands.ts` | section 9: the wake word, matched by sound rather than spelling |
 | `src/cues.ts` | section 15: a soft tone, so a wait is never plain silence |
@@ -109,12 +109,13 @@ same hook that will feed the sentence collector when voice arrives.
 | `src/audio.ts` | the ends of a turn, and the barge-in, found in frames rather than by sox |
 | `src/latency.ts` | section 18.4: the round trip, measured rather than felt |
 | `src/network.ts` | the connection, as the framework reports it, from both ends |
+| `src/bridge.ts` | the bridge assembled once: the engines, the mouth, the conversation, the ear and the channel, joined. The room supplies a speaker and a sink |
 | `src/serve.ts` | section 7.4 and 12: the room, the client page and the pairing |
 | `client/index.html` | the phone client. Keep the screen on (2.4) |
 | `android/` | the Android app of 17: the same client, with the screen off |
 | `speech/*.py` | the two engines as long-lived workers, warmed at startup |
 | `src/session.ts` | one long-lived Claude Code process, text in and text out |
-| `src/main.ts` | the text loop |
+| `src/main.ts` | the command line, and the text loop of 7.2 |
 
 ## The tests
 

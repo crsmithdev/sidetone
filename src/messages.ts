@@ -4,8 +4,10 @@
  * There are three clients of this: the bridge, the page in `client/` and the
  * Android app. Each used to restate it, and on 17 September 2026 the app and
  * the page disagreed about a refused token for half a day. The bridge is the
- * writer now: it injects this into the page it serves, and sends it to any
- * client that joins the room.
+ * writer now: it sends this to any client that joins the room, and the types
+ * below are what `Channel` may send at all, so a kind cannot be added on one
+ * end only. `sentence` was, on 19 September, and the page said "unknown
+ * message" until the vocabulary caught up.
  */
 import type { Config } from "./config.ts";
 
@@ -13,7 +15,9 @@ import type { Config } from "./config.ts";
 export const INCOMING = {
   /** what Chris said, as the engine wrote it */
   heard: "you",
-  /** what the agent answered */
+  /** 14.7 one sentence of the answer, as soon as it is known */
+  sentence: "bridge",
+  /** what the agent answered, whole */
   turn: "bridge",
   /** 2.3 what the bridge says while a tool runs */
   narration: "note",
@@ -31,6 +35,21 @@ export const INCOMING = {
  */
 export const OUTGOING = ["said", "mic", "quality", "voice"] as const;
 
+/** 14.8 a line a returning client is given again: what Chris said and what was answered. */
+export type Kept =
+  | { kind: "heard"; text: string; at: number }
+  | { kind: "turn"; number: number; text: string; costUsd: number; at: number };
+
+/** Everything the bridge sends a client, and nothing else. */
+export type Outgoing =
+  | { kind: "heard"; text: string }
+  | { kind: "sentence"; text: string }
+  | { kind: "turn"; number: number; text: string; costUsd: number }
+  | { kind: "narration"; text: string }
+  | { kind: "error"; text: string }
+  | { kind: "history"; turns: Kept[] }
+  | { kind: "protocol"; endTurn: string; incoming: typeof INCOMING; outgoing: typeof OUTGOING };
+
 /**
  * 9.4.8 the Stop button, said in words, because the bridge hears commands and
  * does not take buttons. Built from the wake word, so changing that setting
@@ -41,7 +60,7 @@ export function endTurnPhrase(config: Config): string {
 }
 
 /** What a client is told when it joins. */
-export function protocolMessage(config: Config): Record<string, unknown> {
+export function protocolMessage(config: Config): Outgoing {
   return { kind: "protocol", endTurn: endTurnPhrase(config), incoming: INCOMING, outgoing: OUTGOING };
 }
 

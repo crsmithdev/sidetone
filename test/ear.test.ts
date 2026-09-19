@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { utteranceOf, type Utterance } from "../src/audio.ts";
+import type { Utterance } from "../src/audio.ts";
 import { Ear, SILENCE_MS, type EarOptions } from "../src/ear.ts";
 import { Measures } from "../src/measures.ts";
 
@@ -166,22 +166,12 @@ describe("the phone cuts its microphone", () => {
   });
 });
 
-describe("a whole recording, from the desk (7.3)", () => {
-  test("it is measured, not counted as it arrives", () => {
-    const samples = new Int16Array(16_000);
-    samples.fill(Math.round(0.4 * 32768), 0, 8_000);
-    const said = utteranceOf({ sampleRate: 16_000, channels: 1, samples }, 0.02);
-    expect(said.ms).toBe(1000);
-    expect(said.speechMs).toBe(500);
-    expect(said.peak).toBeCloseTo(0.4, 2);
-    expect(said.gapMs).toBe(0);
-  });
-
-  test("the invention guard now applies at the desk too", async () => {
+describe("4.6 the invention guard", () => {
+  test("a recording that is all quiet is nothing, however long it ran", async () => {
     const quiet = new Int16Array(16_000);
     quiet.fill(Math.round(0.05 * 32768));
     const { to, ear } = room(async () => "Thank you.");
-    await ear.said(utteranceOf({ sampleRate: 16_000, channels: 1, samples: quiet }, 0.02));
+    await ear.said({ samples: quiet, ms: 1000, speechMs: 1000, peak: 0.05, gapMs: 0, endedBy: "pause", falseEnds: 0 });
     expect(to.told).toEqual(["nothing"]);
   });
 });

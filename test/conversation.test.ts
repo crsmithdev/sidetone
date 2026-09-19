@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { DEFAULTS, type Config } from "../src/config.ts";
+import { Channel } from "../src/channel.ts";
 import { COMMAND_NAMES, spokenForms } from "../src/commands.ts";
 import { Conversation, KEPT_LINES } from "../src/conversation.ts";
 import { Measures } from "../src/measures.ts";
@@ -39,33 +40,15 @@ function mouthFor(overrides: Partial<Config> = {}) {
   };
 }
 
-function withTranscript(entries: Array<Record<string, unknown>>): Conversation {
-  const c = new Conversation("/tmp", config, mouthFor().mouth, engines as never);
-  (c as unknown as { transcript: Array<Record<string, unknown>> }).transcript.push(...entries);
-  return c;
+/** A channel nobody is listening to: what a client is told is channel.test.ts's business. */
+function quiet(settings: Config = config): Channel {
+  return new Channel(settings, () => {}, { heard: async () => {}, microphone: () => {}, voice: () => {}, quality: () => false }, () => {});
 }
-
-describe("what a client missed (14.8)", () => {
-  test("a drop in a tunnel is minutes, so recent turns come back", () => {
-    const now = 1_000_000;
-    const c = withTranscript([{ kind: "turn", text: "recent", at: now - 30_000 }]);
-    expect(c.missed(now).map((e) => e.text)).toEqual(["recent"]);
-  });
-  test("an exchange from hours ago is not something this client missed", () => {
-    const now = 1_000_000;
-    const c = withTranscript([
-      { kind: "turn", text: "hours ago", at: now - 7_200_000 },
-      { kind: "turn", text: "just now", at: now - 5_000 },
-    ]);
-    // replaying the old one arrives looking like the conversation in progress
-    expect(c.missed(now).map((e) => e.text)).toEqual(["just now"]);
-  });
-});
 
 /** A conversation whose mouth keeps what it said, so a command can be checked. */
 function watched() {
   const m = mouthFor();
-  const c = new Conversation("/tmp", config, m.mouth, engines as never);
+  const c = new Conversation("/tmp", config, m.mouth, engines as never, quiet());
   return { c, said: m.said, cues: m.cues };
 }
 
@@ -144,7 +127,7 @@ describe("the stats command (18.4)", () => {
 /** A room: the conversation over a scripted mouth, with the rest of the conversation's guts in reach. */
 function room(overrides: Partial<Config> = {}) {
   const m = mouthFor(overrides);
-  const c = new Conversation("/tmp", { ...config, ...overrides }, m.mouth, engines as never);
+  const c = new Conversation("/tmp", { ...config, ...overrides }, m.mouth, engines as never, quiet({ ...config, ...overrides }));
   return {
     c, mouth: m.mouth, said: m.said, cues: m.cues, lookahead: m.lookahead,
     guts: c as unknown as {
@@ -306,7 +289,7 @@ describe("a setting changed out loud is handed on (9.4)", () => {
     const asked: string[] = [];
     const speaking = { ...engines, use: (v: string) => { asked.push(v); } };
     const patches: Array<Record<string, unknown>> = [];
-    const c = new Conversation("/tmp", config, mouthFor().mouth, speaking as never, { onSetting: (patch) => patches.push(patch) });
+    const c = new Conversation("/tmp", config, mouthFor().mouth, speaking as never, quiet(), { onSetting: (patch) => patches.push(patch) });
     await c.heard("hey bridge interrupt on");
     await c.heard("hey bridge tones off");
     await c.heard("hey bridge male voice");
@@ -397,7 +380,7 @@ describe("switching voice (4.9)", () => {
     const asked: string[] = [];
     const speaking = { ...engines, use: (v: string) => { asked.push(v); } };
     const { mouth, said } = mouthFor();
-    const c = new Conversation("/tmp", config, mouth, speaking as never);
+    const c = new Conversation("/tmp", config, mouth, speaking as never, quiet());
     c.stopSpeaking();
     mouth.say("the rest of the answer.");
     await c.heard("hey bridge male voice");
@@ -407,7 +390,7 @@ describe("switching voice (4.9)", () => {
   });
   test("an engine with one voice says so rather than pretending", async () => {
     const { mouth, said } = mouthFor();
-    const c = new Conversation("/tmp", config, mouth, engines as never);
+    const c = new Conversation("/tmp", config, mouth, engines as never, quiet());
     await c.heard("hey bridge female voice");
     await new Promise((r) => setTimeout(r, 0));
     expect(said).toEqual(["This engine has only the one voice."]);
@@ -429,12 +412,11 @@ describe("the wake-word hold", () => {
   });
 
   test("a question is not a command, however it ends", async () => {
-    const commands: string[] = [];
-    const c = new Conversation("/tmp", config, mouthFor().mouth, engines as never, {
-      onMatched: (_said, became) => { commands.push(became); },
-    });
+    const m = mouthFor();
+    const c = new Conversation("/tmp", config, m.mouth, engines as never, quiet());
     await c.heard("hey bridge");
     await c.heard("how do i stop the server");
+    const commands = m.mouth.measures.recent().flatMap((e) => (e.kind === "matched" ? [e.became] : []));
     expect(commands).not.toContain("endTurn");
   });
 });
