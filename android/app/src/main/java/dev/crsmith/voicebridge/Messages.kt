@@ -17,6 +17,9 @@ data class Line(val kind: Kind, val text: String) {
 sealed interface Incoming {
     data class Said(val line: Line) : Incoming
 
+    /** 14.7 one sentence of the answer, ahead of the voice; the turn that follows carries the whole. */
+    data class Sentence(val text: String) : Incoming
+
     /** 14.8 the turns that happened while this client was away. */
     data class History(val lines: List<Line>) : Incoming
 
@@ -37,6 +40,10 @@ fun decode(payload: ByteArray): Incoming? {
     if (kind == "protocol") {
         val endTurn = message.string("endTurn") ?: return null
         return Incoming.Protocol(endTurn)
+    }
+    if (kind == "sentence") {
+        val text = message.string("text") ?: return null
+        return Incoming.Sentence(text)
     }
     if (kind == "history") {
         val turns = message["turns"] as? JsonArray ?: return Incoming.History(emptyList())

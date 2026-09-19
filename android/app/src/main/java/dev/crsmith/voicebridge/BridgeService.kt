@@ -32,6 +32,16 @@ class BridgeService : Service() {
         return START_NOT_STICKY
     }
 
+    /**
+     * The app was swiped away. The room ends with it, so nothing is held by a
+     * process Chris thinks he closed: on the drive of 18 September the app
+     * kept the car's audio after he had left it.
+     */
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        Bridge.leave(this)
+        super.onTaskRemoved(rootIntent)
+    }
+
     private companion object {
         const val CHANNEL = "conversation"
     }

@@ -111,6 +111,16 @@ describe("a whole turn (5.5, 5.6)", () => {
   });
 });
 
+describe("the answer reaches the client a sentence at a time (14.7)", () => {
+  test("each sentence is told as it is known, and the turn carries the whole", async () => {
+    const r = room({ deltas: ["Two plus two ", "is four. ", "It always ", "was."] });
+    await r.c.turn("what is two plus two");
+    const sentences = r.told.filter((value) => value.kind === "sentence").map((value) => value.text);
+    expect(sentences).toEqual(["Two plus two is four.", "It always was."]);
+    expect(r.told.find((value) => value.kind === "turn")).toMatchObject({ text: "Two plus two is four. It always was." });
+  });
+});
+
 describe("the round trip's marks (18.4)", () => {
   test("the agent's first word is marked, once, on the round the utterance opened", async () => {
     const r = room({ deltas: ["Two plus two ", "is four. ", "It always ", "was."] });

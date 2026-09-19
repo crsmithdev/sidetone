@@ -13,6 +13,8 @@ class MessagesTest {
         assertEquals(Incoming.Said(Line(Line.Kind.BRIDGE, "hi")), decode(bytes("""{"kind":"turn","text":"hi"}""")))
         assertEquals(Incoming.Said(Line(Line.Kind.NOTE, "reading a file")), decode(bytes("""{"kind":"narration","text":"reading a file"}""")))
         assertEquals(Incoming.Said(Line(Line.Kind.NOTE, "oops")), decode(bytes("""{"kind":"error","text":"oops"}""")))
+        // 14.7 a sentence of the answer, ahead of the voice
+        assertEquals(Incoming.Sentence("Two plus two is four."), decode(bytes("""{"kind":"sentence","text":"Two plus two is four."}""")))
     }
 
     @Test

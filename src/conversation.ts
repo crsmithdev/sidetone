@@ -421,18 +421,22 @@ export class Conversation {
     this.mouth.newTurn();
     const sentences = new SentenceCollector(this.config.sentenceMaxChars);
     let firstDelta = true;
+    // 14.7 a sentence reaches the client as soon as it is known, which is
+    // before the voice reaches it: asked for on the drive of 18 September,
+    // when the words arrived only after the whole answer had been spoken.
+    const say = (sentence: string) => { this.tell?.({ kind: "sentence", text: sentence }); this.speak(sentence); };
     this.deltaSink = (text) => {
       if (!mine()) return;
       // 18.4 the agent's share ends with its first word
       if (firstDelta) { firstDelta = false; this.measures.firstDelta(); }
-      for (const sentence of sentences.push(text)) this.speak(sentence);
+      for (const sentence of sentences.push(text)) say(sentence);
     };
     const stopCue = this.cueWhileWaiting();
     try {
       const turn = await this.agent.ask(note ? `${note}\n\n${said}` : said);
       if (!mine()) return;
       const tail = sentences.flush();
-      if (tail) this.speak(tail);
+      if (tail) say(tail);
       await this.mouth.drained();
       this.lastReply = this.mouth.said.join(" ") || turn.text;
       this.recent.push({ said, reply: this.lastReply });

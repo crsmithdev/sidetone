@@ -103,6 +103,20 @@ function line(text, kind) {
   el.textContent = text;
   log.append(el);
   log.scrollTop = log.scrollHeight;
+  return el;
+}
+
+// 14.7 the answer, a sentence at a time, ahead of the voice. The turn message
+// that follows carries the whole of it and takes the growing line's place.
+let growing = null;
+function sentence(text) {
+  if (growing) growing.textContent += ` ${text}`;
+  else growing = line(text, "bridge");
+  log.scrollTop = log.scrollHeight;
+}
+function answered(text) {
+  if (growing) { growing.textContent = text; growing = null; }
+  else line(text, "bridge");
 }
 
 $("go").onclick = async () => {
@@ -200,7 +214,8 @@ async function connect({ url, token }) {
     // button is never a phrase the wake word has moved away from
     if (message.kind === "protocol") { endTurn = message.endTurn; $("stop").disabled = false; return; }
     if (message.kind === "heard") line(message.text, "you");
-    else if (message.kind === "turn") line(message.text, "bridge");
+    else if (message.kind === "sentence") sentence(message.text);
+    else if (message.kind === "turn") answered(message.text);
     else if (message.kind === "narration") line(message.text, "note");
     else if (message.kind === "error") line(message.text, "note");
     // a kind this page does not know is the two ends drifting apart. Say so

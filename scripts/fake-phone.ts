@@ -195,6 +195,8 @@ phone.onAudio((frame) => {
 });
 phone.onMessage((value) => {
   if (value.kind === "narration") console.log(`${at()} note   | ${String(value.text)}`);
+  // 14.7 a sentence of the answer, as text, ahead of the voice
+  if (value.kind === "sentence") console.log(`${at()} text   | ${String(value.text)}`);
 });
 
 /** Speak a line the way a person would: as sound, not as text. */

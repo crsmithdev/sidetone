@@ -159,7 +159,8 @@ object Bridge {
                 tell(room, Outgoing.quality(quality))
             }
             is RoomEvent.DataReceived -> when (val message = decode(event.data)) {
-                is Incoming.Said -> append(message.line)
+                is Incoming.Sentence -> grow(message.text)
+                is Incoming.Said -> if (message.line.kind == Line.Kind.BRIDGE) answered(message.line) else append(message.line)
                 is Incoming.Protocol -> _state.update { it.copy(endTurn = message.endTurn) }
                 is Incoming.Unknown -> append(Line(Line.Kind.NOTE, "(unknown message: ${message.kind})"))
                 is Incoming.History -> {
@@ -249,5 +250,34 @@ object Bridge {
 
     private fun append(vararg lines: Line) {
         _state.update { it.copy(lines = it.lines + lines) }
+    }
+
+    /** 14.7 the line the answer is growing on, by index, since a note may land after it. */
+    private var growing: Int? = null
+
+    private fun grow(text: String) {
+        _state.update {
+            val at = growing
+            if (at == null) {
+                growing = it.lines.size
+                it.copy(lines = it.lines + Line(Line.Kind.BRIDGE, text))
+            } else {
+                val lines = it.lines.toMutableList()
+                lines[at] = Line(Line.Kind.BRIDGE, "${lines[at].text} $text")
+                it.copy(lines = lines)
+            }
+        }
+    }
+
+    /** The whole answer takes the growing line's place, or a line of its own. */
+    private fun answered(line: Line) {
+        val at = growing
+        growing = null
+        if (at == null) { append(line); return }
+        _state.update {
+            val lines = it.lines.toMutableList()
+            lines[at] = line
+            it.copy(lines = lines)
+        }
     }
 }
