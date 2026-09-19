@@ -30,14 +30,15 @@ export interface TextToSpeech {
   readonly sampleRate: number;
   /** Writes the speech to wavPath and returns it. */
   synthesize(text: string, wavPath: string): Promise<string>;
-  /** 9.4 change voice without a restart. An engine of one voice leaves this out. */
-  use?(voice: string): void;
+  /** 9.4 whether the voice is a name taken per request. A fact, so no caller has to ask twice. */
+  readonly switchable: boolean;
+  /** 9.4 change voice without a restart. An engine of one voice keeps the one it has. */
+  use(voice: string): void;
   /**
    * Which voice is speaking now. A kept sentence belongs to the voice that
-   * said it, so this is part of the key it is kept under. An engine of one
-   * voice leaves it out and everything it says is kept under the one name.
+   * said it, so this is part of the key it is kept under.
    */
-  readonly voice?: string;
+  readonly voice: string;
   stop(): void;
 }
 
@@ -149,6 +150,8 @@ interface Engine {
   worker(config: Config, scriptDir: string): { bin: string; args: string[] };
   /** 9.4 whether a switch is a different name on the next request */
   switchable: boolean;
+  /** 4.9 the engine names its own voices, so a voice is only a default beside its engine */
+  voices: Pick<Config, "ttsVoice" | "voiceChoices">;
   /** the silent failure this engine has, read off its ready line */
   warn?(ready: Record<string, unknown>): string | null;
   /** the settings that shape the voice, so a sentence kept at one is never played back at another */
@@ -160,6 +163,8 @@ export const ENGINES: Record<Config["ttsEngine"], Engine> = {
   piper: {
     worker: (config, dir) => ({ bin: config.pythonBin, args: [join(dir, "tts_worker.py"), join(config.modelsDir, `${config.ttsVoice}.onnx`)] }),
     switchable: false,
+    // one voice, and the switch command says so
+    voices: { ttsVoice: "en_US-lessac-medium", voiceChoices: { female: "en_US-lessac-medium", male: "en_US-lessac-medium" } },
   },
   /**
    * 4.9 the same job on the GPU, which was idle. All 54 voices share one
@@ -168,6 +173,7 @@ export const ENGINES: Record<Config["ttsEngine"], Engine> = {
   kokoro: {
     worker: (config, dir) => ({ bin: config.kokoroPythonBin, args: [join(dir, "kokoro_worker.py"), config.kokoroModel, config.kokoroVoices, config.ttsVoice] }),
     switchable: true,
+    voices: { ttsVoice: "bf_emma", voiceChoices: { female: "bf_emma", male: "bm_george" } },
     // Without the CUDA libraries onnxruntime takes the graph on the CPU,
     // nothing errors, and the first sentence goes from a tenth of a second to
     // a whole one.
@@ -187,6 +193,7 @@ export const ENGINES: Record<Config["ttsEngine"], Engine> = {
       args: [join(dir, "chatterbox_worker.py"), config.chatterboxRefs, config.ttsVoice, String(config.chatterboxExaggeration), String(config.chatterboxCfg)],
     }),
     switchable: true,
+    voices: { ttsVoice: "som_00295", voiceChoices: { female: "sof_01208", male: "som_00295" } },
     // the CPU path is minutes a sentence, not seconds, and the model still loads
     warn: (ready) => ready.device === "cuda"
       ? null
@@ -202,14 +209,18 @@ export class LocalVoice implements TextToSpeech {
   sampleRate = 0;
   /** what the worker said when it was ready: the provider, the device, the warmup */
   ready: Record<string, unknown> = {};
-  /** 9.4 present when the engine takes a voice name per request */
-  readonly use?: (voice: string) => void;
 
   constructor(private readonly engine: Engine, config: Config, scriptDir: string) {
     const { bin, args } = engine.worker(config, scriptDir);
     this.worker = new Worker(bin, args);
     this.spoken = config.ttsVoice;
-    if (engine.switchable) this.use = (voice) => { this.spoken = voice; };
+  }
+
+  get switchable(): boolean { return this.engine.switchable; }
+
+  /** 9.4 the next request speaks in this voice; an engine of one voice keeps its own. */
+  use(voice: string): void {
+    if (this.engine.switchable) this.spoken = voice;
   }
 
   async start(): Promise<void> {
@@ -219,8 +230,8 @@ export class LocalVoice implements TextToSpeech {
     if (warning) console.log(`warning: ${warning}`);
   }
 
-  /** Which voice is speaking, when the engine has more than one. */
-  get voice(): string | undefined { return this.engine.switchable ? this.spoken : undefined; }
+  /** Which voice is speaking now. */
+  get voice(): string { return this.spoken; }
 
   async synthesize(text: string, wavPath: string): Promise<string> {
     const reply = await this.worker.request({ text, wav: wavPath, voice: this.spoken });
@@ -294,6 +305,18 @@ export class SpokenAhead {
     return wav;
   }
 
+  /**
+   * 9.4 the next sentence is in this voice. False when the engine has one
+   * voice. The sentence made ahead was made in the old voice, so it goes.
+   */
+  use(voice: string): boolean {
+    if (!this.tts.switchable) return false;
+    this.tts.use(voice);
+    this.drop(this.ready);
+    this.ready = null;
+    return true;
+  }
+
   /** A sentence made ahead that will not play. A kept line stays; it was made for good. */
   private drop(ready: { text: string; wav: Promise<string> } | null): void {
     if (!ready || this.keptPath(ready.text)) return;
@@ -325,7 +348,7 @@ export class SpokenAhead {
    */
   private keptPath(text: string): string | null {
     if (!this.kept || !this.kept.lines.includes(text)) return null;
-    const voice = this.tts.voice ?? "one";
+    const voice = this.tts.voice;
     const slug = text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 32);
     return join(this.kept.dir, `${this.kept.signature}-${voice}`, `${slug}.wav`);
   }

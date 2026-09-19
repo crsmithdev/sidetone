@@ -4,7 +4,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { decodeWav } from "../src/audio.ts";
-import { DEFAULTS, ENGINE_VOICES } from "../src/config.ts";
+import { DEFAULTS } from "../src/config.ts";
 import { ENGINES, LocalVoice, LocalWhisper } from "../src/speech.ts";
 
 /**
@@ -33,7 +33,7 @@ const run = asked && present;
 if (asked && !present) console.log(`speech smoke: ${DEFAULTS.kokoroModel} or its environment is absent`);
 
 // a kokoro test names a kokoro voice; the default engine is the cloning one
-const kokoroConfig = { ...DEFAULTS, ttsEngine: "kokoro" as const, ...ENGINE_VOICES.kokoro };
+const kokoroConfig = { ...DEFAULTS, ttsEngine: "kokoro" as const, ...ENGINES.kokoro.voices };
 
 let tts: LocalVoice;
 let stt: LocalWhisper;
@@ -140,7 +140,7 @@ describe.skipIf(!runClone)("the cloning voice, on the card (4.9)", () => {
   });
 
   test("9.4 switches to the other voice, and the words survive the switch", async () => {
-    clone.use?.(DEFAULTS.voiceChoices.female);
+    clone.use(DEFAULTS.voiceChoices.female);
     const saidFemale = await clone.synthesize(SENTENCE, join(cloneScratch, "female.wav"));
     const male = decodeWav(await Bun.file(saidMale).bytes());
     const female = decodeWav(await Bun.file(saidFemale).bytes());

@@ -15,7 +15,7 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { DEFAULTS, configPath, loadConfig, type Config } from "./config.ts";
 import { Session, recorded, spawnClaude } from "./session.ts";
-import { keptLines } from "./conversation.ts";
+import { keptLines } from "./mouth.ts";
 import { fetchCert } from "./keys.ts";
 import { endpoints, livekitConfig, serve } from "./serve.ts";
 import { SpokenAhead, textToSpeech } from "./speech.ts";

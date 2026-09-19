@@ -8,7 +8,8 @@ import { Mouth, type Speaker } from "../src/mouth.ts";
  * sentence takes one tick, the way the engine takes a moment, so by the time
  * one sentence is made the next has usually been queued.
  */
-function scripted(holdBackstopMs = 10_000) {
+function scripted(holdBackstopMs = 10_000, switchable = true) {
+  const used: string[] = [];
   const played: string[] = [];
   const wavs: Array<string | null> = [];
   const cues: string[] = [];
@@ -28,11 +29,12 @@ function scripted(holdBackstopMs = 10_000) {
   const made = {
     take: async (text: string) => `${text}.wav`,
     start: (text: string | undefined) => { started.push(text); },
+    use: (voice: string) => { used.push(voice); return switchable; },
   };
   const measures = new Measures();
-  const mouth = new Mouth(speaker, made, { file: (name) => `${name}.wav` }, measures, { holdBackstopMs });
+  const mouth = new Mouth(speaker, made, { file: (name) => `${name}.wav` }, measures, { holdBackstopMs, voiceChoices: { female: "f", male: "m" } });
   return {
-    mouth, played, wavs, cues, started, measures, made,
+    mouth, played, wavs, cues, started, used, measures, made,
     blockPlay: (on: boolean) => { blocking = on; },
     cutPlay: (on: boolean) => { whole = !on; },
     release: () => { gate?.(); gate = null; },
@@ -343,5 +345,17 @@ describe("the next sentence is named before this one ends (11.6)", () => {
     // the cut sentence plays again from the start, and still names the one after
     expect(m.played).toEqual(["first.", "first.", "second."]);
     expect(m.started).toEqual(["second.", "second.", undefined]);
+  });
+});
+
+describe("the voice (4.9)", () => {
+  test("a switch names the voice, says so, and hands the name back for the settings", () => {
+    const m = scripted();
+    expect(m.mouth.switchVoice("male")).toEqual({ said: "Switched to the male voice.", voice: "m" });
+    expect(m.used).toEqual(["m"]);
+  });
+  test("an engine of one voice says so instead of pretending", () => {
+    const m = scripted(undefined as never, false);
+    expect(m.mouth.switchVoice("female")).toEqual({ said: "This engine has only the one voice.", voice: null });
   });
 });

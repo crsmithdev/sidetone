@@ -8,7 +8,6 @@ import { Mouth, type Speaker } from "../src/mouth.ts";
 import type { SessionHooks, Turn } from "../src/session.ts";
 
 const config: Config = { ...DEFAULTS, audioCueDelayMs: 10, audioCueEveryMs: 10 };
-const engines = { start: async () => {}, transcribe: async () => "", synthesize: async () => "", stop: () => {} };
 
 interface Script {
   deltas?: string[];
@@ -65,10 +64,10 @@ function room(script: Script = {}, overrides: Partial<Config> = {}) {
     cue(wav) { cues.push(wav); },
   };
   const settings = { ...config, ...overrides };
-  const mouth = new Mouth(speaker, { take: async (text: string) => text, start: () => {} }, { file: (name) => name }, new Measures(), settings);
+  const mouth = new Mouth(speaker, { take: async (text: string) => text, start: () => {}, use: () => true }, { file: (name) => name }, new Measures(), settings);
   const turns: Turn[] = [];
   const channel = new Channel(settings, (message) => { told.push(message); }, ends, () => {});
-  const c = new Conversation("/tmp", settings, mouth, engines as never, channel, { onTurn: (turn) => turns.push(turn) }, agent.make);
+  const c = new Conversation("/tmp", settings, mouth, channel, { onTurn: (turn) => turns.push(turn) }, agent.make);
   return { c, mouth, said, cues, turns, agent, told, channel };
 }
 

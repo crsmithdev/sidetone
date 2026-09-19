@@ -3,16 +3,18 @@ import { existsSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DEFAULTS } from "../src/config.ts";
-import { KEPT_LINES, keptLines } from "../src/conversation.ts";
+import { KEPT_LINES, keptLines } from "../src/mouth.ts";
 import { SpokenAhead, type TextToSpeech } from "../src/speech.ts";
 
 /** A voice that writes a file and counts how often it was asked to (11.6). */
-function engine(voice = "male") {
+function engine(voice = "male", switchable = true) {
   const asked: string[] = [];
   const tts: TextToSpeech = {
     start: async () => {},
     sampleRate: 24_000,
-    voice,
+    switchable,
+    get voice() { return voice; },
+    use: (next: string) => { if (switchable) voice = next; },
     synthesize: async (text: string, wav: string) => {
       asked.push(text);
       await Bun.write(wav, text);
@@ -118,5 +120,24 @@ describe("the sentences the bridge keeps (11.6)", () => {
     const scratch = two.slice(0, two.lastIndexOf("/"));
     const { readdirSync } = await import("node:fs");
     expect(readdirSync(scratch)).toEqual([two.slice(scratch.length + 1)]);
+  });
+});
+
+describe("a switch of voice (9.4)", () => {
+  test("the sentence made ahead was in the old voice, so it is made again", async () => {
+    const { tts, asked } = engine("female");
+    const ahead = new SpokenAhead(tts, scratchDir());
+    ahead.start("Four.");
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(ahead.use("male")).toBe(true);
+    await ahead.take("Four.");
+    expect(asked).toEqual(["Four.", "Four."]);
+    expect(tts.voice).toBe("male");
+  });
+
+  test("an engine of one voice says no, and keeps its voice", () => {
+    const { tts } = engine("only", false);
+    expect(new SpokenAhead(tts, scratchDir()).use("male")).toBe(false);
+    expect(tts.voice).toBe("only");
   });
 });

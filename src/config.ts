@@ -7,6 +7,7 @@
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { COMMAND_NAMES, type CommandName } from "./commands.ts";
+import { ENGINES } from "./speech.ts";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -207,19 +208,6 @@ export interface Config {
   claudeArgs: string[];
 }
 
-/**
- * 4.9 each engine names its voices its own way, so a voice is only a default
- * beside its engine. On 19 September the file said kokoro and left the voices
- * to the defaults, which were chatterbox's, and "hey bridge, male voice" and
- * the fake phone both asked kokoro for a wav it does not have.
- */
-export const ENGINE_VOICES: Record<Config["ttsEngine"], Pick<Config, "ttsVoice" | "voiceChoices">> = {
-  chatterbox: { ttsVoice: "som_00295", voiceChoices: { female: "sof_01208", male: "som_00295" } },
-  kokoro: { ttsVoice: "bf_emma", voiceChoices: { female: "bf_emma", male: "bm_george" } },
-  // one voice, and the switch command says so
-  piper: { ttsVoice: "en_US-lessac-medium", voiceChoices: { female: "en_US-lessac-medium", male: "en_US-lessac-medium" } },
-};
-
 export const DEFAULTS: Config = {
   silenceMs: 60_000,
   compactionLimit: 3,
@@ -244,7 +232,8 @@ export const DEFAULTS: Config = {
   modelsDir: join(homedir(), ".voice-bridge", "models"),
   sttModel: "small.en",
   ttsEngine: "chatterbox",
-  ...ENGINE_VOICES.chatterbox,
+  // 4.9 the engine names its voices; the table in speech.ts is the one place they are written
+  ...ENGINES.chatterbox.voices,
   kokoroPythonBin: join(homedir(), ".voice-bridge", "kokoro-venv", "bin", "python"),
   kokoroModel: join(homedir(), ".voice-bridge", "models", "kokoro", "kokoro-v1.0.onnx"),
   kokoroVoices: join(homedir(), ".voice-bridge", "models", "kokoro", "voices-v1.0.bin"),
@@ -376,8 +365,8 @@ export function loadConfig(path = configPath()): Config {
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error(`${path} must hold an object`);
   const given = parsed as Partial<Config>;
   const engine = given.ttsEngine ?? DEFAULTS.ttsEngine;
-  const voices = ENGINE_VOICES[engine];
-  if (!voices) throw new Error(`ttsEngine must be one of ${Object.keys(ENGINE_VOICES).join(", ")}, not ${String(engine)}`);
+  const voices = ENGINES[engine]?.voices;
+  if (!voices) throw new Error(`ttsEngine must be one of ${Object.keys(ENGINES).join(", ")}, not ${String(engine)}`);
   // 4.9 a voice the file did not name is the named engine's own, not the default engine's
   const merged: Config = { ...DEFAULTS, ...voices, ...given };
   for (const key of ["silenceMs", "ceilingMs", "checkpointWindowMs", "graceMs", "compactionWindowMs", "narrationDelayMs"] as const) {

@@ -36,7 +36,6 @@ import type { Mouth } from "./mouth.ts";
 import { Network } from "./network.ts";
 import { SentenceCollector } from "./sentences.ts";
 import { Session, type SessionHooks, type Turn } from "./session.ts";
-import { voiceSignature, type TextToSpeech } from "./speech.ts";
 
 export type { CueName };
 
@@ -71,55 +70,6 @@ export const claudeCode = (dir: string): MakeAgent => (hooks, config) => new Ses
 
 /** What a command does to the sentences a barge-in held. */
 export type Hold = "resume" | "discard" | "keep";
-
-/**
- * The sentences the bridge says in its own voice, word for word, over and
- * over: an acknowledgement, a refusal, a thing it has nothing to say about.
- *
- * They are worth keeping because of what they cost. The cloning voice spends
- * about two and a half seconds on a sentence, and these are the sentences that
- * jump the queue precisely because they are answers to a command and should
- * land at once. Made once and kept on disk, they land at once.
- *
- * `test/conversation.test.ts` says every command from a fresh start and checks
- * that each fixed line it answers with is here: until 19 September the list was
- * kept by hand and five lines had drifted out of it. A line that is missing is
- * made the slow way and then kept, so the drift costs one slow sentence, once,
- * and never a wrong one. Anything with a number or a name in it belongs
- * nowhere near this list.
- */
-export const KEPT_LINES = [
-  "Muted.",
-  "Listening.",
-  "Tones on.",
-  "Tones off.",
-  "Interrupting on.",
-  "Interrupting off.",
-  "Carrying on.",
-  "Stopped.",
-  "Nothing is running.",
-  "Context cleared.",
-  "No round trip has been measured yet.",
-  "Nothing has reported on the connection yet.",
-  "Nothing was cleared.",
-  "That turn did not finish.",
-  "There is nothing to restate yet.",
-  "There is nothing to summarize yet.",
-  "There is nothing left of it.",
-  "We have not started yet.",
-  "This engine has only the one voice.",
-  "Switched to the female voice.",
-  "Switched to the male voice.",
-] as const;
-
-/**
- * What a run keeps between runs, and under which key. The signature is the
- * engine's own: every setting that changes how its voice sounds, so a sentence
- * made at one setting is never played back at another.
- */
-export function keptLines(config: Config): { dir: string; signature: string; lines: readonly string[] } {
-  return { dir: config.spokenDir, signature: voiceSignature(config), lines: KEPT_LINES };
-}
 
 export interface ConversationHooks {
   onTurn?(turn: Turn): void;
@@ -168,10 +118,8 @@ export class Conversation {
   constructor(
     dir: string,
     private readonly config: Config,
-    /** what the bridge says, from a sentence to the sound of it */
+    /** what the bridge says, from a sentence to the sound of it, in whichever voice */
     private readonly mouth: Mouth,
-    /** 9.4 the voice commands, which are the only reason this is here */
-    private readonly tts: TextToSpeech,
     /** 4.3 what the client is told, and what a returning one is owed */
     private readonly channel: Channel,
     hooks: ConversationHooks = {},
@@ -574,13 +522,11 @@ export class Conversation {
     this.channel.tell({ kind: "turn", number: turn.number, text, costUsd: this.agent.totalCostUsd() });
   }
 
-  /** 9.4 the two voices Chris switches between out loud. */
+  /** 9.4 the two voices Chris switches between out loud; the mouth owns which. */
   private switchVoice(which: "female" | "male"): Hold {
-    const voice = this.config.voiceChoices[which];
-    if (!this.tts.use) { this.reply("This engine has only the one voice."); return "resume"; }
-    this.tts.use(voice);
-    this.onSetting?.({ ttsVoice: voice });
-    this.reply(`Switched to the ${which} voice.`);
+    const { said, voice } = this.mouth.switchVoice(which);
+    if (voice) this.onSetting?.({ ttsVoice: voice });
+    this.reply(said);
     return "resume";
   }
 

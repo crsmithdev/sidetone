@@ -140,7 +140,7 @@ await Promise.all([tts.start(), stt.start()]);
  * check has two voices in it rather than one talking to itself.
  */
 const other = config.ttsVoice === config.voiceChoices.female ? config.voiceChoices.male : config.voiceChoices.female;
-tts.use?.(other);
+tts.use(other);
 
 const phone = new Transport();
 await phone.connect(credentials.url, credentials.token, "fake-phone");

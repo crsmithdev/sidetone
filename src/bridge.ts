@@ -15,12 +15,12 @@ import { join } from "node:path";
 import { encodeWav } from "./audio.ts";
 import { Channel } from "./channel.ts";
 import { saveSettings, settingsInForce, type Config } from "./config.ts";
-import { Conversation, keptLines } from "./conversation.ts";
+import { Conversation } from "./conversation.ts";
 import { Cues } from "./cues.ts";
 import { Ear, SILENCE_MS } from "./ear.ts";
 import { Measures } from "./measures.ts";
 import type { Outgoing } from "./messages.ts";
-import { Mouth, type Speaker } from "./mouth.ts";
+import { Mouth, keptLines, type Speaker } from "./mouth.ts";
 import { Recorder } from "./record.ts";
 import { LocalWhisper, SpokenAhead, textToSpeech, type TextToSpeech } from "./speech.ts";
 
@@ -74,7 +74,7 @@ export function assemble(
     quality: (side, quality) => conversation.network.saw(side, quality),
   }, say);
 
-  const conversation: Conversation = new Conversation(dir, config, mouth, tts, channel, {
+  const conversation: Conversation = new Conversation(dir, config, mouth, channel, {
     // 9.4 the file is for the next run; the live copy is what /diagnostics and
     // the health line report now; the record says when it changed
     onSetting: (patch) => { Object.assign(config, patch); saveSettings(patch); measures.setting(patch); },

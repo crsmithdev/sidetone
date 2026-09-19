@@ -94,7 +94,7 @@ same hook that will feed the sentence collector when voice arrives.
 | `src/protocol.ts` | Claude Code's stream-json output, reduced to what the bridge acts on |
 | `src/supervisor.ts` | the three fault detectors of section 8, as a clock-driven state machine |
 | `src/narrator.ts` | what the bridge says while a tool runs, so a long turn is not silence |
-| `src/speech.ts` | section 4: the local engines, each behind the interface of 4.8, and what is kept between runs |
+| `src/speech.ts` | section 4: the local engines behind the interface of 4.8, one table that names each engine's worker and voices, and what is kept between runs |
 | `speech/chatterbox_worker.py` | 4.9 the cloning voice: a reference wav in, a sentence out |
 | `src/ear.ts` | 11.5 and 18.4: what the bridge does with sound, whichever loop brought it |
 | `src/measures.ts` | section 18: every fact about a turn, told once, read two ways |
@@ -104,7 +104,7 @@ same hook that will feed the sentence collector when voice arrives.
 | `src/commands.ts` | section 9: the wake word, matched by sound rather than spelling |
 | `src/cues.ts` | section 15: a soft tone, so a wait is never plain silence |
 | `src/conversation.ts` | the turn, the commands and the checkpoint, above any transport. The agent arrives at a seam (ADR 0001) |
-| `src/mouth.ts` | what the bridge says, from a sentence to the sound of it: the queues, the hold, carry on. The room and the desk each supply a speaker |
+| `src/mouth.ts` | what the bridge says, from a sentence to the sound of it: the queues, the hold, carry on, whose voice, and the lines kept between runs. The room supplies a speaker |
 | `src/transport.ts` | section 4.1: LiveKit over WebRTC, and the control channel of 4.3 |
 | `src/audio.ts` | the ends of a turn, and the barge-in, found in frames rather than by sox |
 | `src/latency.ts` | section 18.4: the round trip, measured rather than felt |

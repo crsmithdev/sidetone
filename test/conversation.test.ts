@@ -2,12 +2,11 @@ import { describe, expect, test } from "bun:test";
 import { DEFAULTS, type Config } from "../src/config.ts";
 import { Channel } from "../src/channel.ts";
 import { COMMAND_NAMES, spokenForms } from "../src/commands.ts";
-import { Conversation, KEPT_LINES } from "../src/conversation.ts";
+import { Conversation } from "../src/conversation.ts";
 import { Measures } from "../src/measures.ts";
-import { Mouth, type Speaker } from "../src/mouth.ts";
+import { KEPT_LINES, Mouth, type Speaker } from "../src/mouth.ts";
 
 const config: Config = { ...DEFAULTS, historyMaxAgeMs: 60_000 };
-const engines = { start: async () => {}, transcribe: async () => "", synthesize: async () => "", stop: () => {} };
 
 /**
  * A mouth over a speaker that keeps what it played, and can be made to block
@@ -19,6 +18,7 @@ function mouthFor(overrides: Partial<Config> = {}) {
   const said: string[] = [];
   const cues: string[] = [];
   const lookahead: Array<string | undefined> = [];
+  const switched: string[] = [];
   let gate: (() => void) | null = null;
   let blocking = false;
   let whole = true;
@@ -30,10 +30,10 @@ function mouthFor(overrides: Partial<Config> = {}) {
     },
     cue(wav) { cues.push(wav); },
   };
-  const made = { take: async (text: string) => text, start: (text: string | undefined) => { lookahead.push(text); } };
+  const made = { take: async (text: string) => text, start: (text: string | undefined) => { lookahead.push(text); }, use: (voice: string) => { switched.push(voice); return true; } };
   const mouth = new Mouth(speaker, made, { file: (name) => name }, new Measures(), { ...config, ...overrides });
   return {
-    mouth, said, cues, lookahead,
+    mouth, said, cues, lookahead, switched,
     blockSay: (on: boolean) => { blocking = on; },
     cutSay: (on: boolean) => { whole = !on; },
     release: () => { gate?.(); gate = null; },
@@ -48,7 +48,7 @@ function quiet(settings: Config = config): Channel {
 /** A conversation whose mouth keeps what it said, so a command can be checked. */
 function watched() {
   const m = mouthFor();
-  const c = new Conversation("/tmp", config, m.mouth, engines as never, quiet());
+  const c = new Conversation("/tmp", config, m.mouth, quiet());
   return { c, said: m.said, cues: m.cues };
 }
 
@@ -127,7 +127,7 @@ describe("the stats command (18.4)", () => {
 /** A room: the conversation over a scripted mouth. A turn in flight is turn.test.ts's business. */
 function room(overrides: Partial<Config> = {}) {
   const m = mouthFor(overrides);
-  const c = new Conversation("/tmp", { ...config, ...overrides }, m.mouth, engines as never, quiet({ ...config, ...overrides }));
+  const c = new Conversation("/tmp", { ...config, ...overrides }, m.mouth, quiet({ ...config, ...overrides }));
   return {
     c, mouth: m.mouth, said: m.said, cues: m.cues, lookahead: m.lookahead,
     blockSay: m.blockSay,
@@ -241,10 +241,8 @@ describe("the commands that were wrong mid-turn", () => {
 
 describe("a setting changed out loud is handed on (9.4)", () => {
   test("interrupt, tones and the voice reach the hook as the setting they change", async () => {
-    const asked: string[] = [];
-    const speaking = { ...engines, use: (v: string) => { asked.push(v); } };
     const patches: Array<Record<string, unknown>> = [];
-    const c = new Conversation("/tmp", config, mouthFor().mouth, speaking as never, quiet(), { onSetting: (patch) => patches.push(patch) });
+    const c = new Conversation("/tmp", config, mouthFor().mouth, quiet(), { onSetting: (patch) => patches.push(patch) });
     await c.heard("hey bridge interrupt on");
     await c.heard("hey bridge tones off");
     await c.heard("hey bridge male voice");
@@ -331,24 +329,17 @@ describe("the gate on clearing the context (10)", () => {
 });
 
 describe("switching voice (4.9)", () => {
-  test("it changes the engine's voice and leaves the answer alone", async () => {
-    const asked: string[] = [];
-    const speaking = { ...engines, use: (v: string) => { asked.push(v); } };
-    const { mouth, said } = mouthFor();
-    const c = new Conversation("/tmp", config, mouth, speaking as never, quiet());
+  test("it changes the voice, keeps the setting, and leaves the answer alone", async () => {
+    const m = mouthFor();
+    const patches: Array<Record<string, unknown>> = [];
+    const c = new Conversation("/tmp", config, m.mouth, quiet(), { onSetting: (patch) => patches.push(patch) });
     c.ears.stopSpeaking();
-    mouth.say("the rest of the answer.");
+    m.mouth.say("the rest of the answer.");
     await c.heard("hey bridge male voice");
     await new Promise((r) => setTimeout(r, 0));
-    expect(asked).toEqual([config.voiceChoices.male]);
-    expect(said).toEqual(["Switched to the male voice.", "the rest of the answer."]);
-  });
-  test("an engine with one voice says so rather than pretending", async () => {
-    const { mouth, said } = mouthFor();
-    const c = new Conversation("/tmp", config, mouth, engines as never, quiet());
-    await c.heard("hey bridge female voice");
-    await new Promise((r) => setTimeout(r, 0));
-    expect(said).toEqual(["This engine has only the one voice."]);
+    expect(m.switched).toEqual([config.voiceChoices.male]);
+    expect(patches).toEqual([{ ttsVoice: config.voiceChoices.male }]);
+    expect(m.said).toEqual(["Switched to the male voice.", "the rest of the answer."]);
   });
 });
 
@@ -368,7 +359,7 @@ describe("the wake-word hold", () => {
 
   test("a question is not a command, however it ends", async () => {
     const m = mouthFor();
-    const c = new Conversation("/tmp", config, m.mouth, engines as never, quiet());
+    const c = new Conversation("/tmp", config, m.mouth, quiet());
     await c.heard("hey bridge");
     await c.heard("how do i stop the server");
     const commands = m.mouth.measures.recent().flatMap((e) => (e.kind === "matched" ? [e.became] : []));

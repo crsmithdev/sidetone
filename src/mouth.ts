@@ -12,9 +12,59 @@
  * play -- and neither copy had a test. It is one place now, and the two loops
  * supply only the part where they differ: a `Speaker`, which plays one wav.
  */
+import type { Config } from "./config.ts";
 import type { CueName, Cues } from "./cues.ts";
 import type { Measures } from "./measures.ts";
-import type { SpokenAhead } from "./speech.ts";
+import { voiceSignature, type SpokenAhead } from "./speech.ts";
+
+/**
+ * The sentences the bridge says in its own voice, word for word, over and
+ * over: an acknowledgement, a refusal, a thing it has nothing to say about.
+ *
+ * They are worth keeping because of what they cost. The cloning voice spends
+ * about two and a half seconds on a sentence, and these are the sentences that
+ * jump the queue precisely because they are answers to a command and should
+ * land at once. Made once and kept on disk, they land at once.
+ *
+ * `test/conversation.test.ts` says every command from a fresh start and checks
+ * that each fixed line it answers with is here: until 19 September the list was
+ * kept by hand and five lines had drifted out of it. A line that is missing is
+ * made the slow way and then kept, so the drift costs one slow sentence, once,
+ * and never a wrong one. Anything with a number or a name in it belongs
+ * nowhere near this list.
+ */
+export const KEPT_LINES = [
+  "Muted.",
+  "Listening.",
+  "Tones on.",
+  "Tones off.",
+  "Interrupting on.",
+  "Interrupting off.",
+  "Carrying on.",
+  "Stopped.",
+  "Nothing is running.",
+  "Context cleared.",
+  "No round trip has been measured yet.",
+  "Nothing has reported on the connection yet.",
+  "Nothing was cleared.",
+  "That turn did not finish.",
+  "There is nothing to restate yet.",
+  "There is nothing to summarize yet.",
+  "There is nothing left of it.",
+  "We have not started yet.",
+  "This engine has only the one voice.",
+  "Switched to the female voice.",
+  "Switched to the male voice.",
+] as const;
+
+/**
+ * What a run keeps between runs, and under which key. The signature is the
+ * engine's own: every setting that changes how its voice sounds, so a sentence
+ * made at one setting is never played back at another.
+ */
+export function keptLines(config: Config): { dir: string; signature: string; lines: readonly string[] } {
+  return { dir: config.spokenDir, signature: voiceSignature(config), lines: KEPT_LINES };
+}
 
 /** The part that plays one sound. The room and a test differ only here. */
 export interface Speaker {
@@ -55,8 +105,8 @@ export class Mouth {
 
   constructor(
     private readonly speaker: Speaker,
-    /** 11.6 the sentence made ahead of time, and the kept ones */
-    private readonly made: Pick<SpokenAhead, "take" | "start">,
+    /** 11.6 the sentence made ahead of time, the kept ones, and whose voice */
+    private readonly made: Pick<SpokenAhead, "take" | "start" | "use">,
     private readonly cues: Pick<Cues, "file">,
     /** 18.4 the round trip closes here, so the one bookkeeper lives here. */
     readonly measures: Measures,
@@ -66,7 +116,7 @@ export class Mouth {
      * the gate's question waits seconds with the hold up. It is what stops
      * the frames, and it is wired once, by whoever assembles the bridge.
      */
-    private readonly settings: { holdBackstopMs: number; talking?: () => boolean },
+    private readonly settings: { holdBackstopMs: number; voiceChoices: Config["voiceChoices"]; talking?: () => boolean },
   ) {
     this.talking = settings.talking ?? (() => false);
   }
@@ -103,6 +153,18 @@ export class Mouth {
   /** 11.12 the voice off skips the engine; the round trip still closes. */
   setVoice(on: boolean): void {
     this.voice = on;
+  }
+
+  /**
+   * 4.9 the two voices Chris switches between out loud. The voice is a
+   * setting, so changing it changes nothing about the answer; the line comes
+   * back in the new voice, which is the only demonstration worth having.
+   * `voice` is null when the engine has only the one.
+   */
+  switchVoice(which: "female" | "male"): { said: string; voice: string | null } {
+    const voice = this.settings.voiceChoices[which];
+    if (!this.made.use(voice)) return { said: "This engine has only the one voice.", voice: null };
+    return { said: `Switched to the ${which} voice.`, voice };
   }
 
   /**

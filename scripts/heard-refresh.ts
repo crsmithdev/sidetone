@@ -87,7 +87,7 @@ const speechDir = new URL("../speech", import.meta.url).pathname;
 const tts = textToSpeech(config, speechDir);
 const stt = new LocalWhisper(config, speechDir);
 await Promise.all([tts.start(), stt.start()]);
-if (!tts.use) throw new Error("this engine cannot change voice, so the corpus would be one timbre");
+if (!tts.switchable) throw new Error("this engine cannot change voice, so the corpus would be one timbre");
 
 const existing = await Bun.file(FIXTURE).json().catch(() => ({ phrases: [] })) as
   { phrases: Array<{ said: string; want: string | null; heard: string[] }> };
