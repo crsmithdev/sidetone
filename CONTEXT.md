@@ -30,6 +30,14 @@ _Avoid_: the workspace, the repo.
 Where the bridge and the client meet, and what carries audio between them.
 _Avoid_: the call, the session, the channel, the connection.
 
+**The mouth**:
+The part of the bridge between a sentence and the sound of it: the queues, the hold, and what carry on says. It is the same at the desk and in the room.
+_Avoid_: the output, the player, the speech queue.
+
+**The speaker**:
+What plays one sentence once the mouth has made it. The room has one, over LiveKit; the desk has one, on the machine's own devices.
+_Avoid_: the sink, the audio output.
+
 ### The conversation
 
 **A turn**:

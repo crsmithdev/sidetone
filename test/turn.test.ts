@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { DEFAULTS, type Config } from "../src/config.ts";
 import { Conversation, type Agent, type MakeAgent } from "../src/conversation.ts";
+import { Measures } from "../src/measures.ts";
+import { Mouth, type Speaker } from "../src/mouth.ts";
 import type { SessionHooks, Turn } from "../src/session.ts";
 
 const config: Config = { ...DEFAULTS, audioCueDelayMs: 10, audioCueEveryMs: 10 };
@@ -56,14 +58,15 @@ function room(script: Script = {}, overrides: Partial<Config> = {}) {
   const cues: string[] = [];
   const told: Array<Record<string, unknown>> = [];
   const agent = scripted(script);
-  const mouth = {
-    say: async (text: string) => { said.push(text); return true; },
-    cue: (name: string) => { cues.push(name); },
-    tell: (value: Record<string, unknown>) => { told.push(value); },
+  const speaker: Speaker = {
+    async play(text) { said.push(text); return true; },
+    cue(wav) { cues.push(wav); },
   };
+  const settings = { ...config, ...overrides };
+  const mouth = new Mouth(speaker, { take: async (text: string) => text, start: () => {} }, { file: (name) => name }, new Measures(), settings);
   const turns: Turn[] = [];
-  const c = new Conversation("/tmp", { ...config, ...overrides }, mouth as never, engines as never,
-    { onTurn: (turn) => turns.push(turn) }, agent.make);
+  const c = new Conversation("/tmp", settings, mouth, engines as never,
+    { onTurn: (turn) => turns.push(turn), tell: (value) => { told.push(value); } }, agent.make);
   return { c, said, cues, turns, agent, told };
 }
 
@@ -161,6 +164,7 @@ describe("clearing the context is gated (10.1, ADR 0009)", () => {
     const r = room();
     await r.c.heard("hey bridge clear the context");
     await r.c.heard("yes go on");
+    await tick();
     expect(r.agent.calls).not.toContain("restart cleared by voice");
     expect(r.said.at(-1)).toContain("Nothing was cleared.");
   });
@@ -187,6 +191,7 @@ describe("11.9 a question that lands mid-answer", () => {
   test("holding: it is refused and the answer resumes", async () => {
     const r = await midAnswer({ interruptOnSpeech: false });
     await r.c.heard("what is the tallest one");
+    await tick();
     expect(r.said.join(" ")).toContain("I am still on the last one");
     expect(r.agent.calls).not.toContain("interrupt");
     expect(r.said).toContain("Two.");
@@ -238,10 +243,13 @@ describe("11.9 a question that lands mid-answer", () => {
   test("the mode is a wake command, and it says which way it now is", async () => {
     const r = room({}, { interruptOnSpeech: false });
     await r.c.heard("hey bridge interrupt on");
+    await tick();
     expect(r.said).toContain("Interrupting on.");
     await r.c.heard("hey bridge interrupt off");
+    await tick();
     expect(r.said).toContain("Interrupting off.");
     await r.c.heard("hey bridge interrupt");
+    await tick();
     expect(r.said.at(-1)).toBe("Interrupting on.");
   });
 });

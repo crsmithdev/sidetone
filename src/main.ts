@@ -15,6 +15,8 @@ import { Conversation, keptLines } from "./conversation.ts";
 import { Cues } from "./cues.ts";
 import { decodeWav, utteranceOf } from "./audio.ts";
 import { Ear, earOptions } from "./ear.ts";
+import { Measures } from "./measures.ts";
+import { Mouth } from "./mouth.ts";
 import { fetchCert } from "./keys.ts";
 import { endpoints, livekitConfig } from "./serve.ts";
 import { serve } from "./serve.ts";
@@ -129,16 +131,13 @@ async function voice(dir: string, config: Config): Promise<void> {
     listening = null;
   }
 
-  const conversation = new Conversation(dir, config, {
-    async say(text: string, next?: () => string | undefined): Promise<boolean> {
+  /** 7.3 the one thing the desk does that the room does not: it plays on the machine's own devices. */
+  const mouth = new Mouth({
+    async play(text, wav) {
       takeTheMicrophone();
       try {
         console.log(`  ${text}`);
-        conversation.measures.answering();
-        const wav = await ahead.take(text);
-        // started now, not sooner: the engine answers one request at a time
-        ahead.start(next?.());
-        await Bun.spawn(["paplay", wav], { stdout: "ignore", stderr: "ignore" }).exited;
+        if (wav) await play(wav);
       } finally { pending -= 1; }
       // there is no barge-in at the desk (7.3), so a sentence is always whole
       return true;
@@ -149,8 +148,10 @@ async function voice(dir: string, config: Config): Promise<void> {
      * inside a recording that also holds what Chris said. When cues did take
      * the microphone, one every seven seconds shredded every listening window.
      */
-    cue(name) { void cues.play(name); },
-  }, tts, {
+    cue(wav) { void play(wav); },
+  }, ahead, cues, new Measures(), config);
+
+  const conversation = new Conversation(dir, config, mouth, tts, {
     onNarration: (text) => console.log(`[${text}]`),
     onTurn: (turn) => console.log(`[turn ${turn.number}, $${conversation.agent.totalCostUsd().toFixed(4)} this session]`),
   });

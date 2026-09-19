@@ -6,9 +6,9 @@
  * the wake commands, the checkpoint, the memory of what was said — is the same,
  * so it lives here and each transport supplies the two ends.
  *
- * A barge-in stops the speech and *holds* it (11.3). What Chris said then
- * decides what becomes of the held sentences, and only two commands touch the
- * agent at all:
+ * A barge-in stops the speech and *holds* it (11.3); the mouth does the
+ * holding. What Chris said then decides what becomes of the held sentences,
+ * and only two commands touch the agent at all:
  *
  * | what Chris said | the held speech | the turn |
  * |---|---|---|
@@ -23,13 +23,14 @@
  * | a question for the agent, mid-turn, holding | resumes; the question is refused | untouched |
  * | a question for the agent, mid-turn, interrupting | kept for "carry on" | interrupted, then a new turn |
  * | carry on | the kept rest is said | untouched |
- * | end the turn | dropped | interrupted |
+ * | end the turn | dropped, a replay too | interrupted |
  * | clear the context | held until the gate answers | dies with the process |
  */
 import { commandIn, match, type CommandName } from "./commands.ts";
 import type { Config } from "./config.ts";
 import type { CueName } from "./cues.ts";
-import { Measures } from "./measures.ts";
+import type { Measures } from "./measures.ts";
+import type { Mouth } from "./mouth.ts";
 import { Network } from "./network.ts";
 import { SentenceCollector } from "./sentences.ts";
 import { Session, type SessionHooks, type Turn } from "./session.ts";
@@ -113,29 +114,10 @@ export function keptLines(config: Config): { dir: string; signature: string; lin
   };
 }
 
-export interface Mouth {
-  /**
-   * Speak one sentence. False means a barge-in cut it short (11.3).
-   *
-   * `next` answers what will play after this sentence. A mouth that can make
-   * a sentence ahead of time asks once this one is playing and starts on the
-   * answer, which is what keeps three seconds of synthesis out of every gap.
-   * Ignoring it is correct, just slower.
-   *
-   * It is a question and not a value because the answer changes: the agent
-   * streams its reply a few words at a time, so at the moment a sentence
-   * begins, the one after it has usually not arrived yet. Asked a few seconds
-   * later, when the sentence is playing, it almost always has.
-   */
-  say(text: string, next?: () => string | undefined): Promise<boolean>;
-  /** 15.2 a sound that is not speech, for a wait that has gone on. */
-  cue(name: CueName): void;
-  /** 4.3 the control channel: the transcript and the turn number (14.5, 14.7). */
-  tell?(value: Record<string, unknown>): void;
-}
-
 export interface ConversationHooks {
   onNarration?(text: string): void;
+  /** 4.3 the control channel: the transcript and the turn number (14.5, 14.7). */
+  tell?(value: Record<string, unknown>): void;
   onTurn?(turn: Turn): void;
   /** What the bridge decided a thing Chris said actually was (9.4, 9.7). */
   onMatched?(said: string, became: string): void;
@@ -147,18 +129,6 @@ export class Conversation {
   private turnRunning = false;
   private checkpointOpen = false;
   private lastReply = "";
-  private speaking = false;
-  /**
-   * The answer, sentence by sentence, and the bridge's own replies. They are
-   * two queues because a reply to a command has to be heard *now*, over a held
-   * answer: you asked for it in the middle of the answer on purpose.
-   */
-  private readonly outbox: string[] = [];
-  private readonly ahead: string[] = [];
-  private pumping = false;
-  private waiters: Array<() => void> = [];
-  /** 11.3 true from the barge-in until what Chris said is resolved. */
-  private holding = false;
   /**
    * 11.9 whether a question that lands mid-answer stops the answer or is
    * refused. A setting, and a wake command, because only a drive says which is
@@ -166,21 +136,12 @@ export class Conversation {
    */
   private interrupting: boolean;
   /**
-   * What an interrupt took off the queue, so "carry on" can say it and the
-   * client can show it. Chris never heard these, and the agent's own context
-   * holds them as though he did.
-   */
-  private tail: string[] = [];
-  /**
    * The turn in flight, and which turn that is. An interrupted turn goes on
    * running until its process returns a result, and it must not speak, record
    * or clear anything by the time it does.
    */
   private running: Promise<void> | null = null;
   private turnId = 0;
-  private holdBackstop: ReturnType<typeof setTimeout> | null = null;
-  /** What has actually reached Chris's ears this turn, for 9.4.5. */
-  private said: string[] = [];
   /**
    * 9.1 the wake word arrived on its own. Chris leaves about 1.6 seconds
    * before the command, which is longer than the end-of-turn pause, so the two
@@ -197,7 +158,7 @@ export class Conversation {
   private readonly transcript: Array<Record<string, unknown>> = [];
 
   readonly agent: Agent;
-  /** 18.4 the round trip, which the transport marks and the stats command reads. */
+  /** 18.4 the round trip, which the mouth marks and the stats command reads. */
   readonly measures: Measures;
   /** N.1 what the connection is doing, which the transport feeds and stats reads. */
   readonly network = new Network();
@@ -205,14 +166,14 @@ export class Conversation {
   constructor(
     dir: string,
     private readonly config: Config,
+    /** what the bridge says, from a sentence to the sound of it */
     private readonly mouth: Mouth,
     /** 9.4 the voice commands, which are the only reason this is here */
     private readonly tts: TextToSpeech,
     hooks: ConversationHooks = {},
     makeAgent: MakeAgent = claudeCode(dir),
-    measures: Measures = new Measures(),
   ) {
-    this.measures = measures;
+    this.measures = mouth.measures;
     // 6.5 the voice instruction lives in the bridge, not in the agent's identity file
     const args = [...config.claudeArgs, "--append-system-prompt", config.voiceInstruction];
     this.agent = makeAgent({
@@ -231,10 +192,12 @@ export class Conversation {
     this.interrupting = config.interruptOnSpeech;
     this.onTurn = hooks.onTurn;
     this.onMatched = hooks.onMatched;
+    this.tell = hooks.tell;
   }
 
   private onTurn?: (turn: Turn) => void;
   private onMatched?: (said: string, became: string) => void;
+  private tell?: (value: Record<string, unknown>) => void;
   private deltaSink: ((text: string) => void) | null = null;
 
   get busy(): boolean { return this.turnRunning; }
@@ -243,116 +206,36 @@ export class Conversation {
   /** 15.4 whether the cues are on, for a transport that plays one of its own. */
   get tonesOn(): boolean { return this.tones; }
   /** 11.3 whether an answer is waiting to find out what Chris just said. */
-  get onHold(): boolean { return this.holding; }
+  get onHold(): boolean { return this.mouth.onHold; }
 
-  /**
-   * Every cue goes through here, so one command can silence all of them, and
-   * so nothing plays a cue over the voice. One transport shares one audio
-   * source and refuses a second writer: on 14 September the cue that marks the
-   * end of a turn fired while the bridge was mid-sentence and the transport
-   * threw `InvalidState - failed to capture frame`. The thinking cue had this
-   * guard at its call site; the others did not, so it lives here now.
-   */
+  /** Every cue goes through here, so one command can silence all of them (15.4). */
   cue(name: CueName): void {
-    if (this.tones && !this.speaking) this.mouth.cue(name);
+    if (this.tones) this.mouth.cue(name);
   }
 
   /** One sentence of the answer. It is what a barge-in holds. */
   private speak(text: string): void {
-    this.outbox.push(text);
-    void this.pump();
+    this.mouth.say(text);
   }
 
   /** One sentence from the bridge itself. It jumps a hold, because you asked now. */
   private reply(text: string): void {
-    this.ahead.push(text);
-    void this.pump();
+    this.mouth.reply(text);
   }
 
-  /** Sentences never overlap, and they keep their order (5.7). */
-  private async pump(): Promise<void> {
-    if (this.pumping) return;
-    this.pumping = true;
-    try {
-      for (;;) {
-        // which queue it came from, so a cut sentence goes back to that one
-        const jumped = this.ahead.length > 0;
-        const text = this.ahead.shift() ?? (this.holding ? undefined : this.outbox.shift());
-        if (text === undefined) break;
-        this.speaking = true;
-        let whole = true;
-        // the same choice the next turn of this loop will make, asked whenever
-        // the mouth is ready to act on it
-        const next = (): string | undefined =>
-          this.ahead[0] ?? (this.holding ? undefined : this.outbox[0]);
-        try { whole = await this.mouth.say(text, next); }
-        catch { /* a transport that dropped is not this loop's problem */ }
-        finally { this.speaking = false; }
-        // A sentence a barge-in cut is not a sentence Chris heard. It goes back
-        // to the front of the queue it came from, so a resume starts it again
-        // rather than carrying on from the middle of a word. A bridge reply
-        // used to return to the answer queue instead, where the next
-        // discardHold dropped it: "Muted." went unsaid.
-        //
-        // Either way it is not something he heard, so it never joins `said`.
-        // Reading `this.holding` after the await asked the wrong question: a
-        // discardHold while the sentence was still playing flipped it, and a
-        // sentence cut mid-word became the one `restate` read back.
-        if (whole === false) {
-          // Put it back and stop. A queue that jumps the hold used to retry the
-          // sentence at once, be cut at once, and retry again for as long as
-          // Chris kept talking: eighteen copies of one refusal in three seconds
-          // on the drive of 18 September. Whatever resolves the utterance --
-          // `resumeHold`, `discardHold`, `heardNothing` -- starts the pump again.
-          if (this.holding) { (jumped ? this.ahead : this.outbox).unshift(text); break; }
-        } else this.said.push(text);
-      }
-    } finally {
-      this.pumping = false;
-      this.settleIfIdle();
-    }
-  }
-
-  /**
-   * 11.3 stop the playback the moment Chris starts to talk — all of it. Cutting
-   * only the sentence in flight lets the queue drain into the gap, so the
-   * bridge keeps talking and stops each sentence in turn, which sounds worse
-   * than not stopping at all.
-   *
-   * The sentences are kept, not dropped. Until the bridge knows what Chris
-   * said it cannot know whether they still matter, and the answer to that is a
-   * transcription away — no clock is involved in the ordinary case.
-   */
+  /** 11.3 the moment Chris starts to talk, everything queued is held (Ears). */
   stopSpeaking(): void {
-    if (this.holding) return;
-    this.holding = true;
-    // The one clock: a transcription that never comes back must not leave the
-    // bridge silent with a passage stuck behind it.
-    this.holdBackstop = setTimeout(() => this.discardHold(), this.config.holdBackstopMs);
+    this.mouth.hold();
   }
 
   /** What Chris said does not change the answer: say the rest of it. */
   resumeHold(): void {
-    this.clearBackstop();
-    if (!this.holding) return;
-    this.holding = false;
-    void this.pump();
+    this.mouth.resume();
   }
 
-  /**
-   * What Chris said replaces the answer: everything still queued goes.
-   *
-   * It is kept, not dropped. 11.10 says an answer he did not hear is still an
-   * answer: "carry on" says it, the client shows it, and the agent is told
-   * where he stopped, because its own context has the whole thing.
-   */
+  /** What Chris said replaces the answer: everything still queued goes. */
   discardHold(): void {
-    this.clearBackstop();
-    this.holding = false;
-    if (this.outbox.length > 0) this.tail = this.outbox.splice(0);
-    // a bridge reply put back by the break above is still waiting to be said
-    if (this.ahead.length > 0) { void this.pump(); return; }
-    this.settleIfIdle();
+    this.mouth.discard();
   }
 
   /**
@@ -371,10 +254,9 @@ export class Conversation {
   private async cutOff(): Promise<string> {
     // the turn is no longer the one that owns the mouth, whatever becomes of it
     this.turnId++;
-    this.discardHold();
-    const unspoken = this.tail.join(" ");
-    if (unspoken) this.mouth.tell?.({ kind: "narration", text: `not spoken: ${unspoken}` });
-    const last = this.said[this.said.length - 1];
+    const unspoken = this.mouth.discard().join(" ");
+    if (unspoken) this.tell?.({ kind: "narration", text: `not spoken: ${unspoken}` });
+    const last = this.mouth.said.at(-1);
     const running = (this.running ?? Promise.resolve()).then(() => true, () => true);
     // Give it a moment to end by itself. An interrupt is what costs a subagent,
     // and the voice is already silent, so waiting is free to listen to.
@@ -398,26 +280,11 @@ export class Conversation {
     this.resumeHold();
   }
 
-  private clearBackstop(): void {
-    if (this.holdBackstop) { clearTimeout(this.holdBackstop); this.holdBackstop = null; }
-  }
-
-  private settleIfIdle(): void {
-    if (this.pumping || this.speaking) return;
-    if (this.ahead.length > 0 || this.outbox.length > 0) return;
-    for (const done of this.waiters.splice(0)) done();
-  }
-
-  private async drained(): Promise<void> {
-    if (!this.pumping && !this.speaking && this.ahead.length === 0 && this.outbox.length === 0) return;
-    await new Promise<void>((resolve) => this.waiters.push(resolve));
-  }
-
   /** Say it on the control channel and keep it, so 14.8 can say it again. */
   private remember(value: Record<string, unknown>): void {
     this.transcript.push({ ...value, at: Date.now() });
     if (this.transcript.length > 40) this.transcript.shift();
-    this.mouth.tell?.(value);
+    this.tell?.(value);
   }
 
   /**
@@ -551,7 +418,7 @@ export class Conversation {
     const id = ++this.turnId;
     const mine = () => id === this.turnId;
     this.turnRunning = true;
-    this.said = [];
+    this.mouth.newTurn();
     const sentences = new SentenceCollector(this.config.sentenceMaxChars);
     this.deltaSink = (text) => {
       if (!mine()) return;
@@ -563,8 +430,8 @@ export class Conversation {
       if (!mine()) return;
       const tail = sentences.flush();
       if (tail) this.speak(tail);
-      await this.drained();
-      this.lastReply = this.said.join(" ") || turn.text;
+      await this.mouth.drained();
+      this.lastReply = this.mouth.said.join(" ") || turn.text;
       this.recent.push({ said, reply: this.lastReply });
       if (this.recent.length > 3) this.recent.shift();
       this.remember({ kind: "turn", number: turn.number, text: this.lastReply, costUsd: this.agent.totalCostUsd() });
@@ -575,7 +442,7 @@ export class Conversation {
     } catch (error) {
       if (!mine()) return;
       this.reply("That turn did not finish.");
-      this.mouth.tell?.({ kind: "error", text: (error as Error).message });
+      this.tell?.({ kind: "error", text: (error as Error).message });
     } finally {
       stopCue();
       if (mine()) {
@@ -640,7 +507,7 @@ export class Conversation {
       // 9.4.5 you missed something. Mid-answer that is the last sentence said,
       // not the answer before this one, which is what it used to reach for.
       case "restate": {
-        const missed = this.turnRunning ? this.said[this.said.length - 1] : this.lastReply;
+        const missed = this.turnRunning ? this.mouth.said.at(-1) : this.lastReply;
         this.reply(missed || this.lastReply || "There is nothing to restate yet.");
         return "resume";
       }
@@ -664,14 +531,9 @@ export class Conversation {
 
       // 11.10 the rest of an answer a barge-in took off the queue. The agent is
       // not asked again: these are its own words, already paid for.
-      case "carryOn": {
-        const rest = this.tail.splice(0);
-        if (rest.length === 0) { this.reply("There is nothing left of it."); return "resume"; }
-        // ahead of whatever is queued now, not behind it: measured 18 September,
-        // the rest of a cut answer arrived after the whole of the next one.
-        for (const sentence of rest) this.reply(sentence);
+      case "carryOn":
+        if (!this.mouth.carryOn()) this.reply("There is nothing left of it.");
         return "resume";
-      }
 
       // 11.9 which of the two things a question mid-answer does. Said out loud
       // because the answer is a matter of taste and the car is where it is
@@ -684,7 +546,12 @@ export class Conversation {
       case "interruptOff": this.interrupting = false; this.reply("Interrupting off."); return "resume";
 
       case "endTurn":
-        if (!this.turnRunning) { this.reply("Nothing is running."); return "resume"; }
+        // no turn, but a replay from "carry on" may be playing, and it stops too
+        if (!this.turnRunning) {
+          if (!this.mouth.busy) { this.reply("Nothing is running."); return "resume"; }
+          this.reply("Stopped.");
+          return "discard";
+        }
         this.agent.interrupt();
         this.reply("Stopped.");
         return "discard";

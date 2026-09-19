@@ -103,6 +103,7 @@ same hook that will feed the sentence collector when voice arrives.
 | `src/commands.ts` | section 9: the wake word, matched by sound rather than spelling |
 | `src/cues.ts` | section 15: a soft tone, so a wait is never plain silence |
 | `src/conversation.ts` | the turn, the commands and the checkpoint, above any transport. The agent arrives at a seam (ADR 0001) |
+| `src/mouth.ts` | what the bridge says, from a sentence to the sound of it: the queues, the hold, carry on. The room and the desk each supply a speaker |
 | `src/transport.ts` | section 4.1: LiveKit over WebRTC, and the control channel of 4.3 |
 | `src/audio.ts` | the ends of a turn, and the barge-in, found in frames rather than by sox |
 | `src/latency.ts` | section 18.4: the round trip, measured rather than felt |

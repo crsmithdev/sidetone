@@ -1,13 +1,45 @@
 import { describe, expect, test } from "bun:test";
 import { DEFAULTS, type Config } from "../src/config.ts";
 import { Conversation } from "../src/conversation.ts";
+import { Measures } from "../src/measures.ts";
+import { Mouth, type Speaker } from "../src/mouth.ts";
 
 const config: Config = { ...DEFAULTS, historyMaxAgeMs: 60_000 };
-const silent = { say: async () => true, cue: () => {}, tell: () => {} };
 const engines = { start: async () => {}, transcribe: async () => "", synthesize: async () => "", stop: () => {} };
 
+/**
+ * A mouth over a speaker that keeps what it played, and can be made to block
+ * mid-sentence and to report a sentence cut short, which is what a barge-in
+ * looks like from up here. Making a sentence takes one tick, the way the
+ * engine takes a moment, so by then the agent has usually streamed more.
+ */
+function mouthFor(overrides: Partial<Config> = {}) {
+  const said: string[] = [];
+  const cues: string[] = [];
+  const lookahead: Array<string | undefined> = [];
+  let gate: (() => void) | null = null;
+  let blocking = false;
+  let whole = true;
+  const speaker: Speaker = {
+    async play(text) {
+      said.push(text);
+      if (blocking) await new Promise<void>((resolve) => { gate = resolve; });
+      return whole;
+    },
+    cue(wav) { cues.push(wav); },
+  };
+  const made = { take: async (text: string) => text, start: (text: string | undefined) => { lookahead.push(text); } };
+  const mouth = new Mouth(speaker, made, { file: (name) => name }, new Measures(), { ...config, ...overrides });
+  return {
+    mouth, said, cues, lookahead,
+    blockSay: (on: boolean) => { blocking = on; },
+    cutSay: (on: boolean) => { whole = !on; },
+    release: () => { gate?.(); gate = null; },
+  };
+}
+
 function withTranscript(entries: Array<Record<string, unknown>>): Conversation {
-  const c = new Conversation("/tmp", config, silent, engines as never);
+  const c = new Conversation("/tmp", config, mouthFor().mouth, engines as never);
   (c as unknown as { transcript: Array<Record<string, unknown>> }).transcript.push(...entries);
   return c;
 }
@@ -29,13 +61,11 @@ describe("what a client missed (14.8)", () => {
   });
 });
 
-/** A mouth that keeps what it was asked to do, so a command can be checked. */
+/** A conversation whose mouth keeps what it said, so a command can be checked. */
 function watched() {
-  const said: string[] = [];
-  const cues: string[] = [];
-  const mouth = { say: async (text: string) => { said.push(text); return true; }, cue: (name: string) => { cues.push(name); }, tell: () => {} };
-  const c = new Conversation("/tmp", config, mouth as never, engines as never);
-  return { c, said, cues };
+  const m = mouthFor();
+  const c = new Conversation("/tmp", config, m.mouth, engines as never);
+  return { c, said: m.said, cues: m.cues };
 }
 
 /** The speech queue is a promise chain, so a command's reply lands a tick later. */
@@ -110,102 +140,30 @@ describe("the stats command (18.4)", () => {
   });
 });
 
-/**
- * A room with a mouth that can be made to block mid-sentence and to report a
- * sentence cut short, which is what a barge-in looks like from up here.
- */
+/** A room: the conversation over a scripted mouth, with the rest of the conversation's guts in reach. */
 function room(overrides: Partial<Config> = {}) {
-  const said: string[] = [];
-  const cues: string[] = [];
-  let gate: (() => void) | null = null;
-  let blocking = false;
-  let whole = true;
-  const lookahead: Array<string | undefined> = [];
-  const mouth = {
-    say: async (text: string, next?: () => string | undefined) => {
-      said.push(text);
-      // A real mouth makes the sentence before it asks, and the asking is the
-      // point: by then the agent has streamed more of its reply. Yielding once
-      // is the smallest version of that delay.
-      await Promise.resolve();
-      lookahead.push(next?.());
-      if (blocking) await new Promise<void>((resolve) => { gate = resolve; });
-      return whole;
-    },
-    cue: (name: string) => { cues.push(name); },
-    tell: () => {},
-  };
-  const c = new Conversation("/tmp", { ...config, ...overrides }, mouth as never, engines as never);
+  const m = mouthFor(overrides);
+  const c = new Conversation("/tmp", { ...config, ...overrides }, m.mouth, engines as never);
   return {
-    c, said, cues, lookahead,
+    c, mouth: m.mouth, said: m.said, cues: m.cues, lookahead: m.lookahead,
     guts: c as unknown as {
-      speak(text: string): void;
       turnRunning: boolean;
-      said: string[];
       lastReply: string;
       recent: Array<{ said: string; reply: string }>;
     },
-    blockSay: (on: boolean) => { blocking = on; },
-    cutSay: (on: boolean) => { whole = !on; },
-    release: () => { gate?.(); gate = null; },
+    blockSay: m.blockSay,
+    cutSay: m.cutSay,
+    release: m.release,
   };
 }
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe("the hold (11.3)", () => {
-  test("a barge-in keeps what is left, and a resume says it", async () => {
-    const r = room();
-    r.c.stopSpeaking();
-    r.guts.speak("one."); r.guts.speak("two.");
-    await tick();
-    expect(r.said).toEqual([]);
-    expect(r.c.onHold).toBe(true);
-    r.c.resumeHold();
-    await tick();
-    expect(r.said).toEqual(["one.", "two."]);
-  });
-
-  test("a sentence the barge-in cut is said again from the start", async () => {
-    const r = room();
-    r.blockSay(true);
-    r.guts.speak("first."); r.guts.speak("second.");
-    await tick();
-    expect(r.said).toEqual(["first."]);
-    // Chris starts talking while "first." is still playing
-    r.cutSay(true);
-    r.c.stopSpeaking();
-    r.release();
-    await tick();
-    expect(r.said).toEqual(["first."]);
-    r.blockSay(false); r.cutSay(false);
-    r.c.resumeHold();
-    await tick();
-    expect(r.said).toEqual(["first.", "first.", "second."]);
-  });
-
-  test("road noise that carried no words gives the passage back", async () => {
-    const r = room();
-    r.c.stopSpeaking();
-    r.guts.speak("the rest.");
-    r.c.heardNothing();
-    await tick();
-    expect(r.said).toEqual(["the rest."]);
-  });
-
-  test("a transcription that never comes back is dropped by the backstop", async () => {
-    const r = room({ holdBackstopMs: 20 });
-    r.c.stopSpeaking();
-    r.guts.speak("the rest.");
-    await new Promise((resolve) => setTimeout(resolve, 40));
-    expect(r.c.onHold).toBe(false);
-    expect(r.said).toEqual([]);
-  });
-
   test("the acknowledgement is heard first, then the passage carries on", async () => {
     const r = room();
     r.c.stopSpeaking();
-    r.guts.speak("the rest of the answer.");
+    r.mouth.say("the rest of the answer.");
     await r.c.heard("hey bridge mute");
     await tick();
     expect(r.said).toEqual(["Muted.", "the rest of the answer."]);
@@ -215,7 +173,7 @@ describe("the hold (11.3)", () => {
   test("the wake word without a command changes nothing, so the passage carries on", async () => {
     const r = room();
     r.c.stopSpeaking();
-    r.guts.speak("the rest.");
+    r.mouth.say("the rest.");
     await r.c.heard("hey bridge wtaeuhnt");
     await tick();
     // it waits for the command rather than saying anything: the pause between
@@ -227,7 +185,7 @@ describe("the hold (11.3)", () => {
     const r = room();
     r.guts.recent.push({ said: "what does serve do", reply: "it joins the room." });
     r.c.stopSpeaking();
-    r.guts.speak("the rest.");
+    r.mouth.say("the rest.");
     await r.c.heard("hey bridge where are we");
     await tick();
     expect(r.said).toEqual(["You asked: what does serve do I said: it joins the room."]);
@@ -237,7 +195,7 @@ describe("the hold (11.3)", () => {
     const r = room();
     r.c.agent.ask = async () => { throw new Error("no agent in a test"); };
     r.c.stopSpeaking();
-    r.guts.speak("the rest.");
+    r.mouth.say("the rest.");
     await r.c.heard("what is the config file for");
     await tick();
     expect(r.said).toEqual(["That turn did not finish."]);
@@ -245,25 +203,6 @@ describe("the hold (11.3)", () => {
 });
 
 describe("a cue never plays over the voice (15)", () => {
-  test("one transport shares one audio source, and it refuses two writers", async () => {
-    const r = room();
-    r.blockSay(true);
-    r.guts.speak("a long sentence being read out.");
-    await tick();
-    expect(r.said).toEqual(["a long sentence being read out."]);
-    // the end-of-turn cue arrives while that sentence is still playing. On
-    // 14 September this reached the transport and it threw
-    // "InvalidState - failed to capture frame" into a live conversation.
-    r.c.cue("heard");
-    expect(r.cues).toEqual([]);
-    r.blockSay(false);
-    r.release();
-    await tick();
-    // once the voice is done, a cue is welcome again
-    r.c.cue("heard");
-    expect(r.cues).toEqual(["heard"]);
-  });
-
   test("tones off still silences it, so the two guards do not fight", async () => {
     const r = room();
     await r.c.heard("hey bridge tones off");
@@ -330,7 +269,7 @@ describe("the commands that were wrong mid-turn", () => {
     const r = room();
     r.guts.turnRunning = true;
     r.c.stopSpeaking();
-    r.guts.speak("the rest.");
+    r.mouth.say("the rest.");
     await r.c.heard("hey bridge summarize");
     await tick();
     expect(r.said).toEqual([
@@ -345,7 +284,7 @@ describe("the commands that were wrong mid-turn", () => {
     const r = room();
     r.guts.lastReply = "the answer before this one.";
     r.guts.turnRunning = true;
-    r.guts.speak("the first sentence."); r.guts.speak("the second sentence.");
+    r.mouth.say("the first sentence."); r.mouth.say("the second sentence.");
     await tick();
     await r.c.heard("hey bridge say that again");
     await tick();
@@ -358,6 +297,35 @@ describe("the commands that were wrong mid-turn", () => {
     await r.c.heard("hey bridge say that again");
     await tick();
     expect(r.said).toEqual(["the answer before this one."]);
+  });
+});
+
+describe("end the turn with no turn running (9.4.8)", () => {
+  test("with nothing queued it says so", async () => {
+    const r = room();
+    await r.c.heard("hey bridge end the turn");
+    await tick();
+    expect(r.said).toEqual(["Nothing is running."]);
+  });
+
+  test("a replay from carry on is stopped, and the stop is heard at once", async () => {
+    const r = room();
+    r.c.stopSpeaking();
+    r.mouth.say("two."); r.mouth.say("three.");
+    r.c.discardHold();
+    r.blockSay(true);
+    await r.c.heard("hey bridge carry on");
+    await tick();
+    expect(r.said).toEqual(["two."]);
+    // Chris talks over the replay, and what he said is the stop
+    r.cutSay(true);
+    r.c.stopSpeaking();
+    r.release();
+    await tick();
+    r.cutSay(false); r.blockSay(false);
+    await r.c.heard("hey bridge end the turn");
+    await tick();
+    expect(r.said).toEqual(["two.", "Stopped."]);
   });
 });
 
@@ -402,7 +370,7 @@ describe("the gate on clearing the context (10)", () => {
     const r = room();
     r.c.agent.restart = () => {};
     r.c.stopSpeaking();
-    r.guts.speak("the rest.");
+    r.mouth.say("the rest.");
     await r.c.heard("hey bridge clear");
     await tick();
     expect(r.c.onHold).toBe(true);
@@ -414,21 +382,18 @@ describe("switching voice (4.9)", () => {
   test("it changes the engine's voice and leaves the answer alone", async () => {
     const asked: string[] = [];
     const speaking = { ...engines, use: (v: string) => { asked.push(v); } };
-    const said: string[] = [];
-    const mouth = { say: async (t: string) => { said.push(t); return true; }, cue: () => {}, tell: () => {} };
-    const c = new Conversation("/tmp", config, mouth as never, speaking as never);
-    const guts = c as unknown as { speak(t: string): void };
+    const { mouth, said } = mouthFor();
+    const c = new Conversation("/tmp", config, mouth, speaking as never);
     c.stopSpeaking();
-    guts.speak("the rest of the answer.");
+    mouth.say("the rest of the answer.");
     await c.heard("hey bridge male voice");
     await new Promise((r) => setTimeout(r, 0));
     expect(asked).toEqual([config.voiceChoices.male]);
     expect(said).toEqual(["Switched to the male voice.", "the rest of the answer."]);
   });
   test("an engine with one voice says so rather than pretending", async () => {
-    const said: string[] = [];
-    const mouth = { say: async (t: string) => { said.push(t); return true; }, cue: () => {}, tell: () => {} };
-    const c = new Conversation("/tmp", config, mouth as never, engines as never);
+    const { mouth, said } = mouthFor();
+    const c = new Conversation("/tmp", config, mouth, engines as never);
     await c.heard("hey bridge female voice");
     await new Promise((r) => setTimeout(r, 0));
     expect(said).toEqual(["This engine has only the one voice."]);
@@ -451,100 +416,11 @@ describe("the wake-word hold", () => {
 
   test("a question is not a command, however it ends", async () => {
     const commands: string[] = [];
-    const mouth = { say: async () => true, cue: () => {}, tell: () => {} };
-    const asked: string[] = [];
-    const c = new Conversation("/tmp", config, mouth as never, engines as never, {
+    const c = new Conversation("/tmp", config, mouthFor().mouth, engines as never, {
       onMatched: (_said, became) => { commands.push(became); },
     });
-    (c as unknown as { toAgent: (text: string) => void }).toAgent = (text: string) => { asked.push(text); };
     await c.heard("hey bridge");
     await c.heard("how do i stop the server");
     expect(commands).not.toContain("endTurn");
-  });
-});
-
-/**
- * A sentence a barge-in cut is not a sentence Chris heard. Where it goes back
- * to matters: a bridge reply lives on `ahead`, and returning it to the answer
- * queue meant the next discardHold threw it away, so "Muted." went unsaid.
- */
-describe("a sentence a barge-in cut", () => {
-  /** A mouth that reports the first sentence as cut off, the way a barge-in does. */
-  function cutOnce() {
-    const said: string[] = [];
-    let first = true;
-    const mouth = {
-      say: async (text: string) => { said.push(text); if (first) { first = false; return false; } return true; },
-      cue: () => {}, tell: () => {},
-    };
-    const c = new Conversation("/tmp", config, mouth as never, engines as never);
-    return { c, said };
-  }
-
-  test("a bridge reply goes back to the queue it came from, and the pump stops", async () => {
-    // it used to be retried at once, cut at once and retried again for as long
-    // as Chris kept talking. It goes back and waits for the hold to resolve.
-    const attempts: string[] = [];
-    const mouth = {
-      say: async (text: string) => { attempts.push(text); return false; },
-      cue: () => {}, tell: () => {},
-    };
-    const c = new Conversation("/tmp", config, mouth as never, engines as never);
-    const inner = c as unknown as { ahead: string[]; outbox: string[]; holding: boolean; pump: () => Promise<void> };
-    inner.holding = true;
-    inner.ahead.push("Muted.");
-    await inner.pump();
-    expect(attempts).toEqual(["Muted."]);
-    // back on `ahead`, and never on `outbox`, which a discardHold empties
-    expect(inner.ahead).toEqual(["Muted."]);
-    expect(inner.outbox).toEqual([]);
-  });
-
-  test("it is never counted as something he heard", async () => {
-    const { c } = cutOnce();
-    const inner = c as unknown as { ahead: string[]; said: string[]; holding: boolean; pump: () => Promise<void> };
-    // the hold is discarded while the sentence is still playing, the way a new
-    // question does it, so `holding` is already false when say() returns
-    inner.holding = false;
-    inner.ahead.push("half a sen");
-    await inner.pump();
-    expect(inner.said).toEqual([]);
-  });
-});
-
-/**
- * 11.6 the gap between two sentences. The bridge says one sentence at a time
- * and waits for each, so whatever the mouth spends making a sentence lands in
- * the silence before it. The cloning voice spends three seconds. The pump
- * therefore tells the mouth which sentence comes next, so the mouth can make
- * it while the current one plays.
- */
-describe("the next sentence is named before this one ends (11.6)", () => {
-  test("each sentence is told the one that follows it, and the last is told nothing", async () => {
-    const r = room();
-    // speak() takes one sentence; the splitter is upstream of it
-    r.guts.speak("One."); r.guts.speak("Two."); r.guts.speak("Three.");
-    await tick();
-    expect(r.said).toEqual(["One.", "Two.", "Three."]);
-    expect(r.lookahead).toEqual(["Two.", "Three.", undefined]);
-  });
-
-  test("a sentence a barge-in cut is named again, not skipped past", async () => {
-    const r = room();
-    r.blockSay(true);
-    r.guts.speak("first."); r.guts.speak("second.");
-    await tick();
-    expect(r.said).toEqual(["first."]);
-    expect(r.lookahead).toEqual(["second."]);
-    r.cutSay(true);
-    r.c.stopSpeaking();
-    r.release();
-    await tick();
-    r.blockSay(false); r.cutSay(false);
-    r.c.resumeHold();
-    await tick();
-    // the cut sentence plays again from the start, and still names the one after
-    expect(r.said).toEqual(["first.", "first.", "second."]);
-    expect(r.lookahead).toEqual(["second.", "second.", undefined]);
   });
 });

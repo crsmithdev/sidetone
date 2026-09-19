@@ -20,6 +20,7 @@ import { protocolMessage } from "./messages.ts";
 import { LocalWhisper, SpokenAhead, textToSpeech } from "./speech.ts";
 import { advertiseHost, livekitConfig, loadOrCreateKeys } from "./keys.ts";
 import { Measures } from "./measures.ts";
+import { Mouth } from "./mouth.ts";
 import { Recorder } from "./record.ts";
 import { qualityOf } from "./network.ts";
 import { RTC_RATE, Transport, tokenFor } from "./transport.ts";
@@ -85,46 +86,30 @@ export async function serve(dir: string, config: Config): Promise<void> {
   let counter = 0;
   const bargingIn = () => ear.bargingIn;
 
-  /** 11.12 whether the bridge speaks at all. The words go either way. */
-  let voice = true;
-
-  const conversation = new Conversation(dir, config, {
-    async say(text: string, next?: () => string | undefined): Promise<boolean> {
-      // The round trip is still closed: the answer arrived, and how long that
-      // took is the same question whether it is read or heard.
-      if (!voice) { console.log(`  ${text}`); measures.answering(); measures.spoken(text, true); return true; }
-      const wav = await ahead.take(text);
+  /** 7.4 the one thing the room does that the desk does not: it plays over LiveKit. */
+  const mouth = new Mouth({
+    async play(text, wav) {
       console.log(`  ${text}`);
+      if (!wav) return true;
       // 11.3 stop the moment Chris starts to talk. The frames cannot hold the
       // bridge's own voice, because the client cancelled it before sending.
-      // 18.4 the first sound of the answer closes the round trip. A later
-      // sentence is not a round trip, and the tracker ignores it.
-      measures.answering();
-      const frames = await Bun.file(wav).bytes();
-      // The engine takes one request at a time, so this starts only now that
-      // the current sentence is made. A barge-in during this prefetch makes
-      // the bridge's next word wait for it, which costs one synthesis once and
-      // saves one on every sentence of every answer.
-      ahead.start(next?.());
-      const whole = await transport.speak(frames, bargingIn);
+      const whole = await transport.speak(await Bun.file(wav).bytes(), bargingIn);
       if (!whole) console.log(`  [stopped: Chris started talking${ear.bargedAt ? `, ${Date.now() - ear.bargedAt}ms after it was noticed` : ""}]`);
-      measures.spoken(text, whole);
       return whole;
     },
-    cue(name) {
-      if (!voice) return;
-      const wav = cues.file(name);
-      if (!wav) return;
+    cue(wav) {
       void Bun.file(wav).bytes()
-        // The caller checked that nothing was speaking before this read began.
+        // The mouth checked that nothing was speaking before this read began.
         // If that changed while the file was read, the cue is late: a cue means
         // "still working", and behind a whole answer it means nothing.
         .then((bytes) => (transport.speaking ? false : transport.speak(bytes, bargingIn)))
         .catch((error) => console.log(`[the cue failed: ${(error as Error).message}]`));
     },
-    tell(value) { void transport.send(value); },
-  }, tts, {
+  }, ahead, cues, measures, config);
+
+  const conversation = new Conversation(dir, config, mouth, tts, {
     onNarration: (text) => { console.log(`[${text}]`); void transport.send({ kind: "narration", text }); },
+    tell: (value) => { void transport.send(value); },
     onTurn: (turn) => console.log(`[turn ${turn.number}, $${conversation.agent.totalCostUsd().toFixed(4)} this session]`),
     onMatched: (said, became) => {
       measures.matched(said, became);
@@ -137,7 +122,7 @@ export async function serve(dir: string, config: Config): Promise<void> {
       console.log(`[${text}]`);
       void transport.send({ kind: "narration", text });
     },
-  }, undefined, measures);
+  });
   conversation.start();
 
   /** 11.5 and 18.4 entire: the listening policy, one module, driven by frames. */
@@ -202,7 +187,8 @@ export async function serve(dir: string, config: Config): Promise<void> {
     }
     // 11.12 asked for after a drive: somewhere the bridge must not be heard.
     if (value.kind === "voice") {
-      voice = value.on !== false;
+      const voice = value.on !== false;
+      mouth.setVoice(voice);
       const text = voice ? "the voice is on" : "the voice is off; the words carry on in the transcript";
       console.log(`[${text}]`);
       void transport.send({ kind: "narration", text });

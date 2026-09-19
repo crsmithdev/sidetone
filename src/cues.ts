@@ -99,15 +99,9 @@ export class Cues {
     return await Bun.spawn(["sox", ...args], { stdout: "ignore", stderr: "ignore" }).exited === 0;
   }
 
-  /** The file, for a transport that sends bytes rather than plays them. */
+  /** The file. The speaker plays it, or sends its bytes. */
   file(name: CueName): string | undefined {
     return this.files.get(name);
-  }
-
-  async play(name: CueName): Promise<void> {
-    const wav = this.files.get(name);
-    if (!wav) return;
-    await Bun.spawn(["paplay", wav], { stdout: "ignore", stderr: "ignore" }).exited;
   }
 }
 
