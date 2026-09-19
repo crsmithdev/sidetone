@@ -23,6 +23,8 @@ export interface Heard {
   /** the quiet before it, which is the pause that ended the one before */
   gapMs: number;
   endedBy: "pause" | "flush";
+  /** quiet stretches inside it that speech went on after: where a shorter pause would have cut it */
+  falseEnds: number;
   /** what the engine made of it, and how long that took */
   text: string;
   transcribeMs: number;
@@ -71,7 +73,7 @@ export class Diagnostics {
     this.add({
       kind: "heard", at, text, transcribeMs,
       ms: utterance.ms, speechMs: utterance.speechMs, peak: utterance.peak,
-      gapMs: utterance.gapMs, endedBy: utterance.endedBy,
+      gapMs: utterance.gapMs, endedBy: utterance.endedBy, falseEnds: utterance.falseEnds,
     });
   }
 
@@ -126,6 +128,9 @@ export class Diagnostics {
       shortAndQuiet: heard.filter((h) => h.ms < 1_500 && h.speechMs < h.ms * 0.6).length,
       medianPeak: middle(heard.map((h) => h.peak).sort((a, b) => a - b)),
       medianGapMs: middle(heard.map((h) => h.gapMs).sort((a, b) => a - b)),
+      /** how often a pause of earlyTranscribeMs would have ended a sentence early: the number that decides a turn detector */
+      falseEnds: heard.reduce((sum, h) => sum + (h.falseEnds ?? 0), 0),
+      withFalseEnds: heard.filter((h) => h.falseEnds > 0).length,
       bargeIns: barged.length,
       medianBargeLevel: middle(barged.map((b) => b.level).sort((a, b) => a - b)),
     };

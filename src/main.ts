@@ -16,7 +16,7 @@ import { Session, recorded, spawnClaude } from "./session.ts";
 import { Conversation, keptLines } from "./conversation.ts";
 import { Cues } from "./cues.ts";
 import { decodeWav, utteranceOf } from "./audio.ts";
-import { Ear, earOptions } from "./ear.ts";
+import { Ear } from "./ear.ts";
 import { Measures } from "./measures.ts";
 import { Mouth } from "./mouth.ts";
 import { fetchCert } from "./keys.ts";
@@ -167,7 +167,7 @@ async function voice(dir: string, config: Config): Promise<void> {
    */
   // the detector settings are inert here: the desk pushes no frames, sox finds
   // the ends of a turn itself, and the rate is the one it records at
-  const ear = new Ear(conversation, () => stt.transcribe(heardWav), earOptions(config, 16_000), conversation.measures);
+  const ear = new Ear(conversation, () => stt.transcribe(heardWav), { ...config, sampleRate: 16_000 }, conversation.measures);
 
   conversation.start();
   console.log(`Claude Code in ${dir}. Speak; a ${(config.endOfTurnPauseMs / 1000).toFixed(1)}s pause ends your turn.`);

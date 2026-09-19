@@ -41,6 +41,7 @@ systemctl --user restart voice-bridge.service
 | the same three, then `/diagnostics` or the record | say the setting in force now, not the one the bridge started with; the record carries a `setting` line at the moment of the change |
 | the phone's screen | the answer arrives a sentence at a time, before the voice reaches it |
 | the journal, `begun at the tentative end` | the transcription started during the pause, so the round trip no longer waits for it |
+| the journal, `N false ends` on a `> ` line | a quiet of 400 ms that you then talked through. Each one is where a shorter pause would have cut you off; the total decides whether a turn detector is worth building |
 | swiping the app away | leaves the room; the bridge logs `[the room lost a microphone track]` |
 
 ## 1. Can the replay be stopped?

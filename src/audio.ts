@@ -82,9 +82,9 @@ export function level(samples: Int16Array): number {
 export interface UtteranceOptions {
   sampleRate: number;
   /** 11.5 the pause that ends a turn */
-  pauseMs: number;
+  endOfTurnPauseMs: number;
   /** how long the level must stay up before this counts as speech */
-  onsetMs: number;
+  speechOnsetMs: number;
   /** the level that counts as speech, as a fraction of full scale */
   speechLevel: number;
   /** 11.3 the louder level, held for longer, that counts as a barge-in */
@@ -93,7 +93,7 @@ export interface UtteranceOptions {
   /** how long a dip between syllables may last without resetting the count */
   bargeInGapMs: number;
   /** 18.4 the quiet after which the recording so far is offered as a tentative end; absent means never */
-  tentativeMs?: number;
+  earlyTranscribeMs?: number;
 }
 
 /**
@@ -116,6 +116,13 @@ export interface Utterance {
   gapMs: number;
   /** what finished it: the end-of-turn pause, or the stream ending */
   endedBy: "pause" | "flush";
+  /**
+   * Quiet stretches of at least `earlyTranscribeMs` inside it, after which
+   * speech went on. Each one is a place a shorter pause, or a turn detector
+   * that trusts the quiet, would have cut the sentence in half. Counted so a
+   * drive can say how often that would happen before any detector is built.
+   */
+  falseEnds: number;
 }
 
 /**
@@ -140,6 +147,8 @@ export function utteranceOf(wav: Wav, speechLevel: number, frameMs = 20): Uttera
     peak: Number(peak.toFixed(3)),
     gapMs: 0,
     endedBy: "pause",
+    // sox found the end itself, and it does not say what it passed over
+    falseEnds: 0,
   };
 }
 
@@ -166,16 +175,19 @@ export class Utterances {
   private gapMs = 0;
   /** whether this quiet stretch has already been offered as a tentative end */
   private tentativeTaken = false;
+  /** whether this quiet stretch is long enough that a resume makes it a false end */
+  private longQuiet = false;
+  private falseEnds = 0;
 
   constructor(private readonly options: UtteranceOptions) {}
 
   private get preRollLimit(): number {
-    return Math.round((this.options.onsetMs + 200) * this.options.sampleRate / 1000);
+    return Math.round((this.options.speechOnsetMs + 200) * this.options.sampleRate / 1000);
   }
 
   /** The utterance this frame completed, or null. */
   push(frame: Int16Array): Utterance | null {
-    const { sampleRate, pauseMs, onsetMs, speechLevel, bargeInLevel, bargeInMs, bargeInGapMs } = this.options;
+    const { sampleRate, endOfTurnPauseMs, speechOnsetMs, speechLevel, bargeInLevel, bargeInMs, bargeInGapMs, earlyTranscribeMs } = this.options;
     const ms = (frame.length / sampleRate) * 1000;
     const heard = level(frame);
     const loud = heard >= speechLevel;
@@ -208,7 +220,7 @@ export class Utterances {
         this.preRollSamples -= (this.preRoll.shift() as Int16Array).length;
       }
       this.loudMs = loud ? this.loudMs + ms : 0;
-      if (this.loudMs < onsetMs) return null;
+      if (this.loudMs < speechOnsetMs) return null;
       this.speaking = true;
       this.recording = [...this.preRoll];
       this.preRoll = [];
@@ -224,23 +236,29 @@ export class Utterances {
 
     this.recording.push(frame);
     this.ranMs += ms;
-    if (loud) { this.spokeMs += ms; this.tentativeTaken = false; }
+    if (loud) {
+      this.spokeMs += ms;
+      this.tentativeTaken = false;
+      // speech went on after a quiet long enough to have been taken for the end
+      if (this.longQuiet) { this.falseEnds += 1; this.longQuiet = false; }
+    }
     this.peak = Math.max(this.peak, heard);
     this.quietMs = loud ? 0 : this.quietMs + ms;
-    if (this.quietMs < pauseMs) return null;
+    if (earlyTranscribeMs && this.quietMs >= earlyTranscribeMs) this.longQuiet = true;
+    if (this.quietMs < endOfTurnPauseMs) return null;
     return this.finish("pause");
   }
 
   /**
    * 18.4 the tentative end: the recording so far, once the quiet has run
-   * `tentativeMs`, on the guess that the turn is over. Offered once per quiet
+   * `earlyTranscribeMs`, on the guess that the turn is over. Offered once per quiet
    * stretch. Whether the guess was right is in `speechMs`: speech that
    * resumed grows it, so the utterance that finishes with the same `speechMs`
    * is the one this was a prefix of.
    */
   tentativeEnd(): Utterance | null {
-    const { tentativeMs } = this.options;
-    if (!tentativeMs || !this.speaking || this.tentativeTaken || this.quietMs < tentativeMs) return null;
+    const { earlyTranscribeMs } = this.options;
+    if (!earlyTranscribeMs || !this.speaking || this.tentativeTaken || this.quietMs < earlyTranscribeMs) return null;
     this.tentativeTaken = true;
     return this.snapshot("pause");
   }
@@ -253,6 +271,7 @@ export class Utterances {
       peak: Number(this.peak.toFixed(3)),
       gapMs: Math.round(this.gapMs),
       endedBy,
+      falseEnds: this.falseEnds,
     };
   }
 
@@ -283,6 +302,8 @@ export class Utterances {
     this.spokeMs = 0;
     this.peak = 0;
     this.tentativeTaken = false;
+    this.longQuiet = false;
+    this.falseEnds = 0;
   }
 
   /** Whether a recording is open, which is not the same question as a barge-in. */

@@ -172,7 +172,7 @@ function settle(now = Date.now()): void {
   burstSince = 0;
 }
 const utterances = new Utterances({
-  sampleRate: RTC_RATE, pauseMs: 900, onsetMs: 80, speechLevel: 0.02,
+  sampleRate: RTC_RATE, endOfTurnPauseMs: 900, speechOnsetMs: 80, speechLevel: 0.02,
   bargeInLevel: 0.05, bargeInMs: 400, bargeInGapMs: 200,
 });
 let index = 0;

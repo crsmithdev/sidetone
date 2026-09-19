@@ -4,7 +4,7 @@ import { PASSAGE, SCRIPT, score, wordAccuracy } from "../src/scorecard.ts";
 
 const heard = (text: string, over: Partial<{ ms: number; speechMs: number; peak: number; transcribeMs: number }> = {}): Event => ({
   kind: "heard", at: 0, text, transcribeMs: 200,
-  ms: 3_000, speechMs: 2_000, peak: 0.45, gapMs: 2_000, endedBy: "pause", ...over,
+  ms: 3_000, speechMs: 2_000, peak: 0.45, gapMs: 2_000, endedBy: "pause", falseEnds: 0, ...over,
 });
 const matched = (said: string, became: string): Event => ({ kind: "matched", at: 0, said, became });
 

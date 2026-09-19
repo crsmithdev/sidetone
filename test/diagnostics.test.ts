@@ -4,7 +4,7 @@ import { Diagnostics } from "../src/diagnostics.ts";
 
 const utterance = (over: Partial<Utterance> = {}): Utterance => ({
   samples: new Int16Array(0), ms: 3_000, speechMs: 2_400, peak: 0.3,
-  gapMs: 2_000, endedBy: "pause", ...over,
+  gapMs: 2_000, endedBy: "pause", falseEnds: 0, ...over,
 });
 
 describe("what the bridge remembers", () => {
@@ -14,7 +14,7 @@ describe("what the bridge remembers", () => {
     const [event] = d.recent();
     expect(event).toEqual({
       kind: "heard", at: 1_000, text: "Okay, it's...", transcribeMs: 640,
-      ms: 1_200, speechMs: 500, peak: 0.22, gapMs: 1_500, endedBy: "pause",
+      ms: 1_200, speechMs: 500, peak: 0.22, gapMs: 1_500, endedBy: "pause", falseEnds: 0,
     });
   });
 

@@ -5,15 +5,14 @@ import { Measures } from "../src/measures.ts";
 
 const OPTIONS: EarOptions = {
   sampleRate: 16_000,
-  pauseMs: 900,
-  onsetMs: 50,
+  endOfTurnPauseMs: 900,
+  speechOnsetMs: 50,
   speechLevel: 0.02,
   bargeInLevel: 0.05,
   bargeInMs: 400,
   bargeInGapMs: 120,
   minSpeechPeak: 0.15,
-  endOfTurnPauseMs: 900,
-  tentativeMs: 200,
+  earlyTranscribeMs: 200,
 };
 
 /** The ear, its listener and its bookkeeper, ready to be driven. */
@@ -39,7 +38,7 @@ function listener(muted = false) {
 }
 
 function utterance(peak: number): Utterance {
-  return { samples: new Int16Array(160), ms: 1000, speechMs: 700, peak, gapMs: 1200, endedBy: "pause" };
+  return { samples: new Int16Array(160), ms: 1000, speechMs: 700, peak, gapMs: 1200, endedBy: "pause", falseEnds: 0 };
 }
 
 /** A frame at a level, as the phone would send it. */

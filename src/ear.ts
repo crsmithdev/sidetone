@@ -24,43 +24,13 @@ export interface Ears {
 }
 
 /**
- * The settings the ear reads, in one place, so the two loops cannot build them
- * differently. `endOfTurnPauseMs` is `pauseMs` as well: the pause the detector
- * waits for is the pause the clock has to give back, and when they were two
- * readings a change to one made every measurement lie.
+ * What the ear reads. The detector's settings, under the names the config
+ * gives them, plus the invention guard. A caller spreads the config over this
+ * and adds the rate: there is no second copy of the names to keep in step.
  */
-export function earOptions(config: EarSettings, sampleRate: number): EarOptions {
-  return {
-    sampleRate,
-    pauseMs: config.endOfTurnPauseMs,
-    onsetMs: config.speechOnsetMs,
-    speechLevel: config.speechLevel,
-    bargeInLevel: config.bargeInLevel,
-    bargeInMs: config.bargeInMs,
-    bargeInGapMs: config.bargeInGapMs,
-    minSpeechPeak: config.minSpeechPeak,
-    endOfTurnPauseMs: config.endOfTurnPauseMs,
-    tentativeMs: config.earlyTranscribeMs,
-  };
-}
-
-/** What `earOptions` reads out of the settings. */
-export interface EarSettings {
-  endOfTurnPauseMs: number;
-  speechOnsetMs: number;
-  speechLevel: number;
-  bargeInLevel: number;
-  bargeInMs: number;
-  bargeInGapMs: number;
-  minSpeechPeak: number;
-  earlyTranscribeMs: number;
-}
-
 export interface EarOptions extends UtteranceOptions {
   /** 4.6 under this, whisper is writing words for near-silence */
   minSpeechPeak: number;
-  /** 11.5 the pause that ended the turn, which the clock has to give back */
-  endOfTurnPauseMs: number;
 }
 
 /** How long a dead microphone has to stay dead before the bridge says so. */
@@ -224,7 +194,8 @@ export class Ear {
       `\n> ${text || "(nothing)"}` +
       `\n  [${(utterance.ms / 1000).toFixed(1)}s heard, ${(utterance.speechMs / 1000).toFixed(1)}s of speech in it, ` +
       `peak ${utterance.peak.toFixed(2)}, ${(utterance.gapMs / 1000).toFixed(1)}s quiet before, ` +
-      `read in ${transcribeMs}ms${early ? ", begun at the tentative end" : ""}]`
+      `read in ${transcribeMs}ms${early ? ", begun at the tentative end" : ""}` +
+      `${utterance.falseEnds ? `, ${utterance.falseEnds} false end${utterance.falseEnds > 1 ? "s" : ""}` : ""}]`
     );
   }
 }

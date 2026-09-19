@@ -15,8 +15,8 @@ const QUIET = frame(0.0001);
 
 function collector(tentativeMs?: number) {
   return new Utterances({
-    sampleRate: RATE, pauseMs: 200, onsetMs: 40, speechLevel: 0.02,
-    bargeInLevel: 0.05, bargeInMs: 200, bargeInGapMs: 100, tentativeMs,
+    sampleRate: RATE, endOfTurnPauseMs: 200, speechOnsetMs: 40, speechLevel: 0.02,
+    bargeInLevel: 0.05, bargeInMs: 200, bargeInGapMs: 100, earlyTranscribeMs: tentativeMs,
   });
 }
 
@@ -57,6 +57,29 @@ describe("the tentative end (18.4)", () => {
     const u = collector();
     const { early } = drive(u, [...Array(5).fill(LOUD), ...Array(10).fill(QUIET)]);
     expect(early).toEqual([]);
+  });
+
+  /**
+   * The number that decides whether a turn detector is worth a drive: how
+   * often a quiet as long as the tentative one was followed by more speech.
+   * Each of those is a sentence a shorter pause would have cut in half.
+   */
+  test("a quiet that speech went on after is a false end; the last quiet is not; a breath is not", () => {
+    const twice = collector(100);
+    const { done } = drive(twice, [
+      ...Array(5).fill(LOUD), ...Array(5).fill(QUIET), ...Array(3).fill(LOUD),
+      ...Array(6).fill(QUIET), ...Array(3).fill(LOUD), ...Array(10).fill(QUIET),
+    ]);
+    expect(done[0]?.falseEnds).toBe(2);
+
+    const breath = collector(100);
+    expect(drive(breath, [...Array(5).fill(LOUD), ...Array(3).fill(QUIET), ...Array(3).fill(LOUD), ...Array(10).fill(QUIET)]).done[0]?.falseEnds).toBe(0);
+
+    const unset = collector();
+    expect(drive(unset, [...Array(5).fill(LOUD), ...Array(5).fill(QUIET), ...Array(3).fill(LOUD), ...Array(10).fill(QUIET)]).done[0]?.falseEnds).toBe(0);
+
+    // the count belongs to one utterance
+    expect(drive(twice, [...Array(5).fill(LOUD), ...Array(10).fill(QUIET)]).done[0]?.falseEnds).toBe(0);
   });
 });
 
@@ -179,7 +202,7 @@ describe("utterances (11.5)", () => {
 });
 
 describe("too quiet to have been a person", () => {
-  const heard = (peak: number) => ({ samples: new Int16Array(0), ms: 2_100, speechMs: 400, peak, gapMs: 1_500, endedBy: "pause" as const });
+  const heard = (peak: number) => ({ samples: new Int16Array(0), ms: 2_100, speechMs: 400, peak, gapMs: 1_500, endedBy: "pause" as const, falseEnds: 0 });
   test("the levels measured on 14 September fall either side of the default", () => {
     // "Thank you." came out of this one, and Chris never said it
     expect(tooQuiet(heard(0.12), 0.15)).toBe(true);
