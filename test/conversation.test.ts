@@ -251,6 +251,14 @@ describe("a setting changed out loud is handed on (9.4)", () => {
 });
 
 describe("end the turn with no turn running (9.4.8)", () => {
+  test("the command itself is a barge-in, and still it says nothing is running", async () => {
+    const { c, said } = watched();
+    c.ears.stopSpeaking();
+    await c.heard("hey bridge end the turn");
+    await settled();
+    expect(said).toEqual(["Nothing is running."]);
+  });
+
   test("with nothing queued it says so", async () => {
     const r = room();
     await r.c.heard("hey bridge end the turn");

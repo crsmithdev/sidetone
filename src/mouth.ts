@@ -199,16 +199,20 @@ export class Mouth {
    * It is kept, not dropped. 11.10 says an answer he did not hear is still an
    * answer: "carry on" says it, the client shows it, and the agent is told
    * where he stopped, because its own context has the whole thing. What is
-   * returned is that rest, for telling both.
+   * returned is what this call took, for telling both; a discard that took
+   * nothing returns nothing, and the last rest stays kept for carry on. It
+   * used to return the kept rest either way, and an interrupt of a turn that
+   * was fully spoken reported an earlier turn's sentences as unspoken.
    */
   discard(): readonly string[] {
     this.clearBackstop();
     this.holding = false;
-    if (this.outbox.length > 0) this.tail = this.outbox.splice(0);
+    const taken = this.outbox.splice(0);
+    if (taken.length > 0) this.tail = taken;
     // a bridge reply put back by the break in the pump is still waiting to be said
     if (this.ahead.length > 0) void this.pump();
     else this.settleIfIdle();
-    return this.tail;
+    return taken;
   }
 
   /**
@@ -231,9 +235,14 @@ export class Mouth {
     return true;
   }
 
-  /** Whether anything is queued, held or playing: the thing "end the turn" stops when no turn runs. */
+  /**
+   * Whether anything is queued or playing: the thing "end the turn" stops when
+   * no turn runs. A hold with nothing behind it is not busy: the ear holds the
+   * mouth on every barge-in, and a spoken command is a barge-in, so counting
+   * the hold made "Nothing is running." unreachable from the room.
+   */
   get busy(): boolean {
-    return this.playing || this.holding || this.outbox.length > 0 || this.ahead.length > 0;
+    return this.playing || this.outbox.length > 0 || this.ahead.length > 0;
   }
 
   /** Resolves once nothing is queued and nothing is playing. */

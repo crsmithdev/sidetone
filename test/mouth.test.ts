@@ -199,12 +199,21 @@ describe("what a discard keeps (11.10)", () => {
     expect(m.mouth.carryOn()).toBe(false);
   });
 
-  test("a discard with nothing queued keeps the last rest for carry on", () => {
+  test("a discard with nothing queued takes nothing, and keeps the last rest for carry on", () => {
     const m = scripted();
     m.mouth.hold();
     m.mouth.say("two.");
     expect(m.mouth.discard()).toEqual(["two."]);
-    expect(m.mouth.discard()).toEqual(["two."]);
+    expect(m.mouth.discard()).toEqual([]);
+    expect(m.mouth.carryOn()).toBe(true);
+  });
+
+  test("a hold with nothing behind it is not busy", () => {
+    const m = scripted();
+    m.mouth.hold();
+    expect(m.mouth.busy).toBe(false);
+    m.mouth.say("two.");
+    expect(m.mouth.busy).toBe(true);
   });
 });
 

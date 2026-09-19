@@ -68,8 +68,10 @@ export function assemble(
 
   const channel: Channel = new Channel(config, send, {
     heard: (text) => conversation.heard(text),
-    // the hold goes with the half recording, or nothing resolves it
-    microphone: () => ear.reset(),
+    // ADR 0008 a cut drops the half recording, and the hold with it, or nothing
+    // resolves it. An open leaves the recorder alone: an app that re-sends its
+    // state on reconnect must not drop a command that is being transcribed.
+    microphone: (on) => { if (!on) ear.reset(); },
     voice: (on) => mouth.setVoice(on),
     quality: (side, quality) => conversation.network.saw(side, quality),
   }, say);

@@ -247,13 +247,6 @@ export class Transport {
   }
 }
 
-/**
- * One whole frame, copied. The copy is not a nicety: AudioFrame reads the
- * underlying buffer without the view's offset, so handing it a subarray sends
- * the start of the sentence over and over. A piper file opens quietly, so the
- * fault arrives as silence rather than as a stutter, which is worse to find.
- * The last frame is short and the rest of it is silence.
- */
 /** What the room's speaker needs of the transport: one sentence's frames, and whether any are going out. */
 export interface Player {
   speak(wavBytes: Uint8Array, until?: () => boolean): Promise<boolean>;
@@ -288,6 +281,13 @@ export function roomSpeaker(player: Player, say: (line: string) => void = consol
   };
 }
 
+/**
+ * One whole frame, copied. The copy is not a nicety: AudioFrame reads the
+ * underlying buffer without the view's offset, so handing it a subarray sends
+ * the start of the sentence over and over. A piper file opens quietly, so the
+ * fault arrives as silence rather than as a stutter, which is worse to find.
+ * The last frame is short and the rest of it is silence.
+ */
 export function frameAt(samples: Int16Array, at: number, size: number): Int16Array {
   const out = new Int16Array(size);
   out.set(samples.subarray(at, Math.min(at + size, samples.length)));

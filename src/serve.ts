@@ -57,18 +57,13 @@ export async function serve(dir: string, config: Config): Promise<void> {
   const startedAt = Date.now();
 
   const bridge = assemble(dir, config, RTC_RATE, roomSpeaker(transport), (message) => { void transport.send(message); });
-
-  // the engines warm and the room is joined at the same time: whisper's warmup
-  // is about seven seconds, and the wait for LiveKit does not need them
-  await Promise.all([
-    bridge.ready,
-    transport.joinWhenReady(keys, config.room, config.livekitWaitMs, (text) => console.log(`[${text}]`)),
-  ]);
   const { channel, ear, conversation, measures, stt, tts } = bridge;
 
+  // The words are wired before the room is joined: the join can finish seconds
+  // before the engines warm, and a phone that arrives in that window is owed
+  // the protocol and the history at once, and its microphone cut must land.
   // 14.8 a client that dropped in a tunnel gets the turns it missed on the way back
   transport.onParticipant(() => channel.joined());
-  transport.onAudio((frame) => ear.frame(frame));
   // 18 what the drive of 18 September had no way to see: whether a microphone
   // track was there at all. The phone cut its own and reopened it, and every
   // line after that was about something else.
@@ -77,6 +72,21 @@ export async function serve(dir: string, config: Config): Promise<void> {
   // N.1 this end's own reading. Both are kept: this one says whether the
   // machine is reaching the room, the phone's says whether the car is.
   transport.onQuality((quality, identity) => channel.quality(transport.isSelf(identity) ? "bridge" : "phone", quality));
+
+  // the engines warm and the room is joined at the same time: whisper's warmup
+  // is about seven seconds, and the wait for LiveKit does not need them
+  try {
+    await Promise.all([
+      bridge.ready,
+      transport.joinWhenReady(keys, config.room, config.livekitWaitMs, (text) => console.log(`[${text}]`)),
+    ]);
+  } catch (error) {
+    // the agent and the engines were started for a room that never came
+    bridge.stop();
+    throw error;
+  }
+  // the frames need the engines; nothing is heard before they are warm
+  transport.onAudio((frame) => ear.frame(frame));
 
   const code = pairingCode();
   /**
