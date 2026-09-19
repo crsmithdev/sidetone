@@ -14,6 +14,9 @@ ask Chris for something a command answers.
 Write each verdict into `[[Voice Bridge Car Test 4]]` in the vault as it lands.
 The drive ends when every test below has a verdict, or a reason it was skipped.
 
+The commits of 19 September add six more tests, numbered 9 to 14, in
+[`drive-tests-19-september.md`](drive-tests-19-september.md).
+
 ## Before the car
 
 The Android Auto fault (test 6) needs `adb` on the phone. Pair wireless
