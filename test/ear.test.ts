@@ -13,6 +13,7 @@ const OPTIONS: EarOptions = {
   bargeInGapMs: 120,
   minSpeechPeak: 0.15,
   endOfTurnPauseMs: 900,
+  tentativeMs: 200,
 };
 
 /** The ear, its listener and its bookkeeper, ready to be driven. */
@@ -47,6 +48,48 @@ function frame(level: number, ms = 20): Int16Array {
   samples.fill(Math.round(level * 32768));
   return samples;
 }
+
+/**
+ * 18.4 the transcription starts at the tentative end and is used when the
+ * guess was right, so the round trip no longer pays for it after the pause.
+ */
+describe("transcribing during the pause (18.4)", () => {
+  const speech = (frames: number) => Array.from({ length: frames }, () => frame(0.4));
+  const quiet = (frames: number) => Array.from({ length: frames }, () => frame(0.001));
+
+  test("the guess was right: one transcription, begun before the pause ran out", async () => {
+    const askedAt: number[] = [];
+    let pushed = 0;
+    const { to, ear } = room(async () => { askedAt.push(pushed); return "what is two plus two"; });
+    for (const f of [...speech(20), ...quiet(50)]) { ear.frame(f); pushed++; }
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(askedAt).toHaveLength(1);
+    // asked after 200 ms of quiet, not after the 900 ms pause
+    expect(askedAt[0]).toBeLessThan(20 + 45);
+    expect(to.told.at(-1)).toBe("heard what is two plus two");
+  });
+
+  test("the guess was wrong: what was said after it is transcribed, and the early result is dropped", async () => {
+    const seen: number[] = [];
+    const { to, ear } = room(async () => { seen.push(seen.length); return `reading ${seen.length}`; });
+    for (const f of [...speech(20), ...quiet(12), ...speech(10), ...quiet(50)]) ear.frame(f);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    // one for the wrong guess, one for the right guess after the second quiet; the utterance uses the second
+    expect(seen).toHaveLength(2);
+    expect(to.told.at(-1)).toBe("heard reading 2");
+  });
+
+  test("a microphone cut throws the guess away with the recording", async () => {
+    let asked = 0;
+    const { ear } = room(async () => { asked++; return "half a sentence"; });
+    for (const f of [...speech(20), ...quiet(12)]) ear.frame(f);
+    ear.reset();
+    for (const f of [...speech(20), ...quiet(50)]) ear.frame(f);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    // the early one before the cut, and the early one after it: neither is reused across the cut
+    expect(asked).toBe(2);
+  });
+});
 
 describe("what is too quiet to have been a person (4.6)", () => {
   test("it costs no turn, and the passage comes back", async () => {

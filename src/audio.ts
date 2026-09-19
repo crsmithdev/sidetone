@@ -92,6 +92,8 @@ export interface UtteranceOptions {
   bargeInMs: number;
   /** how long a dip between syllables may last without resetting the count */
   bargeInGapMs: number;
+  /** 18.4 the quiet after which the recording so far is offered as a tentative end; absent means never */
+  tentativeMs?: number;
 }
 
 /**
@@ -162,6 +164,8 @@ export class Utterances {
   private peak = 0;
   private idleMs = 0;
   private gapMs = 0;
+  /** whether this quiet stretch has already been offered as a tentative end */
+  private tentativeTaken = false;
 
   constructor(private readonly options: UtteranceOptions) {}
 
@@ -220,15 +224,29 @@ export class Utterances {
 
     this.recording.push(frame);
     this.ranMs += ms;
-    if (loud) this.spokeMs += ms;
+    if (loud) { this.spokeMs += ms; this.tentativeTaken = false; }
     this.peak = Math.max(this.peak, heard);
     this.quietMs = loud ? 0 : this.quietMs + ms;
     if (this.quietMs < pauseMs) return null;
     return this.finish("pause");
   }
 
-  private finish(endedBy: "pause" | "flush"): Utterance {
-    const utterance: Utterance = {
+  /**
+   * 18.4 the tentative end: the recording so far, once the quiet has run
+   * `tentativeMs`, on the guess that the turn is over. Offered once per quiet
+   * stretch. Whether the guess was right is in `speechMs`: speech that
+   * resumed grows it, so the utterance that finishes with the same `speechMs`
+   * is the one this was a prefix of.
+   */
+  tentativeEnd(): Utterance | null {
+    const { tentativeMs } = this.options;
+    if (!tentativeMs || !this.speaking || this.tentativeTaken || this.quietMs < tentativeMs) return null;
+    this.tentativeTaken = true;
+    return this.snapshot("pause");
+  }
+
+  private snapshot(endedBy: "pause" | "flush"): Utterance {
+    return {
       samples: concat(this.recording),
       ms: Math.round(this.ranMs),
       speechMs: Math.round(this.spokeMs),
@@ -236,6 +254,10 @@ export class Utterances {
       gapMs: Math.round(this.gapMs),
       endedBy,
     };
+  }
+
+  private finish(endedBy: "pause" | "flush"): Utterance {
+    const utterance = this.snapshot(endedBy);
     this.reset();
     return utterance;
   }
@@ -260,6 +282,7 @@ export class Utterances {
     this.ranMs = 0;
     this.spokeMs = 0;
     this.peak = 0;
+    this.tentativeTaken = false;
   }
 
   /** Whether a recording is open, which is not the same question as a barge-in. */

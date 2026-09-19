@@ -121,6 +121,14 @@ export interface Config {
   sentenceMaxChars: number;
   /** 11.5 the pause that ends a turn, and the level that counts as speech */
   endOfTurnPauseMs: number;
+  /**
+   * 18.4 the quiet after which the recording so far is transcribed on the
+   * guess that the turn has ended. The end-of-turn pause still decides; this
+   * only starts the engine early, so the text is usually in hand when the
+   * pause runs out. A wrong guess costs one transcription and nothing Chris
+   * hears. Zero turns it off.
+   */
+  earlyTranscribeMs: number;
   /** the level that counts as speech, as a fraction of full scale */
   speechLevel: number;
   /** how long the level must stay up before the bridge treats it as speech */
@@ -249,6 +257,7 @@ export const DEFAULTS: Config = {
   spokenDir: join(homedir(), ".voice-bridge", "spoken"),
   sentenceMaxChars: 240,
   endOfTurnPauseMs: 1_500,
+  earlyTranscribeMs: 400,
   speechLevel: 0.02,
   speechOnsetMs: 50,
   // 2.5 times the level and 8 times the length of the recording detector.
@@ -333,7 +342,7 @@ export const DEFAULTS: Config = {
  * this list of names and not to the type, or the other way round.
  */
 export const IN_FORCE = [
-  "speechLevel", "speechOnsetMs", "endOfTurnPauseMs",
+  "speechLevel", "speechOnsetMs", "endOfTurnPauseMs", "earlyTranscribeMs",
   "bargeInLevel", "bargeInMs", "bargeInGapMs",
   "minSpeechPeak", "wakeHoldMs", "interruptOnSpeech", "interruptAfterMs",
   "holdBackstopMs", "listenSettleMs",
@@ -389,6 +398,10 @@ export function loadConfig(path = configPath()): Config {
    */
   if (merged.bargeInLevel <= merged.speechLevel) {
     throw new Error(`bargeInLevel (${merged.bargeInLevel}) must be louder than speechLevel (${merged.speechLevel})`);
+  }
+  // 18.4 a guess made after the pause has run is no guess at all
+  if (merged.earlyTranscribeMs >= merged.endOfTurnPauseMs) {
+    throw new Error(`earlyTranscribeMs (${merged.earlyTranscribeMs}) must be shorter than endOfTurnPauseMs (${merged.endOfTurnPauseMs})`);
   }
   if (merged.bargeInMs <= merged.speechOnsetMs) {
     throw new Error(`bargeInMs (${merged.bargeInMs}) must be longer than speechOnsetMs (${merged.speechOnsetMs})`);

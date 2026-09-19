@@ -98,6 +98,10 @@ describe("settings that arrive already checked", () => {
     expect(() => loadConfig(write({ bargeInMs: 40, speechOnsetMs: 50 }))).toThrow(/bargeInMs/);
   });
 
+  test("an early transcription after the pause is refused (18.4)", () => {
+    expect(() => loadConfig(withFile('{"earlyTranscribeMs":1500}'))).toThrow(/earlyTranscribeMs/);
+    expect(loadConfig(withFile('{"earlyTranscribeMs":0}')).earlyTranscribeMs).toBe(0);
+  });
   test("an invention guard under the speech level is refused", () => {
     expect(() => loadConfig(write({ minSpeechPeak: 0.01 }))).toThrow(/minSpeechPeak/);
   });

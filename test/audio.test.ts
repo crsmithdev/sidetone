@@ -13,12 +13,52 @@ const LOUD = frame(0.3);
 const NOISE = frame(0.03);
 const QUIET = frame(0.0001);
 
-function collector() {
+function collector(tentativeMs?: number) {
   return new Utterances({
     sampleRate: RATE, pauseMs: 200, onsetMs: 40, speechLevel: 0.02,
-    bargeInLevel: 0.05, bargeInMs: 200, bargeInGapMs: 100,
+    bargeInLevel: 0.05, bargeInMs: 200, bargeInGapMs: 100, tentativeMs,
   });
 }
+
+/** Push frames and collect what each one finished and what was offered early. */
+function drive(u: Utterances, frames: Int16Array[]) {
+  const done: Utterance[] = [];
+  const early: Utterance[] = [];
+  for (const f of frames) {
+    const finished = u.push(f);
+    const tentative = u.tentativeEnd();
+    if (tentative) early.push(tentative);
+    if (finished) done.push(finished);
+  }
+  return { done, early };
+}
+
+describe("the tentative end (18.4)", () => {
+  test("the recording so far is offered once, at the tentative quiet, and the utterance that follows is its continuation", () => {
+    const u = collector(100);
+    const { done, early } = drive(u, [...Array(5).fill(LOUD), ...Array(10).fill(QUIET)]);
+    expect(early).toHaveLength(1);
+    expect(done).toHaveLength(1);
+    // the same speech in both: nothing was said after the guess
+    expect(early[0]?.speechMs).toBe(done[0]?.speechMs);
+    expect(early[0]?.samples.length).toBeLessThan(done[0]?.samples.length ?? 0);
+  });
+
+  test("speech after the guess makes it wrong, and the next quiet is offered again", () => {
+    const u = collector(100);
+    const { done, early } = drive(u, [...Array(5).fill(LOUD), ...Array(5).fill(QUIET), ...Array(3).fill(LOUD), ...Array(10).fill(QUIET)]);
+    expect(early).toHaveLength(2);
+    expect(done).toHaveLength(1);
+    expect(early[0]?.speechMs).toBeLessThan(done[0]?.speechMs ?? 0);
+    expect(early[1]?.speechMs).toBe(done[0]?.speechMs);
+  });
+
+  test("without a setting nothing is offered", () => {
+    const u = collector();
+    const { early } = drive(u, [...Array(5).fill(LOUD), ...Array(10).fill(QUIET)]);
+    expect(early).toEqual([]);
+  });
+});
 
 describe("wav", () => {
   test("what is written is what is read back", () => {

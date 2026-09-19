@@ -40,6 +40,7 @@ export function earOptions(config: EarSettings, sampleRate: number): EarOptions 
     bargeInGapMs: config.bargeInGapMs,
     minSpeechPeak: config.minSpeechPeak,
     endOfTurnPauseMs: config.endOfTurnPauseMs,
+    tentativeMs: config.earlyTranscribeMs,
   };
 }
 
@@ -52,6 +53,7 @@ export interface EarSettings {
   bargeInMs: number;
   bargeInGapMs: number;
   minSpeechPeak: number;
+  earlyTranscribeMs: number;
 }
 
 export interface EarOptions extends UtteranceOptions {
@@ -81,6 +83,12 @@ export class Ear {
   private noticedAt = 0;
   private frameAt = 0;
   private soundAt = 0;
+  /**
+   * 18.4 a transcription begun at the tentative end, and how much speech it
+   * covered. It is the answer when the utterance finishes with the same
+   * amount; otherwise Chris went on talking and it is thrown away.
+   */
+  private early: { speechMs: number; text: Promise<string | null> } | null = null;
 
   constructor(
     private readonly to: Ears,
@@ -143,6 +151,13 @@ export class Ear {
         this.to.stopSpeaking();
       }
     }
+    // 18.4 the engine starts on the guess, so the text is usually in hand
+    // when the pause runs out. Too quiet is dropped either way, so it is not
+    // worth a transcription now either.
+    const tentative = this.utterances.tentativeEnd();
+    if (tentative && !tooQuiet(tentative, this.options.minSpeechPeak)) {
+      this.early = { speechMs: tentative.speechMs, text: this.transcribe(tentative).catch(() => null) };
+    }
     if (said) void this.said(said);
   }
 
@@ -155,6 +170,7 @@ export class Ear {
    */
   reset(): void {
     this.utterances.reset();
+    this.early = null;
     this.barging = false;
     this.frameAt = 0;
     this.soundAt = 0;
@@ -163,6 +179,8 @@ export class Ear {
 
   /** One whole utterance, however it arrived. */
   async said(utterance: Utterance): Promise<void> {
+    const early = this.early;
+    this.early = null;
     // 4.6 whisper writes words for near-silence even with its voice detector
     // on, and each invention costs a turn. Real speech is louder than this.
     if (tooQuiet(utterance, this.options.minSpeechPeak)) {
@@ -178,11 +196,13 @@ export class Ear {
     this.to.cue("heard");
     const readAt = Date.now();
     try {
-      const text = await this.transcribe(utterance);
+      // the guess was right when nothing was said after it: the text is on its way already
+      const guessed = early && early.speechMs === utterance.speechMs ? await early.text : null;
+      const text = guessed ?? await this.transcribe(utterance);
       this.measures.transcribed();
       const transcribeMs = Date.now() - readAt;
       this.measures.utterance(utterance, text, transcribeMs);
-      this.say(this.shape(utterance, text, transcribeMs));
+      this.say(this.shape(utterance, text, transcribeMs, guessed !== null));
       // 11.3 road noise that carried no words must give the passage back
       if (!text) { this.to.heardNothing(); return; }
       await this.to.heard(text);
@@ -199,12 +219,12 @@ export class Ear {
    * in half: a short recording that is mostly quiet, arriving one end-of-turn
    * pause after the last one, is half a sentence.
    */
-  private shape(utterance: Utterance, text: string, transcribeMs: number): string {
+  private shape(utterance: Utterance, text: string, transcribeMs: number, early: boolean): string {
     return (
       `\n> ${text || "(nothing)"}` +
       `\n  [${(utterance.ms / 1000).toFixed(1)}s heard, ${(utterance.speechMs / 1000).toFixed(1)}s of speech in it, ` +
       `peak ${utterance.peak.toFixed(2)}, ${(utterance.gapMs / 1000).toFixed(1)}s quiet before, ` +
-      `read in ${transcribeMs}ms]`
+      `read in ${transcribeMs}ms${early ? ", begun at the tentative end" : ""}]`
     );
   }
 }
