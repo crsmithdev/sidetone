@@ -3,40 +3,29 @@
 
 One long-lived process: loading the voice costs about 1.3 seconds and
 synthesis costs about a tenth of a second a sentence, so the bridge loads
-once and then speaks at twenty times real time.
+once and then speaks at twenty times real time. One voice per model file, so
+the voice in a request is ignored.
 
-Protocol: one JSON request per line on stdin, one JSON reply per line on
-stdout. {"text": str, "wav": path} -> {"wav": path, "seconds": float}.
+{"text": str, "wav": path} -> {"wav": path, "seconds": float}
 """
-import json
 import sys
-import time
 import wave
 
-from piper import PiperVoice
+import worker
 
-
-def reply(**fields) -> None:
-    sys.stdout.write(json.dumps(fields) + "\n")
-    sys.stdout.flush()
+from piper import PiperVoice  # noqa: E402
 
 
 def main() -> None:
     voice = PiperVoice.load(sys.argv[1])
-    reply(ready=True, sample_rate=voice.config.sample_rate)
+    worker.reply(ready=True, sample_rate=voice.config.sample_rate)
 
-    for line in sys.stdin:
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            request = json.loads(line)
-            started = time.time()
-            with wave.open(request["wav"], "wb") as out:
-                voice.synthesize_wav(request["text"], out)
-            reply(wav=request["wav"], seconds=round(time.time() - started, 3))
-        except Exception as error:
-            reply(error=str(error))
+    def handle(request: dict) -> dict:
+        with wave.open(request["wav"], "wb") as out:
+            voice.synthesize_wav(request["text"], out)
+        return {"wav": request["wav"]}
+
+    worker.serve(handle)
 
 
 main()

@@ -34,7 +34,7 @@ import type { Mouth } from "./mouth.ts";
 import { Network } from "./network.ts";
 import { SentenceCollector } from "./sentences.ts";
 import { Session, type SessionHooks, type Turn } from "./session.ts";
-import type { TextToSpeech } from "./speech.ts";
+import { voiceSignature, type TextToSpeech } from "./speech.ts";
 
 export type { CueName };
 
@@ -102,16 +102,12 @@ export const KEPT_LINES = [
 ] as const;
 
 /**
- * What a run keeps between runs, and under which key. The signature holds
- * every setting that changes how a voice sounds, so a sentence made at one
- * setting is never played back at another.
+ * What a run keeps between runs, and under which key. The signature is the
+ * engine's own: every setting that changes how its voice sounds, so a sentence
+ * made at one setting is never played back at another.
  */
 export function keptLines(config: Config): { dir: string; signature: string; lines: readonly string[] } {
-  return {
-    dir: config.spokenDir,
-    signature: `${config.ttsEngine}-${config.chatterboxExaggeration}-${config.chatterboxCfg}`,
-    lines: KEPT_LINES,
-  };
+  return { dir: config.spokenDir, signature: voiceSignature(config), lines: KEPT_LINES };
 }
 
 export interface ConversationHooks {

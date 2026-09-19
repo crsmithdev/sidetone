@@ -11,11 +11,11 @@
  * and warms them before Chris says anything.
  */
 import { existsSync, readdirSync } from "node:fs";
-import { mkdir, rename } from "node:fs/promises";
+import { mkdir, rename, unlink } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { Subprocess } from "bun";
 import type { Config } from "./config.ts";
-import { LineSplitter } from "./protocol.ts";
+import { linesOf } from "./protocol.ts";
 
 /** 4.8 the seam. A local engine only: there is no cloud engine to put here. */
 export interface SpeechToText {
@@ -67,13 +67,15 @@ class Worker {
   private child: Subprocess<"pipe", "pipe", "inherit"> | null = null;
   private waiting: Array<(reply: Record<string, unknown>) => void> = [];
 
-  constructor(private readonly bin: string, private readonly args: string[], private readonly env: Record<string, string>) {}
+  constructor(private readonly bin: string, private readonly args: string[]) {}
 
   async start(): Promise<Record<string, unknown>> {
     const ready = this.next();
+    // the CUDA wheels of this interpreter's own environment, when it has any
+    const libraries = cudaLibraryPath(this.bin);
     this.child = Bun.spawn([this.bin, ...this.args], {
       stdin: "pipe", stdout: "pipe", stderr: "inherit",
-      env: { ...process.env, ...this.env },
+      env: libraries ? { ...process.env, LD_LIBRARY_PATH: libraries } : process.env,
     }) as Subprocess<"pipe", "pipe", "inherit">;
     void this.pump();
     const first = await ready;
@@ -84,15 +86,11 @@ class Worker {
   private async pump(): Promise<void> {
     const child = this.child;
     if (!child) return;
-    const splitter = new LineSplitter();
-    const decoder = new TextDecoder();
-    for await (const chunk of child.stdout as ReadableStream<Uint8Array>) {
-      for (const line of splitter.push(decoder.decode(chunk, { stream: true }))) {
-        const resolve = this.waiting.shift();
-        if (!resolve) continue;
-        try { resolve(JSON.parse(line) as Record<string, unknown>); }
-        catch { resolve({ error: `the worker said something that is not JSON: ${line.slice(0, 120)}` }); }
-      }
+    for await (const line of linesOf(child.stdout as ReadableStream<Uint8Array>)) {
+      const resolve = this.waiting.shift();
+      if (!resolve) continue;
+      try { resolve(JSON.parse(line) as Record<string, unknown>); }
+      catch { resolve({ error: `the worker said something that is not JSON: ${line.slice(0, 120)}` }); }
     }
     while (this.waiting.length) this.waiting.shift()?.({ error: "the worker stopped" });
   }
@@ -125,8 +123,7 @@ export class LocalWhisper implements SpeechToText {
   warmupSeconds = 0;
 
   constructor(config: Config, scriptDir: string) {
-    this.worker = new Worker(config.pythonBin, [join(scriptDir, "stt_worker.py"), config.sttModel, config.modelsDir],
-      { LD_LIBRARY_PATH: cudaLibraryPath(config.pythonBin) });
+    this.worker = new Worker(config.pythonBin, [join(scriptDir, "stt_worker.py"), config.sttModel, config.modelsDir]);
   }
 
   async start(): Promise<void> {
@@ -142,105 +139,88 @@ export class LocalWhisper implements SpeechToText {
   stop(): void { this.worker.stop(); }
 }
 
-
-/** 4.9 the first working local voice. The voice is a setting; every choice is local. */
-export class LocalPiper implements TextToSpeech {
-  private worker: Worker;
-  sampleRate = 0;
-
-  constructor(config: Config, scriptDir: string) {
-    this.worker = new Worker(config.pythonBin, [join(scriptDir, "tts_worker.py"), join(config.modelsDir, `${config.ttsVoice}.onnx`)], {});
-  }
-
-  async start(): Promise<void> {
-    const ready = await this.worker.start();
-    this.sampleRate = typeof ready.sample_rate === "number" ? ready.sample_rate : 0;
-  }
-
-  async synthesize(text: string, wavPath: string): Promise<string> {
-    const reply = await this.worker.request({ text, wav: wavPath });
-    return typeof reply.wav === "string" ? reply.wav : wavPath;
-  }
-
-  stop(): void { this.worker.stop(); }
+/**
+ * 4.8 what differs between the voices, in one place: the worker to start,
+ * whether a voice is a name the worker takes per request, what its ready line
+ * has to warn about, and which settings shape the voice. Nothing else in this
+ * file, and nothing above it, tells one engine from another.
+ */
+interface Engine {
+  worker(config: Config, scriptDir: string): { bin: string; args: string[] };
+  /** 9.4 whether a switch is a different name on the next request */
+  switchable: boolean;
+  /** the silent failure this engine has, read off its ready line */
+  warn?(ready: Record<string, unknown>): string | null;
+  /** the settings that shape the voice, so a sentence kept at one is never played back at another */
+  signature?(config: Config): string;
 }
 
-/**
- * 4.9 the same job on the GPU, which was idle. All 54 voices share one model,
- * so `use` costs nothing and can happen between two sentences.
- */
-export class LocalKokoro implements TextToSpeech {
-  private worker: Worker;
+export const ENGINES: Record<Config["ttsEngine"], Engine> = {
+  /** 4.9 the first working local voice, on the CPU. One voice per model file. */
+  piper: {
+    worker: (config, dir) => ({ bin: config.pythonBin, args: [join(dir, "tts_worker.py"), join(config.modelsDir, `${config.ttsVoice}.onnx`)] }),
+    switchable: false,
+  },
+  /**
+   * 4.9 the same job on the GPU, which was idle. All 54 voices share one
+   * model, so a switch costs nothing and can happen between two sentences.
+   */
+  kokoro: {
+    worker: (config, dir) => ({ bin: config.kokoroPythonBin, args: [join(dir, "kokoro_worker.py"), config.kokoroModel, config.kokoroVoices, config.ttsVoice] }),
+    switchable: true,
+    // Without the CUDA libraries onnxruntime takes the graph on the CPU,
+    // nothing errors, and the first sentence goes from a tenth of a second to
+    // a whole one.
+    warn: (ready) => ready.provider === "CUDAExecutionProvider"
+      ? null
+      : `kokoro is running on ${String(ready.provider || "an unknown provider")}, not the GPU. Expect about a second a sentence.`,
+  },
+  /**
+   * 4.9 a voice that is a recording, not a name on a list. The reference clip
+   * decides who speaks, so `voiceChoices` names two files under
+   * `chatterboxRefs`. It is about twenty times slower than kokoro a sentence,
+   * which is the reason 11.6 is worth measuring after a switch.
+   */
+  chatterbox: {
+    worker: (config, dir) => ({
+      bin: config.chatterboxPythonBin,
+      args: [join(dir, "chatterbox_worker.py"), config.chatterboxRefs, config.ttsVoice, String(config.chatterboxExaggeration), String(config.chatterboxCfg)],
+    }),
+    switchable: true,
+    // the CPU path is minutes a sentence, not seconds, and the model still loads
+    warn: (ready) => ready.device === "cuda"
+      ? null
+      : `chatterbox is running on ${String(ready.device || "an unknown device")}. A sentence costs minutes there, not seconds.`,
+    signature: (config) => `${config.chatterboxExaggeration}-${config.chatterboxCfg}`,
+  },
+};
+
+/** 4.9 the local voice in force. One class; the table says which worker it drives. */
+export class LocalVoice implements TextToSpeech {
+  private readonly worker: Worker;
   private spoken: string;
   sampleRate = 0;
-  /** which onnxruntime provider actually took the graph */
-  provider = "";
+  /** what the worker said when it was ready: the provider, the device, the warmup */
+  ready: Record<string, unknown> = {};
+  /** 9.4 present when the engine takes a voice name per request */
+  readonly use?: (voice: string) => void;
 
-  constructor(config: Config, scriptDir: string) {
+  constructor(private readonly engine: Engine, config: Config, scriptDir: string) {
+    const { bin, args } = engine.worker(config, scriptDir);
+    this.worker = new Worker(bin, args);
     this.spoken = config.ttsVoice;
-    this.worker = new Worker(config.kokoroPythonBin,
-      [join(scriptDir, "kokoro_worker.py"), config.kokoroModel, config.kokoroVoices, config.ttsVoice],
-      { LD_LIBRARY_PATH: cudaLibraryPath(config.kokoroPythonBin) });
+    if (engine.switchable) this.use = (voice) => { this.spoken = voice; };
   }
 
   async start(): Promise<void> {
-    const ready = await this.worker.start();
-    this.sampleRate = typeof ready.sample_rate === "number" ? ready.sample_rate : 0;
-    this.provider = typeof ready.provider === "string" ? ready.provider : "";
-    // The silent failure this engine has: without the CUDA libraries
-    // onnxruntime takes the graph on the CPU, nothing errors, and the first
-    // sentence goes from a tenth of a second to a whole one.
-    if (this.provider !== "CUDAExecutionProvider") {
-      console.log(`warning: kokoro is running on ${this.provider || "an unknown provider"}, not the GPU. Expect about a second a sentence.`);
-    }
+    this.ready = await this.worker.start();
+    this.sampleRate = typeof this.ready.sample_rate === "number" ? this.ready.sample_rate : 0;
+    const warning = this.engine.warn?.(this.ready);
+    if (warning) console.log(`warning: ${warning}`);
   }
 
-  get voice(): string { return this.spoken; }
-  use(voice: string): void { this.spoken = voice; }
-
-  async synthesize(text: string, wavPath: string): Promise<string> {
-    const reply = await this.worker.request({ text, wav: wavPath, voice: this.spoken });
-    return typeof reply.wav === "string" ? reply.wav : wavPath;
-  }
-
-  stop(): void { this.worker.stop(); }
-}
-
-/**
- * 4.9 a voice that is a recording, not a name on a list. The reference clip
- * decides who speaks, so `voiceChoices` names two files under `chatterboxRefs`
- * and 9.4 switches between them the same way it always did.
- *
- * It is about twenty times slower than kokoro a sentence, which is the reason
- * kokoro remains the default and the reason 11.6 is worth measuring after a
- * switch.
- */
-export class LocalChatterbox implements TextToSpeech {
-  private worker: Worker;
-  private spoken: string;
-  sampleRate = 0;
-  /** cuda or cpu, as the worker found it; the CPU path is minutes, not seconds */
-  device = "";
-
-  constructor(config: Config, scriptDir: string) {
-    this.spoken = config.ttsVoice;
-    this.worker = new Worker(config.chatterboxPythonBin,
-      [join(scriptDir, "chatterbox_worker.py"), config.chatterboxRefs, config.ttsVoice,
-        String(config.chatterboxExaggeration), String(config.chatterboxCfg)],
-      {});
-  }
-
-  async start(): Promise<void> {
-    const ready = await this.worker.start();
-    this.sampleRate = typeof ready.sample_rate === "number" ? ready.sample_rate : 0;
-    this.device = typeof ready.device === "string" ? ready.device : "";
-    if (this.device !== "cuda") {
-      console.log(`warning: chatterbox is running on ${this.device || "an unknown device"}. A sentence costs minutes there, not seconds.`);
-    }
-  }
-
-  get voice(): string { return this.spoken; }
-  use(voice: string): void { this.spoken = voice; }
+  /** Which voice is speaking, when the engine has more than one. */
+  get voice(): string | undefined { return this.engine.switchable ? this.spoken : undefined; }
 
   async synthesize(text: string, wavPath: string): Promise<string> {
     const reply = await this.worker.request({ text, wav: wavPath, voice: this.spoken });
@@ -252,9 +232,13 @@ export class LocalChatterbox implements TextToSpeech {
 
 /** 4.8 the seam: which engine speaks is a setting, and nothing above here knows. */
 export function textToSpeech(config: Config, scriptDir: string): TextToSpeech {
-  if (config.ttsEngine === "piper") return new LocalPiper(config, scriptDir);
-  if (config.ttsEngine === "chatterbox") return new LocalChatterbox(config, scriptDir);
-  return new LocalKokoro(config, scriptDir);
+  return new LocalVoice(ENGINES[config.ttsEngine], config, scriptDir);
+}
+
+/** The key a kept sentence is made under: the engine, and whichever of its settings shape the voice. */
+export function voiceSignature(config: Config): string {
+  const own = ENGINES[config.ttsEngine].signature?.(config);
+  return own ? `${config.ttsEngine}-${own}` : config.ttsEngine;
 }
 
 /**
@@ -275,6 +259,12 @@ export function textToSpeech(config: Config, scriptDir: string): TextToSpeech {
 export class SpokenAhead {
   private ready: { text: string; wav: Promise<string> } | null = null;
   private counter = 0;
+  /**
+   * The scratch wav handed out last, removed on the next take: sentences play
+   * one at a time, so by then it has played. Without this a session left a wav
+   * per sentence under /tmp for as long as the process lived.
+   */
+  private handed: string | null = null;
 
   /**
    * `kept` names the sentences worth keeping between runs and where to keep
@@ -289,12 +279,25 @@ export class SpokenAhead {
 
   /** The wav for this sentence, already made if it was the one expected. */
   take(text: string): Promise<string> {
+    if (this.handed) { void unlink(this.handed).catch(() => {}); this.handed = null; }
     const ready = this.ready;
     this.ready = null;
-    if (ready?.text === text) return ready.wav;
     const keeping = this.keptPath(text);
-    if (keeping && existsSync(keeping)) return Promise.resolve(keeping);
-    return this.make(text);
+    let wav: Promise<string>;
+    if (ready?.text === text) wav = ready.wav;
+    else {
+      this.drop(ready);
+      wav = keeping && existsSync(keeping) ? Promise.resolve(keeping) : this.make(text);
+    }
+    // a kept line is on disk for good; anything else goes once it has played
+    if (!keeping) wav.then((path) => { this.handed = path; }, () => {});
+    return wav;
+  }
+
+  /** A sentence made ahead that will not play. A kept line stays; it was made for good. */
+  private drop(ready: { text: string; wav: Promise<string> } | null): void {
+    if (!ready || this.keptPath(ready.text)) return;
+    ready.wav.then((path) => unlink(path), () => {}).catch(() => {});
   }
 
   /**
@@ -334,6 +337,7 @@ export class SpokenAhead {
    */
   start(text: string | undefined): void {
     if (!text || this.ready?.text === text) return;
+    this.drop(this.ready);
     this.ready = { text, wav: this.make(text) };
   }
 

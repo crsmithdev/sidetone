@@ -9,7 +9,7 @@ import { appendFileSync, readFileSync } from "node:fs";
 import type { Subprocess } from "bun";
 import type { Config } from "./config.ts";
 import { Narrator } from "./narrator.ts";
-import { LineSplitter, contextTokens, parseLine, type Event, type Usage } from "./protocol.ts";
+import { contextTokens, linesOf, parseLine, type Event, type Usage } from "./protocol.ts";
 import { Supervisor, type Action } from "./supervisor.ts";
 
 export interface Turn {
@@ -67,15 +67,6 @@ export interface Process {
 }
 
 export type Spawn = (config: Config, dir: string) => Process;
-
-/** One line at a time out of a stream, holding a partial line until its newline arrives. */
-async function* linesOf(stream: ReadableStream<Uint8Array>): AsyncGenerator<string> {
-  const splitter = new LineSplitter();
-  const decoder = new TextDecoder();
-  for await (const chunk of stream) {
-    for (const line of splitter.push(decoder.decode(chunk, { stream: true }))) yield line;
-  }
-}
 
 /** The real thing: Claude Code, in the project directory, on stream-json both ways. */
 export const spawnClaude: Spawn = (config, dir) => {

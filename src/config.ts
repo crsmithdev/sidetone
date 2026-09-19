@@ -201,6 +201,19 @@ export interface Config {
   claudeArgs: string[];
 }
 
+/**
+ * 4.9 each engine names its voices its own way, so a voice is only a default
+ * beside its engine. On 19 September the file said kokoro and left the voices
+ * to the defaults, which were chatterbox's, and "hey bridge, male voice" and
+ * the fake phone both asked kokoro for a wav it does not have.
+ */
+export const ENGINE_VOICES: Record<Config["ttsEngine"], Pick<Config, "ttsVoice" | "voiceChoices">> = {
+  chatterbox: { ttsVoice: "som_00295", voiceChoices: { female: "sof_01208", male: "som_00295" } },
+  kokoro: { ttsVoice: "bf_emma", voiceChoices: { female: "bf_emma", male: "bm_george" } },
+  // one voice, and the switch command says so
+  piper: { ttsVoice: "en_US-lessac-medium", voiceChoices: { female: "en_US-lessac-medium", male: "en_US-lessac-medium" } },
+};
+
 export const DEFAULTS: Config = {
   silenceMs: 60_000,
   compactionLimit: 3,
@@ -225,8 +238,7 @@ export const DEFAULTS: Config = {
   modelsDir: join(homedir(), ".voice-bridge", "models"),
   sttModel: "small.en",
   ttsEngine: "chatterbox",
-  ttsVoice: "som_00295",
-  voiceChoices: { female: "sof_01208", male: "som_00295" },
+  ...ENGINE_VOICES.chatterbox,
   kokoroPythonBin: join(homedir(), ".voice-bridge", "kokoro-venv", "bin", "python"),
   kokoroModel: join(homedir(), ".voice-bridge", "models", "kokoro", "kokoro-v1.0.onnx"),
   kokoroVoices: join(homedir(), ".voice-bridge", "models", "kokoro", "voices-v1.0.bin"),
@@ -335,19 +347,6 @@ export function configPath(): string {
   return process.env.VOICE_BRIDGE_CONFIG ?? join(homedir(), ".voice-bridge", "config.json");
 }
 
-/**
- * 4.9 each engine names its voices its own way, so a voice is only a default
- * beside its engine. On 19 September the file said kokoro and left the voices
- * to the defaults, which were chatterbox's, and "hey bridge, male voice" and
- * the fake phone both asked kokoro for a wav it does not have.
- */
-export const ENGINE_VOICES: Record<Config["ttsEngine"], { voice: string; choices: { female: string; male: string } }> = {
-  chatterbox: { voice: "som_00295", choices: { female: "sof_01208", male: "som_00295" } },
-  kokoro: { voice: "bf_emma", choices: { female: "bf_emma", male: "bm_george" } },
-  // one voice, and the switch command says so
-  piper: { voice: "en_US-lessac-medium", choices: { female: "en_US-lessac-medium", male: "en_US-lessac-medium" } },
-};
-
 export function loadConfig(path = configPath()): Config {
   let text: string;
   try { text = readFileSync(path, "utf8"); } catch { return { ...DEFAULTS }; }
@@ -355,12 +354,11 @@ export function loadConfig(path = configPath()): Config {
   try { parsed = JSON.parse(text); } catch { throw new Error(`${path} is not valid JSON`); }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error(`${path} must hold an object`);
   const given = parsed as Partial<Config>;
-  const merged: Config = { ...DEFAULTS, ...given };
+  const engine = given.ttsEngine ?? DEFAULTS.ttsEngine;
+  const voices = ENGINE_VOICES[engine];
+  if (!voices) throw new Error(`ttsEngine must be one of ${Object.keys(ENGINE_VOICES).join(", ")}, not ${String(engine)}`);
   // 4.9 a voice the file did not name is the named engine's own, not the default engine's
-  const engine = ENGINE_VOICES[merged.ttsEngine];
-  if (!engine) throw new Error(`ttsEngine must be one of ${Object.keys(ENGINE_VOICES).join(", ")}, not ${String(merged.ttsEngine)}`);
-  if (given.ttsVoice === undefined) merged.ttsVoice = engine.voice;
-  if (given.voiceChoices === undefined) merged.voiceChoices = engine.choices;
+  const merged: Config = { ...DEFAULTS, ...voices, ...given };
   for (const key of ["silenceMs", "ceilingMs", "checkpointWindowMs", "graceMs", "compactionWindowMs", "narrationDelayMs"] as const) {
     if (typeof merged[key] !== "number" || !(merged[key] > 0)) throw new Error(`${key} must be a positive number of milliseconds`);
   }

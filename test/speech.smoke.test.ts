@@ -4,8 +4,8 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { decodeWav } from "../src/audio.ts";
-import { DEFAULTS } from "../src/config.ts";
-import { LocalChatterbox, LocalKokoro, LocalWhisper } from "../src/speech.ts";
+import { DEFAULTS, ENGINE_VOICES } from "../src/config.ts";
+import { ENGINES, LocalVoice, LocalWhisper } from "../src/speech.ts";
 
 /**
  * The engines, against the real models on the real card.
@@ -32,14 +32,10 @@ const present = existsSync(DEFAULTS.kokoroModel) && existsSync(DEFAULTS.kokoroPy
 const run = asked && present;
 if (asked && !present) console.log(`speech smoke: ${DEFAULTS.kokoroModel} or its environment is absent`);
 
-/**
- * ttsVoice names a voice the way the engine in force names it, and the default
- * engine is now the cloning one, so a kokoro test has to name a kokoro voice.
- * Without this the worker dies with "Voice som_00295 not found".
- */
-const kokoroConfig = { ...DEFAULTS, ttsVoice: "bf_emma" };
+// a kokoro test names a kokoro voice; the default engine is the cloning one
+const kokoroConfig = { ...DEFAULTS, ttsEngine: "kokoro" as const, ...ENGINE_VOICES.kokoro };
 
-let tts: LocalKokoro;
+let tts: LocalVoice;
 let stt: LocalWhisper;
 let scratch = "";
 let firstSentenceMs = 0;
@@ -48,7 +44,7 @@ let spoken = "";
 beforeAll(async () => {
   if (!run) return;
   scratch = mkdtempSync(join(tmpdir(), "smoke-"));
-  tts = new LocalKokoro(kokoroConfig, speechDir);
+  tts = new LocalVoice(ENGINES.kokoro, kokoroConfig, speechDir);
   stt = new LocalWhisper(DEFAULTS, speechDir);
   await Promise.all([tts.start(), stt.start()]);
   const at = Date.now();
@@ -60,7 +56,7 @@ afterAll(() => { if (run) { tts?.stop(); stt?.stop(); } });
 
 describe.skipIf(!run)("the voice, on the card (4.9)", () => {
   test("onnxruntime took the graph on the GPU, and did not quietly fall back", () => {
-    expect(tts.provider).toBe("CUDAExecutionProvider");
+    expect(tts.ready.provider).toBe("CUDAExecutionProvider");
   });
 
   test("it speaks at the rate the transport expects", () => {
@@ -111,14 +107,14 @@ const runClone = run && refsPresent;
 if (asked && !refsPresent) console.log(`speech smoke: ${DEFAULTS.chatterboxRefs} or its environment is absent`);
 
 describe.skipIf(!runClone)("the cloning voice, on the card (4.9)", () => {
-  let clone: LocalChatterbox;
+  let clone: LocalVoice;
   let cloneScratch = "";
   let saidMale = "";
   let sentenceMs = 0;
 
   beforeAll(async () => {
     cloneScratch = mkdtempSync(join(tmpdir(), "clone-"));
-    clone = new LocalChatterbox(DEFAULTS, speechDir);
+    clone = new LocalVoice(ENGINES.chatterbox, DEFAULTS, speechDir);
     await clone.start();
     const at = Date.now();
     saidMale = await clone.synthesize(SENTENCE, join(cloneScratch, "male.wav"));
@@ -128,7 +124,7 @@ describe.skipIf(!runClone)("the cloning voice, on the card (4.9)", () => {
   afterAll(() => clone?.stop());
 
   test("it took the model on the GPU, and did not quietly fall back to the CPU", () => {
-    expect(clone.device).toBe("cuda");
+    expect(clone.ready.device).toBe("cuda");
   });
 
   test("it speaks at the rate the transport expects", () => {
@@ -144,7 +140,7 @@ describe.skipIf(!runClone)("the cloning voice, on the card (4.9)", () => {
   });
 
   test("9.4 switches to the other voice, and the words survive the switch", async () => {
-    clone.use(DEFAULTS.voiceChoices.female);
+    clone.use?.(DEFAULTS.voiceChoices.female);
     const saidFemale = await clone.synthesize(SENTENCE, join(cloneScratch, "female.wav"));
     const male = decodeWav(await Bun.file(saidMale).bytes());
     const female = decodeWav(await Bun.file(saidFemale).bytes());

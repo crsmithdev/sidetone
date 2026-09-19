@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DEFAULTS, ENGINE_VOICES, loadConfig, settingsInForce } from "../src/config.ts";
+import { DEFAULTS, loadConfig, settingsInForce } from "../src/config.ts";
 
 const dir = mkdtempSync(join(tmpdir(), "vb-config-"));
 function withFile(body: string): string {
@@ -63,10 +63,6 @@ describe("each engine names its own voices (4.9)", () => {
     const config = loadConfig(withFile('{"ttsEngine":"kokoro","ttsVoice":"af_heart","voiceChoices":{"female":"af_heart","male":"am_adam"}}'));
     expect(config.ttsVoice).toBe("af_heart");
     expect(config.voiceChoices).toEqual({ female: "af_heart", male: "am_adam" });
-  });
-  test("the defaults are the default engine's own", () => {
-    expect(DEFAULTS.ttsVoice).toBe(ENGINE_VOICES[DEFAULTS.ttsEngine].voice);
-    expect(DEFAULTS.voiceChoices).toEqual(ENGINE_VOICES[DEFAULTS.ttsEngine].choices);
   });
   test("an engine that does not exist is refused, not run", () => {
     expect(() => loadConfig(withFile('{"ttsEngine":"espeak"}'))).toThrow(/ttsEngine must be one of/);

@@ -119,6 +119,15 @@ export function parseLine(line: string): Event[] {
   return [{ kind: "other", type: type || "unknown" }];
 }
 
+/** One line at a time out of a byte stream, holding a partial line until its newline arrives. */
+export async function* linesOf(stream: ReadableStream<Uint8Array>): AsyncGenerator<string> {
+  const splitter = new LineSplitter();
+  const decoder = new TextDecoder();
+  for await (const chunk of stream) {
+    for (const line of splitter.push(decoder.decode(chunk, { stream: true }))) yield line;
+  }
+}
+
 /** Split a stream into whole lines, holding the tail until its newline arrives. */
 export class LineSplitter {
   private buffer = "";

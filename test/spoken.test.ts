@@ -87,10 +87,36 @@ describe("the sentences the bridge keeps (11.6)", () => {
     expect(asked).toEqual(["Muted.", "Muted."]);
   });
 
-  test("the key the bridge really uses holds the engine and both voice settings", () => {
+  test("the key the bridge really uses holds the engine and its own voice settings", () => {
     const key = keptLines(DEFAULTS);
     expect(key.signature).toContain(DEFAULTS.ttsEngine);
     expect(key.signature).toContain(String(DEFAULTS.chatterboxExaggeration));
     expect(key.dir).toBe(DEFAULTS.spokenDir);
+    // another engine's settings do not stamp this engine's key
+    expect(keptLines({ ...DEFAULTS, ttsEngine: "kokoro" }).signature).toBe("kokoro");
+  });
+
+  test("a sentence's wav goes once the next one is taken; a kept line stays", async () => {
+    const dir = scratchDir();
+    const { tts } = engine();
+    const ahead = new SpokenAhead(tts, scratchDir(), { dir, signature: "test", lines: KEPT_LINES });
+    const first = await ahead.take("The first sentence of the answer.");
+    expect(existsSync(first)).toBe(true);
+    const kept = await ahead.take("Muted.");
+    expect(existsSync(first)).toBe(false);
+    await ahead.take("The next sentence.");
+    expect(existsSync(kept)).toBe(true);
+  });
+
+  test("a sentence made ahead that never plays is removed too", async () => {
+    const { tts } = engine();
+    const ahead = new SpokenAhead(tts, scratchDir());
+    ahead.start("one.");
+    ahead.start("two.");   // "one." was made ahead and is now not next
+    const two = await ahead.take("two.");
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    const scratch = two.slice(0, two.lastIndexOf("/"));
+    const { readdirSync } = await import("node:fs");
+    expect(readdirSync(scratch)).toEqual([two.slice(scratch.length + 1)]);
   });
 });
