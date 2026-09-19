@@ -38,6 +38,24 @@ describe("the drive record", () => {
   });
 
   /**
+   * The header says what a session started with. A voice switched out loud
+   * an hour in used to leave no trace, so a record read a week later said the
+   * whole drive ran in the first voice.
+   */
+  test("a setting changed by voice is in the record, after the header", () => {
+    const path = join(scratch(), "record.jsonl");
+    const recorder = new Recorder(path);
+    recorder.session({ ttsVoice: "bf_emma" }, 100);
+    const d = new Diagnostics((event) => recorder.write(event));
+    d.heard(utterance(), "hey bridge, male voice", 50, 200);
+    d.setting({ ttsVoice: "bm_george" }, 300);
+
+    const drive = readDrive(path);
+    expect(drive?.settings).toEqual({ ttsVoice: "bf_emma" });
+    expect(drive?.events.at(-1)).toEqual({ kind: "setting", at: 300, patch: { ttsVoice: "bm_george" } });
+  });
+
+  /**
    * The whole reason this is on disk. On 14 September the service restarted
    * twenty seconds after a drive and the scorecard printed zeros.
    */

@@ -41,7 +41,13 @@ export interface Answered {
 export interface Barged { kind: "barged"; at: number; level: number; heldMs: number }
 export interface Spoke { kind: "spoke"; at: number; text: string; whole: boolean }
 export interface Note { kind: "note"; at: number; text: string }
-export type Event = Heard | Matched | Barged | Answered | Spoke | Note;
+/**
+ * 9.4 a setting Chris changed out loud, mid-session. The header carries the
+ * settings a session started with; this is the only witness to a change after
+ * it, so a record read a week later can say which voice the second half ran in.
+ */
+export interface Setting { kind: "setting"; at: number; patch: Record<string, unknown> }
+export type Event = Heard | Matched | Barged | Answered | Spoke | Note | Setting;
 
 /** Enough to read a drive back, not so much that it is a log of its own. */
 const KEEP = 120;
@@ -89,6 +95,11 @@ export class Diagnostics {
 
   note(text: string, at = Date.now()): void {
     this.add({ kind: "note", at, text });
+  }
+
+  /** 9.4 a setting changed by voice, so the record explains what came after it. */
+  setting(patch: Record<string, unknown>, at = Date.now()): void {
+    this.add({ kind: "setting", at, patch });
   }
 
   recent(limit = KEEP): Event[] {

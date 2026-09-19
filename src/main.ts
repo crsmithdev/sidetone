@@ -157,7 +157,7 @@ async function voice(dir: string, config: Config): Promise<void> {
 
   const conversation = new Conversation(dir, config, mouth, tts, {
     onNarration: (text) => console.log(`[${text}]`),
-    onSetting: (patch) => saveSettings(patch),
+    onSetting: (patch) => { Object.assign(config, patch); saveSettings(patch); conversation.measures.setting(patch); },
     onTurn: (turn) => console.log(`[turn ${turn.number}, $${conversation.agent.totalCostUsd().toFixed(4)} this session]`),
   });
   /**

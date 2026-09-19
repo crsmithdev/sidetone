@@ -92,6 +92,11 @@ export class Measures {
     this.diagnostics.note(text);
   }
 
+  /** 9.4 a setting Chris changed out loud, kept beside what it changed. */
+  setting(patch: Record<string, unknown>): void {
+    this.diagnostics.setting(patch);
+  }
+
   /** 9.4 the stats command, spoken, so it has to be heard once and kept. */
   report(): string {
     return this.latency.report();

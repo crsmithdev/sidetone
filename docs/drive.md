@@ -38,6 +38,7 @@ systemctl --user restart voice-bridge.service
 | "hey bridge, end the turn" during "carry on" | stops the replay: "Stopped." |
 | "hey bridge, stats" | says the round trip and how it split: the agent, the first sentence, the voice |
 | "interrupt on", "tones off", "male voice" | kept in the config file now; a restart no longer forgets them |
+| the same three, then `/diagnostics` or the record | say the setting in force now, not the one the bridge started with; the record carries a `setting` line at the moment of the change |
 | the phone's screen | the answer arrives a sentence at a time, before the voice reaches it |
 | the journal, `begun at the tentative end` | the transcription started during the pause, so the round trip no longer waits for it |
 | swiping the app away | leaves the room; the bridge logs `[the room lost a microphone track]` |

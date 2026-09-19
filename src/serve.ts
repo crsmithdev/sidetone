@@ -113,7 +113,10 @@ export async function serve(dir: string, config: Config): Promise<void> {
   const conversation = new Conversation(dir, config, mouth, tts, {
     onNarration: (text) => { console.log(`[${text}]`); void transport.send({ kind: "narration", text }); },
     tell: (value) => { void transport.send(value); },
-    onSetting: (patch) => saveSettings(patch),
+    // 9.4 the file is for the next run; the live copy is what /diagnostics and
+    // the health line report now. Until 19 September only the file changed, and
+    // a drive that switched voices was recorded as running in the first one.
+    onSetting: (patch) => { Object.assign(config, patch); saveSettings(patch); measures.setting(patch); },
     onTurn: (turn) => console.log(`[turn ${turn.number}, $${conversation.agent.totalCostUsd().toFixed(4)} this session]`),
     onMatched: (said, became) => {
       measures.matched(said, became);
