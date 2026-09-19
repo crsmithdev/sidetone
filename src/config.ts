@@ -5,7 +5,7 @@
  * Read from $VOICE_BRIDGE_CONFIG, else ~/.voice-bridge/config.json. A missing
  * file is fine; a present one overrides field by field.
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { COMMAND_NAMES, type CommandName } from "./commands.ts";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -288,6 +288,9 @@ export const DEFAULTS: Config = {
     "Never read diffs, code or secrets aloud. Summarize those instead. This rule does not bend.",
     "Name a file by its path from the project root, like src/audio.ts. Do not speak an absolute path unless you are asked for one.",
     "Otherwise answer in short plain sentences, without markdown, lists, headers or code blocks.",
+    // 18.4 the first sentence is on the critical path: the voice cannot start
+    // until the collector has one, and a long opening sentence is a long wait.
+    "Begin every answer with one short sentence, so the voice can start at once.",
     "If this project's instructions ask for something to be read aloud in full, or if you are asked to, read it in full.",
     // 11.9 a turn that runs for minutes is a voice that cannot be talked to:
     // the microphone is open the whole time and nothing said into it can be
@@ -341,6 +344,18 @@ export const IN_FORCE = [
 
 export function settingsInForce(config: Config): Record<string, unknown> {
   return Object.fromEntries(IN_FORCE.map((key) => [key, config[key]]));
+}
+
+/**
+ * 9.4 a setting Chris changed out loud outlives the process. "interrupt on"
+ * used to live in memory alone: the restart of 18 September turned it off and
+ * said nothing, and every refusal after that looked like the fault under test.
+ * The file keeps only what was set, so a default that moves still moves.
+ */
+export function saveSettings(patch: Partial<Config>, path = configPath()): void {
+  let current: Record<string, unknown> = {};
+  try { current = JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>; } catch { /* no file yet, or not ours to read: start from the patch */ }
+  writeFileSync(path, `${JSON.stringify({ ...current, ...patch }, null, 2)}\n`);
 }
 
 export function configPath(): string {

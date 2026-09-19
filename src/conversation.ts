@@ -117,6 +117,8 @@ export interface ConversationHooks {
   onTurn?(turn: Turn): void;
   /** What the bridge decided a thing Chris said actually was (9.4, 9.7). */
   onMatched?(said: string, became: string): void;
+  /** 9.4 a setting Chris changed out loud, for whoever keeps settings. */
+  onSetting?(patch: Partial<Config>): void;
 }
 
 export class Conversation {
@@ -189,11 +191,13 @@ export class Conversation {
     this.onTurn = hooks.onTurn;
     this.onMatched = hooks.onMatched;
     this.tell = hooks.tell;
+    this.onSetting = hooks.onSetting;
   }
 
   private onTurn?: (turn: Turn) => void;
   private onMatched?: (said: string, became: string) => void;
   private tell?: (value: Record<string, unknown>) => void;
+  private onSetting?: (patch: Partial<Config>) => void;
   private deltaSink: ((text: string) => void) | null = null;
 
   get busy(): boolean { return this.turnRunning; }
@@ -477,9 +481,9 @@ export class Conversation {
       case "unmute": this.muted = false; this.reply("Listening."); return "resume";
       // 15.4 the cues earn their keep while this is being built and are noise
       // once it works, so which it is stays Chris's to say, out loud.
-      case "tones": this.tones = !this.tones; this.reply(this.tones ? "Tones on." : "Tones off."); return "resume";
-      case "tonesOn": this.tones = true; this.reply("Tones on."); return "resume";
-      case "tonesOff": this.tones = false; this.reply("Tones off."); return "resume";
+      case "tones": return this.setTones(!this.tones);
+      case "tonesOn": return this.setTones(true);
+      case "tonesOff": return this.setTones(false);
 
       // A question about the bridge, not about the work. Report, then carry on.
       case "usage": {
@@ -534,15 +538,9 @@ export class Conversation {
         if (!this.mouth.carryOn()) this.reply("There is nothing left of it.");
         return "resume";
 
-      // 11.9 which of the two things a question mid-answer does. Said out loud
-      // because the answer is a matter of taste and the car is where it is
-      // found, and a restart to change it would cost the session.
-      case "interrupt":
-        this.interrupting = !this.interrupting;
-        this.reply(this.interrupting ? "Interrupting on." : "Interrupting off.");
-        return "resume";
-      case "interruptOn": this.interrupting = true; this.reply("Interrupting on."); return "resume";
-      case "interruptOff": this.interrupting = false; this.reply("Interrupting off."); return "resume";
+      case "interrupt": return this.setInterrupting(!this.interrupting);
+      case "interruptOn": return this.setInterrupting(true);
+      case "interruptOff": return this.setInterrupting(false);
 
       case "endTurn":
         // no turn, but a replay from "carry on" may be playing, and it stops too
@@ -590,7 +588,27 @@ export class Conversation {
     const voice = this.config.voiceChoices[which];
     if (!this.tts.use) { this.reply("This engine has only the one voice."); return "resume"; }
     this.tts.use(voice);
+    this.onSetting?.({ ttsVoice: voice });
     this.reply(`Switched to the ${which} voice.`);
+    return "resume";
+  }
+
+  private setTones(on: boolean): Hold {
+    this.tones = on;
+    this.onSetting?.({ tones: on });
+    this.reply(on ? "Tones on." : "Tones off.");
+    return "resume";
+  }
+
+  /**
+   * 11.9 which of the two things a question mid-answer does. Said out loud
+   * because the answer is a matter of taste and the car is where it is found,
+   * and kept, because a restart that forgot it looked like the fault under test.
+   */
+  private setInterrupting(on: boolean): Hold {
+    this.interrupting = on;
+    this.onSetting?.({ interruptOnSpeech: on });
+    this.reply(on ? "Interrupting on." : "Interrupting off.");
     return "resume";
   }
 

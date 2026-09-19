@@ -12,7 +12,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { encodeWav } from "./audio.ts";
-import { settingsInForce, type Config } from "./config.ts";
+import { saveSettings, settingsInForce, type Config } from "./config.ts";
 import { Conversation, keptLines } from "./conversation.ts";
 import { Cues } from "./cues.ts";
 import { Ear, earOptions, SILENCE_MS } from "./ear.ts";
@@ -110,6 +110,7 @@ export async function serve(dir: string, config: Config): Promise<void> {
   const conversation = new Conversation(dir, config, mouth, tts, {
     onNarration: (text) => { console.log(`[${text}]`); void transport.send({ kind: "narration", text }); },
     tell: (value) => { void transport.send(value); },
+    onSetting: (patch) => saveSettings(patch),
     onTurn: (turn) => console.log(`[turn ${turn.number}, $${conversation.agent.totalCostUsd().toFixed(4)} this session]`),
     onMatched: (said, became) => {
       measures.matched(said, became);

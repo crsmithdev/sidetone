@@ -11,7 +11,7 @@
 import { mkdtempSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
-import { DEFAULTS, configPath, loadConfig, type Config } from "./config.ts";
+import { DEFAULTS, configPath, loadConfig, saveSettings, type Config } from "./config.ts";
 import { Session, recorded, spawnClaude } from "./session.ts";
 import { Conversation, keptLines } from "./conversation.ts";
 import { Cues } from "./cues.ts";
@@ -157,6 +157,7 @@ async function voice(dir: string, config: Config): Promise<void> {
 
   const conversation = new Conversation(dir, config, mouth, tts, {
     onNarration: (text) => console.log(`[${text}]`),
+    onSetting: (patch) => saveSettings(patch),
     onTurn: (turn) => console.log(`[turn ${turn.number}, $${conversation.agent.totalCostUsd().toFixed(4)} this session]`),
   });
   /**

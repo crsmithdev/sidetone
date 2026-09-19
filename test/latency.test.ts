@@ -77,6 +77,20 @@ describe("latency (18.4)", () => {
     expect(latency.count).toBe(1);
   });
 
+  test("the report speaks the split when the marks were made, and not when they were not", () => {
+    const latency = new Latency();
+    latency.speechEnded(0, PAUSE);
+    latency.transcribed(PAUSE + 300);
+    latency.firstDelta(PAUSE + 300 + 800);
+    latency.firstSentence(PAUSE + 300 + 800 + 250);
+    latency.synthesized(100);
+    latency.answered(PAUSE + 300 + 800 + 250 + 100);
+    expect(latency.report()).toContain("The agent took 0.8, the first sentence 0.3, the voice 0.1.");
+    // a command's reply closes a round with no marks, and says nothing of them
+    round(latency, 10_000, 200, 1_000);
+    expect(latency.report()).not.toContain("The agent took");
+  });
+
   test("the pause a setting decides is not charged to the engine", () => {
     const latency = new Latency();
     // 1.5 s of pause, 0.3 s of engine: the old split called all 1.8 transcription

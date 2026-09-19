@@ -300,6 +300,19 @@ describe("the commands that were wrong mid-turn", () => {
   });
 });
 
+describe("a setting changed out loud is handed on (9.4)", () => {
+  test("interrupt, tones and the voice reach the hook as the setting they change", async () => {
+    const asked: string[] = [];
+    const speaking = { ...engines, use: (v: string) => { asked.push(v); } };
+    const patches: Array<Record<string, unknown>> = [];
+    const c = new Conversation("/tmp", config, mouthFor().mouth, speaking as never, { onSetting: (patch) => patches.push(patch) });
+    await c.heard("hey bridge interrupt on");
+    await c.heard("hey bridge tones off");
+    await c.heard("hey bridge male voice");
+    expect(patches).toEqual([{ interruptOnSpeech: true }, { tones: false }, { ttsVoice: config.voiceChoices.male }]);
+  });
+});
+
 describe("end the turn with no turn running (9.4.8)", () => {
   test("with nothing queued it says so", async () => {
     const r = room();

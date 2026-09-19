@@ -151,6 +151,8 @@ export class Latency {
     const parts = [`Last answer, ${seconds(last.answerMs)} seconds.`];
     if (this.rounds.length > 1) parts.push(`Median ${seconds(this.median())}, worst ${seconds(this.worst())}.`);
     parts.push(`${seconds(last.pauseMs)} of it was the end of turn pause.`);
+    // the split, when the marks were made: a command's reply has none
+    if (last.agentMs > 0) parts.push(`The agent took ${seconds(last.agentMs)}, the first sentence ${seconds(last.sentenceMs)}, the voice ${seconds(last.synthesisMs)}.`);
     if (this.bargeIns.length > 0) {
       parts.push(`${this.bargeIns.length} barge-ins, ${this.falseBargeIns} of them nothing.`);
     }

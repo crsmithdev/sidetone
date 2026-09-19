@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DEFAULTS, loadConfig, settingsInForce } from "../src/config.ts";
+import { DEFAULTS, loadConfig, saveSettings, settingsInForce } from "../src/config.ts";
 
 const dir = mkdtempSync(join(tmpdir(), "vb-config-"));
 function withFile(body: string): string {
@@ -66,6 +66,21 @@ describe("each engine names its own voices (4.9)", () => {
   });
   test("an engine that does not exist is refused, not run", () => {
     expect(() => loadConfig(withFile('{"ttsEngine":"espeak"}'))).toThrow(/ttsEngine must be one of/);
+  });
+});
+
+describe("a setting changed out loud is kept (9.4)", () => {
+  test("it lands in the file beside what was already set, and nothing else", () => {
+    const path = withFile('{"model":"opus"}');
+    saveSettings({ interruptOnSpeech: true }, path);
+    saveSettings({ tones: false }, path);
+    expect(JSON.parse(readFileSync(path, "utf8"))).toEqual({ model: "opus", interruptOnSpeech: true, tones: false });
+    expect(loadConfig(path).interruptOnSpeech).toBe(true);
+  });
+  test("with no file yet, the file is the patch", () => {
+    const path = join(dir, "fresh.json");
+    saveSettings({ ttsVoice: "bm_george" }, path);
+    expect(JSON.parse(readFileSync(path, "utf8"))).toEqual({ ttsVoice: "bm_george" });
   });
 });
 
