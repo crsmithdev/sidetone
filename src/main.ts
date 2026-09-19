@@ -4,13 +4,15 @@
  * its own, and it is where the process management gets tested.
  *
  *   bun src/main.ts chat <project-dir>    a spoken conversation, typed
+ *   bun src/main.ts chat <dir> --record-stream <file>
+ *                                         the same, with every line Claude Code prints kept as a fixture
  *   bun src/main.ts config                the settings and where they come from
  */
 import { mkdtempSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { DEFAULTS, configPath, loadConfig, type Config } from "./config.ts";
-import { Session } from "./session.ts";
+import { Session, recorded, spawnClaude } from "./session.ts";
 import { Conversation, keptLines } from "./conversation.ts";
 import { Cues } from "./cues.ts";
 import { decodeWav, utteranceOf } from "./audio.ts";
@@ -30,10 +32,12 @@ function showConfig(config: Config): void {
   }
 }
 
-async function chat(dir: string, config: Config): Promise<void> {
+async function chat(dir: string, config: Config, recordStream = ""): Promise<void> {
   // 5.5 the reply arrives word by word. Here it goes straight to the terminal;
   // at 7.3 the same hook feeds the sentence collector of 5.6.
   let streamed = false;
+  // a run worth keeping becomes a file a test replays through the session
+  const spawn = recordStream ? recorded(spawnClaude, recordStream) : spawnClaude;
   const session = new Session(dir, config, {
     onDelta: (text) => { streamed = true; process.stdout.write(text); },
     // 2.3 at 7.3 this is spoken; here it keeps a long turn from looking hung
@@ -41,7 +45,7 @@ async function chat(dir: string, config: Config): Promise<void> {
     onCheckpoint: (ms) => console.log(`\n[this turn has run ${Math.round(ms / 60_000)} minutes. say "${config.agreementWord}" to let it run]`),
     onInterrupt: (reason) => console.log(`\n[interrupting the turn: ${reason}]`),
     onRestart: (reason) => console.log(`\n[restarting Claude Code: ${reason}]`),
-  });
+  }, spawn);
   session.start();
   console.log(`Claude Code in ${dir}, model ${config.model}. Ctrl-D to leave.`);
 
@@ -215,8 +219,9 @@ if (command === "config") {
   showConfig(config);
 } else if (command === "chat") {
   const dir = rest[0];
-  if (!dir) { console.error("usage: bun src/main.ts chat <project-dir>"); process.exit(2); }
-  await chat(dir, config);
+  if (!dir) { console.error("usage: bun src/main.ts chat <project-dir> [--record-stream <file>]"); process.exit(2); }
+  const at = rest.indexOf("--record-stream");
+  await chat(dir, config, at >= 0 ? rest[at + 1] ?? "" : "");
 } else if (command === "voice") {
   const dir = rest[0];
   if (!dir) { console.error("usage: bun src/main.ts voice <project-dir>"); process.exit(2); }

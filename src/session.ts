@@ -5,7 +5,7 @@
  * audio. The supervisor drives it: this file only owns the pipes, the turn
  * numbers (14.5) and the restart.
  */
-import { readFileSync } from "node:fs";
+import { appendFileSync, readFileSync } from "node:fs";
 import type { Subprocess } from "bun";
 import type { Config } from "./config.ts";
 import { Narrator } from "./narrator.ts";
@@ -50,8 +50,70 @@ export interface SessionHooks {
 
 const TICK_MS = 1_000;
 
+/**
+ * The process, as the session needs it: what it prints, one line at a time,
+ * what it is told, and when it ends. This is the seam the session is tested
+ * across. `spawnClaude` is the process; a test gives a scripted one, or a file
+ * of lines a real run printed, so the pump and everything above it run with
+ * no Claude Code anywhere near them.
+ */
+export interface Process {
+  /** for 8.7, which samples the memory; a process with no pid is not sampled */
+  readonly pid: number | undefined;
+  readonly lines: AsyncIterable<string>;
+  write(line: string): void;
+  kill(): void;
+  readonly exited: Promise<unknown>;
+}
+
+export type Spawn = (config: Config, dir: string) => Process;
+
+/** One line at a time out of a stream, holding a partial line until its newline arrives. */
+async function* linesOf(stream: ReadableStream<Uint8Array>): AsyncGenerator<string> {
+  const splitter = new LineSplitter();
+  const decoder = new TextDecoder();
+  for await (const chunk of stream) {
+    for (const line of splitter.push(decoder.decode(chunk, { stream: true }))) yield line;
+  }
+}
+
+/** The real thing: Claude Code, in the project directory, on stream-json both ways. */
+export const spawnClaude: Spawn = (config, dir) => {
+  const child = Bun.spawn([config.claudeBin, ...config.claudeArgs, "--model", config.model], {
+    cwd: dir,
+    stdin: "pipe",
+    stdout: "pipe",
+    stderr: "pipe",
+  }) as Subprocess<"pipe", "pipe", "pipe">;
+  return {
+    pid: child.pid,
+    lines: linesOf(child.stdout as ReadableStream<Uint8Array>),
+    write(line) {
+      try { child.stdin.write(`${line}\n`); child.stdin.flush(); } catch { /* the restart will notice */ }
+    },
+    kill() {
+      try { child.kill(); } catch { /* already gone */ }
+    },
+    exited: child.exited,
+  };
+};
+
+/**
+ * The same process, with every line it prints appended to `path` as well, so
+ * a real run becomes a fixture a test can replay through `Session`.
+ */
+export function recorded(spawn: Spawn, path: string): Spawn {
+  return (config, dir) => {
+    const inner = spawn(config, dir);
+    async function* tee(): AsyncGenerator<string> {
+      for await (const line of inner.lines) { appendFileSync(path, `${line}\n`); yield line; }
+    }
+    return { ...inner, lines: tee() };
+  };
+}
+
 export class Session {
-  private child: Subprocess<"pipe", "pipe", "pipe"> | null = null;
+  private child: Process | null = null;
   private alive = false;
   private supervisor: Supervisor;
   private narrator: Narrator;
@@ -66,19 +128,19 @@ export class Session {
   contextUsed = 0;
   rateLimit: { fiveHour: number; sevenDay: number } = { fiveHour: 0, sevenDay: 0 };
 
-  constructor(private readonly dir: string, private readonly config: Config, private readonly hooks: SessionHooks = {}) {
+  constructor(
+    private readonly dir: string,
+    private readonly config: Config,
+    private readonly hooks: SessionHooks = {},
+    private readonly spawn: Spawn = spawnClaude,
+  ) {
     this.supervisor = new Supervisor(config);
     this.narrator = new Narrator(config);
   }
 
   start(): void {
     if (this.child) return;
-    this.child = Bun.spawn([this.config.claudeBin, ...this.config.claudeArgs, "--model", this.config.model], {
-      cwd: this.dir,
-      stdin: "pipe",
-      stdout: "pipe",
-      stderr: "pipe",
-    }) as Subprocess<"pipe", "pipe", "pipe">;
+    this.child = this.spawn(this.config, this.dir);
     // Bun does not fill in exitCode unless something awaits exited, so a child
     // that died still reads as running. Watch the exit instead, and check the
     // identity before recording it: a killed child's promise resolves after
@@ -96,14 +158,10 @@ export class Session {
    * checks that the child it reads is still the current one: without the check
    * the dying process rejects the first turn of its successor.
    */
-  private async pump(child: Subprocess<"pipe", "pipe", "pipe">): Promise<void> {
-    const splitter = new LineSplitter();
-    const decoder = new TextDecoder();
-    for await (const chunk of child.stdout as ReadableStream<Uint8Array>) {
+  private async pump(child: Process): Promise<void> {
+    for await (const line of child.lines) {
       if (this.child !== child) return;
-      for (const line of splitter.push(decoder.decode(chunk, { stream: true }))) {
-        for (const event of parseLine(line)) this.handle(event, Date.now());
-      }
+      for (const event of parseLine(line)) this.handle(event, Date.now());
     }
     if (this.child !== child) return;
     // the stream ended: either we killed it, or it died and the silence timer is about to say so
@@ -196,14 +254,12 @@ export class Session {
 
   stop(): void {
     if (this.timer) { clearInterval(this.timer); this.timer = null; }
-    try { this.child?.kill(); } catch { /* already gone */ }
+    this.child?.kill();
     this.child = null;
   }
 
   private write(value: unknown): void {
-    const stdin = this.child?.stdin;
-    if (!stdin) return;
-    try { stdin.write(`${JSON.stringify(value)}\n`); stdin.flush(); } catch { /* the restart will notice */ }
+    this.child?.write(JSON.stringify(value));
   }
 
   /** One turn: text in, text out. Claude Code never sees audio (3.3). */

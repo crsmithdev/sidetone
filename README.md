@@ -33,6 +33,7 @@ bun src/main.ts chat ~/some-project    # a spoken conversation, typed
 bun src/main.ts voice ~/some-project   # a spoken conversation, at the desk
 bun src/main.ts serve ~/some-project   # the same, for a phone, over LiveKit
 bun src/main.ts config                 # every setting, and which are not default
+bun src/main.ts chat ~/some-project --record-stream run.ndjson   # keep what Claude Code printed, as a fixture
 ```
 
 Voice needs the local engines once. The transcriber and the piper fallback:
