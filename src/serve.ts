@@ -71,11 +71,14 @@ export async function serve(dir: string, config: Config): Promise<void> {
   const tts = textToSpeech(config, speechDir);
   const ahead = new SpokenAhead(tts, scratch, keptLines(config));
   const cues = new Cues(scratch, config.cueVolume);
-  await Promise.all([stt.start(), tts.start(), cues.build()]);
-
   const transport = new Transport();
   const startedAt = Date.now();
-  await transport.joinWhenReady(keys, config.room, config.livekitWaitMs, (text) => console.log(`[${text}]`));
+  // the engines warm and the room is joined at the same time: whisper's warmup
+  // is about seven seconds, and the wait for LiveKit does not need them
+  await Promise.all([
+    stt.start(), tts.start(), cues.build(),
+    transport.joinWhenReady(keys, config.room, config.livekitWaitMs, (text) => console.log(`[${text}]`)),
+  ]);
 
   // 18 the record outlives the process: the scorecard is read after a drive,
   // and a restart in between used to leave nothing to read.
