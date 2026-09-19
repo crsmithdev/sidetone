@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DEFAULTS, loadConfig, settingsInForce } from "../src/config.ts";
+import { DEFAULTS, ENGINE_VOICES, loadConfig, settingsInForce } from "../src/config.ts";
 
 const dir = mkdtempSync(join(tmpdir(), "vb-config-"));
 function withFile(body: string): string {
@@ -45,6 +45,31 @@ describe("config (21)", () => {
   test("a broken file is an error, not a silent fallback", () => {
     expect(() => loadConfig(withFile("{oops"))).toThrow(/not valid JSON/);
     expect(() => loadConfig(withFile("[]"))).toThrow(/must hold an object/);
+  });
+});
+
+/**
+ * 19 September: the file said kokoro and left the voices alone, the defaults
+ * were chatterbox's, and "hey bridge, male voice" asked kokoro for a wav it
+ * does not have. The fake phone died the same way on its first line.
+ */
+describe("each engine names its own voices (4.9)", () => {
+  test("a file that names the engine and not the voices gets that engine's", () => {
+    const config = loadConfig(withFile('{"ttsEngine":"kokoro"}'));
+    expect(config.ttsVoice).toBe("bf_emma");
+    expect(config.voiceChoices).toEqual({ female: "bf_emma", male: "bm_george" });
+  });
+  test("a file that names the voices keeps them, whatever the engine", () => {
+    const config = loadConfig(withFile('{"ttsEngine":"kokoro","ttsVoice":"af_heart","voiceChoices":{"female":"af_heart","male":"am_adam"}}'));
+    expect(config.ttsVoice).toBe("af_heart");
+    expect(config.voiceChoices).toEqual({ female: "af_heart", male: "am_adam" });
+  });
+  test("the defaults are the default engine's own", () => {
+    expect(DEFAULTS.ttsVoice).toBe(ENGINE_VOICES[DEFAULTS.ttsEngine].voice);
+    expect(DEFAULTS.voiceChoices).toEqual(ENGINE_VOICES[DEFAULTS.ttsEngine].choices);
+  });
+  test("an engine that does not exist is refused, not run", () => {
+    expect(() => loadConfig(withFile('{"ttsEngine":"espeak"}'))).toThrow(/ttsEngine must be one of/);
   });
 });
 

@@ -83,7 +83,9 @@ export interface Config {
   ttsVoice: string;
   /**
    * 9.4 the two Chris switches between out loud. Kokoro keeps all its voices
-   * in one pack, so a switch is a different name on the next request.
+   * in one pack, so a switch is a different name on the next request. Each
+   * engine names its own voices: a file that names the engine and not the
+   * voices gets that engine's pair, not the default engine's.
    */
   voiceChoices: { female: string; male: string };
   /**
@@ -333,13 +335,32 @@ export function configPath(): string {
   return process.env.VOICE_BRIDGE_CONFIG ?? join(homedir(), ".voice-bridge", "config.json");
 }
 
+/**
+ * 4.9 each engine names its voices its own way, so a voice is only a default
+ * beside its engine. On 19 September the file said kokoro and left the voices
+ * to the defaults, which were chatterbox's, and "hey bridge, male voice" and
+ * the fake phone both asked kokoro for a wav it does not have.
+ */
+export const ENGINE_VOICES: Record<Config["ttsEngine"], { voice: string; choices: { female: string; male: string } }> = {
+  chatterbox: { voice: "som_00295", choices: { female: "sof_01208", male: "som_00295" } },
+  kokoro: { voice: "bf_emma", choices: { female: "bf_emma", male: "bm_george" } },
+  // one voice, and the switch command says so
+  piper: { voice: "en_US-lessac-medium", choices: { female: "en_US-lessac-medium", male: "en_US-lessac-medium" } },
+};
+
 export function loadConfig(path = configPath()): Config {
   let text: string;
   try { text = readFileSync(path, "utf8"); } catch { return { ...DEFAULTS }; }
   let parsed: unknown;
   try { parsed = JSON.parse(text); } catch { throw new Error(`${path} is not valid JSON`); }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error(`${path} must hold an object`);
-  const merged: Config = { ...DEFAULTS, ...(parsed as Partial<Config>) };
+  const given = parsed as Partial<Config>;
+  const merged: Config = { ...DEFAULTS, ...given };
+  // 4.9 a voice the file did not name is the named engine's own, not the default engine's
+  const engine = ENGINE_VOICES[merged.ttsEngine];
+  if (!engine) throw new Error(`ttsEngine must be one of ${Object.keys(ENGINE_VOICES).join(", ")}, not ${String(merged.ttsEngine)}`);
+  if (given.ttsVoice === undefined) merged.ttsVoice = engine.voice;
+  if (given.voiceChoices === undefined) merged.voiceChoices = engine.choices;
   for (const key of ["silenceMs", "ceilingMs", "checkpointWindowMs", "graceMs", "compactionWindowMs", "narrationDelayMs"] as const) {
     if (typeof merged[key] !== "number" || !(merged[key] > 0)) throw new Error(`${key} must be a positive number of milliseconds`);
   }
