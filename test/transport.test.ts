@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { RTC_RATE, frameAt, resample, tokenFor, uniqueIdentity } from "../src/transport.ts";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { encodeWav } from "../src/audio.ts";
+import { RTC_RATE, frameAt, resample, roomSpeaker, tokenFor, uniqueIdentity, type Player } from "../src/transport.ts";
 
 /**
  * The pure half of the transport. These two functions carry the fault that
@@ -91,5 +95,63 @@ describe("the identity the bridge joins under", () => {
 
   test("it still says what it is, for a log that has to be read", () => {
     expect(uniqueIdentity()).toStartWith("bridge-");
+  });
+});
+
+/**
+ * 7.4 the room's speaker, over a player that writes down what it was asked.
+ * The literal in serve() that this replaces was never run under a test.
+ */
+describe("the room's speaker", () => {
+  function player(whole = true, speaking = false) {
+    const spoke: Array<{ bytes: number; until: (() => boolean) | undefined }> = [];
+    const p: Player = {
+      async speak(bytes, until) { spoke.push({ bytes: bytes.length, until }); return whole; },
+      get speaking() { return speaking; },
+    };
+    return { p, spoke, quiet: () => { speaking = false; }, busy: () => { speaking = true; } };
+  }
+  function wav(): string {
+    const path = join(mkdtempSync(join(tmpdir(), "speaker-")), "one.wav");
+    Bun.write(path, encodeWav(new Int16Array(160), 16_000));
+    return path;
+  }
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
+
+  test("a sentence is journaled, then played with the cut the mouth gave it", async () => {
+    const { p, spoke } = player();
+    const said: string[] = [];
+    const cut = () => false;
+    const whole = await roomSpeaker(p, (line) => said.push(line)).play("Four.", wav(), cut);
+    expect(whole).toBe(true);
+    expect(said).toEqual(["  Four."]);
+    expect(spoke).toHaveLength(1);
+    expect(spoke[0]?.until).toBe(cut);
+  });
+
+  test("a sentence cut short says so, and the voice off plays nothing", async () => {
+    const { p, spoke } = player(false);
+    const said: string[] = [];
+    const speaker = roomSpeaker(p, (line) => said.push(line));
+    expect(await speaker.play("Four.", wav(), () => true)).toBe(false);
+    expect(said).toEqual(["  Four.", "  [stopped: Chris started talking]"]);
+    expect(await speaker.play("Five.", null, () => false)).toBe(true);
+    expect(spoke).toHaveLength(1);
+  });
+
+  test("a cue is dropped when a sentence began while its file was read, and a missing file is not a crash", async () => {
+    const { p, spoke, busy } = player();
+    const said: string[] = [];
+    const speaker = roomSpeaker(p, (line) => said.push(line));
+    speaker.cue(wav(), () => false);
+    await settle();
+    expect(spoke).toHaveLength(1);
+    busy();
+    speaker.cue(wav(), () => false);
+    await settle();
+    expect(spoke).toHaveLength(1);
+    speaker.cue("/nowhere/heard.wav", () => false);
+    await settle();
+    expect(said.some((line) => line.startsWith("[the cue failed:"))).toBe(true);
   });
 });

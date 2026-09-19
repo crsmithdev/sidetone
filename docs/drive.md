@@ -56,7 +56,7 @@ While the rest plays, say "okay, that's enough".
 **Pass.** The replay stops at once, your words start a new turn, and nothing
 is said twice.
 
-**Evidence.** `[stopped: Chris started talking, Nms after it was noticed]`,
+**Evidence.** `[stopped: Chris started talking]`,
 then `[turn N]` within a few seconds, and a `not spoken:` narration naming the
 rest. No sentence appears twice in the journal.
 

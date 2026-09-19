@@ -30,6 +30,7 @@ import type { Channel } from "./channel.ts";
 import { commandIn, match, type CommandName } from "./commands.ts";
 import type { Config } from "./config.ts";
 import type { CueName } from "./cues.ts";
+import type { Ears } from "./ear.ts";
 import type { Measures } from "./measures.ts";
 import type { Mouth } from "./mouth.ts";
 import { Network } from "./network.ts";
@@ -193,6 +194,14 @@ export class Conversation {
     }, { ...config, claudeArgs: args });
     this.tones = config.tones;
     this.interrupting = config.interruptOnSpeech;
+    const self = this;
+    this.ears = {
+      get isMuted() { return self.muted; },
+      cue: (name) => this.cue(name),
+      stopSpeaking: () => this.mouth.hold(),
+      heard: (text) => this.heard(text),
+      heardNothing: () => this.heardNothing(),
+    };
     this.onTurn = hooks.onTurn;
     this.onSetting = hooks.onSetting;
   }
@@ -206,8 +215,13 @@ export class Conversation {
   get isMuted(): boolean { return this.muted; }
   /** 15.4 whether the cues are on, for a transport that plays one of its own. */
   get tonesOn(): boolean { return this.tones; }
-  /** 11.3 whether an answer is waiting to find out what Chris just said. */
-  get onHold(): boolean { return this.mouth.onHold; }
+
+  /**
+   * What the ear tells, in the modules that own it. A barge-in holds the
+   * mouth (11.3); the words, and the news that there were none, come here.
+   * Four one-line forwards used to stand in for this object.
+   */
+  readonly ears: Ears;
 
   /** Every cue goes through here, so one command can silence all of them (15.4). */
   cue(name: CueName): void {
@@ -222,21 +236,6 @@ export class Conversation {
   /** One sentence from the bridge itself. It jumps a hold, because you asked now. */
   private reply(text: string): void {
     this.mouth.reply(text);
-  }
-
-  /** 11.3 the moment Chris starts to talk, everything queued is held (Ears). */
-  stopSpeaking(): void {
-    this.mouth.hold();
-  }
-
-  /** What Chris said does not change the answer: say the rest of it. */
-  resumeHold(): void {
-    this.mouth.resume();
-  }
-
-  /** What Chris said replaces the answer: everything still queued goes. */
-  discardHold(): void {
-    this.mouth.discard();
   }
 
   /**
@@ -278,7 +277,7 @@ export class Conversation {
   /** The utterance held nothing a person said. Road noise must not cost a passage. */
   heardNothing(): void {
     this.measures.bargeInWas("nothing");
-    this.resumeHold();
+    this.mouth.resume();
   }
 
   /** One thing Chris said, and what it does to a held answer. */
@@ -323,18 +322,18 @@ export class Conversation {
       // the wake word in front of a sentence, and neither end could see why.
       this.channel.narrate(`the wake word arrived with no command, so nothing was done with: "${said}"`);
       this.awaitingCommand = Date.now() + this.config.wakeHoldMs;
-      this.resumeHold();
+      this.mouth.resume();
       return;
     }
-    if (this.muted) { this.resumeHold(); return; }
+    if (this.muted) { this.mouth.resume(); return; }
     // 10.2 the agreement word is a word said plainly, not a wake command
     if (this.agreed(said)) {
-      if (this.gate) { const act = this.gate.act; this.closeGate(); act(); this.discardHold(); return; }
+      if (this.gate) { const act = this.gate.act; this.closeGate(); act(); this.mouth.discard(); return; }
       if (this.checkpointOpen) {
         this.checkpointOpen = false;
         this.agent.agree();
         this.reply("Carrying on.");
-        this.resumeHold();
+        this.mouth.resume();
         return;
       }
     }
@@ -342,7 +341,7 @@ export class Conversation {
     if (this.turnRunning) {
       if (!this.interrupting) {
         this.reply(`I am still on the last one. Say ${this.config.wakeWord}, end the turn, to stop it.`);
-        this.resumeHold();
+        this.mouth.resume();
         return;
       }
       // 11.6 and 11.9 the Claude app's feel: the answer stops and the question
@@ -352,13 +351,13 @@ export class Conversation {
       return;
     }
     this.measures.matched(said, "speech");
-    this.discardHold();
+    this.mouth.discard();
     void this.turn(said);
   }
 
   private after(hold: Hold): void {
-    if (hold === "resume") this.resumeHold();
-    if (hold === "discard") this.discardHold();
+    if (hold === "resume") this.mouth.resume();
+    if (hold === "discard") this.mouth.discard();
   }
 
   /** 10.3 a specific word, so a reflex or a bad transcription cannot say it. */
@@ -376,7 +375,7 @@ export class Conversation {
     this.gate = {
       act,
       denied,
-      timer: setTimeout(() => { this.gate = null; this.reply(denied); this.resumeHold(); }, this.config.checkpointWindowMs),
+      timer: setTimeout(() => { this.gate = null; this.reply(denied); this.mouth.resume(); }, this.config.checkpointWindowMs),
     };
   }
 

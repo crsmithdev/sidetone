@@ -18,6 +18,7 @@ import {
 import { randomUUID } from "node:crypto";
 import { AccessToken } from "livekit-server-sdk";
 import { decodeWav } from "./audio.ts";
+import type { Speaker } from "./mouth.ts";
 
 /**
  * One per process, so a restart never collides with the session it replaces.
@@ -253,6 +254,40 @@ export class Transport {
  * fault arrives as silence rather than as a stutter, which is worse to find.
  * The last frame is short and the rest of it is silence.
  */
+/** What the room's speaker needs of the transport: one sentence's frames, and whether any are going out. */
+export interface Player {
+  speak(wavBytes: Uint8Array, until?: () => boolean): Promise<boolean>;
+  readonly speaking: boolean;
+}
+
+/**
+ * 7.4 the room's Speaker: it plays over LiveKit and stops the moment Chris
+ * talks (11.3). The frames cannot hold the bridge's own voice, because the
+ * client cancelled it before sending.
+ *
+ * It was a literal in `serve()`, next to nothing that tested it, and it read
+ * the ear directly. It reads nothing now: the mouth hands it `cut`.
+ */
+export function roomSpeaker(player: Player, say: (line: string) => void = console.log): Speaker {
+  return {
+    async play(text, wav, cut) {
+      say(`  ${text}`);
+      if (!wav) return true;
+      const whole = await player.speak(await Bun.file(wav).bytes(), cut);
+      if (!whole) say("  [stopped: Chris started talking]");
+      return whole;
+    },
+    cue(wav, cut) {
+      void Bun.file(wav).bytes()
+        // The mouth checked that nothing was speaking before this read began.
+        // If that changed while the file was read, the cue is late: a cue means
+        // "still working", and behind a whole answer it means nothing.
+        .then((bytes) => (player.speaking ? false : player.speak(bytes, cut)))
+        .catch((error) => say(`[the cue failed: ${(error as Error).message}]`));
+    },
+  };
+}
+
 export function frameAt(samples: Int16Array, at: number, size: number): Int16Array {
   const out = new Int16Array(size);
   out.set(samples.subarray(at, Math.min(at + size, samples.length)));

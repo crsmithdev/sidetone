@@ -69,7 +69,7 @@ function room(script: Script = {}, overrides: Partial<Config> = {}) {
   const turns: Turn[] = [];
   const channel = new Channel(settings, (message) => { told.push(message); }, ends, () => {});
   const c = new Conversation("/tmp", settings, mouth, engines as never, channel, { onTurn: (turn) => turns.push(turn) }, agent.make);
-  return { c, said, cues, turns, agent, told, channel };
+  return { c, mouth, said, cues, turns, agent, told, channel };
 }
 
 /** The channel's other end, which no test here drives. */
@@ -211,7 +211,7 @@ describe("11.9 a question that lands mid-answer", () => {
     await tick();
     r.agent.hooks().onDelta?.("One. ");
     await tick();
-    r.c.stopSpeaking();
+    r.c.ears.stopSpeaking();
     r.agent.hooks().onDelta?.("Two. Three. ");
     await tick();
     return { ...r, turn, answer };
@@ -296,7 +296,7 @@ describe("11.9 waiting before insisting", () => {
     await tick();
     r.agent.hooks().onDelta?.("One. ");
     await tick();
-    r.c.stopSpeaking();
+    r.c.ears.stopSpeaking();
     setTimeout(answer, afterMs);
     await r.c.heard("what is the tallest one");
     await turn;
@@ -334,7 +334,7 @@ describe("11.11 a turn nobody asked for", () => {
 
   test("it jumps a hold, because news is not the answer it landed on", async () => {
     const r = room();
-    r.c.stopSpeaking();
+    r.c.ears.stopSpeaking();
     r.agent.hooks().onUnprompted?.(turnOf("The build is green."));
     await tick();
     expect(r.said).toContain("The build is green.");
@@ -343,7 +343,7 @@ describe("11.11 a turn nobody asked for", () => {
   test("talked over, it is said once and waits, rather than spinning", async () => {
     // the drive of 18 September: one refusal, eighteen times in three seconds
     const r = room();
-    r.c.stopSpeaking();
+    r.c.ears.stopSpeaking();
     r.agent.hooks().onUnprompted?.(turnOf("The build is green."));
     await tick();
     await tick();
@@ -356,5 +356,67 @@ describe("11.11 a turn nobody asked for", () => {
     r.agent.hooks().onUnprompted?.(turnOf("It broke.", true));
     await tick();
     expect(r.said).toEqual([]);
+  });
+});
+
+/**
+ * The commands that answer from the bridge itself, driven through a real turn
+ * rather than by setting the conversation's fields. conversation.test.ts used
+ * to reach in for `turnRunning` and `lastReply`; the scripted agent gets there
+ * by the front door.
+ */
+describe("what the bridge answers from itself (9.4.5, 9.4.6, 9.4.7)", () => {
+  async function midAnswer() {
+    let answer = () => {};
+    const hold = new Promise<void>((resolve) => { answer = resolve; });
+    const r = room({ hold, text: "One. Two. Three." }, { interruptOnSpeech: false });
+    const turn = r.c.turn("how does a suspension bridge work");
+    await tick();
+    r.agent.hooks().onDelta?.("One. ");
+    await tick();
+    r.c.ears.stopSpeaking();
+    r.agent.hooks().onDelta?.("Two. Three. ");
+    await tick();
+    return { ...r, turn, answer };
+  }
+
+  test("restate mid-answer says the last sentence heard, and the rest resumes", async () => {
+    const r = await midAnswer();
+    await r.c.heard("hey bridge say that again");
+    await tick();
+    expect(r.said.slice(0, 2)).toEqual(["One.", "One."]);
+    expect(r.said).toContain("Two.");
+    r.answer();
+    await r.turn;
+  });
+
+  test("summarize mid-answer is refused, and the turn goes on", async () => {
+    const r = await midAnswer();
+    await r.c.heard("hey bridge summarize");
+    await tick();
+    expect(r.said[1]).toBe("I am still on the last one. Say hey bridge, end the turn, to stop it.");
+    expect(r.said).toContain("Two.");
+    expect(r.agent.calls.filter((call) => call.startsWith("ask"))).toHaveLength(1);
+    r.answer();
+    await r.turn;
+  });
+
+  test("between turns restate means the whole last answer", async () => {
+    const r = room({ deltas: ["the answer before this one."] });
+    await r.c.turn("first");
+    await r.c.heard("hey bridge say that again");
+    await tick();
+    expect(r.said).toEqual(["the answer before this one.", "the answer before this one."]);
+  });
+
+  test("where are we reads back what was asked, and drops a held passage", async () => {
+    const r = room({ deltas: ["it joins the room."] });
+    await r.c.turn("what does serve do");
+    r.c.ears.stopSpeaking();
+    r.mouth.say("the rest.");
+    await r.c.heard("hey bridge where are we");
+    await tick();
+    expect(r.said.at(-1)).toBe("You asked: what does serve do I said: it joins the room.");
+    expect(r.said).not.toContain("the rest.");
   });
 });

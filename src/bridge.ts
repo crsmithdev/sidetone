@@ -63,7 +63,8 @@ export function assemble(
   record.session(settingsInForce(config));
   // 18 one bookkeeper: the spoken report and the record are the same facts
   const measures = new Measures((event) => record.write(event));
-  const mouth = new Mouth(speaker, ahead, cues, measures, config);
+  // 11.3 whether Chris is talking is the ear's word; it stops the frames
+  const mouth = new Mouth(speaker, ahead, cues, measures, { ...config, talking: () => ear.bargingIn });
 
   const channel: Channel = new Channel(config, send, {
     heard: (text) => conversation.heard(text),
@@ -82,7 +83,7 @@ export function assemble(
 
   let counter = 0;
   /** 11.5 and 18.4 entire: the listening policy, one module, driven by frames. */
-  const ear = new Ear(conversation, async (utterance) => {
+  const ear: Ear = new Ear(conversation.ears, async (utterance) => {
     const wav = join(scratch, `heard-${++counter}.wav`);
     await Bun.write(wav, encodeWav(utterance.samples, sampleRate));
     return stt.transcribe(wav);

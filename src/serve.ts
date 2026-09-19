@@ -11,7 +11,7 @@
 import { assemble } from "./bridge.ts";
 import { settingsInForce, type Config } from "./config.ts";
 import { advertiseHost, livekitConfig, loadOrCreateKeys } from "./keys.ts";
-import { RTC_RATE, Transport, tokenFor } from "./transport.ts";
+import { RTC_RATE, Transport, roomSpeaker, tokenFor } from "./transport.ts";
 import { renderUnicodeCompact } from "uqr";
 
 /** 12.2 one pairing, then a long-lived token the client keeps. */
@@ -56,27 +56,7 @@ export async function serve(dir: string, config: Config): Promise<void> {
   const transport = new Transport();
   const startedAt = Date.now();
 
-  /** 7.4 the one thing the room supplies: it plays over LiveKit, and stops when Chris talks. */
-  const bridge = assemble(dir, config, RTC_RATE, {
-    async play(text, wav) {
-      console.log(`  ${text}`);
-      if (!wav) return true;
-      // 11.3 stop the moment Chris starts to talk. The frames cannot hold the
-      // bridge's own voice, because the client cancelled it before sending.
-      const ear = bridge.ear;
-      const whole = await transport.speak(await Bun.file(wav).bytes(), () => ear.bargingIn);
-      if (!whole) console.log(`  [stopped: Chris started talking${ear.bargedAt ? `, ${Date.now() - ear.bargedAt}ms after it was noticed` : ""}]`);
-      return whole;
-    },
-    cue(wav) {
-      void Bun.file(wav).bytes()
-        // The mouth checked that nothing was speaking before this read began.
-        // If that changed while the file was read, the cue is late: a cue means
-        // "still working", and behind a whole answer it means nothing.
-        .then((bytes) => (transport.speaking ? false : transport.speak(bytes, () => bridge.ear.bargingIn)))
-        .catch((error) => console.log(`[the cue failed: ${(error as Error).message}]`));
-    },
-  }, (message) => { void transport.send(message); });
+  const bridge = assemble(dir, config, RTC_RATE, roomSpeaker(transport), (message) => { void transport.send(message); });
 
   // the engines warm and the room is joined at the same time: whisper's warmup
   // is about seven seconds, and the wait for LiveKit does not need them

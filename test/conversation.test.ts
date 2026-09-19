@@ -124,17 +124,12 @@ describe("the stats command (18.4)", () => {
   });
 });
 
-/** A room: the conversation over a scripted mouth, with the rest of the conversation's guts in reach. */
+/** A room: the conversation over a scripted mouth. A turn in flight is turn.test.ts's business. */
 function room(overrides: Partial<Config> = {}) {
   const m = mouthFor(overrides);
   const c = new Conversation("/tmp", { ...config, ...overrides }, m.mouth, engines as never, quiet({ ...config, ...overrides }));
   return {
     c, mouth: m.mouth, said: m.said, cues: m.cues, lookahead: m.lookahead,
-    guts: c as unknown as {
-      turnRunning: boolean;
-      lastReply: string;
-      recent: Array<{ said: string; reply: string }>;
-    },
     blockSay: m.blockSay,
     cutSay: m.cutSay,
     release: m.release,
@@ -146,7 +141,7 @@ const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 describe("the hold (11.3)", () => {
   test("the acknowledgement is heard first, then the passage carries on", async () => {
     const r = room();
-    r.c.stopSpeaking();
+    r.c.ears.stopSpeaking();
     r.mouth.say("the rest of the answer.");
     await r.c.heard("hey bridge mute");
     await tick();
@@ -156,7 +151,7 @@ describe("the hold (11.3)", () => {
 
   test("the wake word without a command changes nothing, so the passage carries on", async () => {
     const r = room();
-    r.c.stopSpeaking();
+    r.c.ears.stopSpeaking();
     r.mouth.say("the rest.");
     await r.c.heard("hey bridge wtaeuhnt");
     await tick();
@@ -165,20 +160,11 @@ describe("the hold (11.3)", () => {
     expect(r.said).toEqual(["the rest."]);
   });
 
-  test("where are we drops the passage, because it is for reorienting (9.4.7)", async () => {
-    const r = room();
-    r.guts.recent.push({ said: "what does serve do", reply: "it joins the room." });
-    r.c.stopSpeaking();
-    r.mouth.say("the rest.");
-    await r.c.heard("hey bridge where are we");
-    await tick();
-    expect(r.said).toEqual(["You asked: what does serve do I said: it joins the room."]);
-  });
 
   test("a question for the agent drops the passage", async () => {
     const r = room();
     r.c.agent.ask = async () => { throw new Error("no agent in a test"); };
-    r.c.stopSpeaking();
+    r.c.ears.stopSpeaking();
     r.mouth.say("the rest.");
     await r.c.heard("what is the config file for");
     await tick();
@@ -249,39 +235,8 @@ describe("the wake word on its own (9.1)", () => {
 });
 
 describe("the commands that were wrong mid-turn", () => {
-  test("summarize is refused and does not corrupt the turn (9.4.6)", async () => {
-    const r = room();
-    r.guts.turnRunning = true;
-    r.c.stopSpeaking();
-    r.mouth.say("the rest.");
-    await r.c.heard("hey bridge summarize");
-    await tick();
-    expect(r.said).toEqual([
-      "I am still on the last one. Say hey bridge, end the turn, to stop it.",
-      "the rest.",
-    ]);
-    // the turn it was told about is still the turn that is running
-    expect(r.c.busy).toBe(true);
-  });
 
-  test("restate says the last sentence, not the answer before this one (9.4.5)", async () => {
-    const r = room();
-    r.guts.lastReply = "the answer before this one.";
-    r.guts.turnRunning = true;
-    r.mouth.say("the first sentence."); r.mouth.say("the second sentence.");
-    await tick();
-    await r.c.heard("hey bridge say that again");
-    await tick();
-    expect(r.said.at(-1)).toBe("the second sentence.");
-  });
 
-  test("between turns restate still means the whole last answer", async () => {
-    const r = room();
-    r.guts.lastReply = "the answer before this one.";
-    await r.c.heard("hey bridge say that again");
-    await tick();
-    expect(r.said).toEqual(["the answer before this one."]);
-  });
 });
 
 describe("a setting changed out loud is handed on (9.4)", () => {
@@ -307,16 +262,16 @@ describe("end the turn with no turn running (9.4.8)", () => {
 
   test("a replay from carry on is stopped, and the stop is heard at once", async () => {
     const r = room();
-    r.c.stopSpeaking();
+    r.c.ears.stopSpeaking();
     r.mouth.say("two."); r.mouth.say("three.");
-    r.c.discardHold();
+    r.mouth.discard();
     r.blockSay(true);
     await r.c.heard("hey bridge carry on");
     await tick();
     expect(r.said).toEqual(["two."]);
     // Chris talks over the replay, and what he said is the stop
     r.cutSay(true);
-    r.c.stopSpeaking();
+    r.c.ears.stopSpeaking();
     r.release();
     await tick();
     r.cutSay(false); r.blockSay(false);
@@ -366,11 +321,11 @@ describe("the gate on clearing the context (10)", () => {
   test("the held passage waits with the gate rather than resuming under it", async () => {
     const r = room();
     r.c.agent.restart = () => {};
-    r.c.stopSpeaking();
+    r.c.ears.stopSpeaking();
     r.mouth.say("the rest.");
     await r.c.heard("hey bridge clear");
     await tick();
-    expect(r.c.onHold).toBe(true);
+    expect(r.mouth.onHold).toBe(true);
     expect(r.said).toEqual(["I am about to clear the context and start again. Say continue to let it happen."]);
   });
 });
@@ -381,7 +336,7 @@ describe("switching voice (4.9)", () => {
     const speaking = { ...engines, use: (v: string) => { asked.push(v); } };
     const { mouth, said } = mouthFor();
     const c = new Conversation("/tmp", config, mouth, speaking as never, quiet());
-    c.stopSpeaking();
+    c.ears.stopSpeaking();
     mouth.say("the rest of the answer.");
     await c.heard("hey bridge male voice");
     await new Promise((r) => setTimeout(r, 0));

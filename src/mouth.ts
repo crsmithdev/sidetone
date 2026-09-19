@@ -16,17 +16,19 @@ import type { CueName, Cues } from "./cues.ts";
 import type { Measures } from "./measures.ts";
 import type { SpokenAhead } from "./speech.ts";
 
-/** The part that plays one sound. The room and the desk differ only here. */
+/** The part that plays one sound. The room and a test differ only here. */
 export interface Speaker {
   /**
-   * Play one sentence, made. False means a barge-in cut it short (11.3).
+   * Play one sentence, made. False means a barge-in cut it short (11.3):
+   * `cut` says whether Chris is talking, and a speaker that can stop between
+   * frames asks it as it goes.
    *
    * `wav` is null when the voice is off (11.12): nothing is played, and the
    * words still go wherever the spoken ones are written down.
    */
-  play(text: string, wav: string | null): Promise<boolean>;
+  play(text: string, wav: string | null, cut: () => boolean): Promise<boolean>;
   /** 15.2 a tone. The mouth has checked that nothing is speaking. */
-  cue(wav: string): void;
+  cue(wav: string, cut: () => boolean): void;
 }
 
 export class Mouth {
@@ -58,8 +60,18 @@ export class Mouth {
     private readonly cues: Pick<Cues, "file">,
     /** 18.4 the round trip closes here, so the one bookkeeper lives here. */
     readonly measures: Measures,
-    private readonly settings: { holdBackstopMs: number },
-  ) {}
+    /**
+     * `talking` is the ear's word on whether Chris is speaking right now. It
+     * is not the hold: a reply to a command plays over a hold on purpose, and
+     * the gate's question waits seconds with the hold up. It is what stops
+     * the frames, and it is wired once, by whoever assembles the bridge.
+     */
+    private readonly settings: { holdBackstopMs: number; talking?: () => boolean },
+  ) {
+    this.talking = settings.talking ?? (() => false);
+  }
+
+  private readonly talking: () => boolean;
 
   /** One sentence of the answer. It is what a barge-in holds. */
   say(text: string): void {
@@ -177,7 +189,7 @@ export class Mouth {
   cue(name: CueName): void {
     if (!this.voice || this.playing) return;
     const wav = this.cues.file(name);
-    if (wav) this.speaker.cue(wav);
+    if (wav) this.speaker.cue(wav, this.talking);
   }
 
   /** Sentences never overlap, and they keep their order (5.7). */
@@ -235,7 +247,7 @@ export class Mouth {
       // The round trip is still closed: the answer arrived, and how long that
       // took is the same question whether it is read or heard.
       this.measures.answering();
-      const whole = await this.speaker.play(text, null);
+      const whole = await this.speaker.play(text, null, this.talking);
       this.measures.spoken(text, whole);
       return whole;
     }
@@ -251,7 +263,7 @@ export class Mouth {
     // the bridge's next word wait for it, which costs one synthesis once and
     // saves one on every sentence of every answer.
     this.made.start(next());
-    const whole = await this.speaker.play(text, wav);
+    const whole = await this.speaker.play(text, wav, this.talking);
     this.measures.spoken(text, whole);
     return whole;
   }
