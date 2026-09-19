@@ -220,7 +220,7 @@ Measure first, before any of the above: split the 3907 ms remainder. Add three t
 
 ## 6. What I do not know
 
-- Whether extended thinking is on in the bridge's Claude Code session. Not visible in the record.
+- Whether extended thinking is on in the bridge's Claude Code session. Not visible in the record. Measured 19 September: two turns under the bridge's own arguments (`-p --output-format stream-json`, model sonnet, the fixture `test/fixtures/stream-pong.ndjson` and a three-sentence question) reported `thinking_tokens: 0` and streamed no thinking block. Nothing in the settings or the unit's environment sets it either way, so a harder question could still think; the `result` line's `output_tokens_details.thinking_tokens` is where to look.
 - The agent's time to first delta. Not recorded.
 - How Chatterbox Turbo or the streaming fork perform on the RTX 5070. The only number is a 4090.
 - Whether the caller's `v1-mini` turn detector and preemptive generation are live in the rehearsal worker. The code says yes by default; the logs would confirm.
