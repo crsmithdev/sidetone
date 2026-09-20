@@ -4,7 +4,7 @@
 # bridge holding a dropped room, or one whose agent died under it, is a process
 # that is there and does nothing. /health answers the real question; this asks.
 [Unit]
-Description=Ask the voice bridge whether it is working
+Description=Ask Sidetone whether it is working
 After=voice-bridge.service
 OnFailure=voice-bridge-recover.service
 

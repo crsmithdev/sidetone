@@ -10,8 +10,8 @@
 # environment and runs commands of its own, so it wants a real path and not
 # just enough to spawn one binary.
 [Unit]
-Description=Voice bridge: a Claude Code session driven by voice
-Documentation=https://github.com/crsmithdev/voice-bridge-mcp
+Description=Sidetone: a Claude Code session driven by voice
+Documentation=https://github.com/crsmithdev/sidetone
 After=network-online.target docker.service tailscaled.service
 # Ten failures inside ten minutes is a fault, not a boot race. Give up then, so
 # the unit sits in failed where it can be seen, rather than restarting forever

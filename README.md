@@ -1,8 +1,8 @@
-# voice-bridge
+# Sidetone
 
-Drive a Claude Code session by voice, from a phone, over a bridge that runs on
-your own machine. Claude Code does the reasoning; the bridge owns every voice
-decision and does speech locally.
+Sidetone drives a Claude Code session by voice, from a phone, over a bridge
+that runs on your own machine. Claude Code does the reasoning; the bridge owns
+every voice decision and does speech locally.
 
 The words this project uses are in [`CONTEXT.md`](CONTEXT.md), and the decisions
 behind them are in [`docs/adr/`](docs/adr). The full specification is

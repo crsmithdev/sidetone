@@ -129,7 +129,7 @@ private fun Pairing(error: String?) {
     var problem by remember(error) { mutableStateOf(error) }
 
     Centered {
-        Text("Voice bridge", style = MaterialTheme.typography.headlineMedium)
+        Text("Sidetone", style = MaterialTheme.typography.headlineMedium)
         Text(
             "Scan the code the bridge prints when it starts.",
             style = MaterialTheme.typography.bodyLarge,
@@ -141,7 +141,7 @@ private fun Pairing(error: String?) {
                 .addOnSuccessListener { barcode ->
                     val link = barcode.rawValue?.let(::parseLink)
                     if (link == null) {
-                        problem = "That is not a voice bridge code."
+                        problem = "That is not a Sidetone code."
                         return@addOnSuccessListener
                     }
                     busy = true

@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "voice-bridge",
+      "name": "sidetone",
       "dependencies": {
         "@livekit/rtc-node": "^0.13.35",
         "livekit-client": "^2.22.3",

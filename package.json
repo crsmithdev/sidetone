@@ -1,10 +1,10 @@
 {
-  "name": "voice-bridge",
+  "name": "sidetone",
   "version": "0.1.0",
   "type": "module",
   "private": true,
   "bin": {
-    "voice-bridge": "src/main.ts"
+    "sidetone": "src/main.ts"
   },
   "scripts": {
     "chat": "bun src/main.ts chat",

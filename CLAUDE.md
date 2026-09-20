@@ -1,4 +1,4 @@
-# Voice bridge
+# Sidetone
 
 [`CONTEXT.md`](CONTEXT.md) holds the words this project uses.
 [`docs/voice-bridge-spec.md`](docs/voice-bridge-spec.md) is the specification and

@@ -4,7 +4,7 @@
 # up is in failed on purpose, and restarting it from here would paper over the
 # start limit and hide the fault that earned it.
 [Unit]
-Description=Restart the voice bridge when it stops answering
+Description=Restart Sidetone when it stops answering
 
 [Service]
 Type=oneshot

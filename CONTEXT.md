@@ -1,4 +1,4 @@
-# Voice bridge
+# Sidetone
 
 A spoken conversation with a Claude Code session: Chris talks to his phone, a
 bridge on his desktop machine does the hearing and the speaking, and the agent
@@ -9,6 +9,9 @@ decisions behind them are in [`docs/adr/`](docs/adr).
 ## Language
 
 ### The parts
+
+**Sidetone**:
+The name of the project and of the program. Sidetone is the tone a telephone feeds back into the earpiece so the line never sounds dead, which is what this program does for a long turn. The code calls the program the bridge.
 
 **The bridge**:
 This program. It owns every voice decision: what is heard, what is said, and when.
