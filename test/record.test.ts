@@ -47,7 +47,7 @@ describe("the drive record", () => {
     const recorder = new Recorder(path);
     recorder.session({ ttsVoice: "bf_emma" }, 100);
     const d = new Diagnostics((event) => recorder.write(event));
-    d.heard(utterance(), "hey bridge, male voice", 50, 200);
+    d.heard(utterance(), "sidetone, male voice", 50, 200);
     d.setting({ ttsVoice: "bm_george" }, 300);
 
     const drive = readDrive(path);
@@ -64,8 +64,8 @@ describe("the drive record", () => {
     const drove = new Recorder(path);
     drove.session({ cueVolume: 0.12 }, 100);
     const d = new Diagnostics((event) => drove.write(event));
-    d.heard(utterance({ peak: 0.48 }), "hey bridge, stats", 150, 200);
-    d.matched("hey bridge, stats", "stats", 210);
+    d.heard(utterance({ peak: 0.48 }), "sidetone, stats", 150, 200);
+    d.matched("sidetone, stats", "stats", 210);
 
     // the process goes; the next one opens a session of its own. It speaks and
     // is talked over, but it never hears an utterance, so it is not a drive.
@@ -119,7 +119,7 @@ describe("the drive record", () => {
 
     const heard = new Recorder(path);
     heard.session({ cueVolume: 0.12 }, 900);
-    new Diagnostics((e) => heard.write(e)).heard(utterance(), "hey bridge, stats", 150, 950);
+    new Diagnostics((e) => heard.write(e)).heard(utterance(), "sidetone, stats", 150, 950);
     expect(readFileSync(path, "utf8").trim().split("\n").length).toBe(2);
     expect(readDrive(path)?.settings).toEqual({ cueVolume: 0.12 });
   });

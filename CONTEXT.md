@@ -3,7 +3,7 @@
 A spoken conversation with a Claude Code session: Chris talks to his phone, a
 bridge on his desktop machine does the hearing and the speaking, and the agent
 does the reasoning. These are the words this project uses. The feature
-specification is [`docs/voice-bridge-spec.md`](docs/voice-bridge-spec.md); the
+specification is [`docs/sidetone-spec.md`](docs/sidetone-spec.md); the
 decisions behind them are in [`docs/adr/`](docs/adr).
 
 ## Language
@@ -78,7 +78,7 @@ _Avoid_: the latency, the response time.
 ### What Chris says
 
 **The wake word**:
-"hey bridge". It separates a command from ordinary speech, and it is matched by sound rather than by spelling.
+"sidetone". It separates a command from ordinary speech, and it is matched by sound rather than by spelling.
 _Avoid_: the hotword, the trigger, the activation phrase.
 
 **A command**:

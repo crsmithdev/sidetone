@@ -20,7 +20,7 @@ export interface Keys {
 }
 
 export function keysPath(): string {
-  return process.env.VOICE_BRIDGE_KEYS ?? join(homedir(), ".voice-bridge", "keys.json");
+  return process.env.SIDETONE_KEYS ?? join(homedir(), ".sidetone", "keys.json");
 }
 
 function random(bytes: number): string {

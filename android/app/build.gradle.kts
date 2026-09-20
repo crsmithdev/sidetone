@@ -4,13 +4,13 @@ plugins {
 }
 
 android {
-    namespace = "dev.crsmith.voicebridge"
+    namespace = "dev.crsmith.sidetone"
     compileSdk {
         version = release(37) { minorApiLevel = 2 }
     }
 
     defaultConfig {
-        applicationId = "dev.crsmith.voicebridge"
+        applicationId = "dev.crsmith.sidetone"
         // 17.1 one phone, a Pixel 8a, side-loaded
         minSdk = 34
         targetSdk = 36

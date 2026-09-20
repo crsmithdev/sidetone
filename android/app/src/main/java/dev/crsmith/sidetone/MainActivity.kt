@@ -1,4 +1,4 @@
-package dev.crsmith.voicebridge
+package dev.crsmith.sidetone
 
 import android.Manifest
 import android.content.pm.PackageManager

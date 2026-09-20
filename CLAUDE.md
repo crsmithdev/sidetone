@@ -1,7 +1,7 @@
 # Sidetone
 
 [`CONTEXT.md`](CONTEXT.md) holds the words this project uses.
-[`docs/voice-bridge-spec.md`](docs/voice-bridge-spec.md) is the specification and
+[`docs/sidetone-spec.md`](docs/sidetone-spec.md) is the specification and
 [`docs/adr/`](docs/adr) the decisions behind it.
 
 Read [`docs/drive.md`](docs/drive.md) when Chris says he is driving, starts a

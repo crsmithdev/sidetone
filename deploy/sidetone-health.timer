@@ -1,4 +1,4 @@
-# ~/.config/systemd/user/voice-bridge-health.timer
+# ~/.config/systemd/user/sidetone-health.timer
 [Unit]
 Description=Ask Sidetone whether it is working, every couple of minutes
 

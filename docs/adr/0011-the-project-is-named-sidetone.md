@@ -24,11 +24,16 @@ The names a person sees change: the titles, the app name, the package name,
 the unit descriptions. The words the code uses do not: **the bridge**, the
 agent, the client, the room stay as `CONTEXT.md` has them.
 
-The runtime identity stays until each piece is moved on purpose, because each
-one breaks a live thing when it moves: `~/.voice-bridge`, the `VOICE_BRIDGE_*`
-variables, the unit file names, the Android package id, the credential keys,
-the checkout directory.
+The runtime identity moved the same day, all of it, so the old name is gone:
+`~/.sidetone`, the `SIDETONE_*` variables, the `sidetone*` units, the Android
+package `dev.crsmith.sidetone` (a new app on the phone, paired again), the
+credential keys (the browser pairs again), the checkout `~/sidetone`, the
+GitHub repository `crsmithdev/sidetone`.
 
-The wake word stays "hey bridge". `docs/next.md` records it as settled, found
-24 of 24 on the bench and never missed on a drive, and spec 18.8 says change it
-only when it collides. "hey sidetone" is the candidate when it does.
+The wake word is the single word "sidetone". "hey bridge" was settled
+(`docs/next.md`), but the name is the wake word now, and one word is quicker
+in a car. The corpus was rerun for it: small.en writes "side tone" a third of
+the time, and "cytone", "sigh tone", "sight tone", "sitone" when the /d/ goes
+under road noise, so those are the variants. 93 spellings, 5 not reached, 4 of
+them on the run-together phrase. "hey bridge" reached 74 of 74. A drive says
+whether that gap is felt.

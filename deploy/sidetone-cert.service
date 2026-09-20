@@ -1,4 +1,4 @@
-# ~/.config/systemd/user/voice-bridge-cert.service
+# ~/.config/systemd/user/sidetone-cert.service
 #
 # The phone refuses the microphone over a certificate it does not trust, and
 # that arrives as silence rather than as an error, so this runs weekly against
@@ -12,6 +12,6 @@ After=tailscaled.service
 
 [Service]
 Type=oneshot
-EnvironmentFile=%h/.voice-bridge/env
-WorkingDirectory=%h/voice-bridge-mcp
+EnvironmentFile=%h/.sidetone/env
+WorkingDirectory=%h/sidetone
 ExecStart=/home/crsmi/.bun/bin/bun scripts/renew-cert.ts

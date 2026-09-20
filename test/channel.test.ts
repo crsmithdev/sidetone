@@ -64,8 +64,8 @@ describe("what a client missed (14.8)", () => {
 describe("what a client sends (4.3)", () => {
   test("what was typed reaches the conversation as speech", () => {
     const { c, did } = channel();
-    c.receive({ kind: "said", text: "hey bridge, stats" });
-    expect(did).toEqual(["heard hey bridge, stats"]);
+    c.receive({ kind: "said", text: "sidetone, stats" });
+    expect(did).toEqual(["heard sidetone, stats"]);
   });
 
   test("a microphone cut resets the ear and is written to the journal", () => {

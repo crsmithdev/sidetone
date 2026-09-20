@@ -13,15 +13,15 @@ import type { Answered, Event, Heard, Matched } from "./diagnostics.ts";
 
 /** The commands the card asks for, in the order it asks for them. */
 export const SCRIPT: Array<{ say: string; expect: string }> = [
-  { say: "hey bridge, stats", expect: "stats" },
-  { say: "hey bridge, tones off", expect: "tonesOff" },
-  { say: "hey bridge, tones on", expect: "tonesOn" },
-  { say: "hey bridge, recap", expect: "where" },
-  { say: "hey bridge, say again", expect: "restate" },
-  { say: "hey bridge, mute", expect: "mute" },
-  { say: "hey bridge, unmute", expect: "unmute" },
-  { say: "hey bridge ... [wait two seconds] ... mute", expect: "mute" },
-  { say: "hey bridge, unmute", expect: "unmute" },
+  { say: "sidetone, stats", expect: "stats" },
+  { say: "sidetone, tones off", expect: "tonesOff" },
+  { say: "sidetone, tones on", expect: "tonesOn" },
+  { say: "sidetone, recap", expect: "where" },
+  { say: "sidetone, say again", expect: "restate" },
+  { say: "sidetone, mute", expect: "mute" },
+  { say: "sidetone, unmute", expect: "unmute" },
+  { say: "sidetone ... [wait two seconds] ... mute", expect: "mute" },
+  { say: "sidetone, unmute", expect: "unmute" },
 ];
 
 /** The passage, read at a normal pace. One line is one breath. */
@@ -81,8 +81,8 @@ export function score(events: Event[], script = SCRIPT, passage = PASSAGE): Scor
   const missed = script.filter((_, at) => !hit[at]).map((step) => step.expect);
   // a command phrase that reached the agent instead is the expensive failure
   const wrong = matched
-    // the engine puts a comma in it as often as not: "Hey, BridgeMute."
-    .filter((m) => m.became === "speech" && /hey[\s,.]*bridge|hay[\s,.]*bridge|cambridge/i.test(m.said))
+    // the engine splits it as often as not: "Side tone, mute."
+    .filter((m) => m.became === "speech" && /\b(side|sigh|sight|site)[\s,.-]*(tone|on)|cyto[nm]e|sitone/i.test(m.said))
     .map((m) => ({ became: m.became, said: m.said }));
 
   // the passage: one utterance a line is whole, more than that is chopped

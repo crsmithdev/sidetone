@@ -78,7 +78,7 @@ async function ownBridge(): Promise<{ base: string; code: string; stop: () => vo
   await Bun.write(path, JSON.stringify(config));
   const child = Bun.spawn(["bun", "src/main.ts", "serve", options.dir], {
     cwd: new URL("..", import.meta.url).pathname,
-    env: { ...process.env, VOICE_BRIDGE_CONFIG: path },
+    env: { ...process.env, SIDETONE_CONFIG: path },
     stdout: "pipe", stderr: "pipe",
   });
 

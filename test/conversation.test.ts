@@ -64,7 +64,7 @@ describe("the tones (15.4)", () => {
     const { c, cues } = watched();
     c.cue("thinking");
     expect(cues).toEqual(["thinking"]);
-    await c.heard("hey bridge tones off");
+    await c.heard("sidetone tones off");
     expect(c.tonesOn).toBe(false);
     c.cue("thinking");
     c.cue("heard");
@@ -72,20 +72,20 @@ describe("the tones (15.4)", () => {
   });
   test("the bare word toggles, so it can be said twice while driving", async () => {
     const { c } = watched();
-    await c.heard("hey bridge tones");
+    await c.heard("sidetone tones");
     expect(c.tonesOn).toBe(false);
-    await c.heard("hey bridge tones");
+    await c.heard("sidetone tones");
     expect(c.tonesOn).toBe(true);
   });
   test("the explicit form does not flip what is already right", async () => {
     const { c } = watched();
-    await c.heard("hey bridge tones off");
-    await c.heard("hey bridge tones off");
+    await c.heard("sidetone tones off");
+    await c.heard("sidetone tones off");
     expect(c.tonesOn).toBe(false);
   });
   test("turning them off is still answered out loud (15.1)", async () => {
     const { c, said } = watched();
-    await c.heard("hey bridge tones off");
+    await c.heard("sidetone tones off");
     await settled();
     expect(said).toEqual(["Tones off."]);
   });
@@ -97,7 +97,7 @@ describe("the stats command (18.4)", () => {
     c.measures.speechEnded(1_000, 2_500);
     c.measures.transcribed(2_800);
     c.measures.answering(3_400);
-    await c.heard("hey bridge stats");
+    await c.heard("sidetone stats");
     await settled();
     expect(said).toEqual([
       "Last answer, 2.4 seconds. 1.5 of it was the end of turn pause.",
@@ -109,13 +109,13 @@ describe("the stats command (18.4)", () => {
     const now = Date.now();
     c.network.saw("phone", "poor", now);
     c.network.saw("bridge", "excellent", now);
-    await c.heard("hey bridge stats");
+    await c.heard("sidetone stats");
     await settled();
     expect(said.at(-1)).toBe("The phone's connection is poor and this end is excellent.");
   });
   test("with nothing measured it says so", async () => {
     const { c, said } = watched();
-    await c.heard("hey bridge latency");
+    await c.heard("sidetone latency");
     await settled();
     expect(said).toEqual([
       "No round trip has been measured yet.",
@@ -143,7 +143,7 @@ describe("the hold (11.3)", () => {
     const r = room();
     r.c.ears.stopSpeaking();
     r.mouth.say("the rest of the answer.");
-    await r.c.heard("hey bridge mute");
+    await r.c.heard("sidetone mute");
     await tick();
     expect(r.said).toEqual(["Muted.", "the rest of the answer."]);
     expect(r.c.isMuted).toBe(true);
@@ -153,7 +153,7 @@ describe("the hold (11.3)", () => {
     const r = room();
     r.c.ears.stopSpeaking();
     r.mouth.say("the rest.");
-    await r.c.heard("hey bridge wtaeuhnt");
+    await r.c.heard("sidetone wtaeuhnt");
     await tick();
     // it waits for the command rather than saying anything: the pause between
     // the wake word and what follows is usually why it arrived alone
@@ -175,7 +175,7 @@ describe("the hold (11.3)", () => {
 describe("a cue never plays over the voice (15)", () => {
   test("tones off still silences it, so the two guards do not fight", async () => {
     const r = room();
-    await r.c.heard("hey bridge tones off");
+    await r.c.heard("sidetone tones off");
     await tick();
     r.c.cue("thinking");
     expect(r.cues).toEqual([]);
@@ -183,16 +183,17 @@ describe("a cue never plays over the voice (15)", () => {
 });
 
 /**
- * Measured on 14 September: Chris leaves about 1.6 seconds between "hey
- * bridge" and the command, and the end-of-turn pause is 1.5, so the two arrive
- * as separate utterances. "Hey, bridge." got "say the command again" and
+ * Measured on 14 September, with "hey bridge" as the wake word: Chris leaves
+ * about 1.6 seconds between the wake word and the command, and the end-of-turn
+ * pause is 1.5, so the two arrive as separate utterances. "Hey, bridge." got
+ * "say the command again" and
  * "Mute." went to the agent, which answered it with four paragraphs about
  * src/commands.ts and cost eleven cents.
  */
 describe("the wake word on its own (9.1)", () => {
   test("the command that follows it is still the command", async () => {
     const r = room();
-    await r.c.heard("Hey, bridge.");
+    await r.c.heard("Sidetone.");
     await r.c.heard("Mute.");
     await tick();
     expect(r.c.isMuted).toBe(true);
@@ -202,7 +203,7 @@ describe("the wake word on its own (9.1)", () => {
   test("a question after a false start reaches the agent rather than vanishing", async () => {
     const r = room();
     r.c.agent.ask = async () => { throw new Error("no agent in a test"); };
-    await r.c.heard("Hey, bridge.");
+    await r.c.heard("Sidetone.");
     await r.c.heard("what does the serve command do");
     await tick();
     // it is not a command, so it is speech, and speech is not swallowed
@@ -211,7 +212,7 @@ describe("the wake word on its own (9.1)", () => {
 
   test("it does not wait for ever", async () => {
     const r = room({ wakeHoldMs: 20 });
-    await r.c.heard("Hey, bridge.");
+    await r.c.heard("Sidetone.");
     await new Promise((resolve) => setTimeout(resolve, 40));
     r.c.agent.ask = async () => { throw new Error("no agent in a test"); };
     await r.c.heard("Mute.");
@@ -223,7 +224,7 @@ describe("the wake word on its own (9.1)", () => {
   test("the hold is spent once, not left armed", async () => {
     const r = room();
     r.c.agent.ask = async () => { throw new Error("no agent in a test"); };
-    await r.c.heard("Hey, bridge.");
+    await r.c.heard("Sidetone.");
     await r.c.heard("Mute.");
     await tick();
     expect(r.c.isMuted).toBe(true);
@@ -243,9 +244,9 @@ describe("a setting changed out loud is handed on (9.4)", () => {
   test("interrupt, tones and the voice reach the hook as the setting they change", async () => {
     const patches: Array<Record<string, unknown>> = [];
     const c = new Conversation("/tmp", config, mouthFor().mouth, quiet(), { onSetting: (patch) => patches.push(patch) });
-    await c.heard("hey bridge interrupt on");
-    await c.heard("hey bridge tones off");
-    await c.heard("hey bridge male voice");
+    await c.heard("sidetone interrupt on");
+    await c.heard("sidetone tones off");
+    await c.heard("sidetone male voice");
     expect(patches).toEqual([{ interruptOnSpeech: true }, { tones: false }, { ttsVoice: config.voiceChoices.male }]);
   });
 });
@@ -254,14 +255,14 @@ describe("end the turn with no turn running (9.4.8)", () => {
   test("the command itself is a barge-in, and still it says nothing is running", async () => {
     const { c, said } = watched();
     c.ears.stopSpeaking();
-    await c.heard("hey bridge end the turn");
+    await c.heard("sidetone end the turn");
     await settled();
     expect(said).toEqual(["Nothing is running."]);
   });
 
   test("with nothing queued it says so", async () => {
     const r = room();
-    await r.c.heard("hey bridge end the turn");
+    await r.c.heard("sidetone end the turn");
     await tick();
     expect(r.said).toEqual(["Nothing is running."]);
   });
@@ -272,7 +273,7 @@ describe("end the turn with no turn running (9.4.8)", () => {
     r.mouth.say("two."); r.mouth.say("three.");
     r.mouth.discard();
     r.blockSay(true);
-    await r.c.heard("hey bridge carry on");
+    await r.c.heard("sidetone carry on");
     await tick();
     expect(r.said).toEqual(["two."]);
     // Chris talks over the replay, and what he said is the stop
@@ -281,7 +282,7 @@ describe("end the turn with no turn running (9.4.8)", () => {
     r.release();
     await tick();
     r.cutSay(false); r.blockSay(false);
-    await r.c.heard("hey bridge end the turn");
+    await r.c.heard("sidetone end the turn");
     await tick();
     expect(r.said).toEqual(["two.", "Stopped."]);
   });
@@ -292,7 +293,7 @@ describe("the gate on clearing the context (10)", () => {
     const r = room();
     let restarted = false;
     r.c.agent.restart = () => { restarted = true; };
-    await r.c.heard("hey bridge clear");
+    await r.c.heard("sidetone clear");
     await tick();
     expect(r.said).toEqual(["I am about to clear the context and start again. Say continue to let it happen."]);
     expect(restarted).toBe(false);
@@ -302,7 +303,7 @@ describe("the gate on clearing the context (10)", () => {
     const r = room();
     let restarted = false;
     r.c.agent.restart = () => { restarted = true; };
-    await r.c.heard("hey bridge clear");
+    await r.c.heard("sidetone clear");
     await r.c.heard("continue");
     await tick();
     expect(restarted).toBe(true);
@@ -313,8 +314,8 @@ describe("the gate on clearing the context (10)", () => {
     const r = room();
     let restarted = false;
     r.c.agent.restart = () => { restarted = true; };
-    await r.c.heard("hey bridge clear");
-    await r.c.heard("hey bridge tones off");
+    await r.c.heard("sidetone clear");
+    await r.c.heard("sidetone tones off");
     await tick();
     expect(restarted).toBe(false);
     expect(r.said).toEqual([
@@ -329,7 +330,7 @@ describe("the gate on clearing the context (10)", () => {
     r.c.agent.restart = () => {};
     r.c.ears.stopSpeaking();
     r.mouth.say("the rest.");
-    await r.c.heard("hey bridge clear");
+    await r.c.heard("sidetone clear");
     await tick();
     expect(r.mouth.onHold).toBe(true);
     expect(r.said).toEqual(["I am about to clear the context and start again. Say continue to let it happen."]);
@@ -343,7 +344,7 @@ describe("switching voice (4.9)", () => {
     const c = new Conversation("/tmp", config, m.mouth, quiet(), { onSetting: (patch) => patches.push(patch) });
     c.ears.stopSpeaking();
     m.mouth.say("the rest of the answer.");
-    await c.heard("hey bridge male voice");
+    await c.heard("sidetone male voice");
     await new Promise((r) => setTimeout(r, 0));
     expect(m.switched).toEqual([config.voiceChoices.male]);
     expect(patches).toEqual([{ ttsVoice: config.voiceChoices.male }]);
@@ -360,7 +361,7 @@ describe("switching voice (4.9)", () => {
 describe("the wake-word hold", () => {
   test("a short command still works after the wake word alone", async () => {
     const { c, said } = watched();
-    await c.heard("hey bridge");
+    await c.heard("sidetone");
     await c.heard("mute");
     expect(said.at(-1)).toBe("Muted.");
   });
@@ -368,7 +369,7 @@ describe("the wake-word hold", () => {
   test("a question is not a command, however it ends", async () => {
     const m = mouthFor();
     const c = new Conversation("/tmp", config, m.mouth, quiet());
-    await c.heard("hey bridge");
+    await c.heard("sidetone");
     await c.heard("how do i stop the server");
     const commands = m.mouth.measures.recent().flatMap((e) => (e.kind === "matched" ? [e.became] : []));
     expect(commands).not.toContain("endTurn");

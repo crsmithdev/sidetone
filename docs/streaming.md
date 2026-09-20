@@ -1,6 +1,6 @@
 # Streaming between the stages of a voice pipeline
 
-Research for the voice bridge (`/home/crsmi/voice-bridge-mcp`) and the caller (`/home/crsmi/caller`). Date: 18 September 2026. No file in either repo was changed.
+Research for Sidetone (`/home/crsmi/sidetone`) and the caller (`/home/crsmi/caller`). Date: 18 September 2026. No file in either repo was changed.
 
 ## 1. The bridge today
 
@@ -35,7 +35,7 @@ What it does not overlap:
 
 The narration (`src/narrator.ts`) is not spoken in `serve.ts`; it goes to the console and the data channel (`src/serve.ts:127`). It is not on the audio path.
 
-### Chris's numbers, from `~/.voice-bridge/record.jsonl`
+### Chris's numbers, from `~/.sidetone/record.jsonl`
 
 101 `answered` events across 8 sessions, 17-18 September. Median unless stated.
 
@@ -50,7 +50,7 @@ The narration (`src/narrator.ts`) is not spoken in `serve.ts`; it goes to the co
 | kokoro session, 17 Sep 13:07, n=44, `answerMs` | 4814 ms |
 | chatterbox session, 18 Sep 14:45, n=39, `answerMs` | 7294 ms |
 
-The chatterbox minus kokoro gap (about 2.5 s) matches the first-sentence synthesis cost. With kokoro, the agent's own time to the first sentence is about 3.7 s of the 4.8 s. `~/.voice-bridge/config.json` sets `ttsEngine: "kokoro"` today; the code default is chatterbox.
+The chatterbox minus kokoro gap (about 2.5 s) matches the first-sentence synthesis cost. With kokoro, the agent's own time to the first sentence is about 3.7 s of the 4.8 s. `~/.sidetone/config.json` sets `ttsEngine: "kokoro"` today; the code default is chatterbox.
 
 The record does not split the 3.9 s remainder. It has no timestamp for the first delta, the first sentence, or the synthesis. See section 5.
 
@@ -147,7 +147,7 @@ What: replace `small.en` with Kyutai STT 1B (0.5 s delay, semantic VAD) or a chu
 
 - Saves: the same 338 ms as A, plus a possible cut of the pause from its semantic VAD. Not more than A on transcription.
 - Costs: a new worker and model; the command corpus in `test/fixtures/heard.json` is tied to what `small.en` writes (ADR 0006) and must be regenerated; the `vad_filter` phantom guard goes.
-- Breaks: the wake word forms (`cambridge`), the command matcher tuning.
+- Breaks: the wake word forms (`wakeWordVariants`), the command matcher tuning.
 - Applies to: bridge only. Not worth it while A is available.
 
 ### C. Speculative LLM start (bridge: no; caller: already on)

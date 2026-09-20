@@ -49,7 +49,7 @@ export function assemble(
   send: (message: Outgoing) => void,
   say: (line: string) => void = console.log,
 ): Bridge {
-  const scratch = mkdtempSync(join(tmpdir(), "voice-bridge-"));
+  const scratch = mkdtempSync(join(tmpdir(), "sidetone-"));
   const speechDir = new URL("../speech", import.meta.url).pathname;
   const stt = new LocalWhisper(config, speechDir);
   const tts = textToSpeech(config, speechDir);

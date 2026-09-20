@@ -176,21 +176,21 @@ describe("the checkpoint (8.6.3)", () => {
 describe("clearing the context is gated (10.1, ADR 0009)", () => {
   test("it reads back what it is about to do, and waits", async () => {
     const r = room();
-    await r.c.heard("hey bridge clear the context");
+    await r.c.heard("sidetone clear the context");
     expect(r.said.at(-1)).toContain("I am about to clear the context");
     expect(r.agent.calls).not.toContain("restart cleared by voice");
   });
 
   test("the agreement word clears it", async () => {
     const r = room();
-    await r.c.heard("hey bridge clear the context");
+    await r.c.heard("sidetone clear the context");
     await r.c.heard("continue");
     expect(r.agent.calls).toContain("restart cleared by voice");
   });
 
   test("anything else does not, and says so (10.5)", async () => {
     const r = room();
-    await r.c.heard("hey bridge clear the context");
+    await r.c.heard("sidetone clear the context");
     await r.c.heard("yes go on");
     await tick();
     expect(r.agent.calls).not.toContain("restart cleared by voice");
@@ -259,24 +259,24 @@ describe("11.9 a question that lands mid-answer", () => {
     const r = await midAnswer({ interruptOnSpeech: true });
     await r.c.heard("what is the tallest one");
     const asks = r.agent.calls.filter((call) => call.startsWith("ask ")).length;
-    await r.c.heard("hey bridge carry on");
+    await r.c.heard("sidetone carry on");
     await tick();
     expect(r.said).toContain("Two.");
     expect(r.said).toContain("Three.");
     expect(r.agent.calls.filter((call) => call.startsWith("ask ")).length).toBe(asks);
-    await r.c.heard("hey bridge carry on");
+    await r.c.heard("sidetone carry on");
     expect(r.said.join(" ")).toContain("There is nothing left of it");
   });
 
   test("the mode is a wake command, and it says which way it now is", async () => {
     const r = room({}, { interruptOnSpeech: false });
-    await r.c.heard("hey bridge interrupt on");
+    await r.c.heard("sidetone interrupt on");
     await tick();
     expect(r.said).toContain("Interrupting on.");
-    await r.c.heard("hey bridge interrupt off");
+    await r.c.heard("sidetone interrupt off");
     await tick();
     expect(r.said).toContain("Interrupting off.");
-    await r.c.heard("hey bridge interrupt");
+    await r.c.heard("sidetone interrupt");
     await tick();
     expect(r.said.at(-1)).toBe("Interrupting on.");
   });
@@ -381,7 +381,7 @@ describe("what the bridge answers from itself (9.4.5, 9.4.6, 9.4.7)", () => {
 
   test("restate mid-answer says the last sentence heard, and the rest resumes", async () => {
     const r = await midAnswer();
-    await r.c.heard("hey bridge say that again");
+    await r.c.heard("sidetone say that again");
     await tick();
     expect(r.said.slice(0, 2)).toEqual(["One.", "One."]);
     expect(r.said).toContain("Two.");
@@ -391,9 +391,9 @@ describe("what the bridge answers from itself (9.4.5, 9.4.6, 9.4.7)", () => {
 
   test("summarize mid-answer is refused, and the turn goes on", async () => {
     const r = await midAnswer();
-    await r.c.heard("hey bridge summarize");
+    await r.c.heard("sidetone summarize");
     await tick();
-    expect(r.said[1]).toBe("I am still on the last one. Say hey bridge, end the turn, to stop it.");
+    expect(r.said[1]).toBe("I am still on the last one. Say sidetone, end the turn, to stop it.");
     expect(r.said).toContain("Two.");
     expect(r.agent.calls.filter((call) => call.startsWith("ask"))).toHaveLength(1);
     r.answer();
@@ -403,7 +403,7 @@ describe("what the bridge answers from itself (9.4.5, 9.4.6, 9.4.7)", () => {
   test("between turns restate means the whole last answer", async () => {
     const r = room({ deltas: ["the answer before this one."] });
     await r.c.turn("first");
-    await r.c.heard("hey bridge say that again");
+    await r.c.heard("sidetone say that again");
     await tick();
     expect(r.said).toEqual(["the answer before this one.", "the answer before this one."]);
   });
@@ -413,7 +413,7 @@ describe("what the bridge answers from itself (9.4.5, 9.4.6, 9.4.7)", () => {
     await r.c.turn("what does serve do");
     r.c.ears.stopSpeaking();
     r.mouth.say("the rest.");
-    await r.c.heard("hey bridge where are we");
+    await r.c.heard("sidetone where are we");
     await tick();
     expect(r.said.at(-1)).toBe("You asked: what does serve do I said: it joins the room.");
     expect(r.said).not.toContain("the rest.");

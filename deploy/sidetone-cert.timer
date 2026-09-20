@@ -1,4 +1,4 @@
-# ~/.config/systemd/user/voice-bridge-cert.timer
+# ~/.config/systemd/user/sidetone-cert.timer
 [Unit]
 Description=Renew the tailnet certificate well before it expires
 

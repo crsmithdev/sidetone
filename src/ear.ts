@@ -71,7 +71,7 @@ export class Ear {
 
   /**
    * 9.5 muting is what makes the noise stop costing sentences. While muted the
-   * bridge keeps transcribing, so "hey bridge, unmute" is still heard — it just
+   * bridge keeps transcribing, so "sidetone, unmute" is still heard — it just
    * stops treating a lorry as a reason to shut up.
    */
   get bargingIn(): boolean {

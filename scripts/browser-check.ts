@@ -60,7 +60,7 @@ await page.waitForSelector("#log:not(.hidden)", { timeout: 15_000 });
 console.log("paired; state:", await page.locator("#state").textContent());
 await page.waitForFunction(() => document.getElementById("state")?.textContent === "listening", null, { timeout: 20_000 });
 console.log("connected; dot lit:", await page.locator("#dot.on").count() === 1);
-console.log("token stored for next time:", await page.evaluate(() => !!localStorage.getItem("voice-bridge-credentials")));
+console.log("token stored for next time:", await page.evaluate(() => !!localStorage.getItem("sidetone-credentials")));
 
 /**
  * 14.8 replays the turns this client missed, so "a bridge line exists" is true

@@ -74,7 +74,7 @@ async function chat(dir: string, config: Config, recordStream = ""): Promise<voi
  */
 async function warm(config: Config): Promise<void> {
   const speechDir = new URL("../speech", import.meta.url).pathname;
-  const scratch = mkdtempSync(join(tmpdir(), "voice-bridge-warm-"));
+  const scratch = mkdtempSync(join(tmpdir(), "sidetone-warm-"));
   const tts = textToSpeech(config, speechDir);
   const startedAt = Date.now();
   await tts.start();
@@ -100,7 +100,7 @@ if (command === "config") {
   await warm(config);
 } else if (command === "cert") {
   // 12.1 a phone refuses the microphone over a certificate it does not trust
-  const dir = join(homedir(), ".voice-bridge");
+  const dir = join(homedir(), ".sidetone");
   const result = fetchCert(join(dir, "tls-cert.pem"), join(dir, "tls-key.pem"));
   console.log(result.message);
   if (result.ok) console.log("\nPoint tlsCert and tlsKey at those two, and restart the bridge.");
@@ -108,7 +108,7 @@ if (command === "config") {
 } else if (command === "livekit") {
   // 12.1 the server and the bridge have to hold the same keys, so one place writes both
   const { host, keys } = endpoints(config);
-  const path = join(homedir(), ".voice-bridge", "livekit.yaml");
+  const path = join(homedir(), ".sidetone", "livekit.yaml");
   await Bun.write(path, livekitConfig({ apiKey: keys.apiKey, apiSecret: keys.apiSecret }, host, config.livekitPort));
   console.log(`wrote ${path}, advertising ${host}`);
   console.log("");

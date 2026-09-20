@@ -16,5 +16,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "voice-bridge"
+rootProject.name = "sidetone"
 include(":app")

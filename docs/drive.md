@@ -5,8 +5,8 @@ test is something Chris does in the car and the bridge checks from the journal,
 so the answer is evidence rather than an impression.
 
 Read a test out loud before it starts, one at a time. Gather the evidence
-yourself: `journalctl --user -u voice-bridge.service --since "-10 min"` is the
-whole record of the drive, `~/.voice-bridge/record.jsonl` holds every utterance
+yourself: `journalctl --user -u sidetone.service --since "-10 min"` is the
+whole record of the drive, `~/.sidetone/record.jsonl` holds every utterance
 and its measurements, and `adb` (at `~/Android/Sdk/platform-tools/adb`, not on
 the PATH) reaches the phone once it is paired over wireless debugging. Never
 ask Chris for something a command answers.
@@ -30,7 +30,7 @@ The live unit runs the code it was started with. Restart it before the drive,
 or the drive tests yesterday's build:
 
 ```
-systemctl --user restart voice-bridge.service
+systemctl --user restart sidetone.service
 ```
 
 ## New since the last drive
@@ -38,8 +38,8 @@ systemctl --user restart voice-bridge.service
 | Say or see | What it does |
 |---|---|
 | a question over the answer, with "interrupt on" | stops the answer, answers the question; "carry on" says the rest, and the rest can now be stopped |
-| "hey bridge, end the turn" during "carry on" | stops the replay: "Stopped." |
-| "hey bridge, stats" | says the round trip and how it split: the agent, the first sentence, the voice |
+| "sidetone, end the turn" during "carry on" | stops the replay: "Stopped." |
+| "sidetone, stats" | says the round trip and how it split: the agent, the first sentence, the voice |
 | "interrupt on", "tones off", "male voice" | kept in the config file now; a restart no longer forgets them |
 | the same three, then `/diagnostics` or the record | say the setting in force now, not the one the bridge started with; the record carries a `setting` line at the moment of the change |
 | the phone's screen | the answer arrives a sentence at a time, before the voice reaches it |
@@ -53,7 +53,7 @@ This was the worst fault of the last drive: after "carry on", nothing could
 stop the rest of the answer, and every "Stopped." queued behind it.
 
 **Do.** With "interrupt on", ask for a long answer. Talk over it with a real
-question; it should stop and answer you. Then say "hey bridge, carry on".
+question; it should stop and answer you. Then say "sidetone, carry on".
 While the rest plays, say "okay, that's enough".
 
 **Pass.** The replay stops at once, your words start a new turn, and nothing
@@ -63,23 +63,23 @@ is said twice.
 then `[turn N]` within a few seconds, and a `not spoken:` narration naming the
 rest. No sentence appears twice in the journal.
 
-**Then.** Say "hey bridge, carry on" again, barge in, and say "hey bridge,
+**Then.** Say "sidetone, carry on" again, barge in, and say "sidetone,
 end the turn". Pass is "Stopped." as the next thing said.
 
 ## 2. Is the interrupt mode still on after a restart?
 
-**Do.** Say "hey bridge, interrupt on". Later, when the drive restarts the
+**Do.** Say "sidetone, interrupt on". Later, when the drive restarts the
 service (test 8), talk over an answer.
 
-**Pass.** It interrupts, and `~/.voice-bridge/config.json` holds
+**Pass.** It interrupts, and `~/.sidetone/config.json` holds
 `"interruptOnSpeech": true`.
 
 ## 3. Where does the round trip go?
 
-**Do.** After a few ordinary turns, say "hey bridge, stats".
+**Do.** After a few ordinary turns, say "sidetone, stats".
 
 **Pass.** It says the last round trip, the pause, and then the agent, the
-first sentence and the voice, in seconds. `~/.voice-bridge/record.jsonl` has
+first sentence and the voice, in seconds. `~/.sidetone/record.jsonl` has
 the same on each `answered` line as `agentMs`, `sentenceMs`, `synthesisMs`.
 
 **Then.** Count the journal's `begun at the tentative end` against the
@@ -114,12 +114,12 @@ car in a call parks its own assistant and media.
 
 ```
 adb shell dumpsys audio | grep -iE "mode|focus|usage"
-adb shell am force-stop dev.crsmith.voicebridge
+adb shell am force-stop dev.crsmith.sidetone
 adb shell dumpsys audio | grep -iE "mode|focus|usage"
 ```
 
 **Pass.** The first reading shows `MODE_IN_COMMUNICATION` and a focus holder
-`dev.crsmith.voicebridge`; the second shows `NORMAL` and no holder, and the
+`dev.crsmith.sidetone`; the second shows `NORMAL` and no holder, and the
 car's audio is back. That confirms the suspect, and the change is one line
 (`AudioType.MediaAudioType` in `LiveKit.create`), built after the drive.
 
@@ -143,7 +143,7 @@ line.
 Run this one last: it ends this session, and everything learned above goes
 with it unless it is already written down.
 
-**Do.** With the app open, `systemctl --user restart voice-bridge.service`.
+**Do.** With the app open, `systemctl --user restart sidetone.service`.
 
 **Pass.** The app returns to "listening" without scanning a code, and the
 next thing Chris says is heard. Passed on the last drive in five seconds; this
@@ -154,9 +154,9 @@ time also check test 2.
 | Trouble | What works |
 |---|---|
 | The bridge stops hearing | close the app and open it again, so it publishes a new track |
-| An answer will not stop | "hey bridge, sharp" |
-| A replay will not stop | "hey bridge, end the turn" — and that is a fail for test 1, write it down |
-| Interrupting feels wrong | "hey bridge, interrupt off" |
+| An answer will not stop | "sidetone, sharp" |
+| A replay will not stop | "sidetone, end the turn" — and that is a fail for test 1, write it down |
+| Interrupting feels wrong | "sidetone, interrupt off" |
 | Nothing at all reaches him | the typing box still works; the conversation is the same one |
 
 ## What this does not test

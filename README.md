@@ -6,7 +6,7 @@ every voice decision and does speech locally.
 
 The words this project uses are in [`CONTEXT.md`](CONTEXT.md), and the decisions
 behind them are in [`docs/adr/`](docs/adr). The full specification is
-[`docs/voice-bridge-spec.md`](docs/voice-bridge-spec.md).
+[`docs/sidetone-spec.md`](docs/sidetone-spec.md).
 Section numbers in the source refer to it. Picking this up after a break:
 [`docs/next.md`](docs/next.md) says how far it got, and which parts look
 finished but are not verified.
@@ -40,7 +40,7 @@ Voice needs the local engines once. The transcriber and the piper fallback:
 ```bash
 uv venv .venv
 uv pip install --python .venv/bin/python faster-whisper piper-tts nvidia-cublas-cu12 nvidia-cudnn-cu12
-.venv/bin/python -m piper.download_voices --download-dir ~/.voice-bridge/models en_US-lessac-medium
+.venv/bin/python -m piper.download_voices --download-dir ~/.sidetone/models en_US-lessac-medium
 ```
 
 The voice that speaks by default is chatterbox, which clones a voice from a
@@ -48,18 +48,18 @@ recording. It gets its own environment, because the torch it pins has no
 kernels for this card and would fail with "no kernel image is available":
 
 ```bash
-uv venv --python 3.12 ~/.voice-bridge/chatterbox-venv
-uv pip install --python ~/.voice-bridge/chatterbox-venv/bin/python torch==2.9.1 torchaudio==2.9.1
-uv pip install --python ~/.voice-bridge/chatterbox-venv/bin/python "numpy<2" librosa==0.11.0 \
+uv venv --python 3.12 ~/.sidetone/chatterbox-venv
+uv pip install --python ~/.sidetone/chatterbox-venv/bin/python torch==2.9.1 torchaudio==2.9.1
+uv pip install --python ~/.sidetone/chatterbox-venv/bin/python "numpy<2" librosa==0.11.0 \
   s3tokenizer transformers==5.2.0 diffusers==0.29.0 resemble-perth conformer==0.3.2 \
   safetensors==0.5.3 spacy-pkuseg pykakasi==2.3.0 pyloudnorm omegaconf "setuptools<81"
-uv pip install --python ~/.voice-bridge/chatterbox-venv/bin/python chatterbox-tts --no-deps
+uv pip install --python ~/.sidetone/chatterbox-venv/bin/python chatterbox-tts --no-deps
 ```
 
 `--no-deps` is what keeps the pinned torch out, and `setuptools<81` is what
 keeps `pkg_resources` in, which the watermarker still imports.
 
-A voice is a wav under `~/.voice-bridge/models/chatterbox/refs`, named the way
+A voice is a wav under `~/.sidetone/models/chatterbox/refs`, named the way
 `ttsVoice` names it. The two that ship are `som_00295` and `sof_01208`, from
 the Crowdsourced UK and Ireland English Dialect data set (OpenSLR 83, CC BY-SA
 4.0); `CREDITS.txt` beside them says so. Any clean fifteen seconds of speech
@@ -71,7 +71,7 @@ second. That is the price of choosing the voice rather than picking one off a
 list. `ttsEngine: "kokoro"` in the config buys the speed back.
 
 The bridge's own lines -- "Muted.", "Tones off.", "Switched to the male voice."
--- are made once and kept under `~/.voice-bridge/spoken`, so a command is
+-- are made once and kept under `~/.sidetone/spoken`, so a command is
 answered at once instead of three seconds later. Make them all after changing
 voice or either voice setting:
 
@@ -123,7 +123,7 @@ same hook that will feed the sentence collector when voice arrives.
 exception wants the card:
 
 ```bash
-VOICE_BRIDGE_GPU=1 bun test speech.smoke
+SIDETONE_GPU=1 bun test speech.smoke
 ```
 
 It starts both engines against the real models and asserts the one thing that
@@ -166,7 +166,7 @@ found in a live run, which is an expensive place to find it.
 The units are in `deploy/`, copied to `~/.config/systemd/user/`. Four things
 in them are there because something went wrong without them.
 
-**`PATH` in `~/.voice-bridge/env`.** A user manager boots with nothing from the
+**`PATH` in `~/.sidetone/env`.** A user manager boots with nothing from the
 home directory on its path. Without this the bridge cannot find `claude`, and
 the agent it starts cannot find anything either.
 
@@ -188,7 +188,7 @@ fifty-one restarts a year would cut off whatever was being said for nothing.
 loginctl enable-linger $USER
 cp deploy/*.service deploy/*.timer ~/.config/systemd/user/
 systemctl --user daemon-reload
-systemctl --user enable --now voice-bridge.service voice-bridge-cert.timer voice-bridge-health.timer
+systemctl --user enable --now sidetone.service sidetone-cert.timer sidetone-health.timer
 ```
 
 ## What another repository depends on
@@ -197,8 +197,8 @@ The caller project runs this repository's speech workers out of this checkout.
 It spawns `speech/stt_worker.py` and `speech/tts_worker.py` with
 `.venv/bin/python3`, puts the CUDA wheels under
 `.venv/lib/python*/site-packages/nvidia/*/lib` on the library path the same way
-`src/speech.ts` does, and reads models from `~/.voice-bridge/models`. It
-overrides the first two with `VOICE_BRIDGE_HOME` and `VOICE_BRIDGE_MODELS`.
+`src/speech.ts` does, and reads models from `~/.sidetone/models`. It
+overrides the first two with `SIDETONE_HOME` and `SIDETONE_MODELS`.
 
 So these are load-bearing outside this repository, and moving them breaks a
 project that nothing here mentions:
@@ -207,7 +207,7 @@ project that nothing here mentions:
 |---|---|
 | `speech/stt_worker.py`, `speech/tts_worker.py` | spawned by path, and their one-JSON-per-line protocol is the interface |
 | `.venv/bin/python3` and its nvidia wheels | caller has no Python environment of its own |
-| `~/.voice-bridge/models` | the piper voices and the whisper cache are shared |
+| `~/.sidetone/models` | the piper voices and the whisper cache are shared |
 
 This nearly went wrong on 13 September 2026. Kokoro wants the CUDA 13 wheels
 and ctranslate2, which carries whisper, wants the CUDA 12 ones, and both unpack
@@ -257,21 +257,21 @@ model still writes the rest, so the time to first audio is the time to the
 first sentence — 2.3 to 2.7 seconds measured at the desk.
 
 The voice is `bf_emma` and `ttsVoice` is the setting. All 54 Kokoro voices sit
-in one pack, so "hey bridge, male voice" and "hey bridge, female voice" swap
+in one pack, so "sidetone, male voice" and "sidetone, female voice" swap
 between the two named in `voiceChoices` without a restart — mid-sentence if you
 like. `ttsEngine: "piper"` puts the old CPU engine back; it has one voice, and
 says so when you ask it to switch.
 
-Kokoro runs in its own virtual environment at `~/.voice-bridge/kokoro-venv`.
+Kokoro runs in its own virtual environment at `~/.sidetone/kokoro-venv`.
 This is not tidiness: onnxruntime wants the CUDA 13 wheels and ctranslate2,
 which carries whisper, wants the CUDA 12 ones, and both unpack into
 `nvidia/cudnn/lib`. Two environments cost nothing, because each engine is
 already its own process.
 
 ```bash
-uv venv ~/.voice-bridge/kokoro-venv --python 3.12
-VIRTUAL_ENV=~/.voice-bridge/kokoro-venv uv pip install kokoro-onnx "onnxruntime-gpu[cuda,cudnn]"
-mkdir -p ~/.voice-bridge/models/kokoro   # then put kokoro-v1.0.onnx and voices-v1.0.bin in it
+uv venv ~/.sidetone/kokoro-venv --python 3.12
+VIRTUAL_ENV=~/.sidetone/kokoro-venv uv pip install kokoro-onnx "onnxruntime-gpu[cuda,cudnn]"
+mkdir -p ~/.sidetone/models/kokoro   # then put kokoro-v1.0.onnx and voices-v1.0.bin in it
 ```
 
 Without those CUDA wheels onnxruntime takes the graph on the CPU, nothing
@@ -279,13 +279,13 @@ errors, and a sentence goes from a tenth of a second to a whole one. The worker
 reports which provider it got and the bridge prints a warning, because that
 failure is otherwise invisible.
 
-Say "hey bridge" and then a command, **two words at most**. The extra words are
+Say "sidetone" and then a command, **two words at most**. The extra words are
 the ones that get mangled: "where are we" and "say that again" only ever worked
 because the matcher forgave the middle of them, and on a real run "stats"
 arrived as "that's" and "Steph" while the wake word came through every time.
 The wake word itself is matched by sound rather than spelling, because an
 engine writes the same sound several ways — including running it into the
-command, which is why "Hey BridgeMute." is split on an exact prefix.
+command, which is why "Sidetonemute." is split on an exact prefix.
 
 A command spoken over an answer stops the speech at once, and what it does to
 the rest of that answer depends on the command. Only two commands touch the
@@ -312,7 +312,7 @@ said again from the start rather than resumed from the middle of a word.
 The tones mark three things and nothing else: one note says your turn ended and
 the recording was taken, a falling fourth says the turn is running and has said
 nothing yet, and a rising third says the Claude Code process is coming back up.
-"Hey bridge, tones off" silences all three, because they are mostly a debugging
+"Sidetone, tones off" silences all three, because they are mostly a debugging
 aid.
 
 The design was chosen by ear from twenty-six candidates, and three things about
@@ -326,14 +326,14 @@ Against a road-noise bed filtered to the band that decides audibility, this
 stands about 12 dB above it. `cueVolume` is the setting that closes the rest of
 the gap to the 15 the reading asks for.
 
-The client shows what the connection is doing, and "hey bridge, stats" says it
+The client shows what the connection is doing, and "sidetone, stats" says it
 out loud along with the round trip. Both ends are kept: this end's reading says
 whether the machine is reaching the room, the phone's says whether the car is,
 and in a car it is the phone's uplink that goes first. Nothing acts on the
 reading yet — what to do about a bad connection wants a drive behind it, and
 this is what makes that drive worth taking.
 
-"Hey bridge, stats" reads the round trip out loud: the last one, the median and
+"Sidetone, stats" reads the round trip out loud: the last one, the median and
 worst of the last twenty, and how many barge-ins turned out to be nothing. The
 clock starts when you stop talking, not when the bridge notices, so the
 end-of-turn pause is inside the total — it is real time you wait. It gets its
@@ -345,7 +345,7 @@ transcribe its own voice, so every sound it makes stops the microphone. Over
 LiveKit the client cancels the echo and barge-in works.
 
 Muting also stops the noise. While muted the bridge keeps transcribing, so
-"hey bridge, unmute" is still heard, but sound is no longer a reason to stop
+"sidetone, unmute" is still heard, but sound is no longer a reason to stop
 talking — which is the whole point of muting in a loud car.
 
 Two detectors read the same frames, and they are not the same question. A
@@ -354,7 +354,7 @@ the first syllable of a word is never lost. The playback only stops on
 `bargeInLevel` held for `bargeInMs`, allowing dips of up to `bargeInGapMs`
 between syllables — louder and longer, so a lorry going past does not cut the
 bridge off mid-sentence. The gap matters: without it a five second question
-barges in and "hey bridge, stats" never does, because a short phrase has no
+barges in and "sidetone, stats" never does, because a short phrase has no
 400 ms without a dip. Once a barge-in is declared it holds until that utterance
 ends. The bridge then stops about six milliseconds later
 and abandons the rest of what it was going to say.
@@ -425,9 +425,9 @@ connects and the media silently never arrives.
 keys of its own rather than the `devkey` pair every example uses:
 
 ```bash
-bun src/main.ts livekit          # writes ~/.voice-bridge/livekit.yaml
+bun src/main.ts livekit          # writes ~/.sidetone/livekit.yaml
 docker run -d --name livekit --network host \
-  -v ~/.voice-bridge/livekit.yaml:/livekit.yaml \
+  -v ~/.sidetone/livekit.yaml:/livekit.yaml \
   livekit/livekit-server --config /livekit.yaml
 ```
 
@@ -442,23 +442,23 @@ The tailnet has to have HTTPS certificates turned on, at
 <https://login.tailscale.com/admin/dns>. Then:
 
 ```bash
-bun src/main.ts cert       # a real certificate, into ~/.voice-bridge
+bun src/main.ts cert       # a real certificate, into ~/.sidetone
 bun src/main.ts livekit    # the server config, advertising the tailnet address
 docker run -d --name livekit --network host \
-  -v ~/.voice-bridge/livekit.yaml:/livekit.yaml \
+  -v ~/.sidetone/livekit.yaml:/livekit.yaml \
   livekit/livekit-server --config /livekit.yaml
 ```
 
 LiveKit speaks plain ws, so put a terminator in front of it on 8443 with the
 same certificate — any reverse proxy does; `caddy` is two lines. Then
-`~/.voice-bridge/config.json`:
+`~/.sidetone/config.json`:
 
 ```json
 {
   "publicOrigin": "https://<machine>.<tailnet>.ts.net:3100",
   "livekitPublicUrl": "wss://<machine>.<tailnet>.ts.net:8443",
-  "tlsCert": "/home/you/.voice-bridge/tls-cert.pem",
-  "tlsKey": "/home/you/.voice-bridge/tls-key.pem"
+  "tlsCert": "/home/you/.sidetone/tls-cert.pem",
+  "tlsKey": "/home/you/.sidetone/tls-key.pem"
 }
 ```
 
@@ -519,7 +519,7 @@ handful of figures every time, so two builds differ by figures rather than by
 memory: which commands fired, how much of the passage came back word for word,
 the median round trip, and the settings that produced all of it.
 
-The record is appended to `~/.voice-bridge/record.jsonl` (`recordPath`), one
+The record is appended to `~/.sidetone/record.jsonl` (`recordPath`), one
 line of JSON for each event, with a header line opening each session. It is on
 disk because it used to be in memory: on 14 September the service restarted
 twenty seconds after a drive and the score was zeros. `score` reads the last
@@ -528,8 +528,8 @@ not mistaken for a drive.
 
 ## Settings
 
-No file is needed. To change one, write `~/.voice-bridge/config.json`
-(`$VOICE_BRIDGE_CONFIG` overrides) with just the fields you want:
+No file is needed. To change one, write `~/.sidetone/config.json`
+(`$SIDETONE_CONFIG` overrides) with just the fields you want:
 
 ```json
 { "model": "opus", "ceilingMs": 900000 }

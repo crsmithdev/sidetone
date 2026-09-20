@@ -1,4 +1,4 @@
-package dev.crsmith.voicebridge
+package dev.crsmith.sidetone
 
 import android.content.Context
 import java.net.HttpURLConnection
@@ -68,7 +68,7 @@ suspend fun pair(link: Link): Credentials = withContext(Dispatchers.IO) {
 
 /** The web client keeps the token in localStorage; this is the same thing. */
 class CredentialStore(context: Context) {
-    private val prefs = context.getSharedPreferences("voice-bridge-credentials", Context.MODE_PRIVATE)
+    private val prefs = context.getSharedPreferences("sidetone-credentials", Context.MODE_PRIVATE)
 
     fun load(): Credentials? {
         val url = prefs.getString("url", null) ?: return null

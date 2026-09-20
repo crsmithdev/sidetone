@@ -49,7 +49,7 @@ describe("one fact, told once", () => {
     const measures = new Measures((event) => seen.push(event.kind));
     round(measures);
     measures.spoken("Four.", true);
-    measures.matched("hey bridge stats", "stats");
+    measures.matched("sidetone stats", "stats");
     measures.note("the engine coughed");
     expect(seen).toEqual(["heard", "answered", "spoke", "matched", "note"]);
   });

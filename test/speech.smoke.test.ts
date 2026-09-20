@@ -13,7 +13,7 @@ import { ENGINES, LocalVoice, LocalWhisper } from "../src/speech.ts";
  * This is not in the default run: it wants a GPU, two virtual environments and
  * about a gigabyte of model, and it takes ten seconds. Ask for it by name:
  *
- *   VOICE_BRIDGE_GPU=1 bun test speech.smoke
+ *   SIDETONE_GPU=1 bun test speech.smoke
  *
  * The assertion that earns its place is the provider. onnxruntime without its
  * CUDA libraries does not fail: it takes the graph on the CPU, returns a
@@ -27,7 +27,7 @@ import { ENGINES, LocalVoice, LocalWhisper } from "../src/speech.ts";
  */
 const SENTENCE = "The barge in detector now tolerates a dip between syllables.";
 const speechDir = new URL("../speech", import.meta.url).pathname;
-const asked = process.env.VOICE_BRIDGE_GPU === "1";
+const asked = process.env.SIDETONE_GPU === "1";
 const present = existsSync(DEFAULTS.kokoroModel) && existsSync(DEFAULTS.kokoroPythonBin);
 const run = asked && present;
 if (asked && !present) console.log(`speech smoke: ${DEFAULTS.kokoroModel} or its environment is absent`);

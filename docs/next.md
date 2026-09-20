@@ -1,6 +1,6 @@
 # Where this is, and what the next process should know
 
-Last touched 10 September 2026. Read this before `docs/voice-bridge-spec.md`;
+Last touched 10 September 2026. Read this before `docs/sidetone-spec.md`;
 the spec says what the product is, this says how far it got and what is not
 true yet.
 
@@ -45,7 +45,7 @@ it.
 ## The car test, 10 September 2026
 
 A real phone, in a moving car, over cellular. This is 18.6, and it is the first
-run with hardware in it. Notes: Drive, "2026-09-10 — Voice bridge car test".
+run with hardware in it. Notes: Drive, "2026-09-10 — Sidetone car test".
 
 What held. The conversation ran, a code change was driven while driving, the
 latency felt good over cellular, and barge-in worked on real speech.
@@ -56,9 +56,9 @@ What the drive found, and what is now done about it:
 |---|---|
 | the cue sometimes came out unusually loud | fixed, and the cause was not a mystery |
 | road noise cut the bridge off mid-sentence | the barge-in is now its own detector, with its own two settings |
-| the cues are a debugging aid and want a switch | "hey bridge, tones off" |
+| the cues are a debugging aid and want a switch | "sidetone, tones off" |
 | the phases want their own tones | there are three now, and each means one thing |
-| latency is felt, not measured | `src/latency.ts`, and "hey bridge, stats" |
+| latency is felt, not measured | `src/latency.ts`, and "sidetone, stats" |
 
 **The loud cue was a sox effect chain.** `:` starts a new chain in sox, and an
 effect belongs to the chain it is written in. The builder ended
@@ -123,7 +123,7 @@ it costs is the conversation.
 
 **The barge-in needed a gap tolerance, and only a real run said so.** With
 `bargeMs` reset by any frame below the level, a five second question barged in
-and "hey bridge, stats" never did: a short phrase has no 400 ms without a dip
+and "sidetone, stats" never did: a short phrase has no 400 ms without a dip
 between syllables. `bargeInGapMs` (200 ms) is how long a dip may last before it
 counts as the end of speech. Measured on the real path, before and after:
 
@@ -180,7 +180,7 @@ on it. Until the reboot the unit had been running since 11 September, from a
 manager whose environment came from a login somewhere. That environment does
 not survive.
 
-The fix is a `PATH=` line in `~/.voice-bridge/env`, which the unit already
+The fix is a `PATH=` line in `~/.sidetone/env`, which the unit already
 reads. Setting `claudeBin` to an absolute path would have started the bridge
 and left a subtler fault behind it: the agent inherits this environment and
 runs shell commands of its own, so it needs a real path, not just enough to
@@ -312,7 +312,12 @@ in a room, and synthetic speech is better articulated than any person. The test
 that would settle it is a recording of Chris saying the twelve phrases in the
 car; the harness scores it in minutes.
 
-## The wake word is settled, and it stays "hey bridge"
+## The wake word was "hey bridge" until 20 September 2026
+
+It is now the single word "sidetone", after the project took that name. The
+corpus in `test/fixtures/heard.json` was rerun for it: 93 spellings, 5 not
+reached, 4 of those on the run-together phrase; see ADR 0011. What follows is
+the record of the old one.
 
 18.8 says test the wake word in live use and change it only if it collides.
 Chris has now driven with it and reports no trouble with it at all, and the
@@ -518,7 +523,7 @@ speaker its microphone:
 | 9.4, the commands | mute, unmute, usage, restate, where, all by voice |
 | 9.5, muted | the next question was heard and ignored |
 | 8.6.3 and 8.6.4 | the checkpoint spoke the elapsed time and the cost, "continue" extended the turn, and the ladder asked again |
-| 9.4.8 | "hey bridge, end the turn" stopped a running tool call |
+| 9.4.8 | "sidetone, end the turn" stopped a running tool call |
 | 2.3 | the narration says what a long tool call is doing |
 
 Measured on an RTX 5070 and claude 2.1.267:
@@ -601,7 +606,7 @@ Two operational things, neither of them code that is missing:
 - **The certificate expires on 9 December 2026.** `tailscale cert` renews it,
   but only when something runs it. Nothing does. Re-run `bun src/main.ts cert`,
   or teach `serve` to refresh at startup.
-- **It survives a reboot now, and that was still not enough.** `voice-bridge`
+- **It survives a reboot now, and that was still not enough.** `sidetone`
   is a user unit with `Restart=always`, lingering is on so it starts with
   nobody logged in, docker is enabled at boot and both containers are
   `restart=unless-stopped`. All three come back. See the section below on the
@@ -613,7 +618,7 @@ audio measured from the phone, and what a phone microphone does in a moving car
 — need hardware and a drive.
 
 **The keys are no longer `devkey`.** `bun src/main.ts livekit` makes a pair, keeps
-it in `~/.voice-bridge/keys.json` at mode 600, and writes the matching server
+it in `~/.sidetone/keys.json` at mode 600, and writes the matching server
 config, so the two cannot drift apart.
 
 Three faults the transport produced, each worth the comment it now carries:

@@ -1,4 +1,4 @@
-package dev.crsmith.voicebridge
+package dev.crsmith.sidetone
 
 import android.content.Context
 import android.content.Intent
@@ -47,7 +47,7 @@ object Bridge {
         val error: String? = null,
     )
 
-    private const val TAG = "VoiceBridge"
+    private const val TAG = "Sidetone"
     private const val RETRY_MS = 5_000L
 
     private val _state = MutableStateFlow(State())

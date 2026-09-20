@@ -2,209 +2,225 @@
  "note": "What faster-whisper wrote when the voice said each phrase, clean and in brown noise at 10, 0 and -5 dB. Regenerate with scripts/heard-refresh.ts.",
  "phrases": [
   {
-   "said": "hey bridge, unmute",
+   "said": "sidetone, unmute",
    "want": "unmute",
    "heard": [
-    "Hay Bridge on mute.",
-    "Hey Bridge on mute."
+    "Saitone on mute.",
+    "Side tone on mute.",
+    "Side tone unmute.",
+    "Side tone, unmute."
    ]
   },
   {
-   "said": "hey bridge, mute",
+   "said": "sidetone, mute",
    "want": "mute",
    "heard": [
-    "Haybridge mute.",
-    "Hey Bridge Mute.",
-    "Hey Bridge, mute.",
-    "Hey, bridge mute."
+    "Cytone Mute",
+    "Cytone mute.",
+    "Sight tone mute.",
+    "Sight-tone mute.",
+    "Site on mute."
    ]
   },
   {
-   "said": "hey bridge, stop listening",
+   "said": "sidetone, stop listening",
    "want": "mute",
    "heard": [
-    "Hey Bridge, stop listening.",
-    "Hey, Bridge, stop listening."
+    "Cytone stop listening.",
+    "SideTone stop listening.",
+    "SideTone, stop listening.",
+    "SideTones stop listening."
    ]
   },
   {
-   "said": "hey bridge, clear the context",
+   "said": "sidetone, clear the context",
    "want": "clearContext",
    "heard": [
-    "Hay Bridge, clear the context.",
-    "Hey Bridge, clear the context."
+    "Side don't clear the context.",
+    "Side tone clear the context.",
+    "so I don't clear the context."
    ]
   },
   {
-   "said": "hey bridge, report the usage",
+   "said": "sidetone, report the usage",
    "want": "usage",
    "heard": [
-    "Hey Bridge, report the usage."
+    "SideTone report the usage.",
+    "Sigh tone report the usage."
    ]
   },
   {
-   "said": "hey bridge, say again",
+   "said": "sidetone, say again",
    "want": "restate",
    "heard": [
-    "Hey Bridge, say again.",
-    "Hey, Bridge, say again."
+    "Cytone say again.",
+    "Side tone, say again.",
+    "SideTones say again.",
+    "Sitone say again."
    ]
   },
   {
-   "said": "hey bridge, summarize",
+   "said": "sidetone, summarize",
    "want": "summarize",
    "heard": [
-    "Hay Bridge Summarize.",
-    "Hay Bridge summarize.",
-    "Hey Bridge Summarize."
+    "Side Tone Summarize.",
+    "Side tone summarize.",
+    "SideTone Summarize."
    ]
   },
   {
-   "said": "hey bridge, recap",
+   "said": "sidetone, recap",
    "want": "where",
    "heard": [
-    "Hay Bridge recap.",
-    "Hay Bridge, recap.",
-    "Hey Bridge Recap.",
-    "Hey Bridge recap.",
-    "Hey Bridge, recap."
+    "Side Tone Recap.",
+    "Side tone recap."
    ]
   },
   {
-   "said": "hey bridge, end turn",
+   "said": "sidetone, end turn",
    "want": "endTurn",
    "heard": [
-    "Hay Bridge and Turn.",
-    "Hay Bridge and turn.",
-    "Hey bridge and turn.",
-    "Hey bridge in turn."
+    "Cytone in turn.",
+    "Side tone and turn.",
+    "Side tone in turn.",
+    "Sight tone and turn.",
+    "Sitem in turn."
    ]
   },
   {
-   "said": "hey bridge, never mind",
+   "said": "sidetone, never mind",
    "want": "endTurn",
    "heard": [
-    "Hey Bridge, never mind.",
-    "Hey Bridge, nevermind.",
-    "Hey bridge never mind."
+    "Cytone never mind.",
+    "Sigh tone never mind.",
+    "Sigh tone, never mind.",
+    "Sight tone, never mind."
    ]
   },
   {
-   "said": "hey bridge, tones off",
+   "said": "sidetone, tones off",
    "want": "tonesOff",
    "heard": [
-    "Hay Bridge tones off.",
-    "Haybridge tones off.",
-    "Hey Bridge tones off."
+    "Side tone tones off.",
+    "SideTone tones off."
    ]
   },
   {
-   "said": "hey bridge, tones on",
+   "said": "sidetone, tones on",
    "want": "tonesOn",
    "heard": [
-    "Haybridge tones on.",
-    "Hey Bridge tones on."
+    "Side tone tones on.",
+    "SideTone Tones On.",
+    "SideTone tones on."
    ]
   },
   {
-   "said": "hey bridge, tones",
+   "said": "sidetone, tones",
    "want": "tones",
    "heard": [
-    "Hay Bridge Tones.",
-    "Haybridge Tones.",
-    "Haybridge tones.",
-    "Hey Bridge Tones."
+    "Side Tone Tones",
+    "Side Tone Tones.",
+    "Side tone tones.",
+    "SideTone Tones"
    ]
   },
   {
-   "said": "hey bridge, stats",
+   "said": "sidetone, stats",
    "want": "stats",
    "heard": [
-    "Hay Bridge stats.",
-    "Hey Bridge stats."
+    "Side Tone Stats",
+    "Side tone stats.",
+    "SideTome stats.",
+    "Sigh tone stats."
    ]
   },
   {
-   "said": "hey bridge, latency",
+   "said": "sidetone, latency",
    "want": "stats",
    "heard": [
-    "Hey Bridge Latency",
-    "Hey Bridge Latency.",
-    "Hey Bridge latency.",
-    "Hey Bridge, Latency."
+    "Cytome Latency",
+    "Cytome latency.",
+    "Cytone latency.",
+    "Side Tone Latency",
+    "Side Tone Latency."
    ]
   },
   {
-   "said": "hey bridge, carry on",
+   "said": "sidetone, carry on",
    "want": "carryOn",
    "heard": [
-    "Hay Bridge Carry On.",
-    "Hey Bridge, carry on.",
-    "Hey bridge carry on.",
-    "Heybridge carry on."
+    "Side tone carry on."
    ]
   },
   {
-   "said": "hey bridge, interrupt off",
+   "said": "sidetone, interrupt off",
    "want": "interruptOff",
    "heard": [
-    "Hay Bridge, interrupt off.",
-    "Hey Bridge interrupt off.",
-    "Hey Bridge, interrupt off."
+    "Side tone interrupt off."
    ]
   },
   {
-   "said": "hey bridge, interrupt on",
+   "said": "sidetone, interrupt on",
    "want": "interruptOn",
    "heard": [
-    "Hay Bridge, interrupt on.",
-    "Hey Bridge interrupt on."
+    "SITONE interrupt on.",
+    "Side Tone Interrupt On.",
+    "Side tone interrupt on.",
+    "SideTone Interrupt On."
    ]
   },
   {
-   "said": "hey bridge, interrupt",
+   "said": "sidetone, interrupt",
    "want": "interrupt",
    "heard": [
-    "Hay Bridge Interrupt.",
-    "Hey Bridge interrupt."
+    "Cytone interrupt.",
+    "Side Tone Interrupt",
+    "Side Tone Interrupt."
    ]
   },
   {
-   "said": "hey bridge, female voice",
+   "said": "sidetone, female voice",
    "want": "femaleVoice",
    "heard": [
-    "Hay Bridge, Female Voice.",
-    "Hey Bridge Female Voice.",
-    "Hey Bridge, female voice."
+    "Side Tone Female Voice.",
+    "Side tone female voice.",
+    "Side tone, female voice.",
+    "Side-tone female voice.",
+    "side-tone female voice."
    ]
   },
   {
-   "said": "hey bridge, male voice",
+   "said": "sidetone, male voice",
    "want": "maleVoice",
    "heard": [
-    "Haybridge Mail Voice.",
-    "Haybridge, male voice.",
-    "Hey Bridge mail voice.",
-    "Hey Bridge, male voice."
+    "Side tone male voice.",
+    "Side-tone male voice.",
+    "Sigh-tone male voice.",
+    "Sitone male voice.",
+    "side tone male voice.",
+    "side-tone male voice."
    ]
   },
   {
-   "said": "hey bridgemute",
+   "said": "sidetonemute",
    "want": "mute",
    "heard": [
-    "Hey, BridgeMute.",
-    "Hey, bridge mute."
+    "Saito Mute.",
+    "Side don't mute.",
+    "Side-toe mute.",
+    "Site on mute.",
+    "Site-Dome-Ute.",
+    "Site-to-mute."
    ]
   },
   {
-   "said": "hey bridge, wobble",
+   "said": "sidetone, wobble",
    "want": "unclear",
    "heard": [
-    "Hay Bridge Wobble.",
-    "Haybridge Wobble.",
-    "Hey Bridge Wobble.",
-    "Hey bridge wobble.",
-    "Hey, bridge wobble."
+    "Cytone Wobble.",
+    "Side Tone Wobble",
+    "Side Tone Wobble.",
+    "Sigh Tone Wobble."
    ]
   },
   {
@@ -235,6 +251,21 @@
     "Tell me where the barge and detector lies.",
     "Tell me where the barge and detector lives.",
     "Tell me where the barge in detector lives."
+   ]
+  },
+  {
+   "said": "Side note, the tests pass now.",
+   "want": null,
+   "heard": [
+    "Side note, the tests pass now."
+   ]
+  },
+  {
+   "said": "Set that aside and move on.",
+   "want": null,
+   "heard": [
+    "Set that aside and move on.",
+    "set that aside and move on."
    ]
   }
  ]

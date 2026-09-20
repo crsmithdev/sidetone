@@ -99,7 +99,7 @@ export class Conversation {
   /**
    * 9.1 the wake word arrived on its own. Chris leaves about 1.6 seconds
    * before the command, which is longer than the end-of-turn pause, so the two
-   * become separate utterances: "hey bridge" then "mute", and neither works.
+   * become separate utterances: "sidetone" then "mute", and neither works.
    * Rather than asking him to say it again, wait and read the next utterance
    * as the command.
    */

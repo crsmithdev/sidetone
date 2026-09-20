@@ -1,15 +1,15 @@
-# ~/.config/systemd/user/voice-bridge-health.service
+# ~/.config/systemd/user/sidetone-health.service
 #
 # Restart=always answers "is the process there", which is not the question. A
 # bridge holding a dropped room, or one whose agent died under it, is a process
 # that is there and does nothing. /health answers the real question; this asks.
 [Unit]
 Description=Ask Sidetone whether it is working
-After=voice-bridge.service
-OnFailure=voice-bridge-recover.service
+After=sidetone.service
+OnFailure=sidetone-recover.service
 
 [Service]
 Type=oneshot
-EnvironmentFile=%h/.voice-bridge/env
+EnvironmentFile=%h/.sidetone/env
 # --resolve so the tailnet certificate still validates against loopback
-ExecStart=/usr/bin/curl -sf --max-time 10 --resolve ${VOICE_BRIDGE_HEALTH_HOST}:127.0.0.1 ${VOICE_BRIDGE_HEALTH_URL} -o /dev/null
+ExecStart=/usr/bin/curl -sf --max-time 10 --resolve ${SIDETONE_HEALTH_HOST}:127.0.0.1 ${SIDETONE_HEALTH_URL} -o /dev/null

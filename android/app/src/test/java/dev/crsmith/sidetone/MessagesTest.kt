@@ -1,4 +1,4 @@
-package dev.crsmith.voicebridge
+package dev.crsmith.sidetone
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -27,8 +27,8 @@ class MessagesTest {
     fun takesTheWordsTheBridgeOwns() {
         // src/messages.ts sends this when the app joins the room
         assertEquals(
-            Incoming.Protocol("hey bridge end the turn"),
-            decode(bytes("""{"kind":"protocol","endTurn":"hey bridge end the turn","incoming":{},"outgoing":[]}""")),
+            Incoming.Protocol("sidetone end the turn"),
+            decode(bytes("""{"kind":"protocol","endTurn":"sidetone end the turn","incoming":{},"outgoing":[]}""")),
         )
     }
 
@@ -46,7 +46,7 @@ class MessagesTest {
 
     @Test
     fun outgoingMatchesTheWebClient() {
-        assertEquals("""{"kind":"said","text":"hey bridge end the turn"}""", Outgoing.said("hey bridge end the turn").decodeToString())
+        assertEquals("""{"kind":"said","text":"sidetone end the turn"}""", Outgoing.said("sidetone end the turn").decodeToString())
         assertEquals("""{"kind":"mic","on":false}""", Outgoing.mic(false).decodeToString())
         assertEquals("""{"kind":"quality","quality":"good"}""", Outgoing.quality("good").decodeToString())
     }

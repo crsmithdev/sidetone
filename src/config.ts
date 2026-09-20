@@ -2,7 +2,7 @@
  * Every default in the spec is a setting (spec 6.7). This file is the whole of
  * section 21: a builder does not write one of these values into the code.
  *
- * Read from $VOICE_BRIDGE_CONFIG, else ~/.voice-bridge/config.json. A missing
+ * Read from $SIDETONE_CONFIG, else ~/.sidetone/config.json. A missing
  * file is fine; a present one overrides field by field.
  */
 import { readFileSync, writeFileSync } from "node:fs";
@@ -32,7 +32,7 @@ export interface Config {
   /**
    * 9.1 how long the bridge waits for the command after hearing the wake word
    * on its own. Measured 14 September: Chris leaves about 1.6 seconds between
-   * "hey bridge" and what follows, which is longer than the end-of-turn pause,
+   * "sidetone" and what follows, which is longer than the end-of-turn pause,
    * so the two arrive as separate utterances and neither works alone.
    */
   wakeHoldMs: number;
@@ -172,7 +172,7 @@ export interface Config {
    * inside it is listening yet.
    */
   livekitWaitMs: number;
-  /** 4.1 the transport. Empty keys mean the pair in ~/.voice-bridge/keys.json. */
+  /** 4.1 the transport. Empty keys mean the pair in ~/.sidetone/keys.json. */
   livekitUrl: string;
   livekitApiKey: string;
   livekitApiSecret: string;
@@ -217,10 +217,12 @@ export const DEFAULTS: Config = {
   checkpointWindowMs: 15_000,
   graceMs: 30_000,
   model: "sonnet",
-  wakeWord: "hey bridge",
-  // small.en writes "hey bridge" as "Cambridge" about half the time. 9.3 says
-  // the bridge accepts the forms the engine produces; 18.8 says find them by use.
-  wakeWordVariants: ["cambridge"],
+  wakeWord: "sidetone",
+  // 9.3 the forms small.en writes for "sidetone", from the corpus of 20
+  // September: "side tone" a third of the time, and the rest when the /d/ goes
+  // under road noise. 18.8 says find them by use; "side don't" and "site on"
+  // came from the -5 dB rows. Each needs a command after it to do anything.
+  wakeWordVariants: ["side tone", "sigh tone", "sight tone", "cytone", "sitone", "site on", "side don't"],
   wakeHoldMs: 6_000,
   interruptOnSpeech: false,
   interruptAfterMs: 5_000,
@@ -229,19 +231,19 @@ export const DEFAULTS: Config = {
   agreementWord: "continue",
   narrationDelayMs: 5_000,
   pythonBin: new URL("../.venv/bin/python", import.meta.url).pathname,
-  modelsDir: join(homedir(), ".voice-bridge", "models"),
+  modelsDir: join(homedir(), ".sidetone", "models"),
   sttModel: "small.en",
   ttsEngine: "chatterbox",
   // 4.9 the engine names its voices; the table in speech.ts is the one place they are written
   ...ENGINES.chatterbox.voices,
-  kokoroPythonBin: join(homedir(), ".voice-bridge", "kokoro-venv", "bin", "python"),
-  kokoroModel: join(homedir(), ".voice-bridge", "models", "kokoro", "kokoro-v1.0.onnx"),
-  kokoroVoices: join(homedir(), ".voice-bridge", "models", "kokoro", "voices-v1.0.bin"),
-  chatterboxPythonBin: join(homedir(), ".voice-bridge", "chatterbox-venv", "bin", "python"),
-  chatterboxRefs: join(homedir(), ".voice-bridge", "models", "chatterbox", "refs"),
+  kokoroPythonBin: join(homedir(), ".sidetone", "kokoro-venv", "bin", "python"),
+  kokoroModel: join(homedir(), ".sidetone", "models", "kokoro", "kokoro-v1.0.onnx"),
+  kokoroVoices: join(homedir(), ".sidetone", "models", "kokoro", "voices-v1.0.bin"),
+  chatterboxPythonBin: join(homedir(), ".sidetone", "chatterbox-venv", "bin", "python"),
+  chatterboxRefs: join(homedir(), ".sidetone", "models", "chatterbox", "refs"),
   chatterboxExaggeration: 0.5,
   chatterboxCfg: 0.5,
-  spokenDir: join(homedir(), ".voice-bridge", "spoken"),
+  spokenDir: join(homedir(), ".sidetone", "spoken"),
   sentenceMaxChars: 240,
   endOfTurnPauseMs: 1_500,
   earlyTranscribeMs: 400,
@@ -270,7 +272,7 @@ export const DEFAULTS: Config = {
    * Spoken by the voice and transcribed back: "src/audio.ts" takes 3.0 seconds
    * and is understood as "SRC slash audio, TS", which is how a person says it.
    * The absolute path it came from takes 6.6 seconds and arrives as "slash home
-   * slash CRSMI slash VoiceBridgeMCP slash SRC slash audio TS", which is the
+   * slash CRSMI slash sidetone slash SRC slash audio TS", which is the
    * thing 6.6 was written to prevent. The directory is worth keeping: src,
    * test and scripts are not interchangeable.
    */
@@ -278,7 +280,7 @@ export const DEFAULTS: Config = {
     // 18 September: the agent told Chris twice that this conversation was a
     // separate session from the bridge under test, and `ps` says it was not.
     // It did not lack reasoning, it lacked a fact. This is the fact.
-    "You are the agent the voice bridge runs. This conversation reaches Chris as speech, through the bridge, from this machine. Do not tell him it is a separate session or a different channel.",
+    "You are the agent Sidetone runs. This conversation reaches Chris as speech, through the bridge, from this machine. Do not tell him it is a separate session or a different channel.",
     "You are in a spoken conversation. A text to speech engine reads your reply aloud.",
     "Never read diffs, code or secrets aloud. Summarize those instead. This rule does not bend.",
     "Name a file by its path from the project root, like src/audio.ts. Do not speak an absolute path unless you are asked for one.",
@@ -314,7 +316,7 @@ export const DEFAULTS: Config = {
   room: "bridge",
   tokenDays: 30,
   historyMaxAgeMs: 900_000,
-  recordPath: join(homedir(), ".voice-bridge", "record.jsonl"),
+  recordPath: join(homedir(), ".sidetone", "record.jsonl"),
   claudeBin: "claude",
   // --verbose is not optional: claude refuses stream-json output without it
   claudeArgs: ["-p", "--verbose", "--input-format", "stream-json", "--output-format", "stream-json", "--include-partial-messages"],
@@ -354,7 +356,7 @@ export function saveSettings(patch: Partial<Config>, path = configPath()): void 
 }
 
 export function configPath(): string {
-  return process.env.VOICE_BRIDGE_CONFIG ?? join(homedir(), ".voice-bridge", "config.json");
+  return process.env.SIDETONE_CONFIG ?? join(homedir(), ".sidetone", "config.json");
 }
 
 export function loadConfig(path = configPath()): Config {

@@ -1,4 +1,4 @@
-package dev.crsmith.voicebridge
+package dev.crsmith.sidetone
 
 import android.app.Notification
 import android.app.NotificationChannel

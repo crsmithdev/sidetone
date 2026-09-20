@@ -1,23 +1,23 @@
-# Voice Bridge — Product Specification
+# Sidetone — Product Specification
 
 Written in ASD-STE100 Simplified Technical English.
 Feature level only. No code.
 
 Date: 9 September 2026. Open points resolved. The narration hook of 7.1 is removed.
 
-This document is the complete specification for the voice bridge product. It
+This document is the complete specification for Sidetone. It
 includes the background, the settled design decisions, the reasoning behind
 them, the full feature set, the technology choices, the build order, the
 lessons from prior art, the risks, and the configuration. The document is
 complete on its own. A builder can start from this document.
 
-The voice bridge is a new product. The voice bridge is not this repository.
+Sidetone is a new product. Sidetone is not this repository.
 The bridge in this repository is the project bridge of Section 2.7. The
 project bridge stays in place.
 
 ## 1. PURPOSE
 
-1.1 The voice bridge lets Chris drive a Claude Code session by voice from his phone.
+1.1 Sidetone lets Chris drive a Claude Code session by voice from his phone.
 
 1.2 The bridge runs on Chris's desktop machine.
 
@@ -29,11 +29,11 @@ project bridge stays in place.
 
 ## 2. BACKGROUND AND REASONING
 
-2.1 The first question was whether the voice bridge and the cross-session memory belong inside aleph. The answer is that the memory is already aleph, and the voice bridge is mostly not aleph.
+2.1 The first question was whether Sidetone and the cross-session memory belong inside aleph. The answer is that the memory is already aleph, and Sidetone is mostly not aleph.
 
 2.2 The vault is already the memory. Aleph writes the vault. A hook adds the map and the standing context at the start of each session. This covers memory across sessions on the machine. The gap is memory across surfaces. A plain chat on the phone cannot read the vault. A Cowork session in the cloud cannot read the vault.
 
-2.3 The voice bridge splits into parts. The part that captures speech and holds a warm Claude Code process cannot live in aleph, because this part starts Claude Code. A plugin runs inside Claude Code, not around it. This part belongs in its own repository. One small part does belong in aleph. That part is the tracing, which already works. The narration is not an aleph part. Claude Code puts each tool call on the stream that the bridge reads. A terminal session also shows its tool calls on the screen. Only a spoken session has silence to fill. The narration is therefore a bridge part. See 3.4 and 6.5.
+2.3 Sidetone splits into parts. The part that captures speech and holds a warm Claude Code process cannot live in aleph, because this part starts Claude Code. A plugin runs inside Claude Code, not around it. This part belongs in its own repository. One small part does belong in aleph. That part is the tracing, which already works. The narration is not an aleph part. Claude Code puts each tool call on the stream that the bridge reads. A terminal session also shows its tool calls on the screen. Only a spoken session has silence to fill. The narration is therefore a bridge part. See 3.4 and 6.5.
 
 2.4 Decision one: this product does not need a telephone call. The earlier plan used telephony because Apple does not let a web page keep the microphone open when the screen is locked. If the screen stays on, this limit does not apply, and the call gives no benefit. Voice mode with the screen on is the target. A later native app removes the screen-on limit by a different method (see Section 17).
 
@@ -217,7 +217,7 @@ project bridge stays in place.
 
 9.1 A voice command starts with a wake word. The wake word separates a command from normal speech.
 
-9.2 The wake word is "hey bridge". The wake word is a setting.
+9.2 The wake word is "sidetone". The wake word is a setting.
 
 9.3 The bridge matches the sound of the wake word, not the exact spelling. A speech-to-text engine can split or spell the wake word in more than one way. The bridge accepts these forms.
 
@@ -393,7 +393,7 @@ project bridge stays in place.
 
 18.7 Watch the memory size of the Claude Code process over a long session. This confirms the recycle limit in 8.7.
 
-18.8 Test the wake word in live use. Do not test the wake word before the build. If "hey bridge" collides with normal conversation, change the setting in Section 21.
+18.8 Test the wake word in live use. Do not test the wake word before the build. If "sidetone" collides with normal conversation, change the setting in Section 21.
 
 ## 19. POINT STATUS
 
@@ -407,7 +407,7 @@ project bridge stays in place.
 
 19.5 Text-to-speech voice. Take the first working local voice. Do not wait for a decision. The engine is replaceable and the voice is a setting, but each replacement is also local: the voice path is local only, with no cloud engine and no cloud fallback. See 4.5 and 4.8.
 
-19.6 Wake word. "hey bridge". Test it in live use, not in a separate test before the build. See 18.8.
+19.6 Wake word. "sidetone". Test it in live use, not in a separate test before the build. See 18.8.
 
 ## 20. TWO CHEAP TESTS BEFORE THE BUILD
 
@@ -433,7 +433,7 @@ project bridge stays in place.
 | Context warning level | soft, then on compaction | 8.9 |
 | Claude Code command and flags | `claude -p --verbose`, stream-json both ways | 16.7 |
 | Model | Sonnet | 8.11 |
-| Wake word | "hey bridge" | 9.2 |
+| Wake word | "sidetone" | 9.2 |
 | Commands that work when muted | mute, unmute | 9.5 |
 | Agreement word | "continue" | 10.2 |
 | Gated action list | to set at 7.2 | 10.1 |
@@ -446,7 +446,7 @@ project bridge stays in place.
 | Speech-to-text engine and model | faster-whisper, `small.en`, local only | 4.6 |
 | Text-to-speech engine and voice | piper, `en_US-lessac-medium`, local only | 4.9 |
 | Project directory list | none, any directory | 6.1 |
-| Wake word forms the engine also writes | "cambridge" | 9.3 |
+| Wake word forms the engine also writes | "side tone", "sigh tone", "sight tone", "cytone", "sitone", "site on", "side don't" | 9.3 |
 | Speech onset before recording starts | 50 milliseconds | 11.5 |
 | Level that counts as speech | 2 percent | 11.5 |
 | Settle time before listening again | 300 milliseconds | 11.2 |

@@ -37,13 +37,13 @@ describe("scoring a session", () => {
   /** The session of 14 September, in the shape it actually arrived. */
   test("it catches a command that reached the agent instead", () => {
     const card = score([
-      heard("Hey, bridge."), matched("Hey, bridge.", "waiting for the command"),
+      heard("Sidetone."), matched("Sidetone.", "waiting for the command"),
       heard("Mute."), matched("Mute.", "speech"),
     ]);
     expect(card.commands.missed).toContain("mute");
     expect(card.commands.wrong.length).toBe(0);   // "Mute." alone carries no wake word
-    const withWake = score([heard("Hey, BridgeMute."), matched("Hey, BridgeMute.", "speech")]);
-    expect(withWake.commands.wrong.map((w) => w.said)).toEqual(["Hey, BridgeMute."]);
+    const withWake = score([heard("Sidetonemute."), matched("Sidetonemute.", "speech")]);
+    expect(withWake.commands.wrong.map((w) => w.said)).toEqual(["Sidetonemute."]);
   });
 
   test("it catches a passage arriving in pieces", () => {
@@ -62,10 +62,10 @@ describe("scoring a session", () => {
     // 14 September exactly: "Thank you." peaked at 0.12 among speech at 0.43 to 0.55
     const session = [
       heard("Thank you.", { speechMs: 400, peak: 0.12 }),
-      heard("Hey bridge, mute", { peak: 0.48 }),
+      heard("Sidetone, mute", { peak: 0.48 }),
       heard("Testing, can you hear me?", { peak: 0.43 }),
       heard("Testing once more, can you hear me?", { peak: 0.55 }),
-      heard("Hey bridge, unmute", { peak: 0.49 }),
+      heard("Sidetone, unmute", { peak: 0.49 }),
     ];
     expect(score(session).invented).toBe(1);
   });
@@ -102,14 +102,14 @@ describe("the commands, in the order the card asks for them", () => {
    */
   test("a step that never fired is missed, whatever fired elsewhere", () => {
     const drive = [
-      heard("the keeper rang the bell"), matched("hey bridge, mute", "mute"), matched("hey bridge, unmute", "unmute"),
-      matched("hey bridge, stats", "stats"), matched("hey bridge, tones off", "tonesOff"),
-      matched("hey bridge, tones on", "tonesOn"), matched("hey bridge, recap", "where"),
-      matched("hey bridge, say again", "restate"),
-      matched("hey bridge, mute", "mute"), matched("hey bridge, unmute", "unmute"),
+      heard("the keeper rang the bell"), matched("sidetone, mute", "mute"), matched("sidetone, unmute", "unmute"),
+      matched("sidetone, stats", "stats"), matched("sidetone, tones off", "tonesOff"),
+      matched("sidetone, tones on", "tonesOn"), matched("sidetone, recap", "where"),
+      matched("sidetone, say again", "restate"),
+      matched("sidetone, mute", "mute"), matched("sidetone, unmute", "unmute"),
       // step 8, the wake-word hold, never fires
-      matched("hey bridge, unmute", "unmute"),
-      matched("hey bridge, stats", "stats"),
+      matched("sidetone, unmute", "unmute"),
+      matched("sidetone, stats", "stats"),
     ];
     const card = score(drive);
     expect(card.commands.missed).toEqual(["mute"]);
@@ -124,13 +124,13 @@ describe("the commands, in the order the card asks for them", () => {
    */
   test("a step that fires again later does not swallow the steps between", () => {
     const drive = [
-      heard("the keeper rang the bell"), matched("hey bridge, mute", "mute"), matched("hey bridge, unmute", "unmute"),
+      heard("the keeper rang the bell"), matched("sidetone, mute", "mute"), matched("sidetone, unmute", "unmute"),
       // step 1, stats, never fires
-      matched("hey bridge, tones off", "tonesOff"), matched("hey bridge, tones on", "tonesOn"),
-      matched("hey bridge, recap", "where"), matched("hey bridge, say again", "restate"),
-      matched("hey bridge, mute", "mute"), matched("hey bridge, unmute", "unmute"),
-      matched("hey bridge, mute", "mute"), matched("hey bridge, unmute", "unmute"),
-      matched("hey bridge, stats", "stats"),
+      matched("sidetone, tones off", "tonesOff"), matched("sidetone, tones on", "tonesOn"),
+      matched("sidetone, recap", "where"), matched("sidetone, say again", "restate"),
+      matched("sidetone, mute", "mute"), matched("sidetone, unmute", "unmute"),
+      matched("sidetone, mute", "mute"), matched("sidetone, unmute", "unmute"),
+      matched("sidetone, stats", "stats"),
     ];
     const card = score(drive);
     expect(card.commands.missed).toEqual(["stats"]);

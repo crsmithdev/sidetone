@@ -176,7 +176,7 @@ export class Utterances {
         this.bargePeak = Math.max(this.bargePeak, heard);
       } else {
         // A gap between two syllables is not the end of speech. Measured on a
-        // real run: a five second question barges in and "hey bridge, stats"
+        // real run: a five second question barges in and "sidetone, stats"
         // never does, because a short phrase has no 400 ms without a dip.
         this.bargeQuietMs += ms;
         if (this.bargeQuietMs >= bargeInGapMs) { this.bargeMs = 0; this.bargePeak = 0; }

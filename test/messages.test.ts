@@ -4,7 +4,7 @@ import { INCOMING, OUTGOING, REFUSED, endTurnPhrase, protocolMessage } from "../
 import { match } from "../src/commands.ts";
 
 test("the end-turn phrase is built from the wake word, and the bridge answers it", () => {
-  expect(endTurnPhrase(DEFAULTS)).toBe("hey bridge end the turn");
+  expect(endTurnPhrase(DEFAULTS)).toBe("sidetone end the turn");
   const heard = match(endTurnPhrase(DEFAULTS), DEFAULTS.wakeWord, false, DEFAULTS.mutedCommands, DEFAULTS.wakeWordVariants);
   expect(heard).toEqual({ kind: "command", name: "endTurn" });
 });
@@ -18,7 +18,7 @@ test("a different wake word moves the phrase with it", () => {
 test("the message a client joins to carries the vocabulary", () => {
   const message = protocolMessage(DEFAULTS) as { kind: string; endTurn: string; incoming: Record<string, string> };
   expect(message.kind).toBe("protocol");
-  expect(message.endTurn).toBe("hey bridge end the turn");
+  expect(message.endTurn).toBe("sidetone end the turn");
   expect(Object.keys(message.incoming)).toEqual(["heard", "sentence", "turn", "narration", "error", "history", "protocol"]);
   expect(OUTGOING).toEqual(["said", "mic", "quality", "voice"]);
 });
@@ -38,7 +38,7 @@ test("what counts as a refused token", () => {
  */
 test("both clients state the same refusal rule as the bridge", async () => {
   const page = await Bun.file(new URL("../client/index.html", import.meta.url).pathname).text();
-  const app = await Bun.file(new URL("../android/app/src/main/java/dev/crsmith/voicebridge/Pairing.kt", import.meta.url).pathname).text();
+  const app = await Bun.file(new URL("../android/app/src/main/java/dev/crsmith/sidetone/Pairing.kt", import.meta.url).pathname).text();
   expect(page).toContain(REFUSED);
   expect(app).toContain(REFUSED);
 });

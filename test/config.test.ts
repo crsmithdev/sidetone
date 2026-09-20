@@ -21,7 +21,7 @@ describe("config (21)", () => {
     expect(DEFAULTS.checkpointWindowMs).toBe(15_000);
     expect(DEFAULTS.graceMs).toBe(30_000);
     expect(DEFAULTS.model).toBe("sonnet");
-    expect(DEFAULTS.wakeWord).toBe("hey bridge");
+    expect(DEFAULTS.wakeWord).toBe("sidetone");
     expect(DEFAULTS.agreementWord).toBe("continue");
     // 9.6 the set is a setting, and the tones are on it: you mute because the
     // car is loud, and the tones are the next noise you want gone.
@@ -50,7 +50,7 @@ describe("config (21)", () => {
 
 /**
  * 19 September: the file said kokoro and left the voices alone, the defaults
- * were chatterbox's, and "hey bridge, male voice" asked kokoro for a wav it
+ * were chatterbox's, and "sidetone, male voice" asked kokoro for a wav it
  * does not have. The fake phone died the same way on its first line.
  */
 describe("each engine names its own voices (4.9)", () => {
@@ -86,7 +86,7 @@ describe("a setting changed out loud is kept (9.4)", () => {
 
 describe("settings that arrive already checked", () => {
   const write = (values: Record<string, unknown>): string => {
-    const path = join(tmpdir(), `voice-bridge-config-${Math.random().toString(36).slice(2)}.json`);
+    const path = join(tmpdir(), `sidetone-config-${Math.random().toString(36).slice(2)}.json`);
     writeFileSync(path, JSON.stringify(values));
     return path;
   };

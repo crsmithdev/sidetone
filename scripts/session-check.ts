@@ -25,7 +25,7 @@ function card(): void {
   Leave a clear second between steps. Do not hurry to fix a mistake: a
   misheard line is a measurement.
 
-  1. THE PASSAGE, MUTED. Say "hey bridge, mute" first. The passage is not
+  1. THE PASSAGE, MUTED. Say "sidetone, mute" first. The passage is not
      a question, and unmuted the agent answers each line as one: three
      confused replies and about thirty cents of allowance. Muted, every
      line is still transcribed and measured and none of it reaches the
@@ -36,7 +36,7 @@ function card(): void {
 `);
   for (const line of PASSAGE) console.log(`       "${line}"`);
   console.log(`
-     Then say "hey bridge, unmute". It should answer "Listening."
+     Then say "sidetone, unmute". It should answer "Listening."
 
   2. THE COMMANDS. Say each one and wait for the answer before the next.
      Two words at most after the wake word: the extra ones are what get
@@ -46,7 +46,7 @@ function card(): void {
   SCRIPT.forEach((step, i) => console.log(`       ${String(i + 1).padStart(2)}. "${step.say}"`));
   console.log(`
   3. TALKING OVER IT. Ask: "describe what a suspension bridge is in about
-     a hundred words". While it is still answering, say "hey bridge, stats".
+     a hundred words". While it is still answering, say "sidetone, stats".
      It should report, then carry on where it stopped.
 
   4. SILENCE. Say nothing at all for thirty seconds. Nothing should happen:

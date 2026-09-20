@@ -12,7 +12,7 @@ limit: it read 89 percent during the last test run at the desk, and a drive
 with no headroom tests nothing.
 
 ```
-systemctl --user show voice-bridge.service -p ExecMainStartTimestamp
+systemctl --user show sidetone.service -p ExecMainStartTimestamp
 ```
 
 ## 9. How often would a shorter pause have cut a sentence?
@@ -38,7 +38,7 @@ right; many means it would cut you off, and it is not built.
 
 ## 10. Does the record know which setting was in force?
 
-**Do.** Say "hey bridge, male voice" or "hey bridge, interrupt on" a few
+**Do.** Say "sidetone, male voice" or "sidetone, interrupt on" a few
 turns in.
 
 **Pass.** After the drive, the record has a `setting` line at the moment you
@@ -46,7 +46,7 @@ said it, and the settings on `/diagnostics` show the new value, not the one
 the bridge started with:
 
 ```
-grep '"setting"' ~/.voice-bridge/record.jsonl
+grep '"setting"' ~/.sidetone/record.jsonl
 curl -sk https://127.0.0.1:3100/diagnostics | python3 -c "import json,sys; print(json.load(sys.stdin)['settings']['ttsVoice'])"
 ```
 
@@ -55,7 +55,7 @@ curl -sk https://127.0.0.1:3100/diagnostics | python3 -c "import json,sys; print
 Until today your own command counted as a barge-in, so this said "Stopped."
 and dropped a hold with nothing behind it.
 
-**Do.** With nothing playing, say "hey bridge, end the turn".
+**Do.** With nothing playing, say "sidetone, end the turn".
 
 **Pass.** "Nothing is running." Nothing else is said.
 

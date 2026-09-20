@@ -1,4 +1,4 @@
-package dev.crsmith.voicebridge
+package dev.crsmith.sidetone
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray

@@ -2,10 +2,11 @@
  * The wake-word commands of spec section 9.
  *
  * 9.3 is the whole difficulty: the bridge matches the sound of the wake word,
- * not its spelling. A speech-to-text engine writes "hey bridge" as "hey,
- * bridge", "Hey Bridge!", "hebridge" or "a bridge" depending on how it heard
- * it. So the match strips everything but the letters, closes up the spaces and
- * allows a couple of characters of difference.
+ * not its spelling. A speech-to-text engine writes "sidetone" as "Side tone",
+ * "side-tone", "Sitone" or "Cytone" depending on how it heard it. So the match
+ * strips everything but the letters, closes up the spaces and allows a
+ * character of difference, plus the forms the corpus found (config
+ * wakeWordVariants).
  *
  * The same tolerance applies to the command that follows: a command is a set
  * of words to find, not a phrase to match exactly.
@@ -100,9 +101,9 @@ function tolerance(word: string): number {
 }
 
 /**
- * The wake word gets one character of tolerance, not the usual share. "the
- * bridge" is two characters from "hey bridge" in spelling and nothing like it
- * in sound, and "The bridge is ready" is a sentence Chris says out loud.
+ * The wake word gets one character of tolerance, not the usual share. "side
+ * note" is two characters from "sidetone" in spelling and nothing like it in
+ * sound, and "Side note, ..." is a thing Chris says out loud.
  */
 const WAKE_TOLERANCE = 1;
 
@@ -123,7 +124,7 @@ export function afterWakeWord(said: string, wakeWord: string, variants: string[]
     for (let take = 1; take <= span && i + take <= words.length; take++) {
       const candidate = words.slice(i, i + take).join("");
       if (targets.some((target) => editDistance(candidate, target) <= WAKE_TOLERANCE)) return words.slice(i + take).join(" ");
-      // 9.3 the engine runs them together: "Hey BridgeMute." is one token and
+      // 9.3 the engine runs them together: "Sidetonemute." is one token and
       // splitting on spaces never finds it. An exact prefix only -- forgiving
       // the spelling here as well would let half the language look like a
       // wake word with something stuck to it.

@@ -1,4 +1,4 @@
-package dev.crsmith.voicebridge
+package dev.crsmith.sidetone
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

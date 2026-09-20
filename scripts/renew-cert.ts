@@ -16,7 +16,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { fetchCert } from "../src/keys.ts";
 
-const dir = join(homedir(), ".voice-bridge");
+const dir = join(homedir(), ".sidetone");
 const certPath = join(dir, "tls-cert.pem");
 
 async function fingerprint(): Promise<string> {
@@ -46,4 +46,4 @@ console.log(`certificate changed: ${before || "none"} -> ${after}`);
 // the terminator reads the pem at start, and the bridge holds a room that the
 // terminator's restart drops, so both have to come back
 await run("lk-tls", ["docker", "restart", "lk-tls"]);
-await run("voice-bridge", ["systemctl", "--user", "restart", "voice-bridge.service"]);
+await run("sidetone", ["systemctl", "--user", "restart", "sidetone.service"]);

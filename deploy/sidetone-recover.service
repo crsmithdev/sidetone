@@ -1,4 +1,4 @@
-# ~/.config/systemd/user/voice-bridge-recover.service
+# ~/.config/systemd/user/sidetone-recover.service
 #
 # Only restart a bridge that is running and unwell. One that has already given
 # up is in failed on purpose, and restarting it from here would paper over the
@@ -8,4 +8,4 @@ Description=Restart Sidetone when it stops answering
 
 [Service]
 Type=oneshot
-ExecStart=/bin/sh -c 'systemctl --user is-active --quiet voice-bridge.service && systemctl --user restart voice-bridge.service || true'
+ExecStart=/bin/sh -c 'systemctl --user is-active --quiet sidetone.service && systemctl --user restart sidetone.service || true'

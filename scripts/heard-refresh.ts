@@ -34,14 +34,17 @@ import { LocalWhisper, textToSpeech } from "../src/speech.ts";
  */
 const PHRASES: Array<{ said: string; want: string | null }> = [
   ...spokenForms(DEFAULTS.wakeWord),
-  { said: "hey bridgemute", want: "mute" },
+  { said: "sidetonemute", want: "mute" },
   // 9.7 the wake word arrives and the command does not
-  { said: "hey bridge, wobble", want: "unclear" },
+  { said: "sidetone, wobble", want: "unclear" },
   // ordinary speech, which must reach the agent untouched
   { said: "What does the serve command actually do?", want: null },
   { said: "The bridge is ready, so let us land it.", want: null },
   { said: "Can you summarize the last commit for me?", want: null },
   { said: "Tell me where the barge in detector lives.", want: null },
+  // words that sound like the wake word, which must not wake it
+  { said: "Side note, the tests pass now.", want: null },
+  { said: "Set that aside and move on.", want: null },
 ];
 
 /** Two voices, because one timbre is one opinion. */
