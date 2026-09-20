@@ -93,7 +93,7 @@ because Chris asked for them in the middle of the answer on purpose. A sentence
 a barge-in cut goes back to the front of the hold, so a resume starts it again
 rather than carrying on from the middle of a word. The disposition of the hold
 is a decision per command, and `run()` returns it; the table is at the top of
-`src/conversation.ts` and in the README.
+`src/conversation.ts` and in [`operating.md`](operating.md).
 
 No clock decides it in the ordinary case. The hold ends when the utterance is
 resolved: resumed for a wake command, for the wake word alone, and for noise
