@@ -59,8 +59,11 @@ its answer, and a client grows one line per answer.
 | One chat bubble for each stage of a turn: the text before a tool call, and the text after it. | Not done. |
 | Text appears word by word as the agent writes it, as in the Claude app. | Not done. |
 
-Decide what marks a new bubble.
-A tool call is one mark; there may be others. The word-by-word display needs
+The mark for a new bubble is a new block of the reply. Chris decided this on
+21 September 2026: each separate section of a reply is one bubble, and a tool
+call always splits the sections. The stream already carries the block
+boundaries (`content_block_start` and `content_block_stop`), but
+`src/protocol.ts` drops them as `other`. The word-by-word display needs
 the bridge to send partial text, which is the streaming work in
 [`docs/streaming-brief.md`](streaming-brief.md).
 
