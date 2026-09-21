@@ -18,6 +18,10 @@ Find out how the audio path takes its level. A search of the `.ts` and `.kt`
 files finds only `cueVolume`, which scales the cues, and the gain in
 `src/audio.ts`. It finds no code that reads a system or phone volume.
 
+Chris tried the volume control at the desk on 21 September 2026. The desk case
+is the phone app, not the web client or the machine mixer. One cause may
+explain both cases.
+
 Decision, 21 September 2026: do not change the audio type to media audio for
 now. It would leave call mode, and call mode gives the echo cancellation that
 barge-in needs (spec 4.2). Look for a fix that keeps call mode.
