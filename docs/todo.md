@@ -32,6 +32,17 @@ Decision, 21 September 2026: do not change the audio type to media audio for
 now. It would leave call mode, and call mode gives the echo cancellation that
 barge-in needs (spec 4.2). Look for a fix that keeps call mode.
 
+Shipped 21 September 2026: an in-app volume slider (spec 4.2.1). It sets the
+gain of the bridge's audio track in the app, apart from the Android stream
+volume, so a floor in the Android stream does not limit it. It scales the
+voice, the cues and the hold music. The app keeps the position across
+restarts. It sits under the "Cut the voice" button. Nothing has run on a
+device.
+
+Remains: the volume control on the phone alone, in the car, and on the bridge
+machine. No one has measured these. The slider does not change them. Test each
+case with the slider at full, then decide whether a cause is left.
+
 Done when the voice follows the volume control on the phone alone, in the car,
 and on the bridge machine.
 
@@ -78,7 +89,7 @@ bridge says "Job <name> finished." when no turn runs and nothing is playing.
 | `scripts/job` jobs die when the service restarts. | A `setsid` job stays in the cgroup of `sidetone.service`, and the unit kills that group on a restart (`KillMode=control-group`). Seen 21 September 2026. Start the job with `systemd-run --user --collect` to fix it. |
 | A restart of the service. | The running bridge does not have `/say` yet. |
 | One spoken test: "start a job that sleeps 60 s", then silence. | It proves the done condition in the room. |
-| The call that auto mode refused on 21 September. | Two `claude -p` runs in auto mode started a job with no refusal, so no allow rule is added yet. |
+| The call that auto mode refused on 21 September. | Two `claude -p` runs in auto mode started a job with no refusal. On 21 September 2026 Chris allowed the rule `Bash(scripts/job:*)` in `.claude/settings.local.json`. That file is not in git. |
 
 ## 5. Faster speech from the good voices
 

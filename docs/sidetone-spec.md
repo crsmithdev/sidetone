@@ -70,6 +70,8 @@ project bridge stays in place.
 
 4.2 LiveKit gives the echo cancellation at the framework level, across the browser and the native app. The bridge does not build its own echo cancellation.
 
+4.2.1 The app has a volume slider. The slider sets the gain of the remote audio track in the app. It is independent of the Android stream volume, which has a minimum in call mode (`MODE_IN_COMMUNICATION`). The app stays in call mode, because call mode gives the echo cancellation of 4.2. The gain scales all sound from the bridge: the voice, the cues and the hold music. The full slider is the level the bridge sends. The gain is the square of the slider position. The app keeps the position on the phone across restarts. The bridge does not know the position.
+
 4.3 LiveKit separates the control channel from the audio channel. Control events do not compete with audio frames.
 
 4.4 LiveKit has a native Android SDK. The same transport, the same framework, and the same echo cancellation carry over from the web client to the Android app. The bridge does not change when the client changes.

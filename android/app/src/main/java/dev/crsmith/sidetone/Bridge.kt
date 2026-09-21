@@ -12,6 +12,7 @@ import io.livekit.android.events.collect
 import io.livekit.android.room.Room
 import io.livekit.android.room.track.LocalAudioTrack
 import io.livekit.android.room.track.LocalAudioTrackOptions
+import io.livekit.android.room.track.RemoteAudioTrack
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -44,6 +45,8 @@ object Bridge {
         val holding: Boolean = false,
         /** 11.12 whether the bridge speaks its answers, or only writes them. */
         val voiceOn: Boolean = true,
+        /** 4.2.1 the playback slider, 0 to 1. It survives [leave] and a refused pairing. */
+        val volume: Float = 1f,
         /** 9.4.8 what the Stop button says, as the bridge gave it. */
         val endTurn: String? = null,
         val lines: List<Line> = emptyList(),
@@ -62,6 +65,7 @@ object Bridge {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val micLock = Mutex()
     private lateinit var store: CredentialStore
+    private lateinit var volumeStore: VolumeStore
     private var session: Job? = null
     private var room: Room? = null
     private var mic: LocalAudioTrack? = null
@@ -71,7 +75,8 @@ object Bridge {
     fun load(context: Context) {
         if (::store.isInitialized) return
         store = CredentialStore(context.applicationContext)
-        _state.update { it.copy(paired = store.load() != null) }
+        volumeStore = VolumeStore(context.applicationContext)
+        _state.update { it.copy(paired = store.load() != null, volume = volumeStore.load()) }
     }
 
     suspend fun pairWith(link: Link) {
@@ -94,7 +99,7 @@ object Bridge {
                 if (refused(reason)) {
                     store.clear()
                     stop(app)
-                    _state.value = State(error = "The bridge refused the saved pairing ($reason). Scan the code again.")
+                    _state.update { State(volume = it.volume, error = "The bridge refused the saved pairing ($reason). Scan the code again.") }
                     return@launch
                 }
                 _state.update { it.copy(status = Status.UNREACHABLE, error = "Cannot reach the bridge: $reason. Retrying.") }
@@ -105,7 +110,7 @@ object Bridge {
 
     fun leave(context: Context) {
         stop(context.applicationContext)
-        _state.value = State(paired = store.load() != null)
+        _state.update { State(paired = store.load() != null, volume = it.volume) }
     }
 
     private fun stop(app: Context) {
@@ -157,6 +162,8 @@ object Bridge {
         when (event) {
             is RoomEvent.Reconnecting -> _state.update { it.copy(status = Status.RECONNECTING) }
             is RoomEvent.Reconnected -> _state.update { it.copy(status = Status.LISTENING) }
+            // 4.2.1 a track the bridge publishes later, or again, starts at the slider
+            is RoomEvent.TrackSubscribed -> (event.track as? RemoteAudioTrack)?.setVolume(playbackGain(_state.value.volume))
             is RoomEvent.Disconnected -> ended.complete(event.error?.message ?: reasonWord(event.reason))
             // N.1.4 the phone reads its own uplink and tells the bridge
             is RoomEvent.ConnectionQualityChanged -> {
@@ -255,6 +262,22 @@ object Bridge {
         val room = room ?: return
         tell(room, Outgoing.voice(on))
         append(Line(Line.Kind.NOTE, if (on) "voice on" else "voice off"))
+    }
+
+    /**
+     * 4.2.1 the level of everything the bridge sends, apart from the Android
+     * stream volume. The bridge sends one audio track for the voice, the cues
+     * and the hold music, so one gain on that track scales all three.
+     */
+    fun setVolume(level: Float) {
+        val clamped = level.coerceIn(0f, 1f)
+        _state.update { it.copy(volume = clamped) }
+        volumeStore.save(clamped)
+        val room = room ?: return
+        val gain = playbackGain(clamped)
+        room.remoteParticipants.values.forEach { participant ->
+            participant.audioTrackPublications.forEach { (_, track) -> (track as? RemoteAudioTrack)?.setVolume(gain) }
+        }
     }
 
     fun say(text: String) {
