@@ -103,6 +103,8 @@ export async function serve(dir: string, config: Config): Promise<void> {
   let wrongCodes = 0;
   const page = await Bun.file(new URL("../client/index.html", import.meta.url).pathname).text();
   const sdk = new URL("../node_modules/livekit-client/dist/livekit-client.esm.mjs", import.meta.url).pathname;
+  // 17 the Android app, as the last `assembleDebug` in this checkout left it
+  const apk = new URL("../android/app/build/outputs/apk/debug/app-debug.apk", import.meta.url).pathname;
 
   const server = Bun.serve({
     port: config.servePort,
@@ -112,6 +114,10 @@ export async function serve(dir: string, config: Config): Promise<void> {
       const url = new URL(request.url);
       if (url.pathname === "/") return new Response(page, { headers: { "content-type": "text/html; charset=utf-8" } });
       if (url.pathname === "/livekit-client.mjs") return new Response(Bun.file(sdk), { headers: { "content-type": "text/javascript" } });
+      if (url.pathname === "/sidetone.apk") {
+        if (!(await Bun.file(apk).exists())) return new Response("not built", { status: 404 });
+        return new Response(Bun.file(apk), { headers: { "content-type": "application/vnd.android.package-archive", "content-disposition": 'attachment; filename="sidetone.apk"' } });
+      }
       /**
        * Whether this is working, not whether it is running. Restart=always
        * cannot tell the difference: a process that holds a dead room, or has
