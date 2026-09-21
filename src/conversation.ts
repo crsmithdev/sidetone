@@ -367,6 +367,7 @@ export class Conversation {
       for (const sentence of sentences.push(text)) say(sentence);
     };
     const stopCue = this.cueWhileWaiting();
+    const stopMusic = this.musicWhileWaiting(mine);
     try {
       const turn = await this.agent.ask(note ? `${note}\n\n${said}` : said);
       if (!mine()) return;
@@ -387,6 +388,7 @@ export class Conversation {
       this.channel.tell({ kind: "error", text: (error as Error).message });
     } finally {
       stopCue();
+      stopMusic();
       if (mine()) {
         this.deltaSink = null;
         this.turnRunning = false;
@@ -407,6 +409,41 @@ export class Conversation {
       timer = setTimeout(tick.bind(this), this.config.audioCueEveryMs);
     }.bind(this), this.config.audioCueDelayMs);
     return () => clearTimeout(timer);
+  }
+
+  /**
+   * 15.7 hold music. The agent cannot know beforehand how long a job takes, so
+   * the bridge measures: once the room has heard no bridge voice for
+   * `holdMusicAfterMs`, the track plays. The silence runs from the later of
+   * the hand-over to the agent and the end of the last sentence.
+   *
+   * It plays once per silent stretch. A sentence starts a new stretch, and a
+   * stretch that has had its track waits for one. It stops with the turn, when
+   * the turn is no longer the mouth's, and where `Mouth.music` stops it.
+   */
+  private musicWhileWaiting(mine: () => boolean): () => void {
+    const after = this.config.holdMusicAfterMs;
+    if (!(after > 0)) return () => {};
+    const startedAt = Date.now();
+    let over = false;
+    let played = 0;
+    let timer: ReturnType<typeof setTimeout>;
+    const check = async (): Promise<void> => {
+      const since = Math.max(startedAt, this.mouth.lastVoiceAt);
+      const wait = since + after - Date.now();
+      // not silent long enough yet, or this stretch has had its track: look again then
+      let next = wait > 0 ? wait : after;
+      // 15.11 not while an answer is wanted, or while the bridge is muted
+      const wanted = this.checkpointOpen || this.gate !== null || this.muted;
+      if (wait <= 0 && played !== since && !wanted) {
+        // refused: a cue or a sentence is on the source, so ask again soon
+        if (await this.mouth.music(() => over || !mine())) played = since;
+        else next = Math.min(after, 1_000);
+      }
+      if (!over) timer = setTimeout(check, next);
+    };
+    timer = setTimeout(check, after);
+    return () => { over = true; clearTimeout(timer); };
   }
 
   /**

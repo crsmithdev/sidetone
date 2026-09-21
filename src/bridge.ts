@@ -64,7 +64,13 @@ export function assemble(
   // 18 one bookkeeper: the spoken report and the record are the same facts
   const measures = new Measures((event) => record.write(event));
   // 11.3 whether Chris is talking is the ear's word; it stops the frames
-  const mouth = new Mouth(speaker, ahead, cues, measures, { ...config, talking: () => ear.bargingIn });
+  const mouth = new Mouth(speaker, ahead, cues, measures, {
+    ...config,
+    talking: () => ear.bargingIn,
+    // 15.8 the track is decoded at the rate the room plays at, so nothing resamples it
+    music: { file: config.holdMusicFile, gain: config.holdMusicGain, rate: sampleRate },
+    say,
+  });
 
   const channel: Channel = new Channel(config, send, {
     heard: (text) => conversation.heard(text),

@@ -164,6 +164,16 @@ export interface Config {
   audioCueDelayMs: number;
   /** 15.2 how often the cue repeats while the wait goes on */
   audioCueEveryMs: number;
+  /**
+   * 15.7 how long a running turn may be silent before the hold music plays.
+   * The silence is measured from the later of the hand-over to the agent and
+   * the end of the last sentence. Zero turns the music off.
+   */
+  holdMusicAfterMs: number;
+  /** 15.8 the track, any file ffmpeg reads. Not in the repository. */
+  holdMusicFile: string;
+  /** 15.9 how loud the track is, as a factor on the file. The voice is 1. */
+  holdMusicGain: number;
   /** 13.2 the reported rate-limit use that earns a spoken warning */
   usageWarnFraction: number;
   /**
@@ -301,6 +311,9 @@ export const DEFAULTS: Config = {
   cueVolume: 0.12,
   audioCueDelayMs: 4_000,
   audioCueEveryMs: 6_000,
+  holdMusicAfterMs: 8_000,
+  holdMusicFile: join(homedir(), ".sidetone", "hold", "hold-music.mp3"),
+  holdMusicGain: 0.4,
   usageWarnFraction: 0.8,
   livekitUrl: process.env.LIVEKIT_URL ?? "",
   livekitApiKey: process.env.LIVEKIT_API_KEY ?? "",
@@ -335,6 +348,7 @@ export const IN_FORCE = [
   "minSpeechPeak", "wakeHoldMs", "interruptOnSpeech", "interruptAfterMs",
   "holdBackstopMs",
   "sentenceMaxChars", "audioCueDelayMs", "audioCueEveryMs",
+  "holdMusicAfterMs", "holdMusicGain",
   "cueVolume", "ttsEngine", "ttsVoice", "sttModel", "wakeWord",
   "chatterboxExaggeration", "chatterboxCfg",
 ] as const satisfies ReadonlyArray<keyof Config>;

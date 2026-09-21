@@ -23,6 +23,10 @@ describe("config (21)", () => {
     expect(DEFAULTS.model).toBe("sonnet");
     expect(DEFAULTS.wakeWord).toBe("sidetone");
     expect(DEFAULTS.agreementWord).toBe("continue");
+    // 15.7 to 15.9 hold music: after eight seconds of silence, at 0.4 of the file's level
+    expect(DEFAULTS.holdMusicAfterMs).toBe(8_000);
+    expect(DEFAULTS.holdMusicGain).toBe(0.4);
+    expect(DEFAULTS.holdMusicFile.endsWith("/.sidetone/hold/hold-music.mp3")).toBe(true);
     // 9.6 the set is a setting, and the tones are on it: you mute because the
     // car is loud, and the tones are the next noise you want gone.
     expect(DEFAULTS.mutedCommands).toEqual(["mute", "unmute", "tones", "tonesOn", "tonesOff"]);

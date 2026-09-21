@@ -64,9 +64,11 @@ export function encodeWav(samples: Int16Array, sampleRate: number, channels = 1)
 /**
  * Any audio file ffmpeg reads, as the mono wav the transport plays. The whole
  * file is decoded at once: a track of a few minutes is under twenty megabytes.
+ * `gain` scales the samples in the same decode; 1 leaves them as they are.
  */
-export async function wavFromFile(path: string, sampleRate: number): Promise<Uint8Array> {
-  const ffmpeg = Bun.spawn(["ffmpeg", "-v", "error", "-i", path, "-f", "s16le", "-ac", "1", "-ar", String(sampleRate), "-"], { stdout: "pipe", stderr: "pipe" });
+export async function wavFromFile(path: string, sampleRate: number, gain = 1): Promise<Uint8Array> {
+  const louder = gain === 1 ? [] : ["-af", `volume=${gain}`];
+  const ffmpeg = Bun.spawn(["ffmpeg", "-v", "error", "-i", path, ...louder, "-f", "s16le", "-ac", "1", "-ar", String(sampleRate), "-"], { stdout: "pipe", stderr: "pipe" });
   const [pcm, error, code] = await Promise.all([new Response(ffmpeg.stdout).arrayBuffer().then((buffer) => new Uint8Array(buffer)), new Response(ffmpeg.stderr).text(), ffmpeg.exited]);
   if (code !== 0) throw new Error(`ffmpeg could not read ${path}: ${error.trim()}`);
   return encodeWav(new Int16Array(pcm.buffer, pcm.byteOffset, pcm.byteLength >> 1), sampleRate);

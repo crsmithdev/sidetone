@@ -154,4 +154,24 @@ describe("the room's speaker", () => {
     await settle();
     expect(said.some((line) => line.startsWith("[the cue failed:"))).toBe(true);
   });
+
+  test("hold music plays with the cut it was given, and says how it ended (15.7)", async () => {
+    const { p, spoke } = player();
+    const said: string[] = [];
+    const cut = () => false;
+    expect(await roomSpeaker(p, (line) => said.push(line)).track(new Uint8Array(8), cut)).toBe(true);
+    expect(said).toEqual(["[hold music]", "[hold music ended]"]);
+    expect(spoke[0]?.until).toBe(cut);
+    const stopped = player(false);
+    said.length = 0;
+    expect(await roomSpeaker(stopped.p, (line) => said.push(line)).track(new Uint8Array(8), () => true)).toBe(false);
+    expect(said).toEqual(["[hold music]", "[hold music stopped]"]);
+  });
+
+  test("hold music is refused, and nothing is played, while a sentence, a cue or a /play track has the source", () => {
+    const { p, spoke, busy } = player();
+    busy();
+    expect(roomSpeaker(p, () => {}).track(new Uint8Array(8), () => false)).toBeNull();
+    expect(spoke).toHaveLength(0);
+  });
 });

@@ -234,6 +234,15 @@ describe.skipIf(!Bun.which("ffmpeg"))("a track from a file", () => {
     expect(level(wav.samples)).toBeGreaterThan(0.03);
   });
 
+  test("a gain scales the samples in the decode", async () => {
+    const mp3 = join(dir, "gain.mp3");
+    await Bun.spawn(["ffmpeg", "-v", "error", "-f", "lavfi", "-i", "sine=frequency=440:duration=1", "-ac", "2", mp3]).exited;
+    const whole = level(decodeWav(await wavFromFile(mp3, 48_000)).samples);
+    const quiet = level(decodeWav(await wavFromFile(mp3, 48_000, 0.4)).samples);
+    expect(quiet / whole).toBeGreaterThan(0.37);
+    expect(quiet / whole).toBeLessThan(0.43);
+  });
+
   test("a file that is not audio is refused with what ffmpeg said", async () => {
     const text = join(dir, "not-audio.txt");
     await Bun.write(text, "hello");

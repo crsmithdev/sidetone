@@ -25,6 +25,7 @@ function scripted(holdBackstopMs = 10_000, switchable = true) {
       return whole;
     },
     cue(wav) { cues.push(wav); },
+    track: () => null,
   };
   const made = {
     take: async (text: string) => `${text}.wav`,

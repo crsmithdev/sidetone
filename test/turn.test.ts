@@ -1,4 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { encodeWav } from "../src/audio.ts";
 import { Channel } from "../src/channel.ts";
 import { DEFAULTS, type Config } from "../src/config.ts";
 import type { Outgoing } from "../src/messages.ts";
@@ -54,21 +58,51 @@ function scripted(script: Script = {}) {
   return { make, calls, hooks: () => hooks };
 }
 
-function room(script: Script = {}, overrides: Partial<Config> = {}) {
+/** What a test may do to the hold music's source and to Chris's voice. */
+interface Music {
+  file: string;
+  /** the track ends by itself after this long; unset, it plays until it is cut */
+  lasts?: number;
+  /** a sentence takes this long to play, as a real one does; unset, it is instant */
+  sentenceMs?: number;
+}
+
+function room(script: Script = {}, overrides: Partial<Config> = {}, music?: Music) {
   const said: string[] = [];
   const cues: string[] = [];
   const told: Outgoing[] = [];
+  const journal: string[] = [];
+  const tracks: Array<{ stopped: boolean }> = [];
+  const source = { taken: false, talking: false };
   const agent = scripted(script);
   const speaker: Speaker = {
-    async play(text) { said.push(text); return true; },
+    async play(text) { said.push(text); if (music?.sentenceMs) await new Promise((resolve) => setTimeout(resolve, music.sentenceMs)); return true; },
     cue(wav) { cues.push(wav); },
+    // the room's speaker, in miniature: a taken source refuses, and the cut is asked as it plays
+    track(_wav, cut) {
+      if (source.taken) return null;
+      const track = { stopped: false };
+      tracks.push(track);
+      return new Promise<boolean>((resolve) => {
+        const started = Date.now();
+        const poll = setInterval(() => {
+          if (cut()) { track.stopped = true; clearInterval(poll); resolve(false); }
+          else if (music?.lasts !== undefined && Date.now() - started >= music.lasts) { clearInterval(poll); resolve(true); }
+        }, 2);
+      });
+    },
   };
   const settings = { ...config, ...overrides };
-  const mouth = new Mouth(speaker, { take: async (text: string) => text, start: () => {}, use: () => true }, { file: (name) => name }, new Measures(), settings);
+  const mouth = new Mouth(speaker, { take: async (text: string) => text, start: () => {}, use: () => true }, { file: (name) => name }, new Measures(), {
+    ...settings,
+    talking: () => source.talking,
+    music: music && { file: music.file, gain: 0.4, rate: 48_000 },
+    say: (line) => journal.push(line),
+  });
   const turns: Turn[] = [];
   const channel = new Channel(settings, (message) => { told.push(message); }, ends, () => {});
   const c = new Conversation("/tmp", settings, mouth, channel, { onTurn: (turn) => turns.push(turn) }, agent.make);
-  return { c, mouth, said, cues, turns, agent, told, channel };
+  return { c, mouth, said, cues, turns, agent, told, channel, journal, tracks, source };
 }
 
 /** The channel's other end, which no test here drives. */
@@ -417,5 +451,176 @@ describe("what the bridge answers from itself (9.4.5, 9.4.6, 9.4.7)", () => {
     await tick();
     expect(r.said.at(-1)).toBe("You asked: what does serve do I said: it joins the room.");
     expect(r.said).not.toContain("the rest.");
+  });
+});
+
+/**
+ * 15.7 hold music. Real timers, as the cue test above: the times are tens of
+ * milliseconds, and the margins are wider than the timers' jitter.
+ */
+describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
+  const file = join(mkdtempSync(join(tmpdir(), "hold-")), "hold.wav");
+  Bun.write(file, encodeWav(new Int16Array(4_800).fill(1_000), 48_000));
+  const AFTER = 100;
+  const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+  /** a track that is due is waited for, so a slow machine does not fail a test that is right */
+  async function until(done: () => boolean): Promise<void> {
+    for (let i = 0; i < 200 && !done(); i++) await wait(10);
+  }
+  /**
+   * A turn that runs until `end()`, in a room whose track lasts until it is cut.
+   * The file is decoded before the turn starts, so the times below are the
+   * bridge's and not ffmpeg's.
+   */
+  async function slow(overrides: Partial<Config> = {}, more: Partial<Music> = {}) {
+    let end = () => {};
+    const r = room({ hold: new Promise<void>((resolve) => { end = resolve; }) }, { holdMusicAfterMs: AFTER, ...overrides }, { file, ...more });
+    await r.mouth.music(() => true);
+    return { ...r, end, turn: r.c.turn("something slow") };
+  }
+
+  test("the silence is measured from the hand-over to the agent", async () => {
+    const r = await slow();
+    await wait(AFTER * 0.5);
+    expect(r.tracks).toHaveLength(0);
+    await until(() => r.tracks.length > 0);
+    expect(r.tracks).toHaveLength(1);
+    r.end();
+    await r.turn;
+  });
+
+  test("a sentence moves the start of the silence to its end", async () => {
+    const r = await slow();
+    await wait(AFTER * 0.6);
+    r.agent.hooks().onDelta?.("Still on it. ");
+    // past the hand-over plus the wait, but not the end of the sentence plus the wait
+    await wait(AFTER * 0.8);
+    expect(r.said).toEqual(["Still on it."]);
+    expect(r.tracks).toHaveLength(0);
+    await until(() => r.tracks.length > 0);
+    expect(r.tracks).toHaveLength(1);
+    r.end();
+    await r.turn;
+  });
+
+  test("a setting of zero turns it off", async () => {
+    const r = await slow({ holdMusicAfterMs: 0 });
+    await wait(AFTER * 2);
+    expect(r.tracks).toHaveLength(0);
+    r.end();
+    await r.turn;
+  });
+
+  test("it plays once per silent stretch, and a sentence starts a new one", async () => {
+    const r = await slow({}, { lasts: 5 });
+    await until(() => r.tracks.length > 0);
+    await wait(AFTER * 3);
+    expect(r.tracks).toHaveLength(1);
+    r.agent.hooks().onDelta?.("Nearly there. ");
+    await wait(AFTER * 0.5);
+    expect(r.tracks).toHaveLength(1);
+    await until(() => r.tracks.length > 1);
+    expect(r.tracks).toHaveLength(2);
+    r.end();
+    await r.turn;
+  });
+
+  test("Chris talking stops it", async () => {
+    const r = await slow();
+    await until(() => r.tracks.length > 0);
+    expect(r.tracks[0]?.stopped).toBe(false);
+    r.source.talking = true;
+    await wait(20);
+    expect(r.tracks[0]?.stopped).toBe(true);
+    r.end();
+    await r.turn;
+  });
+
+  test("it does not start while Chris is talking", async () => {
+    const r = await slow();
+    r.source.talking = true;
+    await wait(AFTER * 2);
+    expect(r.tracks).toHaveLength(0);
+    r.end();
+    await r.turn;
+  });
+
+  test("a sentence stops it", async () => {
+    const r = await slow({}, { sentenceMs: 60 });
+    await until(() => r.tracks.length > 0);
+    r.agent.hooks().onDelta?.("Done. ");
+    await wait(20);
+    expect(r.tracks[0]?.stopped).toBe(true);
+    r.end();
+    await r.turn;
+  });
+
+  test("the end of the turn stops it", async () => {
+    const r = await slow();
+    await until(() => r.tracks.length > 0);
+    expect(r.tracks[0]?.stopped).toBe(false);
+    r.end();
+    await r.turn;
+    await wait(20);
+    expect(r.tracks[0]?.stopped).toBe(true);
+  });
+
+  test("a turn that is no longer the mouth's does not start it", async () => {
+    const r = await slow({ interruptOnSpeech: true, interruptAfterMs: 20 });
+    // an interrupt that the scripted agent never answers, so the old turn runs on
+    void r.c.heard("what is the tallest one");
+    await wait(AFTER * 2);
+    expect(r.tracks).toHaveLength(0);
+    r.end();
+    await r.turn;
+  });
+
+  test("a muted bridge is left in peace", async () => {
+    const r = room({ hold: new Promise<void>(() => {}) }, { holdMusicAfterMs: AFTER }, { file });
+    await r.c.heard("sidetone mute");
+    void r.c.turn("something slow");
+    await wait(AFTER * 3);
+    expect(r.tracks).toHaveLength(0);
+  });
+
+  test("it is not played while the bridge waits for the agreement word", async () => {
+    const r = await slow();
+    r.agent.hooks().onCheckpoint?.(600_000);
+    await wait(AFTER * 3);
+    expect(r.tracks).toHaveLength(0);
+    r.end();
+    await r.turn;
+  });
+
+  test("a gated action waits in silence too", async () => {
+    const r = await slow();
+    await r.c.heard("sidetone clear the context");
+    await wait(AFTER * 3);
+    expect(r.tracks).toHaveLength(0);
+    r.end();
+    await r.turn;
+  });
+
+  test("a source that is in use is asked again, and the track plays when it is free", async () => {
+    const r = await slow();
+    r.source.taken = true;
+    await wait(AFTER * 1.5);
+    expect(r.tracks).toHaveLength(0);
+    r.source.taken = false;
+    await until(() => r.tracks.length > 0);
+    expect(r.tracks).toHaveLength(1);
+    r.end();
+    await r.turn;
+  });
+
+  test("a file that is missing is said once and never tried again", async () => {
+    let end = () => {};
+    const r = room({ hold: new Promise<void>((resolve) => { end = resolve; }) }, { holdMusicAfterMs: 20 }, { file: "/nowhere/hold-music.mp3" });
+    const turn = r.c.turn("something slow");
+    await wait(200);
+    expect(r.tracks).toHaveLength(0);
+    expect(r.journal.filter((line) => line.startsWith("[no hold music:"))).toHaveLength(1);
+    end();
+    await turn;
   });
 });

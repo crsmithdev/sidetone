@@ -418,6 +418,38 @@ another track, and 400 for a path that is not absolute or does not exist. The
 track stops when Chris talks and when the bridge has a sentence to say. Nothing
 else stops it yet.
 
+### Hold music
+
+While a turn runs and the voice is silent, the bridge plays a track to the room
+(spec 15.7 to 15.11). It starts after `holdMusicAfterMs` of silence, 8000 by
+default. The silence runs from the later of the hand-over to the agent and the
+end of the last sentence. The value 0 turns the music off.
+
+The track is `holdMusicFile`, `~/.sidetone/hold/hold-music.mp3` by default. The
+repository does not hold it. If the file is missing, the bridge logs one line,
+`[no hold music: ...]`, and does not try again until the next restart. The
+bridge decodes the file once, on the first play, at `holdMusicGain` (0.4).
+That first play waits for the decode, about a second.
+
+The music stops when Chris talks, when the bridge has a sentence, and when the
+turn ends. These are the stop conditions of `POST /play`, and the turn end. It
+plays once for each silent stretch and does not loop. The log shows each play:
+
+```bash
+journalctl --user -u sidetone -f | grep "hold music"
+```
+
+```text
+[hold music]
+[hold music stopped]
+```
+
+`[hold music ended]` means the track ran to its end.
+
+The track is "Local Forecast - Elevator" by Kevin MacLeod (incompetech.com),
+licensed under Creative Commons Attribution 4.0
+(<https://creativecommons.org/licenses/by/4.0/>).
+
 ### Reaching it from the phone
 
 Three things have to be true, and each one fails quietly on its own.

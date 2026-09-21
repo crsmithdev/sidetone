@@ -71,6 +71,10 @@ _Avoid_: a beep, a sound effect, a notification.
 What the bridge says about a tool the agent is running, so a long turn does not sound like a dropped call.
 _Avoid_: a progress update, a status message.
 
+**Hold music**:
+A track the bridge plays while a turn runs and the voice has been silent for a while. It stops for Chris, for a sentence, and for the end of the turn.
+_Avoid_: elevator music, a background track, a cue (a cue is a tone that says what the bridge is doing).
+
 **A round trip**:
 From the end of Chris's speech to the first sound of the answer. The one number that says whether this feels like a conversation.
 _Avoid_: the latency, the response time.

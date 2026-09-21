@@ -29,6 +29,7 @@ function mouthFor(overrides: Partial<Config> = {}) {
       return whole;
     },
     cue(wav) { cues.push(wav); },
+    track: () => null,
   };
   const made = { take: async (text: string) => text, start: (text: string | undefined) => { lookahead.push(text); }, use: (voice: string) => { switched.push(voice); return true; } };
   const mouth = new Mouth(speaker, made, { file: (name) => name }, new Measures(), { ...config, ...overrides });

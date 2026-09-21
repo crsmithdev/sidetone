@@ -278,6 +278,15 @@ export function roomSpeaker(player: Player, say: (line: string) => void = consol
         .then((bytes) => (player.speaking ? false : player.speak(bytes, cut)))
         .catch((error) => say(`[the cue failed: ${(error as Error).message}]`));
     },
+    track(wav, cut) {
+      // one source takes one writer: a cue or a track from /play is on it now
+      if (player.speaking) return null;
+      say("[hold music]");
+      return player.speak(wav, cut).then(
+        (whole) => { say(whole ? "[hold music ended]" : "[hold music stopped]"); return whole; },
+        (error) => { say(`[hold music failed: ${(error as Error).message}]`); return false; },
+      );
+    },
   };
 }
 

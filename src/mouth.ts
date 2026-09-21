@@ -12,6 +12,7 @@
  * play -- and neither copy had a test. It is one place now, and the two loops
  * supply only the part where they differ: a `Speaker`, which plays one wav.
  */
+import { wavFromFile } from "./audio.ts";
 import type { Config } from "./config.ts";
 import type { CueName, Cues } from "./cues.ts";
 import type { Measures } from "./measures.ts";
@@ -79,6 +80,12 @@ export interface Speaker {
   play(text: string, wav: string | null, cut: () => boolean): Promise<boolean>;
   /** 15.2 a tone. The mouth has checked that nothing is speaking. */
   cue(wav: string, cut: () => boolean): void;
+  /**
+   * 15.7 the hold music: a decoded track, played once. Null, and nothing
+   * played, when the source is in use. Otherwise it resolves when the track
+   * ends, false when `cut` stopped it.
+   */
+  track(wav: Uint8Array, cut: () => boolean): Promise<boolean> | null;
 }
 
 export class Mouth {
@@ -102,6 +109,10 @@ export class Mouth {
   private voice = true;
   /** 18.4 whether the next sentence of the answer is the turn's first. */
   private firstOfTurn = true;
+  /** 15.7 when the last sentence ended, which is where the silence is measured from */
+  private voiceEndedAt = 0;
+  /** 15.8 the decoded track, made on first use. Null when it could not be, and never made again. */
+  private decoded: Promise<Uint8Array | null> | null = null;
 
   constructor(
     private readonly speaker: Speaker,
@@ -116,7 +127,14 @@ export class Mouth {
      * the gate's question waits seconds with the hold up. It is what stops
      * the frames, and it is wired once, by whoever assembles the bridge.
      */
-    private readonly settings: { holdBackstopMs: number; voiceChoices: Config["voiceChoices"]; talking?: () => boolean },
+    private readonly settings: {
+      holdBackstopMs: number;
+      voiceChoices: Config["voiceChoices"];
+      talking?: () => boolean;
+      /** 15.8 the hold music: the file, the gain, and the rate the room plays at. Absent means none. */
+      music?: { file: string; gain: number; rate: number };
+      say?: (line: string) => void;
+    },
   ) {
     this.talking = settings.talking ?? (() => false);
   }
@@ -143,6 +161,8 @@ export class Mouth {
   get onHold(): boolean { return this.holding; }
   /** The sentences Chris heard this turn, whole, in order. */
   get said(): readonly string[] { return this.heard; }
+  /** 15.7 when the last sentence ended, in milliseconds since the epoch. Zero before the first. */
+  get lastVoiceAt(): number { return this.voiceEndedAt; }
 
   /** A turn begins: what he heard of the last one is the last one's. */
   newTurn(): void {
@@ -263,6 +283,29 @@ export class Mouth {
     if (wav) this.speaker.cue(wav, this.talking);
   }
 
+  /**
+   * 15.7 the hold music, once. True when it started; the caller does not wait
+   * for the end. It goes nowhere near a sentence, a cue or a barge-in: the
+   * stop is the /play route's, and `stop` adds the caller's own.
+   */
+  async music(stop: () => boolean): Promise<boolean> {
+    const { music } = this.settings;
+    if (!music || !this.voice || this.occupied()) return false;
+    this.decoded ??= wavFromFile(music.file, music.rate, music.gain).catch((error) => {
+      this.settings.say?.(`[no hold music: ${(error as Error).message.split("\n")[0]}]`);
+      return null;
+    });
+    const wav = await this.decoded;
+    // the first decode takes seconds: a sentence may have come since
+    if (!wav || this.occupied() || stop()) return false;
+    return this.speaker.track(wav, () => this.occupied() || stop()) !== null;
+  }
+
+  /** Chris is talking, or a sentence is queued or playing. */
+  private occupied(): boolean {
+    return this.talking() || this.busy;
+  }
+
   /** Sentences never overlap, and they keep their order (5.7). */
   private async pump(): Promise<void> {
     if (this.pumping) return;
@@ -335,6 +378,7 @@ export class Mouth {
     // saves one on every sentence of every answer.
     this.made.start(next());
     const whole = await this.speaker.play(text, wav, this.talking);
+    this.voiceEndedAt = Date.now();
     this.measures.spoken(text, whole);
     return whole;
   }

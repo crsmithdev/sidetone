@@ -345,6 +345,22 @@ project bridge stays in place.
 
 15.6 The audio cue is pleasant and calm.
 
+15.7 The bridge plays hold music when a turn is running and the room has heard no bridge voice for a set time. A turn is running when Chris has finished speaking and the agent has not returned its result. The time is a setting. The default is 8 seconds. The value 0 turns the hold music off.
+
+15.7.1 The bridge measures the silence from the later of two moments. The first moment is the end of Chris's utterance, when the bridge hands it to the agent. The second moment is the end of the last spoken sentence.
+
+15.7.2 The bridge measures the silence because the agent cannot know beforehand how long a job takes.
+
+15.8 The track is an audio file. The file is a setting. The default is `~/.sidetone/hold/hold-music.mp3`. The repository does not hold the audio. If the file is missing, the bridge writes one line to the log. The bridge does not try again in that process.
+
+15.9 The hold music is quieter than the voice. The gain is a setting. The default is 0.4. The bridge decodes the file once, on first use. The bridge applies the gain in that decode and keeps the samples in memory.
+
+15.10 The hold music stops when Chris talks, when the bridge has a sentence to say, and when the turn ends. The stop for Chris talking and for a sentence is the stop of the /play route.
+
+15.10.1 The hold music plays once for each silent stretch. It does not loop. When a sentence plays and the turn still runs, a new silent stretch starts. The new stretch plays the track again from the start.
+
+15.11 The hold music does not play when no turn is running, when the bridge is muted, or when a track from the /play route is playing. It does not play while the bridge waits for the agreement word, because the bridge has asked Chris a question (8.6.3, 10.1).
+
 ## 16. LESSONS FROM PRIOR ART
 
 16.1 Other projects do voice for the Claude command-line tool. The nearest is claude-voice, which does speech-to-text, then the Claude command-line tool, then text-to-speech, with barge-in and a phone client. The telephony project claude-phone is the call-based method that this product does not use. Other projects are Happy Coder, Paseo, VoiceMode, and Voicebox. Learn from these projects. Read their code for the plumbing. Do not adopt one as the product. None of them do the gating, the wake commands, the car resilience, or the aleph memory split that this product needs.
@@ -442,6 +458,9 @@ project bridge stays in place.
 | Wait before insisting on an interrupt | 5 seconds | 11.9.1 |
 | Usage warning level | 80 percent of the reported rate limit | 13.2 |
 | Audio cue delay | 4 seconds, then every 6 seconds | 15.5 |
+| Hold music: silence before it plays | 8 seconds, 0 turns it off | 15.7 |
+| Hold music: track | `~/.sidetone/hold/hold-music.mp3` | 15.8 |
+| Hold music: gain | 0.4 | 15.9 |
 | GPU budget for the voice path | 8 gigabytes, the whole GPU | 4.10 |
 | Speech-to-text engine and model | faster-whisper, `small.en`, local only | 4.6 |
 | Text-to-speech engine and voice | piper, `en_US-lessac-medium`, local only | 4.9 |
