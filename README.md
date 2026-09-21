@@ -125,3 +125,7 @@ bun test                            # the whole suite; no GPU, no audio
 bun run typecheck
 SIDETONE_GPU=1 bun test speech.smoke   # the real engines, on the GPU
 ```
+
+## License
+
+[MIT](LICENSE)
