@@ -38,3 +38,18 @@ Two forms are possible. Chris has not chosen one.
 
 Decide first whether the button replaces the mute command or sits beside it,
 and what barge-in does while the microphone is closed (9.5).
+
+## 3. How replies appear in the phone app
+
+Noted 21 September 2026. Not investigated yet.
+
+| Want | Today |
+|---|---|
+| Replies arrive in the order the agent wrote them. | Some replies arrive out of order. |
+| One chat bubble for each stage of a turn: the text before a tool call, and the text after it. | Not done. |
+| Text appears word by word as the agent writes it, as in the Claude app. | Not done. |
+
+Find the cause of the wrong order first. Then decide what marks a new bubble.
+A tool call is one mark; there may be others. The word-by-word display needs
+the bridge to send partial text, which is the streaming work in
+[`docs/streaming-brief.md`](streaming-brief.md).
