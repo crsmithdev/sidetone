@@ -86,8 +86,6 @@ bridge says "Job <name> finished." when no turn runs and nothing is playing.
 
 | Open | Why |
 |---|---|
-| `scripts/job` jobs die when the service restarts. | A `setsid` job stays in the cgroup of `sidetone.service`, and the unit kills that group on a restart (`KillMode=control-group`). Seen 21 September 2026. Start the job with `systemd-run --user --collect` to fix it. |
-| A restart of the service. | The running bridge does not have `/say` yet. |
 | One spoken test: "start a job that sleeps 60 s", then silence. | It proves the done condition in the room. |
 | The call that auto mode refused on 21 September. | Two `claude -p` runs in auto mode started a job with no refusal. On 21 September 2026 Chris allowed the rule `Bash(scripts/job:*)` in `.claude/settings.local.json`. That file is not in git. |
 
@@ -193,7 +191,7 @@ notification that opens the app.
 
 ## 12. Format text in the phone app chat
 
-Noted 21 September 2026. Not started. Goes with item 9.
+Noted 21 September 2026. Not started. Keep the selection of spec 17.14.
 
 The chat shows every reply as plain text. Chris wants proper formatting: a link
 is tappable, and bold text, code, lists and other markdown show as what they
@@ -204,5 +202,5 @@ you pick a renderer. Keep it small: a Compose renderer for the few cases that
 appear, not a full markdown library, unless the survey shows that many cases.
 
 Done when a link in a bubble opens on a tap, and bold, code and lists show
-formatted. Selection and copy from item 9 must still work on formatted text,
+formatted. Selection and copy (spec 17.14) must still work on formatted text,
 and copy must give the plain text.

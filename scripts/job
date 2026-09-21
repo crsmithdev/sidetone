@@ -11,6 +11,12 @@
 # When the job ends, it asks the bridge to say "Job <name> finished." when no
 # answer is in progress.
 #
+# The job runs as a transient systemd user unit, sidetone-job-<id>. A process
+# that only calls setsid stays in the cgroup of the unit that started it, and
+# a restart of sidetone.service killed such jobs (docs/todo.md, 4b). The unit
+# gets the service's own environment file and the caller's PATH, and no other
+# variable of the caller.
+#
 # SIDETONE_SAY_URL points at another bridge, such as a scratch one.
 set -euo pipefail
 
@@ -33,10 +39,10 @@ mkdir -p "$dir"
 printf '%q ' "$@" > "$dir/command.txt"
 echo >> "$dir/command.txt"
 
-# A nested claude refuses to start while CLAUDECODE is set.
-unset CLAUDECODE
 # shellcheck disable=SC2016
-setsid nohup bash -c '
+systemd-run --user --collect --quiet --unit="sidetone-job-$id" --same-dir \
+  --property=EnvironmentFile=-"$HOME/.sidetone/env" --setenv=PATH="$PATH" \
+  bash -c '
   dir=$1 name=$2 say_url=$3
   shift 3
   # the bridge reads this to show that a job runs: the pid, and the dir in this command line
@@ -48,6 +54,6 @@ setsid nohup bash -c '
   # -k: the certificate names the tailnet host, not the loopback
   curl -sSk --max-time 10 -X POST -H "content-type: application/json" \
     -d "{\"text\": \"$line\"}" "$say_url" > "$dir/say.log" 2>&1 || true
-' job "$dir" "$name" "$say_url" "$@" > /dev/null 2>&1 < /dev/null &
+' job "$dir" "$name" "$say_url" "$@"
 
 echo "$dir"
