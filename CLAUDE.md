@@ -8,3 +8,6 @@ Read [`docs/drive.md`](docs/drive.md) when Chris says he is driving, starts a
 test, reports something that happened in the car, or asks what is left to try.
 It holds the open questions, the test that settles each one, and the command
 that shows the answer.
+
+Read [`docs/streaming-brief.md`](docs/streaming-brief.md) when Chris asks
+about streaming, latency or the round trip.
