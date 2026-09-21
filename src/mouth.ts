@@ -67,6 +67,9 @@ export function keptLines(config: Config): { dir: string; signature: string; lin
   return { dir: config.spokenDir, signature: voiceSignature(config), lines: KEPT_LINES };
 }
 
+/** How often an announcement asks whether the mouth is free. */
+export const ANNOUNCE_POLL_MS = 500;
+
 /** The part that plays one sound. The room and a test differ only here. */
 export interface Speaker {
   /**
@@ -154,6 +157,26 @@ export class Mouth {
     this.ahead.push(text);
     void this.pump();
   }
+
+  /**
+   * A line from outside the conversation, such as "Job research finished".
+   * It waits until `idle` says no turn runs, nothing is queued or playing, and
+   * Chris is not talking, so it never lands inside an answer.
+   */
+  announce(text: string, idle: () => boolean): void {
+    this.later.push(text);
+    this.laterTimer ??= setInterval(() => {
+      if (this.holding || this.occupied() || !idle()) return;
+      const line = this.later.shift();
+      if (line !== undefined) this.reply(line);
+      if (this.later.length > 0) return;
+      clearInterval(this.laterTimer!);
+      this.laterTimer = null;
+    }, ANNOUNCE_POLL_MS);
+  }
+
+  private readonly later: string[] = [];
+  private laterTimer: ReturnType<typeof setInterval> | null = null;
 
   /** Whether a sentence is playing. A cue never goes over one. */
   get speaking(): boolean { return this.playing; }

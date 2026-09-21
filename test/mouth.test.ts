@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Measures } from "../src/measures.ts";
-import { Mouth, type Speaker } from "../src/mouth.ts";
+import { ANNOUNCE_POLL_MS, Mouth, type Speaker } from "../src/mouth.ts";
 
 /**
  * A speaker that can be made to block mid-sentence and to report a sentence
@@ -367,5 +367,37 @@ describe("the voice (4.9)", () => {
   test("an engine of one voice says so instead of pretending", () => {
     const m = scripted(undefined as never, false);
     expect(m.mouth.switchVoice("female")).toEqual({ said: "This engine has only the one voice.", voice: null });
+  });
+});
+
+describe("an announcement from outside the conversation", () => {
+  const poll = () => Bun.sleep(ANNOUNCE_POLL_MS + 50);
+
+  test("it waits for the turn to end", async () => {
+    const m = scripted();
+    let turn = true;
+    m.mouth.announce("Job research finished.", () => !turn);
+    await poll();
+    expect(m.played).toEqual([]);
+    turn = false;
+    await poll();
+    expect(m.played).toEqual(["Job research finished."]);
+  });
+
+  test("it never goes over a sentence or into a hold", async () => {
+    const m = scripted();
+    m.blockPlay(true);
+    m.mouth.say("one.");
+    m.mouth.announce("Job research finished.", () => true);
+    await poll();
+    expect(m.played).toEqual(["one."]);
+    m.blockPlay(false);
+    m.mouth.hold();
+    m.release();
+    await poll();
+    expect(m.played).toEqual(["one."]);
+    m.mouth.resume();
+    await poll();
+    expect(m.played).toEqual(["one.", "Job research finished."]);
   });
 });

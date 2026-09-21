@@ -72,17 +72,15 @@ open and untested: queue Chris's speech without an interrupt, or raise
 
 ### b. A setup for long jobs
 
-Until part a has an answer, long work runs as a detached process, not as a
-subagent. A detached process survived the same interrupt. Two things are
-missing:
+Built 21 September. `scripts/job <name> <command>` runs a command detached,
+writes to `~/.sidetone/jobs/<id>/`, and posts to `/say` when it ends. The
+bridge says "Job <name> finished." when no turn runs and nothing is playing.
 
-| Missing | Why it matters |
+| Open | Why |
 |---|---|
-| A standing setup, so the agent can start any detached job without a refusal. | The permission classifier refused a research agent twice on 21 September. |
-| A way to know that a job finished. | A detached process sends no completion notice. |
-
-Done when the agent starts a long job, ends the turn, and says by voice when
-the job ends, with no help from Chris.
+| A restart of the service. | The running bridge does not have `/say` yet. |
+| One spoken test: "start a job that sleeps 60 s", then silence. | It proves the done condition in the room. |
+| The call that auto mode refused on 21 September. | Two `claude -p` runs in auto mode started a job with no refusal, so no allow rule is added yet. |
 
 ## 5. Faster speech from the good voices
 

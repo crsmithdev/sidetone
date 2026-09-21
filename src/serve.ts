@@ -181,6 +181,20 @@ export async function serve(dir: string, config: Config): Promise<void> {
           .catch((error) => console.log(`[the track failed: ${(error as Error).message}]`));
         return Response.json({ playing: file }, { status: 202 });
       }
+      /**
+       * Say one line when the bridge is free: `scripts/job` tells Chris here
+       * that a detached job ended. The same guard as /play: a shell on this
+       * machine only.
+       */
+      if (url.pathname === "/say" && request.method === "POST") {
+        if (!isLocal(server.requestIP(request)?.address)) return new Response("not found", { status: 404 });
+        const body = await request.json().catch(() => ({})) as { text?: string };
+        const text = body.text?.trim() ?? "";
+        if (!text) return Response.json({ error: "text must be a line to say" }, { status: 400 });
+        console.log(`[to say when free: ${text}]`);
+        mouth.announce(text, () => !conversation.busy);
+        return Response.json({ queued: text }, { status: 202 });
+      }
       // 12.1 the boundary. Everything below here needs the code or a token.
       if (url.pathname === "/pair" && request.method === "POST") {
         const body = await request.json().catch(() => ({})) as { code?: string };

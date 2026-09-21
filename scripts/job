@@ -1,0 +1,49 @@
+#!/bin/bash
+# Run a long job detached from the agent, and say by voice when it ends.
+#
+#   scripts/job <name> <command> [args...]
+#   scripts/job research claude -p "read the brief and write notes.md"
+#
+# A subagent dies when Chris interrupts a turn (docs/todo.md, 4a). A process
+# in its own session does not. The job writes to ~/.sidetone/jobs/<id>/:
+# command.txt, output.log, and exit when it ends. Then it asks the bridge to
+# say "Job <name> finished." when no answer is in progress.
+#
+# SIDETONE_SAY_URL points at another bridge, such as a scratch one.
+set -euo pipefail
+
+if [ $# -lt 2 ]; then
+  echo "usage: scripts/job <name> <command> [args...]" >&2
+  exit 2
+fi
+
+name=$1
+shift
+# the name is a directory and goes into JSON, so it is one plain word
+if [[ ! $name =~ ^[A-Za-z0-9-]+$ ]]; then
+  echo "the name must be letters, digits and hyphens" >&2
+  exit 2
+fi
+id="$(date +%m%d-%H%M%S)-$name"
+dir="$HOME/.sidetone/jobs/$id"
+say_url=${SIDETONE_SAY_URL:-https://127.0.0.1:3100/say}
+mkdir -p "$dir"
+printf '%q ' "$@" > "$dir/command.txt"
+echo >> "$dir/command.txt"
+
+# A nested claude refuses to start while CLAUDECODE is set.
+unset CLAUDECODE
+# shellcheck disable=SC2016
+setsid nohup bash -c '
+  dir=$1 name=$2 say_url=$3
+  shift 3
+  status=0
+  "$@" > "$dir/output.log" 2>&1 < /dev/null || status=$?
+  echo "$status" > "$dir/exit"
+  if [ "$status" = 0 ]; then line="Job $name finished."; else line="Job $name failed."; fi
+  # -k: the certificate names the tailnet host, not the loopback
+  curl -sSk --max-time 10 -X POST -H "content-type: application/json" \
+    -d "{\"text\": \"$line\"}" "$say_url" > "$dir/say.log" 2>&1 || true
+' job "$dir" "$name" "$say_url" "$@" > /dev/null 2>&1 < /dev/null &
+
+echo "$dir"
