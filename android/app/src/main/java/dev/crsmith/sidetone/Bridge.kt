@@ -2,6 +2,7 @@ package dev.crsmith.sidetone
 
 import android.content.Context
 import android.content.Intent
+import android.os.SystemClock
 import android.util.Log
 import io.livekit.android.LiveKit
 import io.livekit.android.RoomOptions
@@ -50,6 +51,9 @@ object Bridge {
     private const val TAG = "Sidetone"
     private const val RETRY_MS = 5_000L
 
+    /** The reason [runRoom] gives when the bridge asked for a rejoin, which is no fault. */
+    private const val REJOINING = "rejoining"
+
     private val _state = MutableStateFlow(State())
     val state: StateFlow<State> = _state
 
@@ -60,6 +64,7 @@ object Bridge {
     private var room: Room? = null
     private var mic: LocalAudioTrack? = null
     private var historyShown = false
+    private var rejoinedAt: Long? = null
 
     fun load(context: Context) {
         if (::store.isInitialized) return
@@ -83,6 +88,7 @@ object Bridge {
                 _state.update { it.copy(status = Status.CONNECTING) }
                 val reason = runRoom(app, credentials)
                 Log.i(TAG, "the room ended: $reason")
+                if (reason == REJOINING) continue
                 if (refused(reason)) {
                     store.clear()
                     stop(app)
@@ -162,6 +168,7 @@ object Bridge {
                 is Incoming.Sentence -> onSentence(message)
                 is Incoming.Said -> if (message.line.kind == Line.Kind.BRIDGE) onAnswered(message) else append(message.line)
                 is Incoming.Protocol -> _state.update { it.copy(endTurn = message.endTurn) }
+                is Incoming.Rejoin -> rejoin(ended)
                 is Incoming.Unknown -> append(Line(Line.Kind.NOTE, "(unknown message: ${message.kind})"))
                 is Incoming.History -> {
                     if (historyShown) return
@@ -174,6 +181,24 @@ object Bridge {
             }
             else -> Unit
         }
+    }
+
+    /**
+     * 18.9 the bridge hears no sound from the microphone track, and only this
+     * end can publish a new one. Ending the room makes [join] connect again,
+     * and [runRoom] opens the microphone again if it was open. A request inside
+     * [REJOIN_MS] of the last rejoin is ignored, so a silent phone cannot loop.
+     */
+    private fun rejoin(ended: CompletableDeferred<String>) {
+        val now = SystemClock.elapsedRealtime()
+        if (!rejoinDue(rejoinedAt, now)) {
+            Log.i(TAG, "the bridge asked for a rejoin inside ${REJOIN_MS / 1000} s of the last one; ignored")
+            return
+        }
+        rejoinedAt = now
+        Log.i(TAG, "the bridge asked for a rejoin")
+        append(Line(Line.Kind.NOTE, "rejoining to publish a new microphone track"))
+        ended.complete(REJOINING)
     }
 
     /**

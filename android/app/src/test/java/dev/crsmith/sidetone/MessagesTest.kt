@@ -64,6 +64,19 @@ class MessagesTest {
     }
 
     @Test
+    fun takesTheRequestToRejoin() {
+        // src/channel.ts sends this when the microphone track carries no sound
+        assertEquals(Incoming.Rejoin, decode(bytes("""{"kind":"rejoin"}""")))
+    }
+
+    @Test
+    fun rejoinsOnceInThirtySeconds() {
+        assertEquals(true, rejoinDue(null, 5_000))
+        assertEquals(false, rejoinDue(1_000, 30_999))
+        assertEquals(true, rejoinDue(1_000, 31_000))
+    }
+
+    @Test
     fun saysSoWhenTheTwoEndsHaveDrifted() {
         // dropping it silently is how a new kind stayed invisible
         assertEquals(Incoming.Unknown("stats"), decode(bytes("""{"kind":"stats"}""")))

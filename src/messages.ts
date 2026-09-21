@@ -26,6 +26,8 @@ export const INCOMING = {
   history: "history",
   /** this message: the words a client needs that only the bridge knows */
   protocol: "protocol",
+  /** 18.9 leave the room and join it again; a client shows nothing */
+  rejoin: "none",
 } as const;
 
 /**
@@ -55,6 +57,7 @@ export type Outgoing =
   | { kind: "narration"; text: string }
   | { kind: "error"; text: string }
   | { kind: "history"; turns: Kept[] }
+  | { kind: "rejoin" }
   | { kind: "protocol"; endTurn: string; incoming: typeof INCOMING; outgoing: typeof OUTGOING };
 
 /**

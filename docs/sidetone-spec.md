@@ -411,6 +411,20 @@ project bridge stays in place.
 
 18.8 Test the wake word in live use. Do not test the wake word before the build. If "sidetone" collides with normal conversation, change the setting in Section 21.
 
+18.9 The phone can publish a microphone track that carries no sound, and only the phone can renew the track. The app renews it by leaving the room and joining again.
+
+18.9.1 The bridge finds the fault when the track carries no sound for 30 seconds. It also finds the fault when no audio arrives for 30 seconds though the phone says its microphone is open.
+
+18.9.2 When the bridge first finds the fault, it sends the phone one `rejoin` message. It sends no second message until the microphone has carried sound again. The bridge also says the fault in a note, as before.
+
+18.9.3 The app leaves the room and joins it again when it gets the message. It opens the microphone again if the microphone was open.
+
+18.9.4 The app rejoins at most once in 30 seconds. It ignores a message inside that time, so a phone that stays silent cannot make a loop. The 30 seconds is a constant of the app, because the app has no settings file.
+
+18.9.5 The bridge writes one line to the journal each time it sends the message. The line says that the bridge asked. It does not say that the phone agreed.
+
+18.9.6 The web client ignores the message. The page has no rule to renew its own track.
+
 ## 19. POINT STATUS
 
 19.1 Muted command subset. Mute, unmute, and the three commands that turn the tones on and off. The set is a list in the settings, so Chris adds more later. The tone commands are on it because Chris mutes when the car is loud, and the tones are the next noise he wants gone; silencing them asks nothing of the microphone. See 9.5 and 9.6.

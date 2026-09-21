@@ -111,6 +111,10 @@ export class Channel {
    * Chris drove twenty minutes with. The track belongs to the phone, so this
    * end cannot mend it; it says so once, and says what does mend it, and says
    * it again only after the microphone has come back.
+   *
+   * 18.9 the phone can mend it by leaving the room and joining again, so the
+   * first reading of an episode also asks the phone to do that. The phone
+   * limits how often it agrees.
    */
   silence(reading: Silence): void {
     if (!this.micOn || !reading) { this.saidSilent = false; return; }
@@ -121,5 +125,7 @@ export class Channel {
       ? `no audio from the phone for ${seconds}s, though it says its microphone is open`
       : `the phone's microphone has carried no sound at all for ${seconds}s`;
     this.narrate(`${text}. Leave the room and rejoin to publish a new track`);
+    this.send({ kind: "rejoin" });
+    this.say("[asked the phone to rejoin]");
   }
 }

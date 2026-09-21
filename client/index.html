@@ -222,6 +222,8 @@ async function connect({ url, token }) {
     else if (message.kind === "turn") answered(message.text, message.answer);
     else if (message.kind === "narration") line(message.text, "note");
     else if (message.kind === "error") line(message.text, "note");
+    // 18.9 the app renews its own microphone track on this; the page does not
+    else if (message.kind === "rejoin") return;
     // a kind this page does not know is the two ends drifting apart. Say so
     // rather than dropping it, which is how it stayed hidden before.
     else line(`(unknown message: ${message.kind})`, "note");

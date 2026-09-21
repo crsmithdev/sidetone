@@ -28,6 +28,9 @@ sealed interface Incoming {
     /** What only the bridge knows: the words this client has to say back to it. */
     data class Protocol(val endTurn: String) : Incoming
 
+    /** 18.9 the microphone track carries no sound: leave the room and join it again. */
+    data object Rejoin : Incoming
+
     /**
      * A kind this app does not know, which means the two ends have drifted
      * apart. It is shown rather than dropped: dropping it is how the drift
@@ -43,6 +46,7 @@ fun decode(payload: ByteArray): Incoming? {
         val endTurn = message.string("endTurn") ?: return null
         return Incoming.Protocol(endTurn)
     }
+    if (kind == "rejoin") return Incoming.Rejoin
     if (kind == "sentence") {
         val text = message.string("text") ?: return null
         return Incoming.Sentence(text, message.int("answer"))
@@ -54,6 +58,12 @@ fun decode(payload: ByteArray): Incoming? {
     }
     return lineOf(message)?.let { Incoming.Said(it, message.int("answer")) } ?: Incoming.Unknown(kind)
 }
+
+/** 18.9.4 the shortest time between two rejoins that the bridge asked for. */
+const val REJOIN_MS = 30_000L
+
+/** 18.9.4 whether a request to rejoin is due, given when the last rejoin began. Times are in milliseconds. */
+fun rejoinDue(lastAt: Long?, now: Long): Boolean = lastAt == null || now - lastAt >= REJOIN_MS
 
 /**
  * 14.7 the line an answer grows on: where it is, and which answer it is. A

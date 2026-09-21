@@ -108,12 +108,27 @@ describe("18 a microphone that stopped", () => {
     c.silence(null);
     c.silence({ kind: "no frames", ms: 30_000 });
     c.silence({ kind: "no frames", ms: 40_000 });
-    expect(sent.map((m) => m.kind)).toEqual(["narration"]);
+    expect(sent.map((m) => m.kind)).toEqual(["narration", "rejoin"]);
     expect(sent[0]).toMatchObject({ text: "no audio from the phone for 30s, though it says its microphone is open. Leave the room and rejoin to publish a new track" });
     c.silence(null);
     c.silence({ kind: "silence", ms: 31_000 });
-    expect(sent).toHaveLength(2);
-    expect(sent[1]).toMatchObject({ text: "the phone's microphone has carried no sound at all for 31s. Leave the room and rejoin to publish a new track" });
+    expect(sent.map((m) => m.kind)).toEqual(["narration", "rejoin", "narration", "rejoin"]);
+    expect(sent[2]).toMatchObject({ text: "the phone's microphone has carried no sound at all for 31s. Leave the room and rejoin to publish a new track" });
+  });
+
+  test("18.9 the phone is asked to rejoin once, and the journal says so in one line", () => {
+    const { c, sent, journal } = channel();
+    c.silence({ kind: "silence", ms: 30_000 });
+    c.silence({ kind: "silence", ms: 40_000 });
+    expect(sent.filter((m) => m.kind === "rejoin")).toEqual([{ kind: "rejoin" }]);
+    expect(journal.filter((line) => line.includes("rejoin") && line.startsWith("[asked"))).toEqual(["[asked the phone to rejoin]"]);
+  });
+
+  test("18.9 a microphone the phone cut is not asked to rejoin", () => {
+    const { c, sent } = channel();
+    c.receive({ kind: "mic", on: false });
+    c.silence({ kind: "silence", ms: 30_000 });
+    expect(sent.filter((m) => m.kind === "rejoin")).toEqual([]);
   });
 
   test("a microphone the phone says it cut is not a fault", () => {
