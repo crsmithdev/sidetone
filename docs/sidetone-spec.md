@@ -401,13 +401,17 @@ project bridge stays in place.
 
 15.6 The audio cue is pleasant and calm.
 
-15.7 The bridge plays hold music when a turn is running and the room has heard no bridge voice for a set time. A turn is running when Chris has finished speaking and the agent has not returned its result. The time is a setting. The default is 8 seconds. The value 0 turns the hold music off.
+15.7 The bridge plays hold music when a long turn is running and the room has heard no bridge voice for a set time. A turn is running when Chris has finished speaking and the agent has not returned its result. A turn is long when the agent says so (15.7.4). The time is a setting. The default is 8 seconds. The value 0 turns the hold music off.
 
 15.7.1 The bridge measures the silence from the later of two moments. The first moment is the end of Chris's utterance, when the bridge hands it to the agent. The second moment is the end of the last spoken sentence.
 
-15.7.2 The bridge measures the silence because the agent cannot know beforehand how long a job takes.
+15.7.2 The agent decides ahead of time whether a turn is long, because it knows before it starts whether it will run tools or think hard. The bridge does not guess from the silence that a turn is long. The bridge measures the silence only to place the music inside a long turn.
 
 15.7.3 Chris turns the hold music on and off by voice. He says "music on" or "music off" after the wake word. The bridge answers "Music on." or "Music off." The choice is a setting. The bridge keeps it across restarts. The bridge does not play the hold music while the setting is off. If Chris turns the music off while a track plays, the track stops. The two commands are not in the default muted set (9.6), because the hold music does not play while the bridge is muted (15.11).
+
+15.7.4 The voice instruction (6.5) tells the agent to start its reply with the marker `[long]` when it expects a slow turn. A reply that starts with the marker makes a long turn. The agent writes no marker when it expects a quick answer, and that turn gets no hold music. The bridge removes the marker before the text reaches the sentence splitter, the voice, the app and the transcript. The marker can arrive split across stream deltas, and the bridge holds the start of the reply until it is certain. Only the very start of the reply counts. The bridge does not remove `[long]` from later in the text.
+
+15.7.5 A reply can start with a tool call and no text. That reply has no marker, so the turn is not long and gets no hold music. This is a known gap. The bridge has no fallback for it.
 
 15.8 The track is an audio file. The file is a setting. The default is `~/.sidetone/hold/hold-music.mp3`. The repository does not hold the audio. If the file is missing, the bridge writes one line to the log. The bridge does not try again in that process.
 
@@ -421,7 +425,7 @@ project bridge stays in place.
 
 15.10.3 Chris talking, the audio going off (11.12), the music going off (15.7.3) and the end of the turn cut the track at once. They do not fade it.
 
-15.11 The hold music does not play when no turn is running, when the bridge is muted, when the audio is off (11.12), or when a track from the /play route is playing. It does not play while the bridge waits for the agreement word, because the bridge has asked Chris a question (8.6.3, 10.1).
+15.11 The hold music does not play when no turn is running, when the turn is not long (15.7.4), when the bridge is muted, when the audio is off (11.12), or when a track from the /play route is playing. It does not play while the bridge waits for the agreement word, because the bridge has asked Chris a question (8.6.3, 10.1).
 
 ## 16. LESSONS FROM PRIOR ART
 
@@ -583,7 +587,7 @@ project bridge stays in place.
 | Wait before insisting on an interrupt | 5 seconds | 11.9.1 |
 | Usage warning level | 80 percent of the reported rate limit | 13.2 |
 | Audio cue delay | 4 seconds, then every 6 seconds | 15.5 |
-| Hold music: silence before it plays | 8 seconds, 0 turns it off | 15.7 |
+| Hold music: silence before it plays, in a long turn | 8 seconds, 0 turns it off | 15.7 |
 | Hold music: on or off | on; "music on" and "music off" change it | 15.7.3 |
 | Hold music: track | `~/.sidetone/hold/hold-music.mp3` | 15.8 |
 | Hold music: gain | 0.4 | 15.9 |

@@ -157,6 +157,55 @@ describe("a whole turn (5.5, 5.6)", () => {
     expect(named).toEqual([["sentence", 1], ["sentence", 1], ["turn", 1], ["sentence", 2], ["sentence", 2], ["turn", 2]]);
   });
 
+  test("the marker is taken off the front and never reaches the voice, the app or the transcript (15.7.4)", async () => {
+    const r = room({ deltas: ["[long] ", "Checking the logs. ", "It is fine."] });
+    await r.c.turn("is it fine");
+    expect(r.said).toEqual(["Checking the logs.", "It is fine."]);
+    const seen = r.told.filter((m) => m.kind === "delta" || m.kind === "sentence" || m.kind === "turn").map((m) => "text" in m ? m.text : "");
+    expect(seen.join(" ")).not.toContain("[long]");
+    expect(r.told.filter((m) => m.kind === "delta").map((m) => "text" in m ? m.text : "").join("")).toBe("Checking the logs. It is fine.");
+    expect(r.channel.missed().at(-1)).toMatchObject({ kind: "turn", text: "Checking the logs. It is fine." });
+    expect(r.turns[0]?.text).toBe("Checking the logs. It is fine.");
+  });
+
+  test("a marker split across deltas is taken off too (15.7.4)", async () => {
+    const r = room({ deltas: ["[", "lo", "ng", "]", " Checking the logs. ", "It is fine."] });
+    await r.c.turn("is it fine");
+    expect(r.said).toEqual(["Checking the logs.", "It is fine."]);
+    expect(r.told.filter((m) => m.kind === "delta").map((m) => "text" in m ? m.text : "").join("")).toBe("Checking the logs. It is fine.");
+  });
+
+  test("a start that only looks like the marker is spoken whole (15.7.4)", async () => {
+    const r = room({ deltas: ["[lo", "gged in] is the state. ", "Done."] });
+    await r.c.turn("what state");
+    expect(r.said).toEqual(["[logged in] is the state.", "Done."]);
+  });
+
+  test("a reply that ends inside the start of the marker is not lost (15.7.4)", async () => {
+    const r = room({ deltas: ["[lo"] });
+    await r.c.turn("say it");
+    expect(r.said).toEqual(["[lo"]);
+  });
+
+  test("a marker in the middle of a reply is left in the text (15.7.4)", async () => {
+    const r = room({ deltas: ["Checking. ", "[long] It is fine."] });
+    await r.c.turn("is it fine");
+    expect(r.said).toEqual(["Checking.", "[long] It is fine."]);
+  });
+
+  test("a reply that is only the marker says nothing", async () => {
+    const r = room({ deltas: ["[long]"] });
+    await r.c.turn("is it fine");
+    expect(r.said).toEqual([]);
+    expect(r.channel.missed().at(-1)).toMatchObject({ kind: "turn", text: "" });
+  });
+
+  test("the marker is not looked for after a tool call (15.7.5)", async () => {
+    const r = room({ during: (hooks) => { hooks.onBlockStart?.("tool_use"); hooks.onBlockStart?.("text"); }, deltas: ["[long] It is fine."] });
+    await r.c.turn("is it fine");
+    expect(r.said).toEqual(["[long] It is fine."]);
+  });
+
   test("a turn that does not finish says so, and does not end the conversation", async () => {
     const r = room({ fail: "the agent died" });
     await r.c.turn("what is two plus two");
@@ -576,6 +625,8 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
   const file = join(mkdtempSync(join(tmpdir(), "hold-")), "hold.wav");
   Bun.write(file, encodeWav(new Int16Array(4_800).fill(1_000), 48_000));
   const AFTER = 100;
+  /** 15.7.4 the marker alone, so the turn is long and no sentence has moved the silence */
+  const LONG = ["[long]"];
   const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
   /** a track that is due is waited for, so a slow machine does not fail a test that is right */
   async function until(done: () => boolean): Promise<void> {
@@ -586,9 +637,9 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
    * The file is decoded before the turn starts, so the times below are the
    * bridge's and not ffmpeg's.
    */
-  async function slow(overrides: Partial<Config> = {}, more: Partial<Music> = {}) {
+  async function slow(overrides: Partial<Config> = {}, more: Partial<Music> = {}, opening: string[] = LONG) {
     let end = () => {};
-    const r = room({ hold: new Promise<void>((resolve) => { end = resolve; }) }, { holdMusicAfterMs: AFTER, ...overrides }, { file, ...more });
+    const r = room({ during: (hooks) => { for (const delta of opening) hooks.onDelta?.(delta); }, hold: new Promise<void>((resolve) => { end = resolve; }) }, { holdMusicAfterMs: AFTER, ...overrides }, { file, ...more });
     await r.mouth.music(() => true);
     return { ...r, end, turn: r.c.turn("something slow") };
   }
@@ -761,7 +812,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
   });
 
   test("a muted bridge is left in peace", async () => {
-    const r = room({ hold: new Promise<void>(() => {}) }, { holdMusicAfterMs: AFTER }, { file });
+    const r = room({ during: (hooks) => hooks.onDelta?.("[long]"), hold: new Promise<void>(() => {}) }, { holdMusicAfterMs: AFTER }, { file });
     await r.c.heard("sidetone mute");
     void r.c.turn("something slow");
     await wait(AFTER * 3);
@@ -800,11 +851,61 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
 
   test("a file that is missing is said once and never tried again", async () => {
     let end = () => {};
-    const r = room({ hold: new Promise<void>((resolve) => { end = resolve; }) }, { holdMusicAfterMs: 20 }, { file: "/nowhere/hold-music.mp3" });
+    const r = room({ during: (hooks) => hooks.onDelta?.("[long]"), hold: new Promise<void>((resolve) => { end = resolve; }) }, { holdMusicAfterMs: 20 }, { file: "/nowhere/hold-music.mp3" });
     const turn = r.c.turn("something slow");
     await wait(200);
     expect(r.tracks).toHaveLength(0);
     expect(r.journal.filter((line) => line.startsWith("[no hold music:"))).toHaveLength(1);
+    end();
+    await turn;
+  });
+
+  test("a turn with no marker gets no music (15.7.4)", async () => {
+    const r = await slow({}, {}, []);
+    await wait(AFTER * 3);
+    expect(r.tracks).toHaveLength(0);
+    r.end();
+    await r.turn;
+  });
+
+  test("a turn that starts with a sentence and no marker gets no music (15.7.4)", async () => {
+    const r = await slow({}, {}, ["Checking now. "]);
+    await wait(AFTER * 3);
+    expect(r.said).toEqual(["Checking now."]);
+    expect(r.tracks).toHaveLength(0);
+    r.end();
+    await r.turn;
+  });
+
+  test("a marker in the middle of a reply is not one: it stays in the text and no music plays (15.7.4)", async () => {
+    const r = await slow({}, {}, ["Checking now. ", "[long] Still on it. "]);
+    await wait(AFTER * 3);
+    expect(r.said).toEqual(["Checking now.", "[long] Still on it."]);
+    expect(r.tracks).toHaveLength(0);
+    r.end();
+    await r.turn;
+  });
+
+  test("a marker split across deltas makes a long turn (15.7.4)", async () => {
+    const r = await slow({}, {}, ["[lo", "ng", "]"]);
+    await until(() => r.tracks.length > 0);
+    expect(r.tracks).toHaveLength(1);
+    expect(r.said).toEqual([]);
+    r.end();
+    await r.turn;
+  });
+
+  test("a reply that starts with a tool call is not long, whatever it says later (15.7.5)", async () => {
+    let end = () => {};
+    const r = room({
+      during: (hooks) => { hooks.onBlockStart?.("tool_use"); hooks.onBlockEnd?.(); hooks.onBlockStart?.("text"); hooks.onDelta?.("[long] Done. "); },
+      hold: new Promise<void>((resolve) => { end = resolve; }),
+    }, { holdMusicAfterMs: AFTER }, { file });
+    await r.mouth.music(() => true);
+    const turn = r.c.turn("something slow");
+    await wait(AFTER * 3);
+    expect(r.said).toEqual(["[long] Done."]);
+    expect(r.tracks).toHaveLength(0);
     end();
     await turn;
   });

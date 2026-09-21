@@ -421,8 +421,14 @@ else stops it yet.
 
 ### Hold music
 
-While a turn runs and the voice is silent, the bridge plays a track to the room
-(spec 15.7 to 15.11). It starts after `holdMusicAfterMs` of silence, 8000 by
+While a long turn runs and the voice is silent, the bridge plays a track to the
+room (spec 15.7 to 15.11). The agent decides ahead of time. When it expects a
+slow turn, it starts its reply with `[long]`. The bridge removes the marker
+before the voice, the app and the transcript see the text. A turn with no
+marker gets no music. A reply that starts with a tool call has no marker, so
+that turn gets no music either (spec 15.7.5).
+
+In a long turn, the music starts after `holdMusicAfterMs` of silence, 8000 by
 default. The silence runs from the later of the hand-over to the agent and the
 end of the last sentence. The value 0 turns the music off.
 

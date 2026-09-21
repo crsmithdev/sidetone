@@ -76,8 +76,12 @@ What the bridge says about a tool the agent is running, so a long turn does not 
 _Avoid_: a progress update, a status message.
 
 **Hold music**:
-A track the bridge plays while a turn runs and the voice has been silent for a while. It stops for Chris, for a sentence, and for the end of the turn. It fades out for a sentence and stops at once for the rest.
+A track the bridge plays while a long turn runs and the voice has been silent for a while. It stops for Chris, for a sentence, and for the end of the turn. It fades out for a sentence and stops at once for the rest.
 _Avoid_: elevator music, a background track, a cue (a cue is a tone that says what the bridge is doing).
+
+**A long turn**:
+A turn whose reply starts with the marker `[long]`. The agent writes the marker when it expects to run tools or think hard. The bridge removes it from the text. Only a long turn gets hold music.
+_Avoid_: a slow turn, a long-running turn.
 
 **A round trip**:
 From the end of Chris's speech to the first sound of the answer. The one number that says whether this feels like a conversation.

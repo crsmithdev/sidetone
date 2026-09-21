@@ -34,7 +34,7 @@ import type { Ears } from "./ear.ts";
 import type { Measures } from "./measures.ts";
 import type { Mouth } from "./mouth.ts";
 import { Network } from "./network.ts";
-import { SentenceCollector } from "./sentences.ts";
+import { LongMarker, SentenceCollector, withoutMarker } from "./sentences.ts";
 import { Session, type SessionHooks, type Turn } from "./session.ts";
 
 export type { CueName };
@@ -370,17 +370,26 @@ export class Conversation {
     // 14.9 the blocks of this answer that hold text, counted here: the stream's index restarts with each message
     let block = 0;
     let open = false;
+    // 15.7.4 the marker is taken off before the words go anywhere
+    const marker = new LongMarker();
+    const words = (text: string) => {
+      if (!text) return;
+      // 14.9 the words reach the client before the sentence that finishes with them
+      this.channel.tell({ kind: "delta", text, answer: id, block });
+      for (const sentence of sentences.push(text)) say(sentence);
+    };
     this.answering = {
       delta: (text) => {
         if (!mine()) return;
         // 18.4 the agent's share ends with its first word
         if (firstDelta) { firstDelta = false; this.measures.firstDelta(); }
-        // 14.9 the words reach the client before the sentence that finishes with them
-        this.channel.tell({ kind: "delta", text, answer: id, block });
-        for (const sentence of sentences.push(text)) say(sentence);
+        words(marker.push(text));
       },
       blockStart: (type) => {
-        if (!mine() || type !== "text") return;
+        if (!mine()) return;
+        // 15.7.4 a reply that starts with a tool call has no marker to look for
+        if (type === "tool_use") words(marker.end());
+        if (type !== "text") return;
         open = true;
         this.channel.tell({ kind: "blockStart", answer: id, block: ++block });
       },
@@ -391,10 +400,12 @@ export class Conversation {
       },
     };
     const stopCue = this.cueWhileWaiting();
-    const stopMusic = this.musicWhileWaiting(mine);
+    const stopMusic = this.musicWhileWaiting(mine, () => marker.long);
     try {
-      const turn = await this.agent.ask(note ? `${note}\n\n${said}` : said);
+      const answer = await this.agent.ask(note ? `${note}\n\n${said}` : said);
       if (!mine()) return;
+      const turn = { ...answer, text: withoutMarker(answer.text) };
+      words(marker.end());
       const tail = sentences.flush();
       if (tail) say(tail);
       await this.mouth.drained();
@@ -436,10 +447,16 @@ export class Conversation {
   }
 
   /**
-   * 15.7 hold music. The agent cannot know beforehand how long a job takes, so
-   * the bridge measures: once the room has heard no bridge voice for
-   * `holdMusicAfterMs`, the track plays. The silence runs from the later of
-   * the hand-over to the agent and the end of the last sentence.
+   * 15.7 hold music. The agent decides ahead of time (15.7.4): a reply that
+   * starts with the marker `[long]` makes the turn a long turn, and only a
+   * long turn gets music. A turn with no marker gets none. `long` is read on
+   * every look, because the marker arrives with the first words, after the
+   * hand-over. A reply that starts with a tool call has no marker, so that
+   * turn is not long.
+   *
+   * In a long turn the bridge measures the silence: once the room has heard no
+   * bridge voice for `holdMusicAfterMs`, the track plays. The silence runs from
+   * the later of the hand-over to the agent and the end of the last sentence.
    *
    * It plays once per silent stretch. A sentence starts a new stretch, and a
    * stretch that has had its track waits for one. It stops with the turn, when
@@ -448,7 +465,7 @@ export class Conversation {
    * 15.7.3 `holdMusic` is read on every look, not once: "music on" in the
    * middle of a turn starts the music, and "music off" ends it.
    */
-  private musicWhileWaiting(mine: () => boolean): () => void {
+  private musicWhileWaiting(mine: () => boolean, long: () => boolean): () => void {
     const after = this.config.holdMusicAfterMs;
     if (!(after > 0)) return () => {};
     const startedAt = Date.now();
@@ -460,8 +477,8 @@ export class Conversation {
       const wait = since + after - Date.now();
       // not silent long enough yet, or this stretch has had its track: look again then
       let next = wait > 0 ? wait : after;
-      // 15.11 not while an answer is wanted, or while the bridge is muted; 15.7.3 nor while the music is off
-      const wanted = this.checkpointOpen || this.gate !== null || this.muted || !this.holdMusic;
+      // 15.11 not while an answer is wanted, or while the bridge is muted; 15.7.3 nor while the music is off; 15.7.4 nor in a turn that is not long
+      const wanted = this.checkpointOpen || this.gate !== null || this.muted || !this.holdMusic || !long();
       if (wait <= 0 && played !== since && !wanted) {
         // refused: a cue or a sentence is on the source, so ask again soon
         if (await this.mouth.music(() => over || !mine() || !this.holdMusic)) played = since;
@@ -580,7 +597,7 @@ export class Conversation {
    */
   private unprompted(turn: Turn): void {
     if (turn.isError) return;
-    const text = turn.text.trim();
+    const text = withoutMarker(turn.text.trim());
     if (!text) return;
     const sentences = new SentenceCollector(this.config.sentenceMaxChars);
     for (const sentence of sentences.push(text)) this.reply(sentence);
