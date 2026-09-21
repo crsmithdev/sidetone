@@ -308,6 +308,9 @@ export const DEFAULTS: Config = {
     // answered. Short turns are what make a spoken conversation feel like one,
     // and they are what makes an interruption cheap.
     "Keep the turn short. If the work will take more than about fifteen seconds, start it in the background, say in one sentence what you have set going, and end the turn.",
+    // 21 September: Chris heard silence while a command ran. One sentence
+    // before the first tool call gives the voice something to say at once.
+    "Before you run a command or call a tool, say in one short sentence what you are about to do. Then say nothing more until the work is done.",
     "Do not narrate the work while it runs and do not wait for it to finish before you answer.",
     "When work you started in the background finishes, say so in one short sentence, and say what came of it.",
   ].join(" "),
