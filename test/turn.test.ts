@@ -167,6 +167,71 @@ describe("the answer reaches the client a sentence at a time (14.7)", () => {
   });
 });
 
+describe("the answer reaches the client a block at a time (14.9)", () => {
+  /** What a client is told of one answer, in order, with the words abbreviated to their text. */
+  const told = (r: ReturnType<typeof room>) => r.told.flatMap((m) => {
+    if (m.kind === "blockStart" || m.kind === "blockEnd") return [`${m.kind} ${m.answer}.${m.block}`];
+    if (m.kind === "delta") return [`delta ${m.answer}.${m.block} ${m.text}`];
+    if (m.kind === "sentence") return [`sentence ${m.answer} ${m.text}`];
+    if (m.kind === "turn") return [`turn ${m.answer}`];
+    return [];
+  });
+
+  test("a tool call splits the answer, and each block's words come before the sentence they finish", async () => {
+    let hooks: SessionHooks = {};
+    const r = room({
+      during: (given) => { hooks = given; },
+      hold: Promise.resolve(),
+    });
+    // the scripted agent gives its hooks to `during` before it answers, so drive the blocks from there
+    const turn = r.c.turn("look and tell me");
+    hooks.onBlockStart?.("thinking");
+    hooks.onBlockEnd?.();
+    hooks.onBlockStart?.("text");
+    hooks.onDelta?.("Let me look. ");
+    hooks.onBlockEnd?.();
+    hooks.onBlockStart?.("tool_use");
+    hooks.onBlockEnd?.();
+    hooks.onBlockStart?.("text");
+    hooks.onDelta?.("Found it.");
+    hooks.onBlockEnd?.();
+    await turn;
+    expect(told(r)).toEqual([
+      "blockStart 1.1",
+      "delta 1.1 Let me look. ",
+      "sentence 1 Let me look.",
+      "blockEnd 1.1",
+      "blockStart 1.2",
+      "delta 1.2 Found it.",
+      "blockEnd 1.2",
+      "sentence 1 Found it.",
+      "turn 1",
+    ]);
+  });
+
+  test("the next answer counts its blocks from 1 again", async () => {
+    let hooks: SessionHooks = {};
+    const r = room({ during: (given) => { hooks = given; }, hold: Promise.resolve() });
+    for (const said of ["one", "two"]) {
+      const turn = r.c.turn(said);
+      hooks.onBlockStart?.("text");
+      hooks.onDelta?.("Yes.");
+      hooks.onBlockEnd?.();
+      await turn;
+    }
+    expect(told(r).filter((line) => line.startsWith("blockStart"))).toEqual(["blockStart 1.1", "blockStart 2.1"]);
+  });
+
+  test("a block start that arrives after the turn is over is not told", async () => {
+    const r = room({ deltas: ["Done."] });
+    await r.c.turn("quick");
+    const before = r.told.length;
+    r.agent.hooks().onBlockStart?.("text");
+    r.agent.hooks().onDelta?.("late");
+    expect(r.told).toHaveLength(before);
+  });
+});
+
 describe("the round trip's marks (18.4)", () => {
   test("the agent's first word is marked, once, on the round the utterance opened", async () => {
     const r = room({ deltas: ["Two plus two ", "is four. ", "It always ", "was."] });

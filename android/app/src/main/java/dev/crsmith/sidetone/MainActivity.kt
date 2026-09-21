@@ -170,8 +170,11 @@ private fun Pairing(error: String?) {
 private fun Conversation(state: Bridge.State, onLeave: () -> Unit) {
     var draft by remember { mutableStateOf("") }
     val list = rememberLazyListState()
-    LaunchedEffect(state.lines.size) {
-        if (state.lines.isNotEmpty()) list.animateScrollToItem(state.lines.lastIndex)
+    // 14.9 a bubble with no words yet is not shown: the block has begun and the first word has not come
+    val shown = state.lines.filter { it.text.isNotBlank() }
+    // the last bubble grows word by word, so the view follows its length as well as the count
+    LaunchedEffect(shown.size, shown.lastOrNull()?.text?.length) {
+        if (shown.isNotEmpty()) list.animateScrollToItem(shown.lastIndex)
     }
     fun send() {
         val text = draft.trim()
@@ -191,7 +194,7 @@ private fun Conversation(state: Bridge.State, onLeave: () -> Unit) {
         }
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = list, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(state.lines) { TranscriptLine(it) }
+            items(shown) { TranscriptLine(it) }
         }
         HoldToTalk(state)
         Button(onClick = { Bridge.setMic(!state.micOn) }, enabled = !state.holding, modifier = Modifier.fillMaxWidth()) {
@@ -263,15 +266,20 @@ private fun TranscriptLine(line: Line) {
         )
         Line.Kind.YOU, Line.Kind.BRIDGE -> {
             val you = line.kind == Line.Kind.YOU
+            val ink = if (you) colors.onPrimaryContainer else colors.onSurfaceVariant
             Box(Modifier.fillMaxWidth(), contentAlignment = if (you) Alignment.CenterEnd else Alignment.CenterStart) {
-                Text(
-                    line.text,
+                Column(
                     modifier = Modifier
                         .widthIn(max = 320.dp)
                         .background(if (you) colors.primaryContainer else colors.surfaceVariant, RoundedCornerShape(16.dp))
                         .padding(horizontal = 14.dp, vertical = 10.dp),
-                    color = if (you) colors.onPrimaryContainer else colors.onSurfaceVariant,
-                )
+                ) {
+                    Text(line.text.trim(), color = ink)
+                    // 17.9 the time the bubble began
+                    line.at?.let {
+                        Text(clock(it), modifier = Modifier.align(Alignment.End), style = MaterialTheme.typography.labelSmall, color = ink.copy(alpha = 0.7f))
+                    }
+                }
             }
         }
     }

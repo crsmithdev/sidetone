@@ -22,6 +22,13 @@ export type Event =
   | { kind: "text"; text: string }
   /** 5.5 the reply word by word, so 5.6 can collect it to a sentence and speak it */
   | { kind: "delta"; text: string }
+  /**
+   * 14.9 a block of the reply begins, and `type` says what it holds: "text" for
+   * words, "tool_use" for a tool call, "thinking". The stream's own index restarts
+   * with each message of the agent, so it names nothing across a tool call.
+   */
+  | { kind: "blockStart"; type: string }
+  | { kind: "blockEnd" }
   /** 8.6.5 the receipt for a control request; still_queued names the turns it dropped */
   | { kind: "controlResponse"; ok: boolean; stillQueued: string[] }
   /** parentId names the Agent call this one runs inside, or null at the top level */
@@ -90,10 +97,17 @@ export function parseLine(line: string): Event[] {
   // --include-partial-messages streams the reply as text deltas and repeats it whole
   // in the assistant message that follows. Only the whole message becomes "text",
   // so the reply is never counted twice; the deltas are the voice path.
+  // The blocks are what the deltas sit in: a text block, then a tool call, then
+  // another text block. A subagent's own messages arrive whole, not as stream events.
   if (type === "stream_event") {
     const event = (raw.event ?? {}) as Record<string, unknown>;
     const delta = (event.delta ?? {}) as Record<string, unknown>;
     if (delta.type === "text_delta" && typeof delta.text === "string") return [{ kind: "delta", text: delta.text }];
+    if (event.type === "content_block_start") {
+      const block = (event.content_block ?? {}) as Record<string, unknown>;
+      return [{ kind: "blockStart", type: String(block.type ?? "") }];
+    }
+    if (event.type === "content_block_stop") return [{ kind: "blockEnd" }];
     return [{ kind: "other", type: `stream_event.${String(event.type ?? "")}` }];
   }
   if (type === "control_response") {

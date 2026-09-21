@@ -42,7 +42,7 @@ What plays one sentence once the mouth has made it. The room's plays over LiveKi
 _Avoid_: the sink, the audio output.
 
 **The control channel**:
-The words between the bridge and a client, apart from the audio: what was heard, each sentence as it is known, a turn, a note, and what a returning client missed. One module owns its vocabulary in both directions.
+The words between the bridge and a client, apart from the audio: what was heard, the words of an answer as the agent writes them, each sentence as it is known, a turn, a note, and what a returning client missed. One module owns its vocabulary in both directions.
 _Avoid_: the data channel, the transcript feed, the messages.
 
 ### The conversation
@@ -50,6 +50,10 @@ _Avoid_: the data channel, the transcript feed, the messages.
 **A turn**:
 One thing Chris asked and the answer to it.
 _Avoid_: an exchange, a request, a query.
+
+**A block**:
+One unbroken part of an answer. A tool call ends a block, so the text before a tool call and the text after it are two blocks. The app shows each block as one bubble.
+_Avoid_: a section, a paragraph, a message (a message is one item on the control channel).
 
 **An utterance**:
 A stretch of sound the bridge treats as one thing Chris said. A pause ends it.

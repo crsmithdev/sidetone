@@ -35,26 +35,6 @@ barge-in needs (spec 4.2). Look for a fix that keeps call mode.
 Done when the voice follows the volume control on the phone alone, in the car,
 and on the bridge machine.
 
-## 3. How replies appear in the phone app
-
-Noted 21 September 2026. Not investigated yet.
-
-The order is fixed (21 September): each `sentence` and `turn` message names
-its answer, and a client grows one line per answer.
-
-| Want | Today |
-|---|---|
-| One chat bubble for each stage of a turn: the text before a tool call, and the text after it. | Not done. |
-| Text appears word by word as the agent writes it, as in the Claude app. | Not done. |
-
-The mark for a new bubble is a new block of the reply. Chris decided this on
-21 September 2026: each separate section of a reply is one bubble, and a tool
-call always splits the sections. The stream already carries the block
-boundaries (`content_block_start` and `content_block_stop`), but
-`src/protocol.ts` drops them as `other`. The word-by-word display needs
-the bridge to send partial text, which is the streaming work in
-[`docs/streaming-brief.md`](streaming-brief.md).
-
 ## 4. Long jobs and the subagent interrupt
 
 Noted 21 September 2026. Chris wants part b today.
@@ -170,18 +150,6 @@ and the status word on the screen (`RECONNECTING`, `UNREACHABLE` or
 `LISTENING`).
 
 Done when the service restarts and the app is listening again with no touch.
-
-## 8. Timestamps on messages in the app
-
-Noted 21 September 2026. Not started.
-
-Each message in the chat should show the time it was sent or received. Chris
-said "on here", which this note reads as the chat in the phone app. Check
-whether the web client (`client/index.html`) should match.
-
-Item 3 changes the same chat code (`Messages.kt`, `Bridge.kt`), so build the
-two together. Each bubble shows the clock time. Chris decided this on
-21 September 2026.
 
 ## 9. Copy and paste in the phone app
 

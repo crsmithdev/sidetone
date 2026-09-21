@@ -11,6 +11,9 @@ const TOOL_RESULT = '{"type":"user","message":{"content":[{"type":"tool_result",
 const NESTED = '{"type":"assistant","parent_tool_use_id":"agent1","message":{"content":[{"type":"tool_use","id":"t9","name":"Bash"}]}}';
 const DELTA = '{"type":"stream_event","event":{"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"hello"}}}';
 const THINKING = '{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":""}}}';
+const TEXT_START = '{"type":"stream_event","event":{"type":"content_block_start","index":1,"content_block":{"type":"text","text":""}},"parent_tool_use_id":null}';
+const TOOL_START = '{"type":"stream_event","event":{"type":"content_block_start","index":2,"content_block":{"type":"tool_use","id":"toolu_01","name":"Bash","input":{}}},"parent_tool_use_id":null}';
+const STOP = '{"type":"stream_event","event":{"type":"content_block_stop","index":1},"parent_tool_use_id":null}';
 const RECEIPT = '{"type":"control_response","response":{"subtype":"success","response":{"still_queued":[]}}}';
 const RESULT = '{"type":"result","subtype":"success","result":"pong","total_cost_usd":0.0385,"is_error":false,"usage":{"input_tokens":2,"output_tokens":4,"cache_read_input_tokens":32936,"cache_creation_input_tokens":7744}}';
 
@@ -43,6 +46,11 @@ describe("protocol", () => {
   });
   test("a thinking delta is not the reply", () => {
     expect(parseLine(THINKING)).toEqual([{ kind: "other", type: "stream_event.content_block_delta" }]);
+  });
+  test("14.9 a block starts and stops, and the start says what the block holds", () => {
+    expect(parseLine(TEXT_START)).toEqual([{ kind: "blockStart", type: "text" }]);
+    expect(parseLine(TOOL_START)).toEqual([{ kind: "blockStart", type: "tool_use" }]);
+    expect(parseLine(STOP)).toEqual([{ kind: "blockEnd" }]);
   });
   test("the interrupt receipt says the process took it, and what it dropped", () => {
     expect(parseLine(RECEIPT)).toEqual([{ kind: "controlResponse", ok: true, stillQueued: [] }]);

@@ -26,6 +26,10 @@ describe("what a client is told (4.3, 14.7)", () => {
     const { c, sent } = channel();
     c.tell({ kind: "heard", text: "what is two plus two" });
     c.tell({ kind: "sentence", text: "Four.", answer: 1 });
+    // 14.9 the words of a block are sent and not kept: the turn that closes the answer is the kept line
+    c.tell({ kind: "blockStart", answer: 1, block: 1 });
+    c.tell({ kind: "delta", text: "Four.", answer: 1, block: 1 });
+    c.tell({ kind: "blockEnd", answer: 1, block: 1 });
     c.tell({ kind: "turn", number: 1, text: "Four.", costUsd: 0.01 });
     c.narrate("the search finished");
     c.tell({ kind: "error", text: "the agent stopped" });

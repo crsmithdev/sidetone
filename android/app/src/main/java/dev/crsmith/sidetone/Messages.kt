@@ -7,10 +7,17 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
-/** One line of the transcript (14.7). */
-data class Line(val kind: Kind, val text: String) {
+/**
+ * One line of the transcript (14.7). `at` is the time in milliseconds since 1970
+ * that the line shows on its bubble (17.9), and null while nothing has stamped it.
+ */
+data class Line(val kind: Kind, val text: String, val at: Long? = null) {
     enum class Kind { YOU, BRIDGE, NOTE }
 }
 
@@ -21,6 +28,15 @@ sealed interface Incoming {
 
     /** 14.7 one sentence of the answer, ahead of the voice; the turn that follows carries the whole. */
     data class Sentence(val text: String, val answer: Int? = null) : Incoming
+
+    /** 14.9 a block of the answer that holds text begins: one bubble. */
+    data class BlockStart(val answer: Int, val block: Int) : Incoming
+
+    /** 14.9 words of the block, as the agent writes them. */
+    data class Delta(val text: String, val answer: Int, val block: Int) : Incoming
+
+    /** 14.9 the block is complete. The app has nothing to do: the next block names itself. */
+    data class BlockEnd(val answer: Int, val block: Int) : Incoming
 
     /** 14.8 the turns that happened while this client was away. */
     data class History(val lines: List<Line>) : Incoming
@@ -51,6 +67,14 @@ fun decode(payload: ByteArray): Incoming? {
         val text = message.string("text") ?: return null
         return Incoming.Sentence(text, message.int("answer"))
     }
+    if (kind == "blockStart" || kind == "blockEnd" || kind == "delta") {
+        val answer = message.int("answer") ?: return null
+        val block = message.int("block") ?: return null
+        if (kind == "blockStart") return Incoming.BlockStart(answer, block)
+        if (kind == "blockEnd") return Incoming.BlockEnd(answer, block)
+        val text = message.string("text") ?: return null
+        return Incoming.Delta(text, answer, block)
+    }
     if (kind == "history") {
         val turns = message["turns"] as? JsonArray ?: return Incoming.History(emptyList())
         val lines = turns.mapNotNull { (it as? JsonObject)?.let(::lineOf) }.filter { it.kind != Line.Kind.NOTE }
@@ -68,28 +92,59 @@ fun rejoinDue(lastAt: Long?, now: Long): Boolean = lastAt == null || now - lastA
 /**
  * 14.7 the line an answer grows on: where it is, and which answer it is. A
  * bridge from before 21 September names no answer, and null matches null.
+ * `block` is set when the line is the bubble of a block (14.9); a line grown by
+ * sentences has none.
  */
-data class Growing(val at: Int, val answer: Int?)
+data class Growing(val at: Int, val answer: Int?, val block: Int? = null)
 
 /**
  * A sentence joins the line of its own answer, or starts a line at the end.
  * An interrupted answer sends no turn, so its line stays growing; the next
  * answer used to grow on it, above the words that came in between.
+ *
+ * 14.9.5 An answer with bubbles already holds the sentence in the words of its
+ * blocks, so the sentence changes nothing. Only an answer with no bubble, such as
+ * one that began before this client joined, grows on the sentences.
  */
-fun grow(lines: List<Line>, growing: Growing?, sentence: Incoming.Sentence): Pair<List<Line>, Growing> {
+fun grow(lines: List<Line>, growing: Growing?, sentence: Incoming.Sentence, now: Long): Pair<List<Line>, Growing> {
+    if (growing != null && growing.block != null && growing.answer == sentence.answer) return lines to growing
     if (growing == null || growing.answer != sentence.answer) {
-        return lines + Line(Line.Kind.BRIDGE, sentence.text) to Growing(lines.size, sentence.answer)
+        return lines + Line(Line.Kind.BRIDGE, sentence.text, now) to Growing(lines.size, sentence.answer)
     }
     val grown = lines.toMutableList()
-    grown[growing.at] = Line(Line.Kind.BRIDGE, "${grown[growing.at].text} ${sentence.text}")
+    grown[growing.at] = grown[growing.at].let { it.copy(text = "${it.text} ${sentence.text}") }
     return grown to growing
 }
 
-/** The whole answer takes its own growing line's place, or a line of its own at the end. */
-fun answered(lines: List<Line>, growing: Growing?, turn: Incoming.Said): List<Line> {
-    if (growing == null || growing.answer != turn.answer) return lines + turn.line
-    return lines.toMutableList().also { it[growing.at] = turn.line }
+/**
+ * 14.9 words join the bubble of their own block, or start a bubble at the end.
+ * A block start is these words with none, so it opens the bubble at once and a
+ * delta that arrives with no start, from a block that began before this client
+ * joined, opens it as well.
+ */
+fun write(lines: List<Line>, growing: Growing?, answer: Int, block: Int, text: String, now: Long): Pair<List<Line>, Growing> {
+    if (growing == null || growing.answer != answer || growing.block != block) {
+        return lines + Line(Line.Kind.BRIDGE, text, now) to Growing(lines.size, answer, block)
+    }
+    val grown = lines.toMutableList()
+    grown[growing.at] = grown[growing.at].let { it.copy(text = it.text + text) }
+    return grown to growing
 }
+
+/**
+ * The whole answer takes its own growing line's place, or a line of its own at
+ * the end. 14.9.5 It takes no bubble's place: the bubbles already hold the
+ * answer, and a second copy of it would stand beside them.
+ */
+fun answered(lines: List<Line>, growing: Growing?, turn: Incoming.Said, now: Long): List<Line> {
+    if (growing == null || growing.answer != turn.answer) return lines + turn.line.copy(at = now)
+    if (growing.block != null) return lines
+    return lines.toMutableList().also { it[growing.at] = turn.line.copy(at = it[growing.at].at ?: now) }
+}
+
+/** 17.9 the time a bubble shows: hours and minutes on a 24-hour clock, in the phone's time zone. */
+fun clock(at: Long, zone: ZoneId = ZoneId.systemDefault()): String =
+    DateTimeFormatter.ofPattern("HH:mm").format(Instant.ofEpochMilli(at).atZone(zone))
 
 private fun lineOf(message: JsonObject): Line? {
     val text = message.string("text") ?: return null
@@ -99,10 +154,13 @@ private fun lineOf(message: JsonObject): Line? {
         "narration", "error" -> Line.Kind.NOTE
         else -> return null
     }
-    return Line(kind, text)
+    // 17.9 a kept line carries the time the bridge kept it; a live one carries none, and the app stamps it
+    return Line(kind, text, message.long("at"))
 }
 
 private fun JsonObject.string(key: String): String? = (this[key] as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull
+
+private fun JsonObject.long(key: String): Long? = (this[key] as? kotlinx.serialization.json.JsonPrimitive)?.longOrNull
 
 private fun JsonObject.int(key: String): Int? = (this[key] as? kotlinx.serialization.json.JsonPrimitive)?.intOrNull
 

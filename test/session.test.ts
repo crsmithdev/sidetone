@@ -71,14 +71,17 @@ function session(overrides: Partial<Config> = {}) {
   const made: Array<ReturnType<typeof scripted>> = [];
   const spawn: Spawn = () => { const p = scripted(); made.push(p); return p.process; };
   const deltas: string[] = [];
+  const blocks: string[] = [];
   const unprompted: Turn[] = [];
   const interrupts: string[] = [];
   const s = new Session("/tmp", { ...config, ...overrides }, {
     onDelta: (text) => deltas.push(text),
+    onBlockStart: (type) => blocks.push(`start ${type}`),
+    onBlockEnd: () => blocks.push("end"),
     onUnprompted: (turn) => unprompted.push(turn),
     onInterrupt: (reason) => interrupts.push(reason),
   }, spawn);
-  return { s, made, current: () => made[made.length - 1] as ReturnType<typeof scripted>, deltas, unprompted, interrupts };
+  return { s, made, current: () => made[made.length - 1] as ReturnType<typeof scripted>, deltas, blocks, unprompted, interrupts };
 }
 
 describe("a turn through the pump (7.2)", () => {
@@ -95,6 +98,20 @@ describe("a turn through the pump (7.2)", () => {
     expect(r.deltas).toEqual(["Four", "."]);
     expect(done).toMatchObject({ number: 1, text: "Four.", costUsd: 0.01, isError: false });
     expect(r.s.totalCostUsd()).toBe(0.01);
+    r.s.stop();
+  });
+
+  test("14.9 a tool call splits the reply into blocks, and each block's edges reach the hooks", async () => {
+    const r = session();
+    const turn = r.s.ask("look and tell me");
+    const p = r.current();
+    const edge = (type: string, index: number) => `{"type":"stream_event","event":{"type":"content_block_start","index":${index},"content_block":{"type":"${type}"}}}`;
+    const stop = (index: number) => `{"type":"stream_event","event":{"type":"content_block_stop","index":${index}}}`;
+    for (const line of [edge("text", 1), DELTA("Let me look."), stop(1), edge("tool_use", 2), stop(2), edge("text", 1), DELTA("Found it."), stop(1)]) p.prints(line);
+    p.prints(RESULT("Let me look. Found it."));
+    await turn;
+    expect(r.blocks).toEqual(["start text", "end", "start tool_use", "end", "start text", "end"]);
+    expect(r.deltas).toEqual(["Let me look.", "Found it."]);
     r.s.stop();
   });
 

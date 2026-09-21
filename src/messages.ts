@@ -17,6 +17,12 @@ export const INCOMING = {
   heard: "you",
   /** 14.7 one sentence of the answer, as soon as it is known */
   sentence: "bridge",
+  /** 14.9 a block of the answer begins: a client that shows a bubble for each block starts one */
+  blockStart: "bridge",
+  /** 14.9 the words of the block, as the agent writes them; a client with bubbles grows the block's bubble */
+  delta: "bridge",
+  /** 14.9 the block is complete; a client shows nothing */
+  blockEnd: "none",
   /** what the agent answered, whole */
   turn: "bridge",
   /** 2.3 what the bridge says while a tool runs */
@@ -54,6 +60,14 @@ export type Outgoing =
    */
   | { kind: "sentence"; text: string; answer: number }
   | { kind: "turn"; number: number; text: string; costUsd: number; answer?: number }
+  /**
+   * 14.9 a block of an answer that holds text. `block` counts from 1 within the
+   * answer, and the same two numbers name the block in the words that follow it.
+   * A delta comes before the sentence that finishes with it.
+   */
+  | { kind: "blockStart"; answer: number; block: number }
+  | { kind: "delta"; text: string; answer: number; block: number }
+  | { kind: "blockEnd"; answer: number; block: number }
   | { kind: "narration"; text: string }
   | { kind: "error"; text: string }
   | { kind: "history"; turns: Kept[] }

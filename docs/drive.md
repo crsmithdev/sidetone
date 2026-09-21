@@ -43,7 +43,7 @@ systemctl --user restart sidetone.service
 | "interrupt on", "tones off", "male voice" | kept in the config file now; a restart no longer forgets them |
 | "sidetone, music off", "sidetone, music on" | the hold music off or on: "Music off." or "Music on."; kept in the config file as `holdMusic`, and shown in `/diagnostics` and the record. Not on the muted list. Steps 10 and 11 of the card |
 | the same three, then `/diagnostics` or the record | say the setting in force now, not the one the bridge started with; the record carries a `setting` line at the moment of the change |
-| the phone's screen | the answer arrives a sentence at a time, before the voice reaches it |
+| the phone's screen | the app shows the answer word by word in one bubble for each block, with the clock time; the web page shows it a sentence at a time |
 | the journal, `begun at the tentative end` | the transcription started during the pause, so the round trip no longer waits for it |
 | the journal, `N false ends` on a `> ` line | a quiet of 400 ms that you then talked through. Each one is where a shorter pause would have cut you off; the total decides whether a turn detector is worth building |
 | swiping the app away | leaves the room; the bridge logs `[the room lost a microphone track]` |
@@ -89,10 +89,14 @@ at the desk it was every time.
 
 ## 4. Does the answer arrive on the screen ahead of the voice?
 
-**Do.** Ask something that takes a few sentences, and watch the phone.
+**Do.** Ask something that takes a few sentences, and watch the phone. Then
+ask for something that needs a tool, such as "what is in the todo file", and
+watch again.
 
-**Pass.** The answer grows a sentence at a time before the voice finishes,
-and when the voice is done the same text stands once, not twice.
+**Pass.** In the app the answer grows word by word, ahead of the voice. When
+the voice is done the same text stands once, not twice. The words before the
+tool call and the words after it are two bubbles, and each shows its time. On
+the web page the answer grows a sentence at a time in one line.
 
 ## 5. Does the app let go of the room when it is swiped away?
 

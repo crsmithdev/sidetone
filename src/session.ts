@@ -33,6 +33,9 @@ export interface SessionHooks {
   onCheckpoint?(runningMs: number): void;
   /** 5.5 the reply word by word; 7.3 collects it to a sentence and speaks it */
   onDelta?(text: string): void;
+  /** 14.9 a block of the reply begins, and what it holds; the conversation tells the client of a text block */
+  onBlockStart?(type: string): void;
+  onBlockEnd?(): void;
   /** 2.3 what the bridge says while a tool runs, so a long turn is not silence */
   onNarration?(text: string): void;
   onRestart?(reason: string): void;
@@ -168,6 +171,8 @@ export class Session {
       case "compaction": this.supervisor.compacted(now); break;
       case "text": this.replyText += event.text; break;
       case "delta": this.hooks.onDelta?.(event.text); break;
+      case "blockStart": this.hooks.onBlockStart?.(event.type); break;
+      case "blockEnd": this.hooks.onBlockEnd?.(); break;
       // 8.6.5 the receipt says the process took the interrupt. It does not say the
       // process is ready, so 8.6.7 still measures readiness by the grace time.
       case "controlResponse": this.hooks.onInterrupt?.(event.ok ? "the process took the interrupt" : "the process refused the interrupt"); break;

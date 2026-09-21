@@ -130,7 +130,9 @@ export class Conversation {
     // 6.5 the voice instruction lives in the bridge, not in the agent's identity file
     const args = [...config.claudeArgs, "--append-system-prompt", config.voiceInstruction];
     this.agent = makeAgent({
-      onDelta: (text) => this.deltaSink?.(text),
+      onDelta: (text) => this.answering?.delta(text),
+      onBlockStart: (type) => this.answering?.blockStart(type),
+      onBlockEnd: () => this.answering?.blockEnd(),
       onNarration: (text) => this.channel.narrate(text),
       // 8.6.3 speak, say how long it has run, and report the usage with the ask (8.6.4)
       onCheckpoint: (ms) => {
@@ -158,7 +160,8 @@ export class Conversation {
 
   private onTurn?: (turn: Turn) => void;
   private onSetting?: (patch: Partial<Config>) => void;
-  private deltaSink: ((text: string) => void) | null = null;
+  /** Where the agent's words and blocks go while a turn of ours runs; null between turns. */
+  private answering: { delta(text: string): void; blockStart(type: string): void; blockEnd(): void } | null = null;
 
   get busy(): boolean { return this.turnRunning; }
   get waitingForAgreement(): boolean { return this.checkpointOpen; }
@@ -364,11 +367,28 @@ export class Conversation {
     // before the voice reaches it: asked for on the drive of 18 September,
     // when the words arrived only after the whole answer had been spoken.
     const say = (sentence: string) => { this.channel.tell({ kind: "sentence", text: sentence, answer: id }); this.speak(sentence); };
-    this.deltaSink = (text) => {
-      if (!mine()) return;
-      // 18.4 the agent's share ends with its first word
-      if (firstDelta) { firstDelta = false; this.measures.firstDelta(); }
-      for (const sentence of sentences.push(text)) say(sentence);
+    // 14.9 the blocks of this answer that hold text, counted here: the stream's index restarts with each message
+    let block = 0;
+    let open = false;
+    this.answering = {
+      delta: (text) => {
+        if (!mine()) return;
+        // 18.4 the agent's share ends with its first word
+        if (firstDelta) { firstDelta = false; this.measures.firstDelta(); }
+        // 14.9 the words reach the client before the sentence that finishes with them
+        this.channel.tell({ kind: "delta", text, answer: id, block });
+        for (const sentence of sentences.push(text)) say(sentence);
+      },
+      blockStart: (type) => {
+        if (!mine() || type !== "text") return;
+        open = true;
+        this.channel.tell({ kind: "blockStart", answer: id, block: ++block });
+      },
+      blockEnd: () => {
+        if (!mine() || !open) return;
+        open = false;
+        this.channel.tell({ kind: "blockEnd", answer: id, block });
+      },
     };
     const stopCue = this.cueWhileWaiting();
     const stopMusic = this.musicWhileWaiting(mine);
@@ -394,7 +414,7 @@ export class Conversation {
       stopCue();
       stopMusic();
       if (mine()) {
-        this.deltaSink = null;
+        this.answering = null;
         this.turnRunning = false;
         this.checkpointOpen = false;
       }

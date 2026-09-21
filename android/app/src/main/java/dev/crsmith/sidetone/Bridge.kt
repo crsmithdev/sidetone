@@ -168,6 +168,9 @@ object Bridge {
             }
             is RoomEvent.DataReceived -> when (val message = decode(event.data)) {
                 is Incoming.Sentence -> onSentence(message)
+                is Incoming.BlockStart -> onWords(message.answer, message.block, "")
+                is Incoming.Delta -> onWords(message.answer, message.block, message.text)
+                is Incoming.BlockEnd -> Unit
                 is Incoming.Said -> if (message.line.kind == Line.Kind.BRIDGE) onAnswered(message) else append(message.line)
                 is Incoming.Protocol -> _state.update { it.copy(endTurn = message.endTurn) }
                 is Incoming.Rejoin -> rejoin(ended)
@@ -295,8 +298,10 @@ object Bridge {
         else -> reason.name.lowercase().replace('_', ' ')
     }
 
+    /** 17.9 a line the bridge sent live is stamped with the time it arrived; a kept line keeps the time the bridge gave it. */
     private fun append(vararg lines: Line) {
-        _state.update { it.copy(lines = it.lines + lines) }
+        val now = System.currentTimeMillis()
+        _state.update { state -> state.copy(lines = state.lines + lines.map { if (it.at == null) it.copy(at = now) else it }) }
     }
 
     /** 14.7 the line the answer is growing on, by index, since a note may land after it. */
@@ -304,7 +309,16 @@ object Bridge {
 
     private fun onSentence(sentence: Incoming.Sentence) {
         _state.update {
-            val (lines, now) = grow(it.lines, growing, sentence)
+            val (lines, now) = grow(it.lines, growing, sentence, System.currentTimeMillis())
+            growing = now
+            it.copy(lines = lines)
+        }
+    }
+
+    /** 14.9 words of a block: its bubble grows, and a new block starts a new bubble. */
+    private fun onWords(answer: Int, block: Int, text: String) {
+        _state.update {
+            val (lines, now) = write(it.lines, growing, answer, block, text, System.currentTimeMillis())
             growing = now
             it.copy(lines = lines)
         }
@@ -313,6 +327,6 @@ object Bridge {
     private fun onAnswered(turn: Incoming.Said) {
         val at = growing
         growing = null
-        _state.update { it.copy(lines = answered(it.lines, at, turn)) }
+        _state.update { it.copy(lines = answered(it.lines, at, turn, System.currentTimeMillis())) }
     }
 }

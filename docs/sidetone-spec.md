@@ -4,6 +4,7 @@ Written in ASD-STE100 Simplified Technical English.
 Feature level only. No code.
 
 Date: 9 September 2026. Open points resolved. The narration hook of 7.1 is removed.
+Blocks, bubbles and times (14.9, 17.8, 17.9) added 21 September 2026.
 
 This document is the complete specification for Sidetone. It
 includes the background, the settled design decisions, the reasoning behind
@@ -335,6 +336,24 @@ project bridge stays in place.
 
 14.8 The client gets the missed turns after it connects again.
 
+14.9 A block is one unbroken part of a reply. A tool call ends a block. The text before a tool call and the text after it are two blocks.
+
+14.9.1 The bridge tells the client when a block that holds text starts, with `blockStart`, and when it ends, with `blockEnd`. It sends nothing for a block that holds no text, such as a tool call.
+
+14.9.2 The bridge sends the words of a block as `delta`, as the agent writes them. It sends each `delta` before it collects the words into a sentence (5.6). The words reach the client before the sentence and before the voice.
+
+14.9.3 The three messages name the answer (14.7) and the block. The bridge counts the blocks of an answer from 1. The stream restarts its own block index at each message of the agent. That index cannot name a block across a tool call.
+
+14.9.4 The `sentence` and `turn` messages do not change. Each still names its answer. A client that ignores the blocks still grows one line for each answer.
+
+14.9.5 A client that shows one bubble for each block shows each answer once. When it has a bubble for an answer, it ignores the `sentence` and `turn` text of that answer, because the bubbles hold the words. For an answer with no bubble, it grows a line from the `sentence` messages, as in 14.7.
+
+14.9.6 A bubble holds the words that the agent wrote. The `turn` holds the words that Chris heard (11.10). A bubble can hold more than the `turn` when a hold or a barge-in cut the voice.
+
+14.9.7 The history (14.8) holds one `turn` for each answer and no blocks. A client that joins shows each answer of the history as one bubble.
+
+14.9.8 The web client ignores `blockStart`, `delta` and `blockEnd`. It keeps one line for each answer, grown by sentence (14.7), and shows no clock time. Chris asked for bubbles and times in the app. The page needs no change to work, so it keeps to 14.7.
+
 ## 15. AUDIBLE STATE
 
 15.1 The bridge does not leave silence when it cannot answer. Silence is ambiguous.
@@ -398,6 +417,12 @@ project bridge stays in place.
 17.6 A web page cannot keep the microphone open when the screen is locked. This is the reason for the app.
 
 17.7 The app is the final method that removes the screen-on limit from 2.4.
+
+17.8 The app shows one bubble for each block of an answer (14.9). The text grows word by word in the bubble, as the `delta` messages arrive. The app shows no bubble until its first word arrives.
+
+17.9 Each bubble shows a clock time: hours and minutes, on the 24-hour clock, in the time zone of the phone. A note shows no time.
+
+17.9.1 The time of a live bubble is the time the phone got its first message. The words that follow do not change it. A bubble from the history (14.8) shows the time that the bridge kept it. For an answer, this is the end of the turn.
 
 ## 18. MEASUREMENTS TO MAKE
 
