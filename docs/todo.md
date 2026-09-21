@@ -104,6 +104,7 @@ bridge says "Job <name> finished." when no turn runs and nothing is playing.
 
 | Open | Why |
 |---|---|
+| `scripts/job` jobs die when the service restarts. | A `setsid` job stays in the cgroup of `sidetone.service`, and the unit kills that group on a restart (`KillMode=control-group`). Seen 21 September 2026. Start the job with `systemd-run --user --collect` to fix it. |
 | A restart of the service. | The running bridge does not have `/say` yet. |
 | One spoken test: "start a job that sleeps 60 s", then silence. | It proves the done condition in the room. |
 | The call that auto mode refused on 21 September. | Two `claude -p` runs in auto mode started a job with no refusal, so no allow rule is added yet. |
