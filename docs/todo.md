@@ -18,6 +18,10 @@ Find out how the audio path takes its level. A search of the `.ts` and `.kt`
 files finds only `cueVolume`, which scales the cues, and the gain in
 `src/audio.ts`. It finds no code that reads a system or phone volume.
 
+Decision, 21 September 2026: do not change the audio type to media audio for
+now. It would leave call mode, and call mode gives the echo cancellation that
+barge-in needs (spec 4.2). Look for a fix that keeps call mode.
+
 Done when the voice follows the volume control on the phone alone, in the car,
 and on the bridge machine.
 
