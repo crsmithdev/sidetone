@@ -160,5 +160,5 @@ said "on here", which this note reads as the chat in the phone app. Check
 whether the web client (`client/index.html`) should match.
 
 Item 3 changes the same chat code (`Messages.kt`, `Bridge.kt`), so build the
-two together. Decide first what a bubble shows: the clock time, or the time
-since the last message.
+two together. Each bubble shows the clock time. Chris decided this on
+21 September 2026.
