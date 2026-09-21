@@ -199,3 +199,19 @@ spoke needs a notification.
 
 Done when a reply or a finished job, with the app in the background, gives a
 notification that opens the app.
+
+## 12. Format text in the phone app chat
+
+Noted 21 September 2026. Not started. Goes with item 9.
+
+The chat shows every reply as plain text. Chris wants proper formatting: a link
+is tappable, and bold text, code, lists and other markdown show as what they
+are. The voice instruction asks the agent for plain sentences, so a spoken
+reply has little markdown. A reply typed in the app, or a reply with a link or a
+path, still gains from it. Find which markdown the replies really contain before
+you pick a renderer. Keep it small: a Compose renderer for the few cases that
+appear, not a full markdown library, unless the survey shows that many cases.
+
+Done when a link in a bubble opens on a tap, and bold, code and lists show
+formatted. Selection and copy from item 9 must still work on formatted text,
+and copy must give the plain text.
