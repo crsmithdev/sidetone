@@ -14,7 +14,7 @@
 export type CommandName =
   | "mute" | "unmute" | "clearContext" | "usage"
   | "restate" | "summarize" | "where" | "endTurn"
-  | "tones" | "tonesOn" | "tonesOff" | "stats"
+  | "tones" | "tonesOn" | "tonesOff" | "musicOn" | "musicOff" | "stats"
   | "femaleVoice" | "maleVoice"
   | "carryOn" | "interrupt" | "interruptOn" | "interruptOff";
 
@@ -53,6 +53,9 @@ const COMMANDS: Array<{ name: CommandName; any: string[][]; phrases: string[] }>
   { name: "tonesOff", any: [["tones", "off"], ["tone", "off"], ["no", "tones"], ["sounds", "off"]], phrases: ["tones off"] },
   { name: "tonesOn", any: [["tones", "on"], ["tone", "on"], ["sounds", "on"]], phrases: ["tones on"] },
   { name: "tones", any: [["tones"], ["tone"], ["chimes"]], phrases: ["tones"] },
+  // 15.7.3 the hold music. "stop" is deliberately not a form: it ends the turn.
+  { name: "musicOff", any: [["music", "off"]], phrases: ["music off"] },
+  { name: "musicOn", any: [["music", "on"]], phrases: ["music on"] },
   // "stets" is already within tolerance of "stats"; "steph" is not, and the
   // engine wrote it on a real run. "that's" is deliberately not accepted: it
   // is a word Chris says, and a wake word in front of it is no protection.

@@ -351,6 +351,8 @@ project bridge stays in place.
 
 15.7.2 The bridge measures the silence because the agent cannot know beforehand how long a job takes.
 
+15.7.3 Chris turns the hold music on and off by voice. He says "music on" or "music off" after the wake word. The bridge answers "Music on." or "Music off." The choice is a setting. The bridge keeps it across restarts. The bridge does not play the hold music while the setting is off. If Chris turns the music off while a track plays, the track stops. The two commands are not in the default muted set (9.6), because the hold music does not play while the bridge is muted (15.11).
+
 15.8 The track is an audio file. The file is a setting. The default is `~/.sidetone/hold/hold-music.mp3`. The repository does not hold the audio. If the file is missing, the bridge writes one line to the log. The bridge does not try again in that process.
 
 15.9 The hold music is quieter than the voice. The gain is a setting. The default is 0.4. The bridge decodes the file once, on first use. The bridge applies the gain in that decode and keeps the samples in memory.
@@ -473,6 +475,7 @@ project bridge stays in place.
 | Usage warning level | 80 percent of the reported rate limit | 13.2 |
 | Audio cue delay | 4 seconds, then every 6 seconds | 15.5 |
 | Hold music: silence before it plays | 8 seconds, 0 turns it off | 15.7 |
+| Hold music: on or off | on; "music on" and "music off" change it | 15.7.3 |
 | Hold music: track | `~/.sidetone/hold/hold-music.mp3` | 15.8 |
 | Hold music: gain | 0.4 | 15.9 |
 | GPU budget for the voice path | 8 gigabytes, the whole GPU | 4.10 |

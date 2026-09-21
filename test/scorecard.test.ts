@@ -109,11 +109,12 @@ describe("the commands, in the order the card asks for them", () => {
       matched("sidetone, mute", "mute"), matched("sidetone, unmute", "unmute"),
       // step 8, the wake-word hold, never fires
       matched("sidetone, unmute", "unmute"),
+      matched("sidetone, music off", "musicOff"), matched("sidetone, music on", "musicOn"),
       matched("sidetone, stats", "stats"),
     ];
     const card = score(drive);
     expect(card.commands.missed).toEqual(["mute"]);
-    expect(card.commands.fired).toBe(8);
+    expect(card.commands.fired).toBe(10);
   });
 
   /**
@@ -130,11 +131,12 @@ describe("the commands, in the order the card asks for them", () => {
       matched("sidetone, recap", "where"), matched("sidetone, say again", "restate"),
       matched("sidetone, mute", "mute"), matched("sidetone, unmute", "unmute"),
       matched("sidetone, mute", "mute"), matched("sidetone, unmute", "unmute"),
+      matched("sidetone, music off", "musicOff"), matched("sidetone, music on", "musicOn"),
       matched("sidetone, stats", "stats"),
     ];
     const card = score(drive);
     expect(card.commands.missed).toEqual(["stats"]);
-    expect(card.commands.fired).toBe(8);
+    expect(card.commands.fired).toBe(10);
   });
 
   test("a missed step does not slide the ones after it", () => {

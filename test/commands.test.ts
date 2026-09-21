@@ -133,6 +133,30 @@ describe("the tone and stats commands", () => {
   });
 });
 
+describe("the hold music commands (15.7.3)", () => {
+  test("the explicit forms reach their own command", () => {
+    expect(commandIn("music off")).toBe("musicOff");
+    expect(commandIn("turn the music off")).toBe("musicOff");
+    expect(commandIn("music on")).toBe("musicOn");
+    expect(commandIn("hold music on")).toBe("musicOn");
+  });
+  test("they do not take a command that was already there, and none takes them", () => {
+    expect(commandIn("stop")).toBe("endTurn");
+    expect(commandIn("sharp")).toBe("endTurn");
+    expect(commandIn("mute")).toBe("mute");
+    expect(commandIn("unmute")).toBe("unmute");
+    expect(commandIn("tones off")).toBe("tonesOff");
+    expect(commandIn("tones on")).toBe("tonesOn");
+    expect(commandIn("interrupt on")).toBe("interruptOn");
+    // "music" alone is not enough: it needs the word for the direction
+    expect(commandIn("music")).toBe(null);
+  });
+  test("they do not work while muted, which is the setting's default", () => {
+    expect(match("sidetone music off", WAKE, true, MUTED)).toEqual({ kind: "unclear" });
+    expect(match("sidetone music off", WAKE, false, MUTED)).toEqual({ kind: "command", name: "musicOff" });
+  });
+});
+
 describe("the two voices (9.4)", () => {
   test("9.3 the forms the engine writes, which is not how it is spelled", () => {
     expect(commandIn("female voice")).toBe("femaleVoice");

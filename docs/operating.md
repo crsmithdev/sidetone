@@ -296,6 +296,7 @@ agent, and both say so in their name.
 | mute | stops acting on speech | resumes | — | yes |
 | unmute | acts on speech again | resumes | — | yes |
 | tones, tones off, tones on | the cues on or off | resumes | — | yes |
+| music off, music on | the hold music on or off | resumes | — | no |
 | report the usage | cost, rate limit, context | resumes | — | no |
 | stats | the round trip, measured | resumes | — | no |
 | say again | the last sentence, or the last answer | resumes | — | no |
@@ -424,6 +425,12 @@ While a turn runs and the voice is silent, the bridge plays a track to the room
 (spec 15.7 to 15.11). It starts after `holdMusicAfterMs` of silence, 8000 by
 default. The silence runs from the later of the hand-over to the agent and the
 end of the last sentence. The value 0 turns the music off.
+
+"Sidetone, music off" and "Sidetone, music on" switch the music by voice (spec
+15.7.3). The bridge answers "Music off." or "Music on." The choice is the
+`holdMusic` setting in the config file, so a restart keeps it. A track that
+plays when Chris says "music off" stops at once. `/diagnostics` and the record
+show `holdMusic` with the other settings.
 
 The track is `holdMusicFile`, `~/.sidetone/hold/hold-music.mp3` by default. The
 repository does not hold it. If the file is missing, the bridge logs one line,

@@ -41,6 +41,7 @@ systemctl --user restart sidetone.service
 | "sidetone, end the turn" during "carry on" | stops the replay: "Stopped." |
 | "sidetone, stats" | says the round trip and how it split: the agent, the first sentence, the voice |
 | "interrupt on", "tones off", "male voice" | kept in the config file now; a restart no longer forgets them |
+| "sidetone, music off", "sidetone, music on" | the hold music off or on: "Music off." or "Music on."; kept in the config file as `holdMusic`, and shown in `/diagnostics` and the record. Not on the muted list. Steps 10 and 11 of the card |
 | the same three, then `/diagnostics` or the record | say the setting in force now, not the one the bridge started with; the record carries a `setting` line at the moment of the change |
 | the phone's screen | the answer arrives a sentence at a time, before the voice reaches it |
 | the journal, `begun at the tentative end` | the transcription started during the pause, so the round trip no longer waits for it |

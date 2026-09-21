@@ -22,6 +22,8 @@ export const SCRIPT: Array<{ say: string; expect: string }> = [
   { say: "sidetone, unmute", expect: "unmute" },
   { say: "sidetone ... [wait two seconds] ... mute", expect: "mute" },
   { say: "sidetone, unmute", expect: "unmute" },
+  { say: "sidetone, music off", expect: "musicOff" },
+  { say: "sidetone, music on", expect: "musicOn" },
 ];
 
 /** The passage, read at a normal pace. One line is one breath. */

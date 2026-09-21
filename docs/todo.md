@@ -22,6 +22,12 @@ Chris tried the volume control at the desk on 21 September 2026. The desk case
 is the phone app, not the web client or the machine mixer. One cause may
 explain both cases.
 
+Chris says the volume on the phone has a floor: he cannot lower it below a
+minimum. This fits call mode (`MODE_IN_COMMUNICATION`). Android's voice-call
+stream often has a minimum volume of 1 and never reaches 0. This is not
+verified: no phone is on adb. The decision below stands: this does not
+justify a switch to media audio.
+
 Decision, 21 September 2026: do not change the audio type to media audio for
 now. It would leave call mode, and call mode gives the echo cancellation that
 barge-in needs (spec 4.2). Look for a fix that keeps call mode.

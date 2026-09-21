@@ -12,7 +12,7 @@
  *
  * | what Chris said | the held speech | the turn |
  * |---|---|---|
- * | mute, unmute, tones | resumes after the acknowledgement | untouched |
+ * | mute, unmute, tones, music | resumes after the acknowledgement | untouched |
  * | usage, stats | resumes after the report | untouched |
  * | say that again | resumes after the repeat | untouched |
  * | the wake word alone, or noise | resumes | untouched |
@@ -80,6 +80,7 @@ export interface ConversationHooks {
 export class Conversation {
   private muted = false;
   private tones: boolean;
+  private holdMusic: boolean;
   private turnRunning = false;
   private checkpointOpen = false;
   private lastReply = "";
@@ -141,6 +142,7 @@ export class Conversation {
       onRestart: () => this.cue("starting"),
     }, { ...config, claudeArgs: args });
     this.tones = config.tones;
+    this.holdMusic = config.holdMusic;
     this.interrupting = config.interruptOnSpeech;
     const self = this;
     this.ears = {
@@ -422,6 +424,9 @@ export class Conversation {
    * It plays once per silent stretch. A sentence starts a new stretch, and a
    * stretch that has had its track waits for one. It stops with the turn, when
    * the turn is no longer the mouth's, and where `Mouth.music` stops it.
+   *
+   * 15.7.3 `holdMusic` is read on every look, not once: "music on" in the
+   * middle of a turn starts the music, and "music off" ends it.
    */
   private musicWhileWaiting(mine: () => boolean): () => void {
     const after = this.config.holdMusicAfterMs;
@@ -435,11 +440,11 @@ export class Conversation {
       const wait = since + after - Date.now();
       // not silent long enough yet, or this stretch has had its track: look again then
       let next = wait > 0 ? wait : after;
-      // 15.11 not while an answer is wanted, or while the bridge is muted
-      const wanted = this.checkpointOpen || this.gate !== null || this.muted;
+      // 15.11 not while an answer is wanted, or while the bridge is muted; 15.7.3 nor while the music is off
+      const wanted = this.checkpointOpen || this.gate !== null || this.muted || !this.holdMusic;
       if (wait <= 0 && played !== since && !wanted) {
         // refused: a cue or a sentence is on the source, so ask again soon
-        if (await this.mouth.music(() => over || !mine())) played = since;
+        if (await this.mouth.music(() => over || !mine() || !this.holdMusic)) played = since;
         else next = Math.min(after, 1_000);
       }
       if (!over) timer = setTimeout(check, next);
@@ -462,6 +467,9 @@ export class Conversation {
       case "tones": return this.setTones(!this.tones);
       case "tonesOn": return this.setTones(true);
       case "tonesOff": return this.setTones(false);
+      // 15.7.3 the hold music is the other sound Chris may not want in the car
+      case "musicOn": return this.setHoldMusic(true);
+      case "musicOff": return this.setHoldMusic(false);
 
       // A question about the bridge, not about the work. Report, then carry on.
       case "usage": {
@@ -573,6 +581,13 @@ export class Conversation {
     this.tones = on;
     this.onSetting?.({ tones: on });
     this.reply(on ? "Tones on." : "Tones off.");
+    return "resume";
+  }
+
+  private setHoldMusic(on: boolean): Hold {
+    this.holdMusic = on;
+    this.onSetting?.({ holdMusic: on });
+    this.reply(on ? "Music on." : "Music off.");
     return "resume";
   }
 

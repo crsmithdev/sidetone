@@ -536,6 +536,37 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
     await r.turn;
   });
 
+  test("switched off, it does not start (15.7.3)", async () => {
+    const r = await slow({ holdMusic: false });
+    await wait(AFTER * 3);
+    expect(r.tracks).toHaveLength(0);
+    r.end();
+    await r.turn;
+  });
+
+  test("\"music off\" in the middle of a turn stops the track and keeps it off (15.7.3)", async () => {
+    const r = await slow();
+    await until(() => r.tracks.length > 0);
+    await r.c.heard("sidetone music off");
+    await wait(20);
+    expect(r.tracks[0]?.stopped).toBe(true);
+    await wait(AFTER * 4);
+    expect(r.tracks).toHaveLength(1);
+    r.end();
+    await r.turn;
+  });
+
+  test("\"music on\" in the middle of a turn starts it again (15.7.3)", async () => {
+    const r = await slow({ holdMusic: false });
+    await wait(AFTER * 2);
+    expect(r.tracks).toHaveLength(0);
+    await r.c.heard("sidetone music on");
+    await until(() => r.tracks.length > 0);
+    expect(r.tracks).toHaveLength(1);
+    r.end();
+    await r.turn;
+  });
+
   test("it plays once per silent stretch, and a sentence starts a new one", async () => {
     const r = await slow({}, { lasts: 5 });
     await until(() => r.tracks.length > 0);

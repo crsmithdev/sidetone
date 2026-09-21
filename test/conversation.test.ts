@@ -92,6 +92,30 @@ describe("the tones (15.4)", () => {
   });
 });
 
+describe("the hold music switch (15.7.3)", () => {
+  test("each form is answered out loud, and the answer is a kept line", async () => {
+    const { c, said } = watched();
+    await c.heard("sidetone music off");
+    await settled();
+    await c.heard("sidetone music on");
+    await settled();
+    expect(said).toEqual(["Music off.", "Music on."]);
+  });
+  test("the setting reaches the hook, and the explicit form does not flip what is already right", async () => {
+    const patches: Array<Record<string, unknown>> = [];
+    const c = new Conversation("/tmp", config, mouthFor().mouth, quiet(), { onSetting: (patch) => patches.push(patch) });
+    await c.heard("sidetone music off");
+    await c.heard("sidetone music off");
+    await c.heard("sidetone music on");
+    expect(patches).toEqual([{ holdMusic: false }, { holdMusic: false }, { holdMusic: true }]);
+  });
+  test("the tones are left as they were", async () => {
+    const { c } = watched();
+    await c.heard("sidetone music off");
+    expect(c.tonesOn).toBe(true);
+  });
+});
+
 describe("the stats command (18.4)", () => {
   test("it speaks the measurement, not a guess", async () => {
     const { c, said } = watched();

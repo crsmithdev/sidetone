@@ -170,6 +170,8 @@ export interface Config {
    * the end of the last sentence. Zero turns the music off.
    */
   holdMusicAfterMs: number;
+  /** 15.7.3 whether the hold music plays at all, so it can be turned off by voice */
+  holdMusic: boolean;
   /** 15.8 the track, any file ffmpeg reads. Not in the repository. */
   holdMusicFile: string;
   /** 15.9 how loud the track is, as a factor on the file. The voice is 1. */
@@ -312,6 +314,7 @@ export const DEFAULTS: Config = {
   audioCueDelayMs: 4_000,
   audioCueEveryMs: 6_000,
   holdMusicAfterMs: 8_000,
+  holdMusic: true,
   holdMusicFile: join(homedir(), ".sidetone", "hold", "hold-music.mp3"),
   holdMusicGain: 0.4,
   usageWarnFraction: 0.8,
@@ -348,7 +351,7 @@ export const IN_FORCE = [
   "minSpeechPeak", "wakeHoldMs", "interruptOnSpeech", "interruptAfterMs",
   "holdBackstopMs",
   "sentenceMaxChars", "audioCueDelayMs", "audioCueEveryMs",
-  "holdMusicAfterMs", "holdMusicGain",
+  "holdMusic", "holdMusicAfterMs", "holdMusicGain",
   "cueVolume", "ttsEngine", "ttsVoice", "sttModel", "wakeWord",
   "chatterboxExaggeration", "chatterboxCfg",
 ] as const satisfies ReadonlyArray<keyof Config>;
