@@ -66,9 +66,19 @@ every running subagent. Two research agents died at the second of an interrupt.
 An interrupt after the turn ends kills nothing, but Chris cannot tell by ear
 which case he is in.
 
-Find out if a subagent can survive an interrupt at all. Two bridge changes are
-open and untested: queue Chris's speech without an interrupt, or raise
-`interruptAfterMs`.
+Tested 21 September in a `claude -p` stream-json process, with the bridge's
+interrupt message 3 s after the work started:
+
+| Background work | At the interrupt | When it ends |
+|---|---|---|
+| `Bash` with `run_in_background` | It keeps running. | The process starts a new turn and returns a second `result`. |
+| `Agent` with `run_in_background` | It stops at once. | Nothing. |
+
+So a subagent does not survive an interrupt. Background `Bash`, such as
+`scripts/job` or `claude -p`, survives it. Two bridge changes are open, and
+Chris chooses: queue Chris's speech without an interrupt, or raise
+`interruptAfterMs`. The bridge already speaks a `result` that arrives with
+no question in front of it (`Conversation.unprompted`).
 
 ### b. A setup for long jobs
 
