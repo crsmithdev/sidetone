@@ -43,13 +43,15 @@ and what barge-in does while the microphone is closed (9.5).
 
 Noted 21 September 2026. Not investigated yet.
 
+The order is fixed (21 September): each `sentence` and `turn` message names
+its answer, and a client grows one line per answer.
+
 | Want | Today |
 |---|---|
-| Replies arrive in the order the agent wrote them. | Some replies arrive out of order. |
 | One chat bubble for each stage of a turn: the text before a tool call, and the text after it. | Not done. |
 | Text appears word by word as the agent writes it, as in the Claude app. | Not done. |
 
-Find the cause of the wrong order first. Then decide what marks a new bubble.
+Decide what marks a new bubble.
 A tool call is one mark; there may be others. The word-by-word display needs
 the bridge to send partial text, which is the streaming work in
 [`docs/streaming-brief.md`](streaming-brief.md).

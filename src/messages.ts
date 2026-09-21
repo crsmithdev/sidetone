@@ -43,8 +43,15 @@ export type Kept =
 /** Everything the bridge sends a client, and nothing else. */
 export type Outgoing =
   | { kind: "heard"; text: string }
-  | { kind: "sentence"; text: string }
-  | { kind: "turn"; number: number; text: string; costUsd: number }
+  /**
+   * 14.7 `answer` names the answer a sentence belongs to, and the turn that
+   * closes it. A client grows one line per answer: an interrupted answer
+   * sends no turn, and without the name the next answer grew on its line,
+   * above the words that came between. A turn without one, the agent's own
+   * after a background task, is a line of its own.
+   */
+  | { kind: "sentence"; text: string; answer: number }
+  | { kind: "turn"; number: number; text: string; costUsd: number; answer?: number }
   | { kind: "narration"; text: string }
   | { kind: "error"; text: string }
   | { kind: "history"; turns: Kept[] }

@@ -25,7 +25,7 @@ describe("what a client is told (4.3, 14.7)", () => {
   test("a join gets the words to say back, then what it missed, and only the words said and answered", () => {
     const { c, sent } = channel();
     c.tell({ kind: "heard", text: "what is two plus two" });
-    c.tell({ kind: "sentence", text: "Four." });
+    c.tell({ kind: "sentence", text: "Four.", answer: 1 });
     c.tell({ kind: "turn", number: 1, text: "Four.", costUsd: 0.01 });
     c.narrate("the search finished");
     c.tell({ kind: "error", text: "the agent stopped" });

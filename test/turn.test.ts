@@ -125,6 +125,14 @@ describe("a whole turn (5.5, 5.6)", () => {
     expect(r.channel.missed().at(-1)).toMatchObject({ kind: "turn", number: 1, text: "Four." });
   });
 
+  test("each sentence and the turn that closes it name their answer (14.7)", async () => {
+    const r = room({ deltas: ["Four. ", "It always was."] });
+    await r.c.turn("what is two plus two");
+    await r.c.turn("and three plus three");
+    const named = r.told.filter((m) => m.kind === "sentence" || m.kind === "turn").map((m) => [m.kind, "answer" in m ? m.answer : undefined]);
+    expect(named).toEqual([["sentence", 1], ["sentence", 1], ["turn", 1], ["sentence", 2], ["sentence", 2], ["turn", 2]]);
+  });
+
   test("a turn that does not finish says so, and does not end the conversation", async () => {
     const r = room({ fail: "the agent died" });
     await r.c.turn("what is two plus two");

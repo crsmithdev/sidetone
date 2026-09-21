@@ -359,7 +359,7 @@ export class Conversation {
     // 14.7 a sentence reaches the client as soon as it is known, which is
     // before the voice reaches it: asked for on the drive of 18 September,
     // when the words arrived only after the whole answer had been spoken.
-    const say = (sentence: string) => { this.channel.tell({ kind: "sentence", text: sentence }); this.speak(sentence); };
+    const say = (sentence: string) => { this.channel.tell({ kind: "sentence", text: sentence, answer: id }); this.speak(sentence); };
     this.deltaSink = (text) => {
       if (!mine()) return;
       // 18.4 the agent's share ends with its first word
@@ -377,7 +377,7 @@ export class Conversation {
       this.lastReply = this.mouth.said.join(" ") || turn.text;
       this.recent.push({ said, reply: this.lastReply });
       if (this.recent.length > 3) this.recent.shift();
-      this.channel.tell({ kind: "turn", number: turn.number, text: this.lastReply, costUsd: this.agent.totalCostUsd() });
+      this.channel.tell({ kind: "turn", number: turn.number, text: this.lastReply, costUsd: this.agent.totalCostUsd(), answer: id });
       this.onTurn?.(turn);
       // 13.2 the warning uses the number claude reports, never an estimate (16.6)
       const worst = Math.max(this.agent.rateLimit.fiveHour, this.agent.rateLimit.sevenDay);
