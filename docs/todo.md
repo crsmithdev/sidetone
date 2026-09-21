@@ -150,3 +150,15 @@ and the status word on the screen (`RECONNECTING`, `UNREACHABLE` or
 `LISTENING`).
 
 Done when the service restarts and the app is listening again with no touch.
+
+## 8. Timestamps on messages in the app
+
+Noted 21 September 2026. Not started.
+
+Each message in the chat should show the time it was sent or received. Chris
+said "on here", which this note reads as the chat in the phone app. Check
+whether the web client (`client/index.html`) should match.
+
+Item 3 changes the same chat code (`Messages.kt`, `Bridge.kt`), so build the
+two together. Decide first what a bubble shows: the clock time, or the time
+since the last message.
