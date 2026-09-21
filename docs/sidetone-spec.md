@@ -70,7 +70,7 @@ project bridge stays in place.
 
 4.2 LiveKit gives the echo cancellation at the framework level, across the browser and the native app. The bridge does not build its own echo cancellation.
 
-4.2.1 The app has a volume slider. The slider sets the gain of the remote audio track in the app. It is independent of the Android stream volume, which has a minimum in call mode (`MODE_IN_COMMUNICATION`). The app stays in call mode, because call mode gives the echo cancellation of 4.2. The gain scales all sound from the bridge: the voice, the cues and the hold music. The full slider is the level the bridge sends. The gain is the square of the slider position. The app keeps the position on the phone across restarts. The bridge does not know the position.
+4.2.1 The app has a volume slider. The slider sets the gain of the remote audio track in the app. It is independent of the Android stream volume, which has a minimum in call mode (`MODE_IN_COMMUNICATION`). The app stays in call mode, because call mode gives the echo cancellation of 4.2. The gain scales all sound from the bridge: the voice, the cues and the hold music. The full slider is the level the bridge sends. The gain is the square of the slider position. The app keeps the position on the phone across restarts. The bridge does not know the position. The audio cut (17.10) overrides the gain.
 
 4.3 LiveKit separates the control channel from the audio channel. Control events do not compete with audio frames.
 
@@ -292,6 +292,14 @@ project bridge stays in place.
 
 11.11 The bridge speaks what the agent says between turns. Background work that finishes makes the agent answer without being asked, and that answer is news, so it is spoken over a held one.
 
+11.12 Chris can turn the audio of the bridge off and on. The client sends the `voice` message with `on` set to false or to true. The message keeps the name it had when the voice was all the audio.
+
+11.12.1 With the audio off, the bridge makes no sound. It plays no voice, no tone and no hold music. The words carry on in the transcript. The bridge counts a sentence as said when its words go out.
+
+11.12.2 When the audio goes off, the bridge stops the sentence in flight and the hold music at once. It does not wait for the sentence or the track to end.
+
+11.12.3 A new bridge process starts with the audio on. A client that has the audio off sends the `voice` message again when it joins the room.
+
 ## 12. SECURITY
 
 12.1 The bridge endpoint needs authentication. Authentication is the security boundary.
@@ -386,7 +394,11 @@ project bridge stays in place.
 
 15.10.1 The hold music plays once for each silent stretch. It does not loop. When a sentence plays and the turn still runs, a new silent stretch starts. The new stretch plays the track again from the start.
 
-15.11 The hold music does not play when no turn is running, when the bridge is muted, or when a track from the /play route is playing. It does not play while the bridge waits for the agreement word, because the bridge has asked Chris a question (8.6.3, 10.1).
+15.10.2 When a sentence stops the hold music, the track fades out. Its level falls in a straight line to zero. The sentence starts when the fade ends. The fade time is a setting. The default is 300 milliseconds. The value 0 cuts the track at once.
+
+15.10.3 Chris talking, the audio going off (11.12), the music going off (15.7.3) and the end of the turn cut the track at once. They do not fade it.
+
+15.11 The hold music does not play when no turn is running, when the bridge is muted, when the audio is off (11.12), or when a track from the /play route is playing. It does not play while the bridge waits for the agreement word, because the bridge has asked Chris a question (8.6.3, 10.1).
 
 ## 16. LESSONS FROM PRIOR ART
 
@@ -425,6 +437,16 @@ project bridge stays in place.
 17.9 Each bubble shows a clock time: hours and minutes, on the 24-hour clock, in the time zone of the phone. A note shows no time.
 
 17.9.1 The time of a live bubble is the time the phone got its first message. The words that follow do not change it. A bubble from the history (14.8) shows the time that the bridge kept it. For an answer, this is the end of the turn.
+
+17.10 The app has one button that cuts the audio. The button reads "Cut the audio". While the audio is cut, it reads "Audio off — tap to resume". The button sits above the volume slider.
+
+17.10.1 On the tap, the app sets the gain of the remote audio track to zero at once. It does not wait for the bridge. Then it sends the `voice` message (11.12).
+
+17.10.2 The cut is separate from the volume slider (4.2.1). While the audio is cut, the gain is zero, whatever the slider says. A move of the slider changes the saved position and not the gain. On resume, the gain returns to the level of the slider.
+
+17.10.3 A track that the bridge publishes while the audio is cut starts with a gain of zero.
+
+17.10.4 The app adds one note to the transcript for each change: "audio off" or "audio on".
 
 ## 18. MEASUREMENTS TO MAKE
 
@@ -509,6 +531,7 @@ project bridge stays in place.
 | Hold music: on or off | on; "music on" and "music off" change it | 15.7.3 |
 | Hold music: track | `~/.sidetone/hold/hold-music.mp3` | 15.8 |
 | Hold music: gain | 0.4 | 15.9 |
+| Hold music: fade out | 300 milliseconds, 0 cuts at once | 15.10.2 |
 | GPU budget for the voice path | 8 gigabytes, the whole GPU | 4.10 |
 | Speech-to-text engine and model | faster-whisper, `small.en`, local only | 4.6 |
 | Text-to-speech engine and voice | piper, `en_US-lessac-medium`, local only | 4.9 |

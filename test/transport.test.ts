@@ -3,7 +3,8 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { encodeWav } from "../src/audio.ts";
-import { RTC_RATE, frameAt, resample, roomSpeaker, tokenFor, uniqueIdentity, type Player } from "../src/transport.ts";
+import { RTC_RATE, Transport, fadeOut, frameAt, resample, roomSpeaker, tokenFor, uniqueIdentity, type Player } from "../src/transport.ts";
+import type { Fade } from "../src/mouth.ts";
 
 /**
  * The pure half of the transport. These two functions carry the fault that
@@ -104,9 +105,9 @@ describe("the identity the bridge joins under", () => {
  */
 describe("the room's speaker", () => {
   function player(whole = true, speaking = false) {
-    const spoke: Array<{ bytes: number; until: (() => boolean) | undefined }> = [];
+    const spoke: Array<{ bytes: number; until: (() => boolean) | undefined; fade: Fade | undefined }> = [];
     const p: Player = {
-      async speak(bytes, until) { spoke.push({ bytes: bytes.length, until }); return whole; },
+      async speak(bytes, until, fade) { spoke.push({ bytes: bytes.length, until, fade }); return whole; },
       get speaking() { return speaking; },
     };
     return { p, spoke, quiet: () => { speaking = false; }, busy: () => { speaking = true; } };
@@ -129,7 +130,7 @@ describe("the room's speaker", () => {
     expect(spoke[0]?.until).toBe(cut);
   });
 
-  test("a sentence cut short says so, and the voice off plays nothing", async () => {
+  test("a sentence cut short says so, and the audio off plays nothing", async () => {
     const { p, spoke } = player(false);
     const said: string[] = [];
     const speaker = roomSpeaker(p, (line) => said.push(line));
@@ -159,19 +160,86 @@ describe("the room's speaker", () => {
     const { p, spoke } = player();
     const said: string[] = [];
     const cut = () => false;
-    expect(await roomSpeaker(p, (line) => said.push(line)).track(new Uint8Array(8), cut)).toBe(true);
+    const fade = { when: () => false, ms: 300 };
+    expect(await roomSpeaker(p, (line) => said.push(line)).track(new Uint8Array(8), cut, fade)).toBe(true);
     expect(said).toEqual(["[hold music]", "[hold music ended]"]);
     expect(spoke[0]?.until).toBe(cut);
+    expect(spoke[0]?.fade).toBe(fade);
     const stopped = player(false);
     said.length = 0;
-    expect(await roomSpeaker(stopped.p, (line) => said.push(line)).track(new Uint8Array(8), () => true)).toBe(false);
+    expect(await roomSpeaker(stopped.p, (line) => said.push(line)).track(new Uint8Array(8), () => true, fade)).toBe(false);
     expect(said).toEqual(["[hold music]", "[hold music stopped]"]);
   });
 
   test("hold music is refused, and nothing is played, while a sentence, a cue or a /play track has the source", () => {
     const { p, spoke, busy } = player();
     busy();
-    expect(roomSpeaker(p, () => {}).track(new Uint8Array(8), () => false)).toBeNull();
+    expect(roomSpeaker(p, () => {}).track(new Uint8Array(8), () => false, { when: () => false, ms: 300 })).toBeNull();
     expect(spoke).toHaveLength(0);
+  });
+});
+
+/**
+ * 15.10.2 the hold music fades out when a sentence is due. The frames are
+ * written to a source of the test's own, so the level of each one can be read.
+ */
+describe("the fade of the hold music (15.10.2)", () => {
+  test("the level falls in a straight line from whole to nothing", () => {
+    const frame = new Int16Array(4).fill(1_000);
+    fadeOut(frame, 0, 8);
+    expect([...frame]).toEqual([1_000, 875, 750, 625]);
+    const rest = new Int16Array(4).fill(1_000);
+    fadeOut(rest, 4, 8);
+    expect([...rest]).toEqual([500, 375, 250, 125]);
+  });
+
+  test("past the end of the fade the frame is silent, never louder", () => {
+    const frame = new Int16Array(3).fill(-1_000);
+    fadeOut(frame, 10, 8);
+    expect([...frame]).toEqual([0, 0, 0]);
+  });
+
+  /** One second of a steady level, written 20 ms at a time to a source that keeps the last sample of each frame. */
+  async function written(fade: { when: () => boolean; ms: number } | undefined, until?: () => boolean) {
+    const transport = new Transport();
+    const levels: number[] = [];
+    (transport as unknown as { source: unknown }).source = {
+      captureFrame: async (frame: { data: Int16Array }) => { levels.push(frame.data.at(-1) as number); },
+    };
+    const whole = await transport.speak(encodeWav(new Int16Array(RTC_RATE).fill(10_000), RTC_RATE), until, fade);
+    return { whole, levels };
+  }
+
+  test("the track plays at its own level until the fade is asked for, then fades over its time and ends", async () => {
+    let asked = false;
+    let frames = 0;
+    const { whole, levels } = await written({ when: () => asked, ms: 300 }, () => { if (++frames === 11) asked = true; return false; });
+    expect(whole).toBe(false);
+    // 10 whole frames, then 15 frames of 20 ms make 300 ms
+    expect(levels.slice(0, 10).every((level) => level === 10_000)).toBe(true);
+    expect(levels).toHaveLength(10 + 15);
+    expect(levels[10]).toBeLessThan(10_000);
+    expect(levels[10]).toBeGreaterThan(9_000);
+    expect(levels.at(-1)).toBeLessThan(1_000);
+    for (let i = 11; i < levels.length; i++) expect(levels[i]).toBeLessThan(levels[i - 1] as number);
+  });
+
+  test("a fade of no time is a cut", async () => {
+    const { whole, levels } = await written({ when: () => true, ms: 0 });
+    expect(whole).toBe(false);
+    expect(levels).toEqual([]);
+  });
+
+  test("a cut stops it at once, in the middle of a fade", async () => {
+    let frames = 0;
+    const { whole, levels } = await written({ when: () => true, ms: 300 }, () => ++frames > 3);
+    expect(whole).toBe(false);
+    expect(levels).toHaveLength(3);
+  });
+
+  test("with no fade asked for the track plays to its end", async () => {
+    const { whole, levels } = await written({ when: () => false, ms: 300 });
+    expect(whole).toBe(true);
+    expect(levels).toHaveLength(50);
   });
 });

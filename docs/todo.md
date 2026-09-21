@@ -36,7 +36,7 @@ Shipped 21 September 2026: an in-app volume slider (spec 4.2.1). It sets the
 gain of the bridge's audio track in the app, apart from the Android stream
 volume, so a floor in the Android stream does not limit it. It scales the
 voice, the cues and the hold music. The app keeps the position across
-restarts. It sits under the "Cut the voice" button. Nothing has run on a
+restarts. It sits under the "Cut the audio" button. Nothing has run on a
 device.
 
 Remains: the volume control on the phone alone, in the car, and on the bridge

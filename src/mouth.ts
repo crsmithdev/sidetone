@@ -72,6 +72,16 @@ export function keptLines(config: Config): { dir: string; signature: string; lin
 /** How often an announcement asks whether the mouth is free. */
 export const ANNOUNCE_POLL_MS = 500;
 
+/**
+ * 15.10.2 when a sound fades out rather than stops: from the first frame at
+ * which `when` is true, the level falls in a straight line to nothing over
+ * `ms`. A cut still stops it at once.
+ */
+export interface Fade {
+  when: () => boolean;
+  ms: number;
+}
+
 /** The part that plays one sound. The room and a test differ only here. */
 export interface Speaker {
   /**
@@ -79,7 +89,7 @@ export interface Speaker {
    * `cut` says whether Chris is talking, and a speaker that can stop between
    * frames asks it as it goes.
    *
-   * `wav` is null when the voice is off (11.12): nothing is played, and the
+   * `wav` is null when the audio is off (11.12): nothing is played, and the
    * words still go wherever the spoken ones are written down.
    */
   play(text: string, wav: string | null, cut: () => boolean): Promise<boolean>;
@@ -88,9 +98,9 @@ export interface Speaker {
   /**
    * 15.7 the hold music: a decoded track, played once. Null, and nothing
    * played, when the source is in use. Otherwise it resolves when the track
-   * ends, false when `cut` stopped it.
+   * ends, false when `cut` stopped it or `fade` ran it out.
    */
-  track(wav: Uint8Array, cut: () => boolean): Promise<boolean> | null;
+  track(wav: Uint8Array, cut: () => boolean, fade: Fade): Promise<boolean> | null;
 }
 
 export class Mouth {
@@ -110,8 +120,8 @@ export class Mouth {
   private tail: string[] = [];
   /** What has actually reached Chris's ears this turn, for 9.4.5. */
   private heard: string[] = [];
-  /** 11.12 whether the bridge speaks at all. The words go either way. */
-  private voice = true;
+  /** 11.12 whether the bridge makes any sound at all. The words go either way. */
+  private audio = true;
   /** 18.4 whether the next sentence of the answer is the turn's first. */
   private firstOfTurn = true;
   /** 15.7 when the last sentence ended, which is where the silence is measured from */
@@ -137,7 +147,7 @@ export class Mouth {
       voiceChoices: Config["voiceChoices"];
       talking?: () => boolean;
       /** 15.8 the hold music: the file, the gain, and the rate the room plays at. Absent means none. */
-      music?: { file: string; gain: number; rate: number };
+      music?: { file: string; gain: number; rate: number; fadeMs: number };
       say?: (line: string) => void;
     },
   ) {
@@ -145,6 +155,9 @@ export class Mouth {
   }
 
   private readonly talking: () => boolean;
+
+  /** What stops a sound at once: Chris talking, or the audio going off (11.12). */
+  private readonly cutOff = (): boolean => this.talking() || !this.audio;
 
   /** One sentence of the answer. It is what a barge-in holds. */
   say(text: string): void {
@@ -195,10 +208,16 @@ export class Mouth {
     this.firstOfTurn = true;
   }
 
-  /** 11.12 the voice off skips the engine; the round trip still closes. */
-  setVoice(on: boolean): void {
-    this.voice = on;
+  /**
+   * 11.12 the audio off skips the engine; the round trip still closes. A
+   * sentence in flight and the hold music stop at once, through `cutOff`.
+   */
+  setAudio(on: boolean): void {
+    this.audio = on;
   }
+
+  /** 11.12 whether the bridge may make a sound. */
+  get audioOn(): boolean { return this.audio; }
 
   /**
    * 4.9 the two voices Chris switches between out loud. The voice is a
@@ -303,27 +322,28 @@ export class Mouth {
    * `InvalidState - failed to capture frame`.
    */
   cue(name: CueName): void {
-    if (!this.voice || this.playing) return;
+    if (!this.audio || this.playing) return;
     const wav = this.cues.file(name);
-    if (wav) this.speaker.cue(wav, this.talking);
+    if (wav) this.speaker.cue(wav, this.cutOff);
   }
 
   /**
    * 15.7 the hold music, once. True when it started; the caller does not wait
-   * for the end. It goes nowhere near a sentence, a cue or a barge-in: the
-   * stop is the /play route's, and `stop` adds the caller's own.
+   * for the end. It goes nowhere near a sentence, a cue or a barge-in. A
+   * sentence fades it out (15.10.2); Chris talking, the audio going off and
+   * `stop`, the caller's own, cut it at once.
    */
   async music(stop: () => boolean): Promise<boolean> {
     const { music } = this.settings;
-    if (!music || !this.voice || this.occupied()) return false;
+    if (!music || !this.audio || this.occupied()) return false;
     this.decoded ??= wavFromFile(music.file, music.rate, music.gain).catch((error) => {
       this.settings.say?.(`[no hold music: ${(error as Error).message.split("\n")[0]}]`);
       return null;
     });
     const wav = await this.decoded;
     // the first decode takes seconds: a sentence may have come since
-    if (!wav || this.occupied() || stop()) return false;
-    return this.speaker.track(wav, () => this.occupied() || stop()) !== null;
+    if (!wav || !this.audio || this.occupied() || stop()) return false;
+    return this.speaker.track(wav, () => this.cutOff() || stop(), { when: () => this.busy, ms: music.fadeMs }) !== null;
   }
 
   /** Chris is talking, or a sentence is queued or playing. */
@@ -382,7 +402,7 @@ export class Mouth {
    * arrived, and a few seconds later it almost always has.
    */
   private async speak(text: string, next: () => string | undefined): Promise<boolean> {
-    if (!this.voice) {
+    if (!this.audio) {
       // The round trip is still closed: the answer arrived, and how long that
       // took is the same question whether it is read or heard.
       this.measures.answering();
@@ -402,7 +422,9 @@ export class Mouth {
     // the bridge's next word wait for it, which costs one synthesis once and
     // saves one on every sentence of every answer.
     this.made.start(next());
-    const whole = await this.speaker.play(text, wav, this.talking);
+    // A sentence the audio going off stopped is said as words, as every later
+    // one is: it counts as heard, and it is not put back for a resume.
+    const whole = (await this.speaker.play(text, wav, this.cutOff)) || !this.audio;
     this.voiceEndedAt = Date.now();
     this.measures.spoken(text, whole);
     return whole;

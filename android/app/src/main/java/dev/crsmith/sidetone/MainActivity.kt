@@ -202,8 +202,8 @@ private fun Conversation(state: Bridge.State, onLeave: () -> Unit) {
         Button(onClick = { Bridge.setMic(!state.micOn) }, enabled = !state.holding, modifier = Modifier.fillMaxWidth()) {
             Text(if (state.micOn) "Cut the microphone" else "Microphone off — tap to resume")
         }
-        Button(onClick = { Bridge.setVoice(!state.voiceOn) }, modifier = Modifier.fillMaxWidth()) {
-            Text(if (state.voiceOn) "Cut the voice" else "Voice off — tap to resume")
+        Button(onClick = { Bridge.setAudio(!state.audioOn) }, modifier = Modifier.fillMaxWidth()) {
+            Text(if (state.audioOn) "Cut the audio" else "Audio off — tap to resume")
         }
         VolumeSlider(state.volume)
         OutlinedButton(
@@ -251,7 +251,7 @@ private fun HoldToTalk(state: Bridge.State) {
 
 /**
  * 4.2.1 the playback level of the bridge's audio in the app. It sits under the
- * voice button, in reach of the thumb, in a row 56 dp tall for a car. Android's
+ * audio button, in reach of the thumb, in a row 56 dp tall for a car. Android's
  * own volume has a floor in call mode; this has none.
  */
 @Composable

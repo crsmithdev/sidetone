@@ -177,8 +177,11 @@ object Outgoing {
 
     fun quality(quality: String): ByteArray = encode(buildJsonObject { put("kind", "quality"); put("quality", quality) })
 
-    /** 11.12 cut the speech and keep the words, for somewhere the bridge must not be heard. */
-    fun voice(on: Boolean): ByteArray = encode(buildJsonObject { put("kind", "voice"); put("on", on) })
+    /**
+     * 11.12 cut all the audio and keep the words, for somewhere the bridge must not be heard.
+     * The kind is still "voice", the name it had when the voice was all the audio there was.
+     */
+    fun audio(on: Boolean): ByteArray = encode(buildJsonObject { put("kind", "voice"); put("on", on) })
 
     private fun encode(message: JsonObject): ByteArray = message.toString().encodeToByteArray()
 }

@@ -43,8 +43,8 @@ object Bridge {
         val micOn: Boolean = true,
         /** 9.5.1 the hold to talk button is down. */
         val holding: Boolean = false,
-        /** 11.12 whether the bridge speaks its answers, or only writes them. */
-        val voiceOn: Boolean = true,
+        /** 11.12 whether the bridge makes any sound, or only writes its answers. */
+        val audioOn: Boolean = true,
         /** 4.2.1 the playback slider, 0 to 1. It survives [leave] and a refused pairing. */
         val volume: Float = 1f,
         /** 9.4.8 what the Stop button says, as the bridge gave it. */
@@ -136,9 +136,9 @@ object Bridge {
         try {
             room.connect(credentials.url, credentials.token)
             _state.update { it.copy(status = Status.LISTENING, error = null) }
-            // the bridge starts every process speaking, so a voice cut has to be
+            // the bridge starts every process with its audio on, so an audio cut has to be
             // said again to a room this app has only just joined
-            if (!_state.value.voiceOn) tell(room, Outgoing.voice(false))
+            if (!_state.value.audioOn) tell(room, Outgoing.audio(false))
             if (_state.value.micOn) micLock.withLock { openMic(room) }
             ended.await()
         } catch (e: CancellationException) {
@@ -162,8 +162,8 @@ object Bridge {
         when (event) {
             is RoomEvent.Reconnecting -> _state.update { it.copy(status = Status.RECONNECTING) }
             is RoomEvent.Reconnected -> _state.update { it.copy(status = Status.LISTENING) }
-            // 4.2.1 a track the bridge publishes later, or again, starts at the slider
-            is RoomEvent.TrackSubscribed -> (event.track as? RemoteAudioTrack)?.setVolume(playbackGain(_state.value.volume))
+            // 4.2.1 a track the bridge publishes later, or again, starts at the level in force
+            is RoomEvent.TrackSubscribed -> (event.track as? RemoteAudioTrack)?.setVolume(currentGain())
             is RoomEvent.Disconnected -> ended.complete(event.error?.message ?: reasonWord(event.reason))
             // N.1.4 the phone reads its own uplink and tells the bridge
             is RoomEvent.ConnectionQualityChanged -> {
@@ -252,29 +252,39 @@ object Bridge {
     }
 
     /**
-     * 11.12 stop the bridge speaking, without stopping the conversation. The
+     * 17.10 cut the bridge's audio, without stopping the conversation. The
      * transcript is a data message and never went down the audio path, so the
-     * words carry on arriving and only the voice goes.
+     * words carry on arriving and only the sound goes.
+     *
+     * The gain goes first, so the sound stops on the tap and does not wait for
+     * the bridge to hear the message and stop.
      */
-    fun setVoice(on: Boolean) {
-        if (_state.value.voiceOn == on) return
-        _state.update { it.copy(voiceOn = on) }
+    fun setAudio(on: Boolean) {
+        if (_state.value.audioOn == on) return
+        _state.update { it.copy(audioOn = on) }
         val room = room ?: return
-        tell(room, Outgoing.voice(on))
-        append(Line(Line.Kind.NOTE, if (on) "voice on" else "voice off"))
+        applyGain(room)
+        tell(room, Outgoing.audio(on))
+        append(Line(Line.Kind.NOTE, if (on) "audio on" else "audio off"))
     }
 
     /**
      * 4.2.1 the level of everything the bridge sends, apart from the Android
      * stream volume. The bridge sends one audio track for the voice, the cues
-     * and the hold music, so one gain on that track scales all three.
+     * and the hold music, so one gain on that track scales all three. While
+     * the audio is cut (17.10) the slider moves and the gain stays at zero.
      */
     fun setVolume(level: Float) {
         val clamped = level.coerceIn(0f, 1f)
         _state.update { it.copy(volume = clamped) }
         volumeStore.save(clamped)
-        val room = room ?: return
-        val gain = playbackGain(clamped)
+        room?.let(::applyGain)
+    }
+
+    private fun currentGain(): Double = outputGain(_state.value.volume, _state.value.audioOn)
+
+    private fun applyGain(room: Room) {
+        val gain = currentGain()
         room.remoteParticipants.values.forEach { participant ->
             participant.audioTrackPublications.forEach { (_, track) -> (track as? RemoteAudioTrack)?.setVolume(gain) }
         }

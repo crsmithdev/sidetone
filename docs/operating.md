@@ -439,8 +439,12 @@ bridge decodes the file once, on the first play, at `holdMusicGain` (0.4).
 That first play waits for the decode, about a second.
 
 The music stops when Chris talks, when the bridge has a sentence, and when the
-turn ends. These are the stop conditions of `POST /play`, and the turn end. It
-plays once for each silent stretch and does not loop. The log shows each play:
+turn ends. These are the stop conditions of `POST /play`, and the turn end. A
+sentence fades the music out over `holdMusicFadeMs`, 300 by default, and the
+sentence starts when the fade ends. The value 0 cuts the music at once. Chris
+talking, "music off", the audio off and the end of the turn cut it at once
+(spec 15.10.2). It plays once for each silent stretch and does not loop. The
+log shows each play:
 
 ```bash
 journalctl --user -u sidetone -f | grep "hold music"
@@ -451,7 +455,19 @@ journalctl --user -u sidetone -f | grep "hold music"
 [hold music stopped]
 ```
 
-`[hold music ended]` means the track ran to its end.
+`[hold music ended]` means the track ran to its end. A fade out and a cut both
+log `[hold music stopped]`.
+
+### The audio cut
+
+The "Cut the audio" button in the app sends the `voice` message (spec 11.12).
+The bridge then makes no sound: no voice, no tone and no hold music. The
+sentence in flight and the track stop at once. The words still reach the
+transcript, and the journal shows `[the audio is off; the words carry on in the
+transcript]`. `POST /play` refuses with 409 while the audio is off. A new bridge
+process starts with the audio on, and the app sends the cut again when it joins.
+The app also sets the gain of its audio track to zero on the tap, so the sound
+stops without waiting for the bridge (spec 17.10).
 
 The track is "Local Forecast - Elevator" by Kevin MacLeod (incompetech.com),
 licensed under Creative Commons Attribution 4.0

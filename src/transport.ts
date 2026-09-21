@@ -18,7 +18,7 @@ import {
 import { randomUUID } from "node:crypto";
 import { AccessToken } from "livekit-server-sdk";
 import { decodeWav } from "./audio.ts";
-import type { Speaker } from "./mouth.ts";
+import type { Fade, Speaker } from "./mouth.ts";
 
 /**
  * One per process, so a restart never collides with the session it replaces.
@@ -174,13 +174,13 @@ export class Transport {
    * handed over, and stops early when `until` says Chris started talking, which
    * is what makes 11.3 possible now that the framework cancels the echo.
    */
-  async speak(wavBytes: Uint8Array, until?: () => boolean): Promise<boolean> {
+  async speak(wavBytes: Uint8Array, until?: () => boolean, fade?: Fade): Promise<boolean> {
     // One source takes one writer. A cue that began while a sentence was still
     // playing used to interleave frames and the transport threw
     // `InvalidState - failed to capture frame`. The callers guard against it,
     // but they guard synchronously and then read a file, so the guard could be
     // true when it was checked and false by the time the frames arrived.
-    const mine = this.writing.then(() => this.write(wavBytes, until), () => this.write(wavBytes, until));
+    const mine = this.writing.then(() => this.write(wavBytes, until, fade), () => this.write(wavBytes, until, fade));
     this.writing = mine.then(() => undefined, () => undefined);
     return mine;
   }
@@ -188,21 +188,31 @@ export class Transport {
   /** Whether frames are going out right now, so a cue can be dropped rather than queued behind a sentence. */
   get speaking(): boolean { return this.writers > 0; }
 
-  private async write(wavBytes: Uint8Array, until?: () => boolean): Promise<boolean> {
+  private async write(wavBytes: Uint8Array, until?: () => boolean, fade?: Fade): Promise<boolean> {
     this.writers++;
-    try { return await this.frames(wavBytes, until); }
+    try { return await this.frames(wavBytes, until, fade); }
     finally { this.writers--; }
   }
 
-  private async frames(wavBytes: Uint8Array, until?: () => boolean): Promise<boolean> {
+  private async frames(wavBytes: Uint8Array, until?: () => boolean, fade?: Fade): Promise<boolean> {
     const wav = decodeWav(wavBytes);
     const samples = resample(wav.samples, wav.sampleRate, RTC_RATE);
     const size = (RTC_RATE * FRAME_MS) / 1000;
+    // the sample at which the fade began, once it has
+    let fadedAt = -1;
     for (let at = 0; at < samples.length; at += size) {
       if (this.stopped) return false;
       if (until?.()) return false;
-      const frame = new AudioFrame(frameAt(samples, at, size), RTC_RATE, 1, size);
-      await this.source.captureFrame(frame);
+      const data = frameAt(samples, at, size);
+      if (fade) {
+        if (fadedAt < 0 && fade.when()) fadedAt = at;
+        if (fadedAt >= 0) {
+          const length = (RTC_RATE * fade.ms) / 1000;
+          if (at - fadedAt >= length) return false;
+          fadeOut(data, at - fadedAt, length);
+        }
+      }
+      await this.source.captureFrame(new AudioFrame(data, RTC_RATE, 1, size));
     }
     return true;
   }
@@ -249,7 +259,7 @@ export class Transport {
 
 /** What the room's speaker needs of the transport: one sentence's frames, and whether any are going out. */
 export interface Player {
-  speak(wavBytes: Uint8Array, until?: () => boolean): Promise<boolean>;
+  speak(wavBytes: Uint8Array, until?: () => boolean, fade?: Fade): Promise<boolean>;
   readonly speaking: boolean;
 }
 
@@ -278,16 +288,25 @@ export function roomSpeaker(player: Player, say: (line: string) => void = consol
         .then((bytes) => (player.speaking ? false : player.speak(bytes, cut)))
         .catch((error) => say(`[the cue failed: ${(error as Error).message}]`));
     },
-    track(wav, cut) {
+    track(wav, cut, fade) {
       // one source takes one writer: a cue or a track from /play is on it now
       if (player.speaking) return null;
       say("[hold music]");
-      return player.speak(wav, cut).then(
+      return player.speak(wav, cut, fade).then(
         (whole) => { say(whole ? "[hold music ended]" : "[hold music stopped]"); return whole; },
         (error) => { say(`[hold music failed: ${(error as Error).message}]`); return false; },
       );
     },
   };
+}
+
+/**
+ * 15.10.2 the frame at `done` samples into a fade of `length` samples, scaled
+ * in place. The level falls in a straight line from 1 to 0, so a frame that
+ * starts the fade is nearly whole and the one that ends it is nearly silent.
+ */
+export function fadeOut(frame: Int16Array, done: number, length: number): void {
+  for (let i = 0; i < frame.length; i++) frame[i] = Math.round(frame[i]! * Math.max(0, 1 - (done + i) / length));
 }
 
 /**

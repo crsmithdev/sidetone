@@ -79,14 +79,17 @@ function room(script: Script = {}, overrides: Partial<Config> = {}, music?: Musi
     async play(text) { said.push(text); if (music?.sentenceMs) await new Promise((resolve) => setTimeout(resolve, music.sentenceMs)); return true; },
     cue(wav) { cues.push(wav); },
     // the room's speaker, in miniature: a taken source refuses, and the cut is asked as it plays
-    track(_wav, cut) {
+    track(_wav, cut, fade) {
       if (source.taken) return null;
       const track = { stopped: false };
       tracks.push(track);
       return new Promise<boolean>((resolve) => {
         const started = Date.now();
+        let fadedAt = 0;
         const poll = setInterval(() => {
-          if (cut()) { track.stopped = true; clearInterval(poll); resolve(false); }
+          // the transport's fade, in miniature: it runs out `ms` after it was asked for
+          if (!fadedAt && fade.when()) fadedAt = Date.now();
+          if (cut() || (fadedAt && Date.now() - fadedAt >= fade.ms)) { track.stopped = true; clearInterval(poll); resolve(false); }
           else if (music?.lasts !== undefined && Date.now() - started >= music.lasts) { clearInterval(poll); resolve(true); }
         }, 2);
       });
@@ -96,7 +99,7 @@ function room(script: Script = {}, overrides: Partial<Config> = {}, music?: Musi
   const mouth = new Mouth(speaker, { take: async (text: string) => text, start: () => {}, use: () => true }, { file: (name) => name }, new Measures(), {
     ...settings,
     talking: () => source.talking,
-    music: music && { file: music.file, gain: 0.4, rate: 48_000 },
+    music: music && { file: music.file, gain: 0.4, rate: 48_000, fadeMs: settings.holdMusicFadeMs },
     say: (line) => journal.push(line),
   });
   const turns: Turn[] = [];
@@ -666,12 +669,52 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
     await r.turn;
   });
 
-  test("a sentence stops it", async () => {
-    const r = await slow({}, { sentenceMs: 60 });
+  test("a sentence fades it out, and does not cut it (15.10.2)", async () => {
+    const r = await slow({ holdMusicFadeMs: 80 }, { sentenceMs: 60 });
+    await until(() => r.tracks.length > 0);
+    r.agent.hooks().onDelta?.("Done. ");
+    await wait(30);
+    expect(r.tracks[0]?.stopped).toBe(false);
+    await until(() => r.tracks[0]?.stopped === true);
+    expect(r.tracks[0]?.stopped).toBe(true);
+    r.end();
+    await r.turn;
+  });
+
+  test("Chris talking cuts it in the middle of a fade", async () => {
+    const r = await slow({ holdMusicFadeMs: 5_000 }, { sentenceMs: 60 });
     await until(() => r.tracks.length > 0);
     r.agent.hooks().onDelta?.("Done. ");
     await wait(20);
+    expect(r.tracks[0]?.stopped).toBe(false);
+    r.source.talking = true;
+    await wait(20);
     expect(r.tracks[0]?.stopped).toBe(true);
+    r.end();
+    await r.turn;
+  });
+
+  test("the audio off stops it at once, and it does not start again (11.12)", async () => {
+    const r = await slow({ holdMusicFadeMs: 5_000 });
+    await until(() => r.tracks.length > 0);
+    expect(r.tracks[0]?.stopped).toBe(false);
+    r.mouth.setAudio(false);
+    await wait(20);
+    expect(r.tracks[0]?.stopped).toBe(true);
+    await wait(AFTER * 4);
+    expect(r.tracks).toHaveLength(1);
+    r.end();
+    await r.turn;
+  });
+
+  test("with the audio off it does not start at all (11.12)", async () => {
+    const r = await slow();
+    r.mouth.setAudio(false);
+    await wait(AFTER * 3);
+    expect(r.tracks).toHaveLength(0);
+    r.mouth.setAudio(true);
+    await until(() => r.tracks.length > 0);
+    expect(r.tracks).toHaveLength(1);
     r.end();
     await r.turn;
   });

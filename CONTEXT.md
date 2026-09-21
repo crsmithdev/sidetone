@@ -76,7 +76,7 @@ What the bridge says about a tool the agent is running, so a long turn does not 
 _Avoid_: a progress update, a status message.
 
 **Hold music**:
-A track the bridge plays while a turn runs and the voice has been silent for a while. It stops for Chris, for a sentence, and for the end of the turn.
+A track the bridge plays while a turn runs and the voice has been silent for a while. It stops for Chris, for a sentence, and for the end of the turn. It fades out for a sentence and stops at once for the rest.
 _Avoid_: elevator music, a background track, a cue (a cue is a tone that says what the bridge is doing).
 
 **A round trip**:
@@ -104,6 +104,10 @@ _Avoid_: the confirmation word, the safe word.
 **Muted**:
 The bridge keeps listening and keeps transcribing, but acts on nothing except unmute.
 _Avoid_: paused, deafened, off.
+
+**Audio off**:
+The bridge makes no sound: no voice, no cue and no hold music. The words carry on in the transcript. The app's "Cut the audio" button turns it on and off. The phone mutes its audio track on the tap and does not wait for the bridge. The control channel still names the message `voice`.
+_Avoid_: voice off, mute (mute is the bridge that listens and acts on nothing), silence.
 
 **The microphone cut**:
 The client releases the recording device, so the phone's own indicator goes out. It is not a mute.

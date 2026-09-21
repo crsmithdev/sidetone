@@ -37,9 +37,10 @@ export const INCOMING = {
 } as const;
 
 /**
- * What a client sends. `voice` cuts the speech and leaves the words: the
+ * What a client sends. `voice` cuts all the audio and leaves the words: the
  * transcript is a data message and does not go down the audio path, so a bridge
- * with its voice off is still a whole conversation, read rather than heard.
+ * with its audio off is still a whole conversation, read rather than heard. The
+ * kind kept the name it had when the voice was all the audio there was.
  */
 export const OUTGOING = ["said", "mic", "quality", "voice"] as const;
 

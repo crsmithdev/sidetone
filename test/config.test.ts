@@ -26,6 +26,7 @@ describe("config (21)", () => {
     // 15.7 to 15.9 hold music: after eight seconds of silence, at 0.4 of the file's level
     expect(DEFAULTS.holdMusicAfterMs).toBe(8_000);
     expect(DEFAULTS.holdMusicGain).toBe(0.4);
+    expect(DEFAULTS.holdMusicFadeMs).toBe(300);
     expect(DEFAULTS.holdMusic).toBe(true);
     expect(DEFAULTS.holdMusicFile.endsWith("/.sidetone/hold/hold-music.mp3")).toBe(true);
     // 9.6 the set is a setting, and the tones are on it: you mute because the
@@ -119,7 +120,7 @@ describe("settings that arrive already checked", () => {
 
   test("every setting the voice path reads is in the record", () => {
     const kept = Object.keys(settingsInForce(DEFAULTS));
-    for (const key of ["holdBackstopMs", "sentenceMaxChars", "audioCueDelayMs", "audioCueEveryMs", "minSpeechPeak", "holdMusic"]) {
+    for (const key of ["holdBackstopMs", "sentenceMaxChars", "audioCueDelayMs", "audioCueEveryMs", "minSpeechPeak", "holdMusic", "holdMusicFadeMs"]) {
       expect(kept).toContain(key);
     }
     // the list names real settings, and the defaults answer for each of them

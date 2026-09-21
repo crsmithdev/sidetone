@@ -94,11 +94,11 @@ describe("what a client sends (4.3)", () => {
     expect(did).toEqual(["microphone true"]);
   });
 
-  test("the voice off leaves the words, and says so where the words are", () => {
+  test("the audio off leaves the words, and says so where the words are", () => {
     const { c, did, sent } = channel();
     c.receive({ kind: "voice", on: false });
     expect(did).toEqual(["voice false"]);
-    expect(sent).toEqual([{ kind: "narration", text: "the voice is off; the words carry on in the transcript" }]);
+    expect(sent).toEqual([{ kind: "narration", text: "the audio is off; the words carry on in the transcript" }]);
   });
 
   test("the connection is said when it changes and not when it repeats", () => {

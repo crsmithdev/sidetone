@@ -13,18 +13,21 @@ function scripted(holdBackstopMs = 10_000, switchable = true) {
   const played: string[] = [];
   const wavs: Array<string | null> = [];
   const cues: string[] = [];
+  const cuts: Array<() => boolean> = [];
   const started: Array<string | undefined> = [];
   let gate: (() => void) | null = null;
   let blocking = false;
   let whole = true;
   const speaker: Speaker = {
-    async play(text, wav) {
+    async play(text, wav, cut) {
       played.push(text);
       wavs.push(wav);
+      cuts.push(cut);
       if (blocking) await new Promise<void>((resolve) => { gate = resolve; });
-      return whole;
+      // the real speaker plays nothing for no wav, and stops between frames for a cut
+      return wav === null || (whole && !cut());
     },
-    cue(wav) { cues.push(wav); },
+    cue(wav, cut) { cues.push(wav); cuts.push(cut); },
     track: () => null,
   };
   const made = {
@@ -35,7 +38,7 @@ function scripted(holdBackstopMs = 10_000, switchable = true) {
   const measures = new Measures();
   const mouth = new Mouth(speaker, made, { file: (name) => `${name}.wav` }, measures, { holdBackstopMs, voiceChoices: { female: "f", male: "m" } });
   return {
-    mouth, played, wavs, cues, started, used, measures, made,
+    mouth, played, wavs, cues, cuts, started, used, measures, made,
     blockPlay: (on: boolean) => { blocking = on; },
     cutPlay: (on: boolean) => { whole = !on; },
     release: () => { gate?.(); gate = null; },
@@ -282,10 +285,10 @@ describe("the round trip's marks (18.4)", () => {
   });
 });
 
-describe("the voice off (11.12)", () => {
+describe("the audio off (11.12)", () => {
   test("nothing is made or played, the words still go, and they still count", async () => {
     const m = scripted();
-    m.mouth.setVoice(false);
+    m.mouth.setAudio(false);
     m.mouth.say("the answer.");
     await tick();
     expect(m.played).toEqual(["the answer."]);
@@ -296,9 +299,38 @@ describe("the voice off (11.12)", () => {
 
   test("a cue is not played either", () => {
     const m = scripted();
-    m.mouth.setVoice(false);
+    m.mouth.setAudio(false);
     m.mouth.cue("heard");
     expect(m.cues).toEqual([]);
+  });
+
+  test("the sentence in flight is cut at once, and it counts as said", async () => {
+    const m = scripted();
+    m.blockPlay(true);
+    m.mouth.say("a long sentence."); m.mouth.say("the next one.");
+    await tick();
+    expect(m.cuts[0]?.()).toBe(false);
+    m.mouth.setAudio(false);
+    expect(m.cuts[0]?.()).toBe(true);
+    m.blockPlay(false);
+    m.release();
+    await tick();
+    expect(m.played).toEqual(["a long sentence.", "the next one."]);
+    expect(m.wavs[1]).toBeNull();
+    expect(m.mouth.said).toEqual(["a long sentence.", "the next one."]);
+    expect(m.mouth.busy).toBe(false);
+  });
+
+  test("a cue in flight is cut too, and the audio back on plays again", async () => {
+    const m = scripted();
+    m.mouth.cue("heard");
+    expect(m.cuts[0]?.()).toBe(false);
+    m.mouth.setAudio(false);
+    expect(m.cuts[0]?.()).toBe(true);
+    m.mouth.setAudio(true);
+    m.mouth.say("back.");
+    await tick();
+    expect(m.wavs).toEqual(["back..wav"]);
   });
 });
 

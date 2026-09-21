@@ -68,7 +68,7 @@ export function assemble(
     ...config,
     talking: () => ear.bargingIn,
     // 15.8 the track is decoded at the rate the room plays at, so nothing resamples it
-    music: { file: config.holdMusicFile, gain: config.holdMusicGain, rate: sampleRate },
+    music: { file: config.holdMusicFile, gain: config.holdMusicGain, rate: sampleRate, fadeMs: config.holdMusicFadeMs },
     say,
   });
 
@@ -79,7 +79,7 @@ export function assemble(
     // state on reconnect must not drop a command that is being transcribed.
     // 9.5.2 a release is a hold to talk button let go: the words end now.
     microphone: (on, release) => { if (!on) ear.reset(release); },
-    voice: (on) => mouth.setVoice(on),
+    voice: (on) => mouth.setAudio(on),
     quality: (side, quality) => conversation.network.saw(side, quality),
   }, say);
 

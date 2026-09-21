@@ -22,6 +22,18 @@ class VolumeTest {
     }
 
     @Test
+    fun theCutOverridesTheSlider() {
+        assertEquals(0.0, outputGain(1f, false), 0.0)
+        assertEquals(0.0, outputGain(0.5f, false), 0.0)
+    }
+
+    @Test
+    fun resumeRestoresTheSliderLevel() {
+        assertEquals(playbackGain(0.5f), outputGain(0.5f, true), 0.0)
+        assertEquals(1.0, outputGain(1f, true), 0.0)
+    }
+
+    @Test
     fun valuesOutsideTheSliderAreClamped() {
         assertEquals(0.0, playbackGain(-0.5f), 0.0)
         assertEquals(1.0, playbackGain(3f), 0.0)

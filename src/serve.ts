@@ -160,7 +160,8 @@ export async function serve(dir: string, config: Config): Promise<void> {
        * Play a file to the room: the first step of hold music. It is for a
        * shell on this machine, so the tailnet cannot reach it. The track
        * stops when Chris talks and when the bridge has a sentence to say, so
-       * it never shares the source with a voice.
+       * it never shares the source with a voice. It plays nothing, and stops,
+       * while the audio is off (11.12).
        */
       if (url.pathname === "/play" && request.method === "POST") {
         if (!isLocal(server.requestIP(request)?.address)) return new Response("not found", { status: 404 });
@@ -174,9 +175,10 @@ export async function serve(dir: string, config: Config): Promise<void> {
         try { wav = await wavFromFile(file, RTC_RATE); }
         catch (error) { return Response.json({ error: (error as Error).message }, { status: 500 }); }
         // asked after the decode, which takes a second: a sentence may have started since
+        if (!mouth.audioOn) return Response.json({ error: "the audio is off" }, { status: 409 });
         if (mouth.busy || transport.speaking) return Response.json({ error: "the bridge is speaking or playing" }, { status: 409 });
         console.log(`[playing ${file}]`);
-        void transport.speak(wav, () => ear.bargingIn || mouth.busy)
+        void transport.speak(wav, () => ear.bargingIn || mouth.busy || !mouth.audioOn)
           .then((whole) => console.log(whole ? "[the track ended]" : "[the track stopped]"))
           .catch((error) => console.log(`[the track failed: ${(error as Error).message}]`));
         return Response.json({ playing: file }, { status: 202 });

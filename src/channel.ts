@@ -26,7 +26,7 @@ export interface Ends {
    * goes with a cut, unless `release` says it is a finished utterance (9.5.2)
    */
   microphone(on: boolean, release: boolean): void;
-  /** 11.12 the voice off leaves the words */
+  /** 11.12 the audio off leaves the words */
   voice(on: boolean): void;
   /** N.1 a reading of the connection; true when it is news */
   quality(side: Side, quality: Quality): boolean;
@@ -95,7 +95,7 @@ export class Channel {
     if (value.kind === "voice") {
       const on = value.on !== false;
       this.ends.voice(on);
-      this.narrate(on ? "the voice is on" : "the voice is off; the words carry on in the transcript");
+      this.narrate(on ? "the audio is on" : "the audio is off; the words carry on in the transcript");
       return;
     }
     // N.1.4 the phone's own reading of its uplink. It is the same signal this

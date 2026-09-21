@@ -176,6 +176,8 @@ export interface Config {
   holdMusicFile: string;
   /** 15.9 how loud the track is, as a factor on the file. The voice is 1. */
   holdMusicGain: number;
+  /** 15.10.2 how long the track takes to fade out when a sentence stops it. Zero cuts it at once. */
+  holdMusicFadeMs: number;
   /** 13.2 the reported rate-limit use that earns a spoken warning */
   usageWarnFraction: number;
   /**
@@ -317,6 +319,7 @@ export const DEFAULTS: Config = {
   holdMusic: true,
   holdMusicFile: join(homedir(), ".sidetone", "hold", "hold-music.mp3"),
   holdMusicGain: 0.4,
+  holdMusicFadeMs: 300,
   usageWarnFraction: 0.8,
   livekitUrl: process.env.LIVEKIT_URL ?? "",
   livekitApiKey: process.env.LIVEKIT_API_KEY ?? "",
@@ -351,7 +354,7 @@ export const IN_FORCE = [
   "minSpeechPeak", "wakeHoldMs", "interruptOnSpeech", "interruptAfterMs",
   "holdBackstopMs",
   "sentenceMaxChars", "audioCueDelayMs", "audioCueEveryMs",
-  "holdMusic", "holdMusicAfterMs", "holdMusicGain",
+  "holdMusic", "holdMusicAfterMs", "holdMusicGain", "holdMusicFadeMs",
   "cueVolume", "ttsEngine", "ttsVoice", "sttModel", "wakeWord",
   "chatterboxExaggeration", "chatterboxCfg",
 ] as const satisfies ReadonlyArray<keyof Config>;
