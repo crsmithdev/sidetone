@@ -90,6 +90,12 @@ Chris chooses: queue Chris's speech without an interrupt, or raise
 `interruptAfterMs`. The bridge already speaks a `result` that arrives with
 no question in front of it (`Conversation.unprompted`).
 
+Chris decided on 21 September 2026 to change nothing yet and to log first.
+Each time Chris speaks over a running turn, `~/.sidetone/record.jsonl` gets a
+`kind: "cutoff"` line with `waitedMs` and `interrupted`. After a few drives,
+count `interrupted: true` against `false`. A high count of `true` argues for
+a longer `interruptAfterMs`. The live service needs a restart to log it.
+
 ### b. A setup for long jobs
 
 Built 21 September. `scripts/job <name> <command>` runs a command detached,

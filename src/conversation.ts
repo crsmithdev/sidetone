@@ -208,7 +208,9 @@ export class Conversation {
     const running = (this.running ?? Promise.resolve()).then(() => true, () => true);
     // Give it a moment to end by itself. An interrupt is what costs a subagent,
     // and the voice is already silent, so waiting is free to listen to.
+    const waitStart = Date.now();
     const ended = await Promise.race([running, Bun.sleep(this.config.interruptAfterMs).then(() => false)]);
+    this.measures.cutOff(Date.now() - waitStart, !ended);
     if (!ended) {
       this.agent.interrupt();
       await Promise.race([running, Bun.sleep(this.config.graceMs)]);

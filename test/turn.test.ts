@@ -278,6 +278,23 @@ describe("11.9 a question that lands mid-answer", () => {
     expect(r.said).not.toContain("Three.");
   });
 
+  test("interrupting: the record says the bridge waited, then interrupted", async () => {
+    const r = await midAnswer({ interruptOnSpeech: true });
+    await r.c.heard("what is the tallest one");
+    const cutoffs = r.c.measures.recent().filter((e) => e.kind === "cutoff");
+    expect(cutoffs).toMatchObject([{ kind: "cutoff", interrupted: true }]);
+    expect((cutoffs[0] as { waitedMs: number }).waitedMs).toBeGreaterThanOrEqual(15);
+  });
+
+  test("interrupting: a turn that ends inside the wait is recorded as not interrupted", async () => {
+    const r = await midAnswer({ interruptOnSpeech: true, interruptAfterMs: 500 });
+    const heard = r.c.heard("what is the tallest one");
+    r.answer();
+    await heard;
+    expect(r.agent.calls).not.toContain("interrupt");
+    expect(r.c.measures.recent().filter((e) => e.kind === "cutoff")).toMatchObject([{ kind: "cutoff", interrupted: false }]);
+  });
+
   test("interrupting: the agent is told where Chris stopped hearing, and the question is clean", async () => {
     const r = await midAnswer({ interruptOnSpeech: true });
     await r.c.heard("what is the tallest one");

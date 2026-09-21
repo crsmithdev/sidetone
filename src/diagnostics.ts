@@ -41,6 +41,13 @@ export interface Answered {
   agentMs: number; sentenceMs: number; synthesisMs: number;
 }
 export interface Barged { kind: "barged"; at: number; level: number; heldMs: number }
+/**
+ * 11.9 Chris spoke over a turn that was still running. The bridge waited
+ * `waitedMs` for the turn to end by itself, then either did not need to
+ * interrupt or sent the interrupt, which stops every subagent the turn started.
+ * The count of each is what says if `interruptAfterMs` is worth changing.
+ */
+export interface Cutoff { kind: "cutoff"; at: number; waitedMs: number; interrupted: boolean }
 export interface Spoke { kind: "spoke"; at: number; text: string; whole: boolean }
 export interface Note { kind: "note"; at: number; text: string }
 /**
@@ -49,7 +56,7 @@ export interface Note { kind: "note"; at: number; text: string }
  * it, so a record read a week later can say which voice the second half ran in.
  */
 export interface Setting { kind: "setting"; at: number; patch: Record<string, unknown> }
-export type Event = Heard | Matched | Barged | Answered | Spoke | Note | Setting;
+export type Event = Heard | Matched | Barged | Answered | Cutoff | Spoke | Note | Setting;
 
 /** Enough to read a drive back, not so much that it is a log of its own. */
 const KEEP = 120;
@@ -89,6 +96,10 @@ export class Diagnostics {
 
   barged(level: number, heldMs: number, at = Date.now()): void {
     this.add({ kind: "barged", at, level: Number(level.toFixed(3)), heldMs: Math.round(heldMs) });
+  }
+
+  cutoff(waitedMs: number, interrupted: boolean, at = Date.now()): void {
+    this.add({ kind: "cutoff", at, waitedMs: Math.round(waitedMs), interrupted });
   }
 
   spoke(text: string, whole: boolean, at = Date.now()): void {

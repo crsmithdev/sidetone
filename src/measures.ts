@@ -63,6 +63,11 @@ export class Measures {
     this.diagnostics.barged(level, heldMs);
   }
 
+  /** 11.9 how long an interrupted turn was given to end by itself, and if it did. */
+  cutOff(waitedMs: number, interrupted: boolean): void {
+    this.diagnostics.cutoff(waitedMs, interrupted);
+  }
+
   /** 18.6 what the utterance behind that barge-in turned out to be. */
   bargeInWas(outcome: Outcome): void {
     this.latency.resolved(outcome);
