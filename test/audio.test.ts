@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { Utterances, decodeWav, encodeWav, level, tooQuiet, type Utterance } from "../src/audio.ts";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { Utterances, decodeWav, encodeWav, level, tooQuiet, wavFromFile, type Utterance } from "../src/audio.ts";
 
 const RATE = 16_000;
 /** 20 ms of frame, the size LiveKit hands over. */
@@ -214,5 +217,26 @@ describe("too quiet to have been a person", () => {
   test("the threshold is a setting, not a verdict", () => {
     expect(tooQuiet(heard(0.30), 0.5)).toBe(true);
     expect(tooQuiet(heard(0.30), 0.1)).toBe(false);
+  });
+});
+
+describe.skipIf(!Bun.which("ffmpeg"))("a track from a file", () => {
+  const dir = mkdtempSync(join(tmpdir(), "track-"));
+
+  test("a stereo mp3 comes out as mono wav at the rate asked for, of the same length", async () => {
+    const mp3 = join(dir, "tone.mp3");
+    await Bun.spawn(["ffmpeg", "-v", "error", "-f", "lavfi", "-i", "sine=frequency=440:duration=1", "-ac", "2", mp3]).exited;
+    const wav = decodeWav(await wavFromFile(mp3, 48_000));
+    expect(wav.sampleRate).toBe(48_000);
+    expect(wav.channels).toBe(1);
+    expect(wav.samples.length / 48_000).toBeGreaterThan(0.95);
+    expect(wav.samples.length / 48_000).toBeLessThan(1.1);
+    expect(level(wav.samples)).toBeGreaterThan(0.03);
+  });
+
+  test("a file that is not audio is refused with what ffmpeg said", async () => {
+    const text = join(dir, "not-audio.txt");
+    await Bun.write(text, "hello");
+    await expect(wavFromFile(text, 48_000)).rejects.toThrow(/ffmpeg could not read/);
   });
 });

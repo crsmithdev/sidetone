@@ -62,6 +62,17 @@ export function encodeWav(samples: Int16Array, sampleRate: number, channels = 1)
 }
 
 /**
+ * Any audio file ffmpeg reads, as the mono wav the transport plays. The whole
+ * file is decoded at once: a track of a few minutes is under twenty megabytes.
+ */
+export async function wavFromFile(path: string, sampleRate: number): Promise<Uint8Array> {
+  const ffmpeg = Bun.spawn(["ffmpeg", "-v", "error", "-i", path, "-f", "s16le", "-ac", "1", "-ar", String(sampleRate), "-"], { stdout: "pipe", stderr: "pipe" });
+  const [pcm, error, code] = await Promise.all([new Response(ffmpeg.stdout).arrayBuffer().then((buffer) => new Uint8Array(buffer)), new Response(ffmpeg.stderr).text(), ffmpeg.exited]);
+  if (code !== 0) throw new Error(`ffmpeg could not read ${path}: ${error.trim()}`);
+  return encodeWav(new Int16Array(pcm.buffer, pcm.byteOffset, pcm.byteLength >> 1), sampleRate);
+}
+
+/**
  * Too quiet to have been a person. The voice detector inside whisper drops
  * most of it, but not all: on 14 September a recording peaking at 0.12 came
  * back as "Thank you." and cost a turn, while every real utterance in the same

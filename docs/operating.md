@@ -404,6 +404,20 @@ stops it at the end. That is not tidiness: there is one long-lived room in
 normal use, and a test client that joins it turns up in the real conversation,
 on the real phone.
 
+### Playing a file
+
+The bridge plays any audio file that ffmpeg reads to the room, on request. It is
+the first step of hold music. The route answers this machine only:
+
+```bash
+curl -X POST localhost:3100/play -d '{"file":"/home/me/hold-samples/Bossa Antigua.mp3"}'
+```
+
+It answers 202 when the track starts, 409 while the bridge speaks or plays
+another track, and 400 for a path that is not absolute or does not exist. The
+track stops when Chris talks and when the bridge has a sentence to say. Nothing
+else stops it yet.
+
 ### Reaching it from the phone
 
 Three things have to be true, and each one fails quietly on its own.

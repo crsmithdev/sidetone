@@ -8,6 +8,7 @@
  * what makes barge-in possible at all (11.1 to 11.3), and it is why 11.4 says
  * not to hand-build a canceller.
  */
+import { wavFromFile } from "./audio.ts";
 import { assemble } from "./bridge.ts";
 import { settingsInForce, type Config } from "./config.ts";
 import { advertiseHost, livekitConfig, loadOrCreateKeys } from "./keys.ts";
@@ -57,7 +58,7 @@ export async function serve(dir: string, config: Config): Promise<void> {
   const startedAt = Date.now();
 
   const bridge = assemble(dir, config, RTC_RATE, roomSpeaker(transport), (message) => { void transport.send(message); });
-  const { channel, ear, conversation, measures, stt, tts } = bridge;
+  const { channel, ear, mouth, conversation, measures, stt, tts } = bridge;
 
   // The words are wired before the room is joined: the join can finish seconds
   // before the engines warm, and a phone that arrives in that window is owed
@@ -154,6 +155,31 @@ export async function serve(dir: string, config: Config): Promise<void> {
           turns: conversation.agent.turns,
           upSeconds: Math.round((Date.now() - startedAt) / 1000),
         }, { status: well ? 200 : 503 });
+      }
+      /**
+       * Play a file to the room: the first step of hold music. It is for a
+       * shell on this machine, so the tailnet cannot reach it. The track
+       * stops when Chris talks and when the bridge has a sentence to say, so
+       * it never shares the source with a voice.
+       */
+      if (url.pathname === "/play" && request.method === "POST") {
+        if (!isLocal(server.requestIP(request)?.address)) return new Response("not found", { status: 404 });
+        const body = await request.json().catch(() => ({})) as { file?: string };
+        const file = body.file ?? "";
+        // ffmpeg reads urls too; an absolute path is the one thing this takes
+        if (!file.startsWith("/") || !(await Bun.file(file).exists())) {
+          return Response.json({ error: "file must be the absolute path of a file that exists" }, { status: 400 });
+        }
+        let wav: Uint8Array;
+        try { wav = await wavFromFile(file, RTC_RATE); }
+        catch (error) { return Response.json({ error: (error as Error).message }, { status: 500 }); }
+        // asked after the decode, which takes a second: a sentence may have started since
+        if (mouth.busy || transport.speaking) return Response.json({ error: "the bridge is speaking or playing" }, { status: 409 });
+        console.log(`[playing ${file}]`);
+        void transport.speak(wav, () => ear.bargingIn || mouth.busy)
+          .then((whole) => console.log(whole ? "[the track ended]" : "[the track stopped]"))
+          .catch((error) => console.log(`[the track failed: ${(error as Error).message}]`));
+        return Response.json({ playing: file }, { status: 202 });
       }
       // 12.1 the boundary. Everything below here needs the code or a token.
       if (url.pathname === "/pair" && request.method === "POST") {
