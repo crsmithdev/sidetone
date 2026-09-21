@@ -90,6 +90,61 @@ describe("transcribing during the pause (18.4)", () => {
   });
 });
 
+describe("a hold to talk button let go (9.5.2)", () => {
+  const speech = (frames: number) => Array.from({ length: frames }, () => frame(0.4));
+
+  test("the recording ends at once and is read, with no pause to wait out", async () => {
+    let asked = 0;
+    const { to, ear } = room(async () => { asked++; return "what is two plus two"; });
+    // 400 ms of speech and no quiet at all: the end-of-turn pause has not begun
+    for (const f of speech(20)) ear.frame(f);
+    ear.reset(true);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(asked).toBe(1);
+    expect(to.told.at(-1)).toBe("heard what is two plus two");
+  });
+
+  test("a plain cut still drops the recording", async () => {
+    let asked = 0;
+    const { to, ear } = room(async () => { asked++; return "half a sentence"; });
+    for (const f of speech(20)) ear.frame(f);
+    ear.reset(false);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(asked).toBe(0);
+    expect(to.told.filter((line) => line.startsWith("heard"))).toEqual([]);
+  });
+
+  test("a release with nothing recorded is a plain cut, and the hold is given back", async () => {
+    let asked = 0;
+    const { to, ear } = room(async () => { asked++; return ""; });
+    ear.reset(true);
+    expect(asked).toBe(0);
+    expect(to.told).toEqual(["nothing"]);
+  });
+
+  test("a release in the middle of a barge-in stops the speech, then reads the words", async () => {
+    const { to, ear } = room(async () => "wait");
+    for (let i = 0; i < 60; i++) ear.frame(frame(0.30));
+    expect(to.told).toContain("stop");
+    ear.reset(true);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(to.told.at(-1)).toBe("heard wait");
+    // the barge-in is over: the next one is heard again
+    for (let i = 0; i < 60; i++) ear.frame(frame(0.30));
+    expect(to.told.filter((line) => line === "stop")).toHaveLength(2);
+  });
+
+  test("the guess made during a quiet is used when the release comes after it", async () => {
+    let asked = 0;
+    const { to, ear } = room(async () => { asked++; return "what is two plus two"; });
+    for (const f of [...speech(20), ...Array.from({ length: 12 }, () => frame(0.001))]) ear.frame(f);
+    ear.reset(true);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(asked).toBe(1);
+    expect(to.told.at(-1)).toBe("heard what is two plus two");
+  });
+});
+
 describe("what is too quiet to have been a person (4.6)", () => {
   test("it costs no turn, and the passage comes back", async () => {
     let asked = 0;

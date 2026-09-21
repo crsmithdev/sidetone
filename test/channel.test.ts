@@ -13,7 +13,7 @@ function channel(overrides: Partial<Config> = {}) {
   let news = true;
   const ends: Ends = {
     heard: async (text) => { did.push(`heard ${text}`); },
-    microphone: (on) => { did.push(`microphone ${on}`); },
+    microphone: (on, release) => { did.push(`microphone ${on}${release ? " release" : ""}`); },
     voice: (on) => { did.push(`voice ${on}`); },
     quality: (side, quality) => { did.push(`quality ${side} ${quality}`); return news; },
   };
@@ -75,6 +75,19 @@ describe("what a client sends (4.3)", () => {
     expect(did).toEqual(["microphone false", "microphone true"]);
     expect(journal).toEqual(["[the phone cut its microphone]", "[the phone opened its microphone]"]);
     expect(sent).toEqual([]);
+  });
+
+  test("9.5.2 a cut that says release ends the utterance, and the journal says so", () => {
+    const { c, did, journal } = channel();
+    c.receive({ kind: "mic", on: false, release: true });
+    expect(did).toEqual(["microphone false release"]);
+    expect(journal).toEqual(["[the phone cut its microphone and ended the utterance]"]);
+  });
+
+  test("9.5.2 an open never releases, whatever the message says", () => {
+    const { c, did } = channel();
+    c.receive({ kind: "mic", on: true, release: true });
+    expect(did).toEqual(["microphone true"]);
   });
 
   test("the voice off leaves the words, and says so where the words are", () => {

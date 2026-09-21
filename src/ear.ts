@@ -136,13 +136,23 @@ export class Ear {
    * The hold goes too. Without that, a cut in the middle of a barge-in leaves
    * no utterance to arrive, so nothing resolves the hold and the rest of the
    * answer sits behind it until the backstop drops it ten seconds later.
+   *
+   * 9.5.2 `release` is a hold to talk button let go. What was recorded is an
+   * utterance that ends now, without the end-of-turn pause. When nothing was
+   * recorded, it is a plain cut.
    */
-  reset(): void {
+  reset(release = false): void {
+    const said = release ? this.utterances.flush() : null;
     this.utterances.reset();
-    this.early = null;
     this.barging = false;
     this.frameAt = 0;
     this.soundAt = 0;
+    if (said) {
+      // `said` takes the guess made at the tentative end, and clears it
+      void this.said(said);
+      return;
+    }
+    this.early = null;
     this.to.heardNothing();
   }
 

@@ -40,6 +40,8 @@ object Bridge {
         val status: Status = Status.IDLE,
         val quality: String? = null,
         val micOn: Boolean = true,
+        /** 9.5.1 the hold to talk button is down. */
+        val holding: Boolean = false,
         /** 11.12 whether the bridge speaks its answers, or only writes them. */
         val voiceOn: Boolean = true,
         /** 9.4.8 what the Stop button says, as the bridge gave it. */
@@ -206,15 +208,35 @@ object Bridge {
      * device is released and the phone's own indicator goes out; a muted track
      * keeps recording. Tell the bridge, so it drops a half-recorded sentence.
      */
-    fun setMic(on: Boolean) {
+    fun setMic(on: Boolean) = switchMic(on, byHold = false)
+
+    /**
+     * 9.5.1 hold to talk: the microphone is open while the button is down. The
+     * lock keeps a press and its release in order. No note is written, or
+     * every press would add two lines to the transcript.
+     */
+    fun hold() {
+        if (_state.value.micOn || _state.value.holding) return
+        _state.update { it.copy(holding = true) }
+        switchMic(true, byHold = true)
+    }
+
+    /** 9.5.2 the button is up: cut the microphone, and tell the bridge the words end now. */
+    fun release() {
+        if (!_state.value.holding) return
+        _state.update { it.copy(holding = false) }
+        switchMic(false, byHold = true)
+    }
+
+    private fun switchMic(on: Boolean, byHold: Boolean) {
         scope.launch {
             micLock.withLock {
                 if (_state.value.micOn == on) return@launch
                 _state.update { it.copy(micOn = on) }
                 val room = room ?: return@launch
                 if (on) openMic(room) else closeMic(room)
-                tell(room, Outgoing.mic(on))
-                append(Line(Line.Kind.NOTE, if (on) "microphone on" else "microphone off"))
+                tell(room, Outgoing.mic(on, release = byHold && !on))
+                if (!byHold) append(Line(Line.Kind.NOTE, if (on) "microphone on" else "microphone off"))
             }
         }
     }

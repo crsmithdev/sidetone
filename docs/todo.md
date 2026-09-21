@@ -35,24 +35,6 @@ barge-in needs (spec 4.2). Look for a fix that keeps call mode.
 Done when the voice follows the volume control on the phone alone, in the car,
 and on the bridge machine.
 
-## 2. Push to talk, or hold to talk, in the app
-
-Noted 21 September 2026. Not designed yet.
-
-Today Chris cuts and uncuts the microphone. The spoken commands `mute` and
-`unmute` do it (9.5), and the app has a muted track. Chris wants a button in
-the app that does the same job by touch.
-
-Two forms are possible. Chris has not chosen one.
-
-| Form | The microphone is open |
-|---|---|
-| Hold to talk | While Chris holds the button. |
-| Push to talk | From one press until the next press. |
-
-Decide first whether the button replaces the mute command or sits beside it,
-and what barge-in does while the microphone is closed (9.5).
-
 ## 3. How replies appear in the phone app
 
 Noted 21 September 2026. Not investigated yet.

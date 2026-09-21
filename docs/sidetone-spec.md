@@ -241,6 +241,10 @@ project bridge stays in place.
 
 9.5 Two commands work when the bridge is muted. The two commands are mute and unmute. All other commands do not work when the bridge is muted.
 
+9.5.1 The app has a hold to talk button. The button sits beside the button that cuts the microphone. The microphone is open only while Chris holds the hold to talk button. The hold to talk button is disabled while the microphone is open and Chris does not hold it. While Chris holds it, the button that cuts the microphone is disabled. The mute and unmute commands stay.
+
+9.5.2 Chris lets go of the hold to talk button. The app then cuts the microphone. The app sends the `mic` message with `release` set. The bridge ends the utterance at once, and it does not wait for the end-of-turn pause (11.5). An ordinary cut still drops a half-recorded utterance (ADR 0008). While the microphone is cut, the bridge hears nothing, so a barge-in cannot happen.
+
 9.6 The set of commands that work when muted is a setting. The set is a list of command names. Chris adds a command to the list later without a change to the code.
 
 9.7 If the bridge hears only a part of a command, the bridge asks Chris to say the command again.

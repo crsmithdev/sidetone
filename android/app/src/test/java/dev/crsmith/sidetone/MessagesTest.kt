@@ -92,6 +92,8 @@ class MessagesTest {
     fun outgoingMatchesTheWebClient() {
         assertEquals("""{"kind":"said","text":"sidetone end the turn"}""", Outgoing.said("sidetone end the turn").decodeToString())
         assertEquals("""{"kind":"mic","on":false}""", Outgoing.mic(false).decodeToString())
+        // 9.5.2 a hold to talk button let go: the bridge ends the utterance
+        assertEquals("""{"kind":"mic","on":false,"release":true}""", Outgoing.mic(false, release = true).decodeToString())
         assertEquals("""{"kind":"quality","quality":"good"}""", Outgoing.quality("good").decodeToString())
     }
 }

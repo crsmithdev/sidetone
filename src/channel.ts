@@ -21,8 +21,11 @@ import { qualityOf, type Quality, type Side } from "./network.ts";
 export interface Ends {
   /** a thing Chris said, typed rather than spoken */
   heard(text: string): Promise<void>;
-  /** ADR 0008 the phone opened or cut its microphone; anything half recorded goes with a cut */
-  microphone(on: boolean): void;
+  /**
+   * ADR 0008 the phone opened or cut its microphone; anything half recorded
+   * goes with a cut, unless `release` says it is a finished utterance (9.5.2)
+   */
+  microphone(on: boolean, release: boolean): void;
   /** 11.12 the voice off leaves the words */
   voice(on: boolean): void;
   /** N.1 a reading of the connection; true when it is news */
@@ -84,8 +87,9 @@ export class Channel {
     if (value.kind === "mic") {
       this.micOn = value.on !== false;
       this.saidSilent = false;
-      this.ends.microphone(this.micOn);
-      this.say(`[the phone ${this.micOn ? "opened" : "cut"} its microphone]`);
+      const release = !this.micOn && value.release === true;
+      this.ends.microphone(this.micOn, release);
+      this.say(`[the phone ${this.micOn ? "opened" : "cut"} its microphone${release ? " and ended the utterance" : ""}]`);
       return;
     }
     if (value.kind === "voice") {

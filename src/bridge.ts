@@ -77,7 +77,8 @@ export function assemble(
     // ADR 0008 a cut drops the half recording, and the hold with it, or nothing
     // resolves it. An open leaves the recorder alone: an app that re-sends its
     // state on reconnect must not drop a command that is being transcribed.
-    microphone: (on) => { if (!on) ear.reset(); },
+    // 9.5.2 a release is a hold to talk button let go: the words end now.
+    microphone: (on, release) => { if (!on) ear.reset(release); },
     voice: (on) => mouth.setVoice(on),
     quality: (side, quality) => conversation.network.saw(side, quality),
   }, say);

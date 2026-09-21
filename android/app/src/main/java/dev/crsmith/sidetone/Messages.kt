@@ -110,7 +110,12 @@ private fun JsonObject.int(key: String): Int? = (this[key] as? kotlinx.serializa
 object Outgoing {
     fun said(text: String): ByteArray = encode(buildJsonObject { put("kind", "said"); put("text", text) })
 
-    fun mic(on: Boolean): ByteArray = encode(buildJsonObject { put("kind", "mic"); put("on", on) })
+    /**
+     * 9.5.2 `release` says the cut is a hold to talk button let go: the bridge
+     * ends what was recorded as an utterance. A cut without it drops the words.
+     */
+    fun mic(on: Boolean, release: Boolean = false): ByteArray =
+        encode(buildJsonObject { put("kind", "mic"); put("on", on); if (release) put("release", true) })
 
     fun quality(quality: String): ByteArray = encode(buildJsonObject { put("kind", "quality"); put("quality", quality) })
 

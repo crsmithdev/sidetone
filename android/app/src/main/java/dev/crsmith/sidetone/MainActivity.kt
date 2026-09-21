@@ -9,6 +9,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,6 +19,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
@@ -39,6 +42,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -189,7 +193,8 @@ private fun Conversation(state: Bridge.State, onLeave: () -> Unit) {
         LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = list, verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(state.lines) { TranscriptLine(it) }
         }
-        Button(onClick = { Bridge.setMic(!state.micOn) }, modifier = Modifier.fillMaxWidth()) {
+        HoldToTalk(state)
+        Button(onClick = { Bridge.setMic(!state.micOn) }, enabled = !state.holding, modifier = Modifier.fillMaxWidth()) {
             Text(if (state.micOn) "Cut the microphone" else "Microphone off — tap to resume")
         }
         Button(onClick = { Bridge.setVoice(!state.voiceOn) }, modifier = Modifier.fillMaxWidth()) {
@@ -212,6 +217,29 @@ private fun Conversation(state: Bridge.State, onLeave: () -> Unit) {
             )
             Button(onClick = ::send) { Text("Send") }
         }
+    }
+}
+
+/**
+ * 9.5.1 a hold to talk button, like the one on an old handset. It is enabled
+ * while the microphone is cut, and while it is held: opening the microphone
+ * must not disable the button under Chris's finger. The gesture follows the
+ * pressed state, so a slide off the button or a system cancel also releases.
+ */
+@Composable
+private fun HoldToTalk(state: Bridge.State) {
+    val source = remember { MutableInteractionSource() }
+    val pressed by source.collectIsPressedAsState()
+    LaunchedEffect(pressed) { if (pressed) Bridge.hold() else Bridge.release() }
+    // the screen can go while the finger is down, and the microphone must not stay open
+    DisposableEffect(Unit) { onDispose { Bridge.release() } }
+    Button(
+        onClick = {},
+        modifier = Modifier.fillMaxWidth().height(96.dp),
+        enabled = !state.micOn || state.holding,
+        interactionSource = source,
+    ) {
+        Text(if (state.holding) "Listening — let go to send" else "Hold to talk", style = MaterialTheme.typography.titleLarge)
     }
 }
 
