@@ -83,3 +83,24 @@ missing:
 
 Done when the agent starts a long job, ends the turn, and says by voice when
 the job ends, with no help from Chris.
+
+## 5. Faster speech from the good voices
+
+Noted 21 September 2026. Not started.
+
+The good voices are the chatterbox ones, and chatterbox is the default engine.
+Its first sentence costs about 2.5 s, on every answer and on every resume after
+a hold. Kokoro costs 0.1 s but is not the voice Chris wants.
+
+Find out what shortens the time between the end of a request and the first
+sound, with a chatterbox voice. The research is in section G of
+[`docs/streaming-brief.md`](streaming-brief.md). In order of cost:
+
+| Step | Cost | Result that closes it |
+|---|---|---|
+| Time Chatterbox Turbo in the existing worker, with the same reference clip. | About an hour. | Under 0.5 s a sentence: Turbo replaces chatterbox, and nothing needs to stream. |
+| Use the chatterbox-streaming fork, so the first chunk plays as it is made. | About three days, with a drive. | The fork is slower on this card than on the 4090 that gave 0.5 s. |
+
+Look for cheaper ideas too, on the speech end: a shorter first sentence, or a
+kept line that plays while the first sentence is made. Measure each one with
+`kind: "answered"` in `~/.sidetone/record.jsonl`, not by ear.
