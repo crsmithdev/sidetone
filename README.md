@@ -1,3 +1,5 @@
+<img src="docs/icon.svg" alt="The Sidetone icon: a flat line with one sine cycle" width="96" height="96">
+
 # Sidetone
 
 Talk to Claude Code from your phone.
