@@ -114,7 +114,7 @@ bridge says "Job <name> finished." when no turn runs and nothing is playing.
 
 ## 5. Faster speech from the good voices
 
-Noted 21 September 2026. Not started.
+Noted 21 September 2026. Step one measured 21 September.
 
 The good voices are the chatterbox ones, and chatterbox is the default engine.
 Its first sentence costs about 2.5 s, on every answer and on every resume after
@@ -128,6 +128,20 @@ sound, with a chatterbox voice. The research is in section G of
 |---|---|---|
 | Time Chatterbox Turbo in the existing worker, with the same reference clip. | About an hour. | Under 0.5 s a sentence: Turbo replaces chatterbox, and nothing needs to stream. |
 | Use the chatterbox-streaming fork, so the first chunk plays as it is made. | About three days, with a drive. | The fork is slower on this card than on the 4090 that gave 0.5 s. |
+
+Step one, measured 21 September 2026 on the RTX 5070 with `som_00295`. The
+table gives the median of three fresh processes, in seconds:
+
+| | 8 words | 20 words | Cold start |
+|---|---|---|---|
+| Chatterbox (live) | 1.79 | 3.53 | 28.2 |
+| Chatterbox Turbo | 0.81 | 1.44 | 16.3 |
+
+Turbo is 2.2 to 2.4 times faster but misses 0.5 s, so it does not replace
+chatterbox alone. Its time grows with the sentence length, so only a stream
+of the first chunk gets under 0.5 s. Turbo ignores `exaggeration` and `cfg`.
+Nobody has listened to it yet. The runs, the wavs and the gaps are in
+`~/.sidetone/jobs/turbo-0921-1211/result.md`.
 
 Look for cheaper ideas too, on the speech end: a shorter first sentence, or a
 kept line that plays while the first sentence is made. Measure each one with
