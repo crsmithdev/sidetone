@@ -132,4 +132,19 @@ again. He wants the app to reconnect alone. `Bridge.kt` has a `RECONNECTING`
 status and a retry every 5 s, so find out which restart case it misses: the
 service comes back on the same address, or the session is lost.
 
+Read 21 September from the service journal and the LiveKit log. LiveKit runs
+in Docker apart from the bridge, so a bridge restart does not end the phone's
+room. The app keeps the same room and sees no disconnect.
+
+| Restart | What the logs show |
+|---|---|
+| Bridge, 09:02 and 09:15 | The phone was heard within a minute, with no touch. |
+| Bridge, 10:05 | The phone stayed in the room (`numParticipants: 1` at the rejoin). The bridge heard it at 10:48 with no touch. |
+| LiveKit container, 07:51 | The phone joined the new server 4 s after it started, with its saved token. |
+| Bridge, 07:27 | Chris paired again at 07:35. The logs from before 07:51 are gone, so the cause is not known. |
+
+No restart since 07:35 needed a touch. The next time one does, note the time
+and the status word on the screen (`RECONNECTING`, `UNREACHABLE` or
+`LISTENING`).
+
 Done when the service restarts and the app is listening again with no touch.
