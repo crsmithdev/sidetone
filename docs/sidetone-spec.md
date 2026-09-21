@@ -6,6 +6,7 @@ Feature level only. No code.
 Date: 9 September 2026. Open points resolved. The narration hook of 7.1 is removed.
 Blocks, bubbles and times (14.9, 17.8, 17.9) added 21 September 2026.
 The working sign and the screen log (14.10, 14.11, 17.11 to 17.13) added 21 September 2026.
+Text selection in the transcript (17.14) added 21 September 2026.
 
 This document is the complete specification for Sidetone. It
 includes the background, the settled design decisions, the reasoning behind
@@ -507,6 +508,8 @@ project bridge stays in place.
 17.12.3 The log has a cap. It holds at most 500 entries and 200,000 characters of text. When it is over the cap, the app drops the oldest entries first. It always keeps the newest entry. One entry keeps at most 4,000 characters of `text`. A longer text keeps its last 4,000 characters.
 
 17.13 The app has a button "Send the screen log". It sits beside the button "End the turn", and it is enabled in the same cases. On the tap, the app sends the log to the bridge as `screen` messages (14.11.1). The bridge confirms with a note (14.11.3). If the app cannot send a part, it adds the note "the screen log was not sent". The log is not cleared by the tap.
+
+17.14 Chris can select the words of any bubble or note in the transcript, and copy them. A long press starts the selection. The copy gives the plain words, without the clock time. The typing box accepts a paste.
 
 ## 18. MEASUREMENTS TO MAKE
 

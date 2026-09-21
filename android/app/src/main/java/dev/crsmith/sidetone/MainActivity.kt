@@ -37,6 +37,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -306,13 +307,16 @@ private fun statusWord(status: Bridge.Status) = when (status) {
 private fun TranscriptLine(line: Line) {
     val colors = MaterialTheme.colorScheme
     when (line.kind) {
-        Line.Kind.NOTE -> Text(
-            line.text,
-            modifier = Modifier.fillMaxWidth(),
-            style = MaterialTheme.typography.bodySmall,
-            fontStyle = FontStyle.Italic,
-            color = colors.onSurfaceVariant,
-        )
+        // 17.14 each line of words is selectable, so Chris can copy it
+        Line.Kind.NOTE -> SelectionContainer {
+            Text(
+                line.text,
+                modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.bodySmall,
+                fontStyle = FontStyle.Italic,
+                color = colors.onSurfaceVariant,
+            )
+        }
         Line.Kind.YOU, Line.Kind.BRIDGE -> {
             val you = line.kind == Line.Kind.YOU
             val ink = if (you) colors.onPrimaryContainer else colors.onSurfaceVariant
@@ -323,7 +327,7 @@ private fun TranscriptLine(line: Line) {
                         .background(if (you) colors.primaryContainer else colors.surfaceVariant, RoundedCornerShape(16.dp))
                         .padding(horizontal = 14.dp, vertical = 10.dp),
                 ) {
-                    Text(line.text.trim(), color = ink)
+                    SelectionContainer { Text(line.text.trim(), color = ink) }
                     // 17.9 the time the bubble began
                     line.at?.let {
                         Text(clock(it), modifier = Modifier.align(Alignment.End), style = MaterialTheme.typography.labelSmall, color = ink.copy(alpha = 0.7f))

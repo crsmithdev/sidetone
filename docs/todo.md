@@ -162,15 +162,6 @@ and the status word on the screen (`RECONNECTING`, `UNREACHABLE` or
 
 Done when the service restarts and the app is listening again with no touch.
 
-## 9. Copy and paste in the phone app
-
-Noted 21 September 2026. Not investigated yet.
-
-Chris cannot copy text from the chat in the phone app. Paste into the typing
-box may fail too. Find out why. The likely cause is transcript text that
-cannot be selected. Done when Chris can select and copy any text in the chat,
-and paste into the typing box.
-
 ## 10. Lock screen controls in the Android app
 
 Noted 21 September 2026. Not started.
