@@ -617,6 +617,8 @@ adb connect <phone-ip>:<port>
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
+After the first install, the app updates itself (17.15). When the bridge serves a build that is not the installed one, the app shows "Update the app". Rebuild in the main checkout and open the app again.
+
 `test/pairing.test.ts` and `PairingTest.kt` pin the link from each side. Change
 both or neither.
 

@@ -9,8 +9,10 @@
  * not to hand-build a canceller.
  */
 import { wavFromFile } from "./audio.ts";
+import { ApkHash } from "./apk.ts";
 import { assemble } from "./bridge.ts";
 import { settingsInForce, type Config } from "./config.ts";
+import type { Apk } from "./messages.ts";
 import { advertiseHost, livekitConfig, loadOrCreateKeys } from "./keys.ts";
 import { RTC_RATE, Transport, roomSpeaker, tokenFor } from "./transport.ts";
 import { renderUnicodeCompact } from "uqr";
@@ -60,11 +62,20 @@ export async function serve(dir: string, config: Config): Promise<void> {
   const bridge = assemble(dir, config, RTC_RATE, roomSpeaker(transport), (message) => { void transport.send(message); });
   const { channel, ear, mouth, conversation, measures, stt, tts } = bridge;
 
+  // 17 the Android app, as the last `assembleDebug` in this checkout left it
+  const apk = new URL("../android/app/build/outputs/apk/debug/app-debug.apk", import.meta.url).pathname;
+  const apkHash = new ApkHash(apk);
+  /** 17.15 the app a joining client is offered; none while nothing is built */
+  const offer = async (): Promise<Apk | undefined> => {
+    const sha256 = await apkHash.get();
+    return sha256 ? { url: `${origin}/sidetone.apk`, sha256 } : undefined;
+  };
+
   // The words are wired before the room is joined: the join can finish seconds
   // before the engines warm, and a phone that arrives in that window is owed
   // the protocol and the history at once, and its microphone cut must land.
   // 14.8 a client that dropped in a tunnel gets the turns it missed on the way back
-  transport.onParticipant(() => channel.joined());
+  transport.onParticipant(async () => channel.joined(await offer()));
   // 18 what the drive of 18 September had no way to see: whether a microphone
   // track was there at all. The phone cut its own and reopened it, and every
   // line after that was about something else.
@@ -104,8 +115,6 @@ export async function serve(dir: string, config: Config): Promise<void> {
   let wrongCodes = 0;
   const page = await Bun.file(new URL("../client/index.html", import.meta.url).pathname).text();
   const sdk = new URL("../node_modules/livekit-client/dist/livekit-client.esm.mjs", import.meta.url).pathname;
-  // 17 the Android app, as the last `assembleDebug` in this checkout left it
-  const apk = new URL("../android/app/build/outputs/apk/debug/app-debug.apk", import.meta.url).pathname;
 
   const server = Bun.serve({
     port: config.servePort,

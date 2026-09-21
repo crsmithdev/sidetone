@@ -42,3 +42,9 @@ test("both clients state the same refusal rule as the bridge", async () => {
   expect(page).toContain(REFUSED);
   expect(app).toContain(REFUSED);
 });
+
+test("the join message offers the served app only when there is one (17.15)", () => {
+  const apk = { url: "https://bridge:3100/sidetone.apk", sha256: "ab12" };
+  expect(protocolMessage(DEFAULTS, apk)).toMatchObject({ kind: "protocol", apk });
+  expect("apk" in protocolMessage(DEFAULTS)).toBe(false);
+});

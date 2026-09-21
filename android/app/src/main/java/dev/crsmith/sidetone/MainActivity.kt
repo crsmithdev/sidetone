@@ -1,6 +1,8 @@
 package dev.crsmith.sidetone
 
 import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageInstaller
 import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -75,6 +77,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Bridge.load(this)
+        onInstallStatus(intent)
         enableEdgeToEdge()
         setContent {
             val context = LocalContext.current
@@ -87,6 +90,26 @@ class MainActivity : ComponentActivity() {
                     })
                 }
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        onInstallStatus(intent)
+    }
+
+    /**
+     * 17.15 the system installer reports here. The first report asks Chris to
+     * confirm, and the app shows the installer's own screen for that.
+     */
+    private fun onInstallStatus(intent: Intent?) {
+        if (intent?.action != Updater.ACTION_STATUS) return
+        when (val status = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE)) {
+            PackageInstaller.STATUS_PENDING_USER_ACTION ->
+                intent.getParcelableExtra(Intent.EXTRA_INTENT, Intent::class.java)?.let(::startActivity)
+            PackageInstaller.STATUS_SUCCESS -> Bridge.updateEnded(null)
+            PackageInstaller.STATUS_FAILURE_ABORTED -> Bridge.updateEnded("the update was cancelled")
+            else -> Bridge.updateEnded("the update failed: ${intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE) ?: "status $status"}")
         }
     }
 }
@@ -203,6 +226,12 @@ private fun Conversation(state: Bridge.State, onLeave: () -> Unit) {
             TextButton(onClick = onLeave) { Text("Leave") }
         }
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        // 17.15 only while the bridge serves an app that is not this one
+        if (state.update != null) {
+            Button(onClick = Bridge::installUpdate, enabled = !state.updating, modifier = Modifier.fillMaxWidth()) {
+                Text(if (state.updating) "Downloading the update…" else "Update the app")
+            }
+        }
         LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = list, verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(shown) { TranscriptLine(it) }
         }

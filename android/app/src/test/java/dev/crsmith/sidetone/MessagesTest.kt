@@ -222,4 +222,24 @@ class MessagesTest {
         // 11.12 the audio cut keeps the kind the bridge already knows
         assertEquals("""{"kind":"voice","on":false}""", Outgoing.audio(false).decodeToString())
     }
+
+    @Test
+    fun theJoinMessageCarriesTheServedApp() {
+        assertEquals(
+            Incoming.Protocol("sidetone end the turn", Apk("https://bridge:3100/sidetone.apk", "ab12")),
+            decode(bytes("""{"kind":"protocol","endTurn":"sidetone end the turn","apk":{"url":"https://bridge:3100/sidetone.apk","sha256":"ab12"}}""")),
+        )
+        // a bridge from before 17.15 sends no app
+        assertEquals(Incoming.Protocol("sidetone end the turn"), decode(bytes("""{"kind":"protocol","endTurn":"sidetone end the turn"}""")))
+    }
+
+    @Test
+    fun anUpdateIsOfferedOnlyForADifferentApp() {
+        val apk = Apk("https://bridge:3100/sidetone.apk", "AB12")
+        assertEquals(apk, updateFor("cd34", apk))
+        assertNull(updateFor("ab12", apk))
+        assertNull(updateFor("cd34", null))
+        // the installed file could not be read, so there is nothing to compare
+        assertNull(updateFor(null, apk))
+    }
 }

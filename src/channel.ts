@@ -14,7 +14,7 @@
  * conversation's, the ear's and the mouth's, which it reaches through `Ends`.
  */
 import type { Config } from "./config.ts";
-import { protocolMessage, type Kept, type Outgoing } from "./messages.ts";
+import { protocolMessage, type Apk, type Kept, type Outgoing } from "./messages.ts";
 import { qualityOf, type Quality, type Side } from "./network.ts";
 
 /** What a client's message does, in the modules that own it. */
@@ -68,9 +68,12 @@ export class Channel {
     this.tell({ kind: "narration", text });
   }
 
-  /** 4.3 a client that joins is told the words it has to say back, then what it missed (14.8). */
-  joined(): void {
-    this.send(protocolMessage(this.config));
+  /**
+   * 4.3 a client that joins is told the words it has to say back, then what it
+   * missed (14.8). 17.15 `apk` is the app the bridge serves, if it has one.
+   */
+  joined(apk?: Apk): void {
+    this.send(protocolMessage(this.config, apk));
     this.send({ kind: "history", turns: this.missed() });
   }
 

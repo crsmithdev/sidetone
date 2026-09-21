@@ -78,7 +78,13 @@ export type Outgoing =
   | { kind: "rejoin" }
   /** 14.10 a turn runs or a detached job runs; sent when it changes, and again every few seconds while it holds */
   | { kind: "working"; on: boolean }
-  | { kind: "protocol"; endTurn: string; incoming: typeof INCOMING; outgoing: typeof OUTGOING };
+  | { kind: "protocol"; endTurn: string; incoming: typeof INCOMING; outgoing: typeof OUTGOING; apk?: Apk };
+
+/** 17.15 the app the bridge serves: where to fetch it, and its SHA-256 in hex. */
+export interface Apk {
+  url: string;
+  sha256: string;
+}
 
 /**
  * 9.4.8 the Stop button, said in words, because the bridge hears commands and
@@ -89,9 +95,9 @@ export function endTurnPhrase(config: Config): string {
   return `${config.wakeWord} end the turn`;
 }
 
-/** What a client is told when it joins. */
-export function protocolMessage(config: Config): Outgoing {
-  return { kind: "protocol", endTurn: endTurnPhrase(config), incoming: INCOMING, outgoing: OUTGOING };
+/** What a client is told when it joins. 17.15 `apk` is there when the bridge has an app to serve. */
+export function protocolMessage(config: Config, apk?: Apk): Outgoing {
+  return { kind: "protocol", endTurn: endTurnPhrase(config), incoming: INCOMING, outgoing: OUTGOING, ...(apk ? { apk } : {}) };
 }
 
 /**

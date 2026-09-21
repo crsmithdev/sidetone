@@ -511,6 +511,16 @@ project bridge stays in place.
 
 17.14 Chris can select the words of any bubble or note in the transcript, and copy them. A long press starts the selection. The copy gives the plain words, without the clock time. The typing box accepts a paste.
 
+17.15 The app updates itself from the bridge. The bridge serves the app at `/sidetone.apk` (17).
+
+17.15.1 The `protocol` message (4.3) carries an `apk` field when the bridge has an app to serve. The field holds `url`, the address of the app, and `sha256`, the SHA-256 of the file in hex. The bridge computes the hash again when the file changes.
+
+17.15.2 The app computes the SHA-256 of its own installed file once for each process. When the two hashes differ, the app shows the button "Update the app" under the status row. When they are the same, or the field is missing, the app shows no button. The app uses no version number.
+
+17.15.3 On the tap, the button reads "Downloading the update…". The app downloads the file into a system install session. Android then asks Chris to confirm. The first time, Android also asks Chris to allow installs from the app. Google Play Protect can ask for a scan of an app it has not seen. "Install without scanning" continues the update.
+
+17.15.4 A cancel or a failure adds a note to the transcript, and the button is available again. A success replaces the app and ends its process. Chris opens the app again.
+
 ## 18. MEASUREMENTS TO MAKE
 
 18.1 No measurement blocks the build. Make each measurement during the build. Change a setting from Section 21 with the result.

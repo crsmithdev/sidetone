@@ -42,8 +42,8 @@ sealed interface Incoming {
     /** 14.8 the turns that happened while this client was away. */
     data class History(val lines: List<Line>) : Incoming
 
-    /** What only the bridge knows: the words this client has to say back to it. */
-    data class Protocol(val endTurn: String) : Incoming
+    /** What only the bridge knows: the words this client has to say back to it, and 17.15 the app it serves. */
+    data class Protocol(val endTurn: String, val apk: Apk? = null) : Incoming
 
     /** 18.9 the microphone track carries no sound: leave the room and join it again. */
     data object Rejoin : Incoming
@@ -64,7 +64,12 @@ fun decode(payload: ByteArray): Incoming? {
     val kind = message.string("kind") ?: return null
     if (kind == "protocol") {
         val endTurn = message.string("endTurn") ?: return null
-        return Incoming.Protocol(endTurn)
+        val apk = (message["apk"] as? JsonObject)?.let { offered ->
+            val url = offered.string("url")
+            val sha256 = offered.string("sha256")
+            if (url != null && sha256 != null) Apk(url, sha256) else null
+        }
+        return Incoming.Protocol(endTurn, apk)
     }
     if (kind == "rejoin") return Incoming.Rejoin
     if (kind == "working") return Incoming.Working(message.bool("on") ?: return null)

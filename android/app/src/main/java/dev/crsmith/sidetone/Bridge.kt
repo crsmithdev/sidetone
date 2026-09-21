@@ -53,6 +53,10 @@ object Bridge {
         val sign: Sign = Sign.OFF,
         val lines: List<Line> = emptyList(),
         val error: String? = null,
+        /** 17.15 the app the bridge serves, when it is not the one installed. */
+        val update: Apk? = null,
+        /** 17.15 the update downloads, or waits for Chris to confirm it. */
+        val updating: Boolean = false,
     )
 
     private const val TAG = "Sidetone"
@@ -66,6 +70,7 @@ object Bridge {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val micLock = Mutex()
+    private lateinit var app: Context
     private lateinit var store: CredentialStore
     private lateinit var volumeStore: VolumeStore
     private var session: Job? = null
@@ -83,6 +88,7 @@ object Bridge {
 
     fun load(context: Context) {
         if (::store.isInitialized) return
+        app = context.applicationContext
         store = CredentialStore(context.applicationContext)
         volumeStore = VolumeStore(context.applicationContext)
         _state.update { it.copy(paired = store.load() != null, volume = volumeStore.load()) }
@@ -204,7 +210,10 @@ object Bridge {
                     Line.Kind.YOU -> append("heard", message.line)
                     Line.Kind.NOTE -> append("note", message.line)
                 }
-                is Incoming.Protocol -> _state.update { it.copy(endTurn = message.endTurn) }
+                is Incoming.Protocol -> {
+                    _state.update { it.copy(endTurn = message.endTurn) }
+                    offer(message.apk)
+                }
                 is Incoming.Rejoin -> rejoin(ended)
                 is Incoming.Working -> {
                     workingOn = message.on
@@ -318,6 +327,37 @@ object Bridge {
         room.remoteParticipants.values.forEach { participant ->
             participant.audioTrackPublications.forEach { (_, track) -> (track as? RemoteAudioTrack)?.setVolume(gain) }
         }
+    }
+
+    /** 17.15 show the update when the bridge serves an app that is not this one. */
+    private fun offer(apk: Apk?) {
+        scope.launch {
+            val update = updateFor(Updater.installedHash(app), apk)
+            _state.update { it.copy(update = update) }
+        }
+    }
+
+    /** 17.15 download the bridge's app and give it to the system installer, which asks Chris to confirm. */
+    fun installUpdate() {
+        val apk = _state.value.update ?: return
+        if (_state.value.updating) return
+        _state.update { it.copy(updating = true) }
+        scope.launch {
+            try {
+                Updater.install(app, apk)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "the update failed", e)
+                updateEnded("the update failed: ${e.message ?: e}")
+            }
+        }
+    }
+
+    /** 17.15 the installer finished or refused. A success ends this process, so this is a refusal or a cancel. */
+    fun updateEnded(note: String?) {
+        _state.update { it.copy(updating = false) }
+        note?.let { append("note", Line(Line.Kind.NOTE, it)) }
     }
 
     fun say(text: String) {
