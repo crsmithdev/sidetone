@@ -53,3 +53,33 @@ Find the cause of the wrong order first. Then decide what marks a new bubble.
 A tool call is one mark; there may be others. The word-by-word display needs
 the bridge to send partial text, which is the streaming work in
 [`docs/streaming-brief.md`](streaming-brief.md).
+
+## 4. Long jobs and the subagent interrupt
+
+Noted 21 September 2026. Chris wants part b today.
+
+### a. Keep subagents alive through an interrupt
+
+Measured 21 September. Chris speaks while a turn runs. After
+`interruptAfterMs` (5 s) the bridge sends an interrupt. The interrupt stops
+every running subagent. Two research agents died at the second of an interrupt.
+An interrupt after the turn ends kills nothing, but Chris cannot tell by ear
+which case he is in.
+
+Find out if a subagent can survive an interrupt at all. Two bridge changes are
+open and untested: queue Chris's speech without an interrupt, or raise
+`interruptAfterMs`.
+
+### b. A setup for long jobs
+
+Until part a has an answer, long work runs as a detached process, not as a
+subagent. A detached process survived the same interrupt. Two things are
+missing:
+
+| Missing | Why it matters |
+|---|---|
+| A standing setup, so the agent can start any detached job without a refusal. | The permission classifier refused a research agent twice on 21 September. |
+| A way to know that a job finished. | A detached process sends no completion notice. |
+
+Done when the agent starts a long job, ends the turn, and says by voice when
+the job ends, with no help from Chris.
