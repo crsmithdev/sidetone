@@ -49,6 +49,8 @@ object Bridge {
         val volume: Float = 1f,
         /** 9.4.8 what the Stop button says, as the bridge gave it. */
         val endTurn: String? = null,
+        /** 17.11 whether the bridge says the agent works. It is shown whatever the audio does. */
+        val sign: Sign = Sign.OFF,
         val lines: List<Line> = emptyList(),
         val error: String? = null,
     )
@@ -71,6 +73,13 @@ object Bridge {
     private var mic: LocalAudioTrack? = null
     private var historyShown = false
     private var rejoinedAt: Long? = null
+
+    /** 17.11 what the bridge last said about work, and when, on the clock of [SystemClock.elapsedRealtime]. */
+    private var workingOn = false
+    private var workingAt = 0L
+
+    /** 14.7 and 17.12 the lines on the screen and the log of them. */
+    private val transcript = Transcript()
 
     fun load(context: Context) {
         if (::store.isInitialized) return
@@ -99,6 +108,7 @@ object Bridge {
                 if (refused(reason)) {
                     store.clear()
                     stop(app)
+                    reset()
                     _state.update { State(volume = it.volume, error = "The bridge refused the saved pairing ($reason). Scan the code again.") }
                     return@launch
                 }
@@ -110,7 +120,14 @@ object Bridge {
 
     fun leave(context: Context) {
         stop(context.applicationContext)
+        reset()
         _state.update { State(paired = store.load() != null, volume = it.volume) }
+    }
+
+    /** A conversation that ended has no lines, no log and no work to show. */
+    private fun reset() {
+        transcript.clear()
+        workingOn = false
     }
 
     private fun stop(app: Context) {
@@ -133,6 +150,8 @@ object Bridge {
         this@Bridge.room = room
         val ended = CompletableDeferred<String>()
         val events = launch { room.events.collect { on(room, it, ended) } }
+        // 17.11 the sign goes to "no signal" with no message to say so, so it is looked at on the clock
+        val watch = launch { while (true) { delay(1_000); showSign() } }
         try {
             room.connect(credentials.url, credentials.token)
             _state.update { it.copy(status = Status.LISTENING, error = null) }
@@ -148,8 +167,10 @@ object Bridge {
             e.message ?: e.toString()
         } finally {
             events.cancel()
-            // the last reading belonged to a room that is gone
-            // the protocol and the last reading belonged to a room that is gone
+            watch.cancel()
+            // the protocol, the last reading and the last word about work belonged to a room that is gone
+            workingOn = false
+            showSign()
             _state.update { it.copy(quality = null, endTurn = null) }
             this@Bridge.room = null
             mic = null
@@ -174,20 +195,29 @@ object Bridge {
                 tell(room, Outgoing.quality(quality))
             }
             is RoomEvent.DataReceived -> when (val message = decode(event.data)) {
-                is Incoming.Sentence -> onSentence(message)
-                is Incoming.BlockStart -> onWords(message.answer, message.block, "")
-                is Incoming.Delta -> onWords(message.answer, message.block, message.text)
+                is Incoming.Sentence -> show { it.onSentence(message, now()) }
+                is Incoming.BlockStart -> show { it.onBlock(message, now()) }
+                is Incoming.Delta -> show { it.onDelta(message, now()) }
                 is Incoming.BlockEnd -> Unit
-                is Incoming.Said -> if (message.line.kind == Line.Kind.BRIDGE) onAnswered(message) else append(message.line)
+                is Incoming.Said -> when (message.line.kind) {
+                    Line.Kind.BRIDGE -> show { it.onTurn(message, now()) }
+                    Line.Kind.YOU -> append("heard", message.line)
+                    Line.Kind.NOTE -> append("note", message.line)
+                }
                 is Incoming.Protocol -> _state.update { it.copy(endTurn = message.endTurn) }
                 is Incoming.Rejoin -> rejoin(ended)
-                is Incoming.Unknown -> append(Line(Line.Kind.NOTE, "(unknown message: ${message.kind})"))
+                is Incoming.Working -> {
+                    workingOn = message.on
+                    workingAt = SystemClock.elapsedRealtime()
+                    showSign()
+                }
+                is Incoming.Unknown -> append("unknown", Line(Line.Kind.NOTE, "(unknown message: ${message.kind})"))
                 is Incoming.History -> {
                     if (historyShown) return
                     historyShown = true
                     if (message.lines.isEmpty()) return
                     // say plainly that this is older, or it reads as the conversation in progress
-                    append(Line(Line.Kind.NOTE, "earlier"), *message.lines.toTypedArray(), Line(Line.Kind.NOTE, "now"))
+                    append("history", Line(Line.Kind.NOTE, "earlier"), *message.lines.toTypedArray(), Line(Line.Kind.NOTE, "now"))
                 }
                 null -> Unit
             }
@@ -209,7 +239,7 @@ object Bridge {
         }
         rejoinedAt = now
         Log.i(TAG, "the bridge asked for a rejoin")
-        append(Line(Line.Kind.NOTE, "rejoining to publish a new microphone track"))
+        append("note", Line(Line.Kind.NOTE, "rejoining to publish a new microphone track"))
         ended.complete(REJOINING)
     }
 
@@ -246,7 +276,7 @@ object Bridge {
                 val room = room ?: return@launch
                 if (on) openMic(room) else closeMic(room)
                 tell(room, Outgoing.mic(on, release = byHold && !on))
-                if (!byHold) append(Line(Line.Kind.NOTE, if (on) "microphone on" else "microphone off"))
+                if (!byHold) append("note", Line(Line.Kind.NOTE, if (on) "microphone on" else "microphone off"))
             }
         }
     }
@@ -265,7 +295,7 @@ object Bridge {
         val room = room ?: return
         applyGain(room)
         tell(room, Outgoing.audio(on))
-        append(Line(Line.Kind.NOTE, if (on) "audio on" else "audio off"))
+        append("note", Line(Line.Kind.NOTE, if (on) "audio on" else "audio off"))
     }
 
     /**
@@ -331,35 +361,41 @@ object Bridge {
         else -> reason.name.lowercase().replace('_', ' ')
     }
 
-    /** 17.9 a line the bridge sent live is stamped with the time it arrived; a kept line keeps the time the bridge gave it. */
-    private fun append(vararg lines: Line) {
-        val now = System.currentTimeMillis()
-        _state.update { state -> state.copy(lines = state.lines + lines.map { if (it.at == null) it.copy(at = now) else it }) }
+    private fun now() = System.currentTimeMillis()
+
+    /**
+     * 17.9 a line the bridge sent live is stamped with the time it arrived; a kept
+     * line keeps the time the bridge gave it. `kind` is what the screen log (17.12) calls the message.
+     */
+    private fun append(kind: String, vararg lines: Line) = show { it.onLines(kind, now(), *lines) }
+
+    /** A message changes the transcript, and the screen shows what it holds now. */
+    private fun show(change: (Transcript) -> Unit) {
+        change(transcript)
+        _state.update { it.copy(lines = transcript.lines) }
     }
 
-    /** 14.7 the line the answer is growing on, by index, since a note may land after it. */
-    private var growing: Growing? = null
+    /**
+     * 17.11 the sign, from what the bridge last said and the clock. A change goes
+     * to the screen and to the log.
+     */
+    private fun showSign() {
+        val next = sign(workingOn, workingAt, SystemClock.elapsedRealtime())
+        if (next == _state.value.sign) return
+        _state.update { it.copy(sign = next) }
+        transcript.onSign(next, now())
+    }
 
-    private fun onSentence(sentence: Incoming.Sentence) {
-        _state.update {
-            val (lines, now) = grow(it.lines, growing, sentence, System.currentTimeMillis())
-            growing = now
-            it.copy(lines = lines)
+    /**
+     * 17.13 send the screen log to the bridge, in parts, for the bridge to write
+     * to disk. The bridge says in a note where it wrote the file.
+     */
+    fun sendScreenLog() {
+        val room = room ?: return
+        val parts = screenParts(transcript.log.entries, now().toString())
+        scope.launch {
+            val sent = parts.all { room.localParticipant.publishData(it).onFailure { e -> Log.w(TAG, "the screen log was not sent", e) }.isSuccess }
+            if (!sent) append("note", Line(Line.Kind.NOTE, "the screen log was not sent"))
         }
-    }
-
-    /** 14.9 words of a block: its bubble grows, and a new block starts a new bubble. */
-    private fun onWords(answer: Int, block: Int, text: String) {
-        _state.update {
-            val (lines, now) = write(it.lines, growing, answer, block, text, System.currentTimeMillis())
-            growing = now
-            it.copy(lines = lines)
-        }
-    }
-
-    private fun onAnswered(turn: Incoming.Said) {
-        val at = growing
-        growing = null
-        _state.update { it.copy(lines = answered(it.lines, at, turn, System.currentTimeMillis())) }
     }
 }

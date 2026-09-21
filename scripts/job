@@ -6,8 +6,10 @@
 #
 # A subagent dies when Chris interrupts a turn (docs/todo.md, 4a). A process
 # in its own session does not. The job writes to ~/.sidetone/jobs/<id>/:
-# command.txt, output.log, and exit when it ends. Then it asks the bridge to
-# say "Job <name> finished." when no answer is in progress.
+# command.txt, output.log, pid while it runs, and exit when it ends. The
+# bridge reads pid and exit to show in the app that a job runs (spec 14.10.4).
+# When the job ends, it asks the bridge to say "Job <name> finished." when no
+# answer is in progress.
 #
 # SIDETONE_SAY_URL points at another bridge, such as a scratch one.
 set -euo pipefail
@@ -37,6 +39,8 @@ unset CLAUDECODE
 setsid nohup bash -c '
   dir=$1 name=$2 say_url=$3
   shift 3
+  # the bridge reads this to show that a job runs: the pid, and the dir in this command line
+  echo $$ > "$dir/pid"
   status=0
   "$@" > "$dir/output.log" 2>&1 < /dev/null || status=$?
   echo "$status" > "$dir/exit"

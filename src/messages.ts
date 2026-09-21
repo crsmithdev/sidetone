@@ -34,6 +34,8 @@ export const INCOMING = {
   protocol: "protocol",
   /** 18.9 leave the room and join it again; a client shows nothing */
   rejoin: "none",
+  /** 14.10 whether the agent works; the app shows a sign, the page shows nothing */
+  working: "none",
 } as const;
 
 /**
@@ -41,8 +43,9 @@ export const INCOMING = {
  * transcript is a data message and does not go down the audio path, so a bridge
  * with its audio off is still a whole conversation, read rather than heard. The
  * kind kept the name it had when the voice was all the audio there was.
+ * `screen` is one part of the app's screen log (14.11); the bridge writes the log to disk.
  */
-export const OUTGOING = ["said", "mic", "quality", "voice"] as const;
+export const OUTGOING = ["said", "mic", "quality", "voice", "screen"] as const;
 
 /** 14.8 a line a returning client is given again: what Chris said and what was answered. */
 export type Kept =
@@ -73,6 +76,8 @@ export type Outgoing =
   | { kind: "error"; text: string }
   | { kind: "history"; turns: Kept[] }
   | { kind: "rejoin" }
+  /** 14.10 a turn runs or a detached job runs; sent when it changes, and again every few seconds while it holds */
+  | { kind: "working"; on: boolean }
   | { kind: "protocol"; endTurn: string; incoming: typeof INCOMING; outgoing: typeof OUTGOING };
 
 /**

@@ -473,6 +473,55 @@ The track is "Local Forecast - Elevator" by Kevin MacLeod (incompetech.com),
 licensed under Creative Commons Attribution 4.0
 (<https://creativecommons.org/licenses/by/4.0/>).
 
+### The working sign
+
+The app shows that the agent works, whatever the audio does (spec 14.10 and
+17.11). The bridge sends `working` with `on` set to true when a turn starts or
+a detached job starts, and again every 5 seconds while the work lasts. It sends
+`on` false when the work ends. The app shows a slow pulse and the word
+"working". If the heartbeat stops for 15 seconds, the sign turns red and says
+"no signal". That means the bridge stopped sending, and it is the one sign that
+the bridge is stuck.
+
+A detached job is a `scripts/job` job. The script writes `pid` in the job
+directory, and `exit` when the job ends. The bridge counts a directory with a
+`pid`, no `exit`, and a process at that pid that has the directory in its
+command line:
+
+```bash
+ls ~/.sidetone/jobs/*/pid
+```
+
+A background tool call of the agent is not a `scripts/job` job. The bridge does
+not see it, so the sign does not show it. A job that an older `scripts/job`
+started has no `pid` file and does not show.
+
+### The screen log
+
+The app keeps a log of what it showed. The "Send the screen log" button sends
+it to the bridge, over the same LiveKit data channel as the rest. The bridge
+writes `~/.sidetone/screen/<time>.jsonl`, and the journal says so:
+
+```text
+[screen log written to /home/you/.sidetone/screen/2026-09-21T16-40-12.345Z.jsonl, 214 lines]
+```
+
+The file has one JSON entry on each line, oldest first (spec 17.12). Read the
+newest one, and read the last entry of a bubble to see what the screen held:
+
+```bash
+f=$(ls -t ~/.sidetone/screen/*.jsonl | head -1)
+jq -c '{time, kind, answer, block, bubble, text}' "$f" | tail -20
+jq -s 'group_by(.bubble) | map(last | {bubble, text})' "$f"
+```
+
+`kind` says what arrived: `heard`, `sentence`, `turn`, `block`, `delta`,
+`note`, `history`, `unknown` or `working`. `bubble` is the place of the line in
+the transcript, and null means no line changed. `text` is the text of that line
+after the change, and `got` is what the message carried. The log holds the last
+500 entries. It lives in the app process, so it is gone when Chris taps Leave
+or the phone ends the app.
+
 ### Reaching it from the phone
 
 Three things have to be true, and each one fails quietly on its own.

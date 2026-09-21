@@ -8,6 +8,11 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -52,6 +57,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle
@@ -191,6 +197,7 @@ private fun Conversation(state: Bridge.State, onLeave: () -> Unit) {
             Box(Modifier.size(10.dp).background(if (live) Color(0xFF3DDC84) else MaterialTheme.colorScheme.outline, CircleShape))
             Text(statusWord(state.status), style = MaterialTheme.typography.titleMedium)
             Text(state.quality ?: "—", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            WorkingSign(state.sign)
             Spacer(Modifier.weight(1f))
             TextButton(onClick = onLeave) { Text("Leave") }
         }
@@ -206,11 +213,11 @@ private fun Conversation(state: Bridge.State, onLeave: () -> Unit) {
             Text(if (state.audioOn) "Cut the audio" else "Audio off — tap to resume")
         }
         VolumeSlider(state.volume)
-        OutlinedButton(
-            onClick = Bridge::endTurn,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = state.endTurn != null,
-        ) { Text("End the turn") }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = Bridge::endTurn, modifier = Modifier.weight(1f), enabled = state.endTurn != null) { Text("End the turn") }
+            // 17.13 the agent reads the file the bridge writes; the button needs the room, as the Stop button does
+            OutlinedButton(onClick = Bridge::sendScreenLog, modifier = Modifier.weight(1f), enabled = state.endTurn != null) { Text("Send the screen log") }
+        }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
                 value = draft,
@@ -260,6 +267,31 @@ private fun VolumeSlider(volume: Float) {
         Text("Volume", style = MaterialTheme.typography.titleMedium)
         Slider(value = volume, onValueChange = Bridge::setVolume, modifier = Modifier.weight(1f))
         Text("${(volume * 100).roundToInt()}%", modifier = Modifier.widthIn(min = 44.dp), style = MaterialTheme.typography.titleMedium)
+    }
+}
+
+/**
+ * 17.11 a small sign in the status row that the agent works. It pulses slowly
+ * while the bridge says so, and it shows nothing when the agent is idle. When
+ * the bridge has said it works and has stopped saying so, it stands still and
+ * turns red. It reads the bridge's message, not the audio, so it shows with the
+ * audio cut (17.10).
+ */
+@Composable
+private fun WorkingSign(sign: Sign) {
+    if (sign == Sign.OFF) return
+    val silent = sign == Sign.SILENT
+    val colors = MaterialTheme.colorScheme
+    val pulse by rememberInfiniteTransition(label = "working").animateFloat(
+        initialValue = 0.25f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1_600), RepeatMode.Reverse),
+        label = "pulse",
+    )
+    val ink = if (silent) colors.error else colors.onSurfaceVariant
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Box(Modifier.size(8.dp).alpha(if (silent) 1f else pulse).background(if (silent) colors.error else colors.primary, CircleShape))
+        Text(signWord(sign), style = MaterialTheme.typography.bodyMedium, color = ink)
     }
 }
 

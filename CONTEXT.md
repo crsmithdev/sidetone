@@ -42,7 +42,7 @@ What plays one sentence once the mouth has made it. The room's plays over LiveKi
 _Avoid_: the sink, the audio output.
 
 **The control channel**:
-The words between the bridge and a client, apart from the audio: what was heard, the words of an answer as the agent writes them, each sentence as it is known, a turn, a note, and what a returning client missed. One module owns its vocabulary in both directions.
+The words between the bridge and a client, apart from the audio: what was heard, the words of an answer as the agent writes them, each sentence as it is known, a turn, a note, whether the agent works, the screen log, and what a returning client missed. One module owns its vocabulary in both directions.
 _Avoid_: the data channel, the transcript feed, the messages.
 
 ### The conversation
@@ -108,6 +108,14 @@ _Avoid_: paused, deafened, off.
 **Audio off**:
 The bridge makes no sound: no voice, no cue and no hold music. The words carry on in the transcript. The app's "Cut the audio" button turns it on and off. The phone mutes its audio track on the tap and does not wait for the bridge. The control channel still names the message `voice`.
 _Avoid_: voice off, mute (mute is the bridge that listens and acts on nothing), silence.
+
+**The working sign**:
+A small sign in the app's status row that the agent works: a turn runs, or a detached job runs. It follows a message from the bridge, so it shows with the audio off. It says "no signal" when the bridge stops sending that message.
+_Avoid_: the spinner, the busy light, the status.
+
+**The screen log**:
+What the app showed, one entry for each change of a line on the screen, with the time and the exact text. A button in the app sends it to the bridge, which writes it to `~/.sidetone/screen/` for the agent to read.
+_Avoid_: the transcript (the transcript is the lines themselves), the log file, the record (the record is the bridge's own).
 
 **The microphone cut**:
 The client releases the recording device, so the phone's own indicator goes out. It is not a mute.

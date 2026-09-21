@@ -22,7 +22,9 @@ import { Measures } from "./measures.ts";
 import type { Outgoing } from "./messages.ts";
 import { Mouth, keptLines, type Speaker } from "./mouth.ts";
 import { Recorder } from "./record.ts";
+import { Screens } from "./screen.ts";
 import { LocalWhisper, SpokenAhead, textToSpeech, type TextToSpeech } from "./speech.ts";
+import { Working, jobsRunning } from "./working.ts";
 
 export interface Bridge {
   readonly conversation: Conversation;
@@ -72,6 +74,7 @@ export function assemble(
     say,
   });
 
+  const screens = new Screens();
   const channel: Channel = new Channel(config, send, {
     heard: (text) => conversation.heard(text),
     // ADR 0008 a cut drops the half recording, and the hold with it, or nothing
@@ -81,6 +84,7 @@ export function assemble(
     microphone: (on, release) => { if (!on) ear.reset(release); },
     voice: (on) => mouth.setAudio(on),
     quality: (side, quality) => conversation.network.saw(side, quality),
+    screen: (part) => screens.receive(part),
   }, say);
 
   const conversation: Conversation = new Conversation(dir, config, mouth, channel, {
@@ -100,9 +104,12 @@ export function assemble(
 
   conversation.start();
   const watch = setInterval(() => channel.silence(ear.silence()), SILENCE_MS / 3);
+  // 14.10 whether the agent works, said to the client whatever the audio does
+  const working = new Working(() => conversation.busy, () => jobsRunning(), (on) => channel.tell({ kind: "working", on }));
+  const work = setInterval(() => working.tick(), 1_000);
 
   return {
     conversation, ear, mouth, channel, measures, stt, tts, ready,
-    stop() { clearInterval(watch); conversation.stop(); stt.stop(); tts.stop(); },
+    stop() { clearInterval(watch); clearInterval(work); conversation.stop(); stt.stop(); tts.stop(); },
   };
 }

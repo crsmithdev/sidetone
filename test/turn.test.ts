@@ -9,6 +9,7 @@ import type { Outgoing } from "../src/messages.ts";
 import { Conversation, type Agent, type MakeAgent } from "../src/conversation.ts";
 import { Measures } from "../src/measures.ts";
 import { Mouth, type Speaker } from "../src/mouth.ts";
+import { Working } from "../src/working.ts";
 import type { SessionHooks, Turn } from "../src/session.ts";
 
 const config: Config = { ...DEFAULTS, audioCueDelayMs: 10, audioCueEveryMs: 10 };
@@ -109,9 +110,29 @@ function room(script: Script = {}, overrides: Partial<Config> = {}, music?: Musi
 }
 
 /** The channel's other end, which no test here drives. */
-const ends = { heard: async () => {}, microphone: () => {}, voice: () => {}, quality: () => false };
+const ends = { heard: async () => {}, microphone: () => {}, voice: () => {}, quality: () => false, screen: () => [] };
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+describe("the working sign follows the turn, not the sound (14.10)", () => {
+  test("with the audio cut, a turn that runs is still work, and its end clears the sign", async () => {
+    let end = () => {};
+    const r = room({ hold: new Promise<void>((resolve) => { end = resolve; }) });
+    r.mouth.setAudio(false);
+    const said: boolean[] = [];
+    const sign = new Working(() => r.c.busy, () => 0, (on) => said.push(on));
+    sign.tick(0);
+    expect(said).toEqual([]);
+    const turn = r.c.turn("something slow");
+    sign.tick(1_000);
+    expect(r.mouth.audioOn).toBe(false);
+    expect(said).toEqual([true]);
+    end();
+    await turn;
+    sign.tick(2_000);
+    expect(said).toEqual([true, false]);
+  });
+});
 
 describe("a whole turn (5.5, 5.6)", () => {
   test("the answer is spoken as it arrives, sentence by sentence", async () => {

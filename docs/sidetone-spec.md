@@ -5,6 +5,7 @@ Feature level only. No code.
 
 Date: 9 September 2026. Open points resolved. The narration hook of 7.1 is removed.
 Blocks, bubbles and times (14.9, 17.8, 17.9) added 21 September 2026.
+The working sign and the screen log (14.10, 14.11, 17.11 to 17.13) added 21 September 2026.
 
 This document is the complete specification for Sidetone. It
 includes the background, the settled design decisions, the reasoning behind
@@ -364,6 +365,28 @@ project bridge stays in place.
 
 14.9.8 The web client ignores `blockStart`, `delta` and `blockEnd`. It keeps one line for each answer, grown by sentence (14.7), and shows no clock time. Chris asked for bubbles and times in the app. The page needs no change to work, so it keeps to 14.7.
 
+14.10 The bridge tells the client when the agent works. The message is `working`, with `on` set to true or to false.
+
+14.10.1 The agent works when a turn runs, or when a detached job runs. A turn runs from the moment the bridge starts it to the moment the bridge ends it, which is after the last sentence is said.
+
+14.10.2 The bridge sends the message when the answer changes. While the agent works, it sends `on` again every 5 seconds. This is the heartbeat. A client trusts a working state only while the heartbeat keeps arriving.
+
+14.10.3 The audio has no effect on the message. The bridge sends it with the audio on and with the audio off (11.12).
+
+14.10.4 A detached job is a job that `scripts/job` started. For each job, the script writes a directory in `~/.sidetone/jobs/`. The directory holds a `pid` file while the job runs, and an `exit` file when it ends. The bridge reads the directories every 2 seconds. A job runs when its directory has a `pid` file and no `exit` file, and the process with that pid has the directory in its command line. A job that was killed and left no `exit` file does not run. The bridge does not see other background work, such as a background tool call of the agent.
+
+14.10.5 The bridge does not keep the message for the history (14.8). A client that joins while the agent works gets the state at the next heartbeat. The web client ignores the message.
+
+14.11 The client sends its screen log (17.12) to the bridge, and the bridge writes it to disk. The agent cannot see the phone, and the file lets it read what the app showed.
+
+14.11.1 The `screen` message carries one part of the log. It has `id`, which names the log, `part`, which counts from 1, `of`, which is the number of parts, and `entries`, which is a list of entries. The app makes each part smaller than 12,000 bytes, because one data message is small.
+
+14.11.2 The bridge collects the parts of one `id`. When it has all `of` parts, it writes the entries to `~/.sidetone/screen/<time>.jsonl`. It writes one entry on each line, in the order of the parts. The time is the time of writing, in UTC, with a hyphen in place of each colon. A part with a new `id` drops a log that is not whole.
+
+14.11.3 The bridge writes one line to the journal when it writes the file. The line names the file and the number of lines. It sends the same line to the client as a note. It says in the same way when it drops a log, when a part is not readable, and when it cannot write the file.
+
+14.11.4 The bridge does not read the entries or act on them. The agent reads the file and needs no help from Chris. The web client does not send the message.
+
 ## 15. AUDIBLE STATE
 
 15.1 The bridge does not leave silence when it cannot answer. Silence is ambiguous.
@@ -447,6 +470,39 @@ project bridge stays in place.
 17.10.3 A track that the bridge publishes while the audio is cut starts with a gain of zero.
 
 17.10.4 The app adds one note to the transcript for each change: "audio off" or "audio on".
+
+17.11 The app shows a working sign in its status row, after the connection quality. The sign says that the agent works (14.10). It has three states.
+
+17.11.1 Off. The sign shows nothing. This is the state before any `working` message, after a message with `on` set to false, and after the app leaves the room.
+
+17.11.2 Working. The sign shows a dot that pulses slowly, and the word "working". This is the state after a message with `on` set to true, while a `working` message arrives at least every 15 seconds.
+
+17.11.3 No signal. The bridge said that the agent works, and no `working` message has arrived for 15 seconds. The sign shows a red dot that does not pulse, and the words "no signal". This is three heartbeats (14.10.2). It means that the bridge has stopped sending: the bridge is stuck, or the link is bad. The next message ends this state. The 15 seconds is a constant of the app, because the app has no settings file.
+
+17.11.4 The sign follows the messages of the bridge. It does not follow the sound. It shows with the audio cut (17.10), when the voice, the tones and the hold music give no sign of the work.
+
+17.11.5 The app has no setting for the sign.
+
+17.12 The app keeps a screen log: what it showed, in the order it showed it. Each change of a line on the screen is one entry. The log is in the memory of the app process. It ends when Chris leaves the room with the Leave button.
+
+17.12.1 An entry has these fields:
+
+| Field | Meaning |
+| --- | --- |
+| `at` | The time the message arrived, in milliseconds since 1970. |
+| `time` | The same time on the 24-hour clock of the phone, with seconds and milliseconds. |
+| `kind` | What arrived: `heard` (Chris said it), `sentence`, `turn`, `block` (a block starts), `delta` (words of a block), `note` (a note from the bridge or from the app), `history`, `unknown`, or `working` (the sign changed). |
+| `answer`, `block` | The numbers the message named (14.9.3), or null. |
+| `bubble` | The place of the line in the transcript, from 0. It counts every line, notes and hidden bubbles too. It is null when no line changed. |
+| `got` | The text the message carried, or null. |
+| `text` | The exact text of that line on the screen after the change, trimmed as the screen trims it. It is empty while the bubble is hidden (17.8). For `working`, it is the words of the sign. |
+| `from` | Only when `text` was cut: the number of characters cut from its front. |
+
+17.12.2 A message that changes more than one line, such as the history, gives one entry for each line. A message that changes no line gives one entry with no bubble. A sentence that a bubble already holds (14.9.5) is such a message. The app writes no entry for the end of a block, for the `protocol` message, or for a `working` message that does not change the sign.
+
+17.12.3 The log has a cap. It holds at most 500 entries and 200,000 characters of text. When it is over the cap, the app drops the oldest entries first. It always keeps the newest entry. One entry keeps at most 4,000 characters of `text`. A longer text keeps its last 4,000 characters.
+
+17.13 The app has a button "Send the screen log". It sits beside the button "End the turn", and it is enabled in the same cases. On the tap, the app sends the log to the bridge as `screen` messages (14.11.1). The bridge confirms with a note (14.11.3). If the app cannot send a part, it adds the note "the screen log was not sent". The log is not cleared by the tap.
 
 ## 18. MEASUREMENTS TO MAKE
 

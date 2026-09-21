@@ -30,6 +30,8 @@ export interface Ends {
   voice(on: boolean): void;
   /** N.1 a reading of the connection; true when it is news */
   quality(side: Side, quality: Quality): boolean;
+  /** 14.11 one part of the phone's screen log; what to say about it, if anything */
+  screen(part: Record<string, unknown>): string[];
 }
 
 /** The ear's reading of a dead microphone, as `Ear.silence` gives it. */
@@ -96,6 +98,10 @@ export class Channel {
       const on = value.on !== false;
       this.ends.voice(on);
       this.narrate(on ? "the audio is on" : "the audio is off; the words carry on in the transcript");
+      return;
+    }
+    if (value.kind === "screen") {
+      for (const line of this.ends.screen(value)) this.narrate(line);
       return;
     }
     // N.1.4 the phone's own reading of its uplink. It is the same signal this

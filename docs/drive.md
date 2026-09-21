@@ -44,6 +44,8 @@ systemctl --user restart sidetone.service
 | "sidetone, music off", "sidetone, music on" | the hold music off or on: "Music off." or "Music on."; kept in the config file as `holdMusic`, and shown in `/diagnostics` and the record. Not on the muted list. Steps 10 and 11 of the card |
 | the same three, then `/diagnostics` or the record | say the setting in force now, not the one the bridge started with; the record carries a `setting` line at the moment of the change |
 | the phone's screen | the app shows the answer word by word in one bubble for each block, with the clock time; the web page shows it a sentence at a time |
+| "working" beside the connection state, in the app | a slow pulse while a turn or a `scripts/job` job runs, with the audio cut too. Red "no signal" means the bridge sent nothing for 15 seconds while it said it worked. It is off when the agent is idle (spec 17.11) |
+| "Send the screen log", beside "End the turn" | writes what the app showed to `~/.sidetone/screen/<time>.jsonl`. Chris taps it once when something looks wrong. Read the newest file with `f=$(ls -t ~/.sidetone/screen/*.jsonl \| head -1); jq -c '{time,kind,bubble,text}' "$f"`. The journal has `screen log written to` (spec 14.11, 17.12) |
 | the journal, `begun at the tentative end` | the transcription started during the pause, so the round trip no longer waits for it |
 | the journal, `N false ends` on a `> ` line | a quiet of 400 ms that you then talked through. Each one is where a shorter pause would have cut you off; the total decides whether a turn detector is worth building |
 | swiping the app away | leaves the room; the bridge logs `[the room lost a microphone track]` |

@@ -224,6 +224,8 @@ async function connect({ url, token }) {
     else if (message.kind === "error") line(message.text, "note");
     // 18.9 the app renews its own microphone track on this; the page does not
     else if (message.kind === "rejoin") return;
+    // 14.10 the app shows a sign that the agent works. The page shows nothing.
+    else if (message.kind === "working") return;
     // 14.9 the app shows a bubble for each block of an answer. The page keeps its
     // one line for each answer, grown by sentences, so it ignores the blocks.
     else if (message.kind === "blockStart" || message.kind === "delta" || message.kind === "blockEnd") return;

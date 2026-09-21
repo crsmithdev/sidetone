@@ -3,6 +3,7 @@ package dev.crsmith.sidetone
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
@@ -47,6 +48,9 @@ sealed interface Incoming {
     /** 18.9 the microphone track carries no sound: leave the room and join it again. */
     data object Rejoin : Incoming
 
+    /** 14.10 the agent works (`on`), or does not. The bridge repeats "on" every few seconds while the work lasts. */
+    data class Working(val on: Boolean) : Incoming
+
     /**
      * A kind this app does not know, which means the two ends have drifted
      * apart. It is shown rather than dropped: dropping it is how the drift
@@ -63,6 +67,7 @@ fun decode(payload: ByteArray): Incoming? {
         return Incoming.Protocol(endTurn)
     }
     if (kind == "rejoin") return Incoming.Rejoin
+    if (kind == "working") return Incoming.Working(message.bool("on") ?: return null)
     if (kind == "sentence") {
         val text = message.string("text") ?: return null
         return Incoming.Sentence(text, message.int("answer"))
@@ -162,6 +167,8 @@ private fun JsonObject.string(key: String): String? = (this[key] as? kotlinx.ser
 
 private fun JsonObject.long(key: String): Long? = (this[key] as? kotlinx.serialization.json.JsonPrimitive)?.longOrNull
 
+private fun JsonObject.bool(key: String): Boolean? = (this[key] as? kotlinx.serialization.json.JsonPrimitive)?.booleanOrNull
+
 private fun JsonObject.int(key: String): Int? = (this[key] as? kotlinx.serialization.json.JsonPrimitive)?.intOrNull
 
 /** 4.3 messages to the bridge. `src/serve.ts` reads each kind. */
@@ -182,6 +189,18 @@ object Outgoing {
      * The kind is still "voice", the name it had when the voice was all the audio there was.
      */
     fun audio(on: Boolean): ByteArray = encode(buildJsonObject { put("kind", "voice"); put("on", on) })
+
+    /**
+     * 14.11 one part of the screen log, for the bridge to write to disk. `id` names the
+     * log, `part` counts from 1 and `of` is how many parts there are.
+     */
+    fun screen(id: String, part: Int, of: Int, entries: List<JsonObject>): ByteArray = encode(buildJsonObject {
+        put("kind", "screen")
+        put("id", id)
+        put("part", part)
+        put("of", of)
+        put("entries", JsonArray(entries))
+    })
 
     private fun encode(message: JsonObject): ByteArray = message.toString().encodeToByteArray()
 }

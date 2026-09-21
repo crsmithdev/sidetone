@@ -16,6 +16,7 @@ function channel(overrides: Partial<Config> = {}) {
     microphone: (on, release) => { did.push(`microphone ${on}${release ? " release" : ""}`); },
     voice: (on) => { did.push(`voice ${on}`); },
     quality: (side, quality) => { did.push(`quality ${side} ${quality}`); return news; },
+    screen: (part) => { did.push(`screen ${String(part.id)}`); return ["screen said"]; },
   };
   const c = new Channel({ ...config, ...overrides }, (message) => sent.push(message), ends, (line) => journal.push(line));
   return { c, sent, journal, did, sameQuality: () => { news = false; } };
@@ -46,6 +47,25 @@ describe("what a client is told (4.3, 14.7)", () => {
     c.narrate("the wake word arrived with no command");
     expect(sent).toEqual([{ kind: "narration", text: "the wake word arrived with no command" }]);
     expect(journal).toEqual(["[the wake word arrived with no command]"]);
+  });
+});
+
+describe("what a client says about its screen (14.11)", () => {
+  test("a part of the screen log goes to the screen end, and what it says reaches the journal and the client as a note", () => {
+    const { c, did, sent, journal } = channel();
+    c.receive({ kind: "screen", id: "a1", part: 1, of: 1, entries: [] });
+    expect(did).toEqual(["screen a1"]);
+    expect(sent).toEqual([{ kind: "narration", text: "screen said" }]);
+    expect(journal).toEqual(["[screen said]"]);
+  });
+
+  test("14.10 the working message is sent, and is not kept for a client that joins later", () => {
+    const { c, sent } = channel();
+    c.tell({ kind: "working", on: true });
+    expect(sent).toEqual([{ kind: "working", on: true }]);
+    sent.length = 0;
+    c.joined();
+    expect(c.missed()).toEqual([]);
   });
 });
 
