@@ -223,3 +223,51 @@ of the confusing case here.
 
 Done when the row cannot show two readings that sound like they contradict
 each other, in no more room than it takes today.
+
+## 17. Hold music can arm very late on a turn whose first content is one large tool call
+
+Noted 22 September 2026. Not investigated yet.
+
+On a turn on 22 September 2026, Chris felt the hold music (spec 15.7) came on
+very late. That turn's own numbers, from `~/.sidetone/record.jsonl`: 69.6
+seconds of agent time before any words, almost all of it one large tool call
+(a several-thousand-word prompt as its argument) rather than a short one.
+Spec 15.7.5 says a tool call makes a turn long the moment it starts, and the
+music is meant to begin `holdMusicAfterMs` (8 seconds by default) after that.
+If the bridge only counts a tool call as started once it has seen a
+meaningful part of its argument, a tool call whose argument itself takes most
+of a minute to stream would arm the long-turn flag, and the music, close to
+the end of the wait rather than near the 8 second mark it was designed for.
+
+No timestamp for when hold music itself starts or stops is logged today,
+only the settings and the aggregate `answered` line, so this is a reading of
+the mechanism, not a confirmed measurement.
+
+Log when hold music actually starts and stops. Then look at a turn like this
+one, agent time dominated by one large tool call, and see whether the flag
+really arms late. Find out whether the fix is judging "the tool call has
+started" from the first delta of the tool_use block rather than from how much
+of it has streamed, or something else.
+
+Done when a turn like this one gets hold music near the 8 second mark like an
+ordinary long turn does, and the record shows when the music actually started
+and stopped, so this can be checked again without guessing.
+
+## 18. A tone at the true end of the agent's speaking
+
+Noted 22 September 2026. Not started.
+
+Chris cannot always tell whether the bridge has finished a reply or is only
+paused between sentences of the same turn. A pause mid-turn is normal and
+fine; he wants a clear, distinct signal exactly when the turn is truly done
+speaking, so he knows when it is safe to talk without wondering if more is
+coming. He wants this to be a click or a quiet tone, not a musical note, in
+the same direction as item 14's redesign of the existing cues.
+
+Find where the code already knows a turn is fully over, as opposed to
+between sentences of the same turn, and play a short, quiet cue there,
+distinct from `heard`, `thinking` and `starting` (spec 15) and from the
+hold-to-talk tones of item 15.
+
+Done when a click or quiet tone plays exactly once, at the true end of a
+turn's speech, and never between sentences of the same turn.
