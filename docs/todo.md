@@ -295,3 +295,38 @@ not without fighting the formatting item 12 is adding.
 
 Done when a bubble's text visibly lights up in step with the voice, at least
 sentence by sentence, and stays correct through a barge-in and a hold.
+
+## 20. More hold music tracks, cycled, each resuming where it left off
+
+Noted 22 September 2026. Not started.
+
+Three parts to this.
+
+First, more tracks. `config.holdMusicFile` (src/config.ts:177, :328) points at
+one file, `~/.sidetone/hold/hold-music.mp3`. Chris wants a few more to choose
+from.
+
+Second, licensing. Chris wants to know whether he can use tracks he does not
+hold the copyright to, since this runs only on his own machine for his own
+use and nothing is distributed. He believes this likely falls under fair
+use. That needs real thought, not a rubber stamp: fair use is fact-specific,
+and playing a whole commercial track for its ordinary purpose (background
+mood music), even privately, does not sit as cleanly under it as a
+transformative use would. The lowest-risk path sidesteps the question
+instead of resolving it: tracks that are royalty-free or carry a license
+that explicitly allows this (Creative Commons, a stock-music library, a
+personal-use license Chris already holds). Look into both paths and lay out
+what each actually permits, rather than assuming either is fine.
+
+Third, rotation and resume. Spec 15.10.1 today: the hold music plays once
+per silent stretch, does not loop, and the next stretch plays the same track
+again from the start. Chris wants multiple tracks in rotation, cycling
+between them rather than repeating one, and wants each track to pick up
+where it left off the last time it played rather than restarting from the
+beginning every time. `Mouth` decodes the file once and keeps the samples in
+memory (spec 15.9); this needs a position kept per track, not just per file.
+
+Done when hold music has more than one track to draw from, each used under
+terms Chris has actually confirmed rather than assumed, playback cycles
+between tracks instead of repeating one, and a track resumes from its last
+position instead of the start.
