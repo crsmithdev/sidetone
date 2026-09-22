@@ -162,3 +162,16 @@ appear, not a full markdown library, unless the survey shows that many cases.
 Done when a link in a bubble opens on a tap, and bold, code and lists show
 formatted. Selection and copy (spec 17.14) must still work on formatted text,
 and copy must give the plain text.
+
+## 13. A three-button row for mic, audio and music
+
+Noted 22 September 2026. Not started.
+
+The row at `MainActivity.kt:266` (spec 17.10) holds two buttons, mic and
+audio. Each button's text switches between a cut label and a resume label
+("Cut the mic" / "Mic off — resume"). Chris wants a third button, for hold
+music, added to the row, and wants the label switch dropped from all three:
+each button keeps one label and shows its on/off state by color alone.
+
+Done when the row holds three buttons, one each for mic, audio and music,
+each with a fixed label and a color that shows its state.
