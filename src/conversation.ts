@@ -388,8 +388,8 @@ export class Conversation {
       },
       blockStart: (type) => {
         if (!mine()) return;
-        // 15.7.4 a reply that starts with a tool call has no marker to look for
-        if (type === "tool_use") words(marker.end());
+        // 15.7.5 a tool call is proof enough that the turn is long, marker or not
+        if (type === "tool_use") { words(marker.end()); marker.long = true; }
         if (type !== "text") return;
         open = true;
         this.channel.tell({ kind: "blockStart", answer: id, block: ++block });
@@ -450,10 +450,10 @@ export class Conversation {
   /**
    * 15.7 hold music. The agent decides ahead of time (15.7.4): a reply that
    * starts with the marker `[long]` makes the turn a long turn, and only a
-   * long turn gets music. A turn with no marker gets none. `long` is read on
-   * every look, because the marker arrives with the first words, after the
-   * hand-over. A reply that starts with a tool call has no marker, so that
-   * turn is not long.
+   * long turn gets music. A turn with no marker gets none, unless it calls a
+   * tool (15.7.5): a tool call is proof enough on its own, so a turn is long
+   * the moment one starts, marker or not. `long` is read on every look,
+   * because the marker arrives with the first words, after the hand-over.
    *
    * In a long turn the bridge measures the silence: once the room has heard no
    * bridge voice for `holdMusicAfterMs`, the track plays. The silence runs from

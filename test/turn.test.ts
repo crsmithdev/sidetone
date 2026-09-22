@@ -897,7 +897,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
     await r.turn;
   });
 
-  test("a reply that starts with a tool call is not long, whatever it says later (15.7.5)", async () => {
+  test("a reply that starts with a tool call is long on its own, whatever it says later (15.7.5)", async () => {
     let end = () => {};
     const r = room({
       during: (hooks) => { hooks.onBlockStart?.("tool_use"); hooks.onBlockEnd?.(); hooks.onBlockStart?.("text"); hooks.onDelta?.("[long] Done. "); },
@@ -905,9 +905,24 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
     }, { holdMusicAfterMs: AFTER }, { file });
     await r.mouth.music(() => true);
     const turn = r.c.turn("something slow");
-    await wait(AFTER * 3);
+    await until(() => r.tracks.length > 0);
+    expect(r.tracks).toHaveLength(1);
     expect(r.said).toEqual(["[long] Done."]);
-    expect(r.tracks).toHaveLength(0);
+    end();
+    await turn;
+  });
+
+  test("a tool call partway through a reply makes the rest of the turn long (15.7.5)", async () => {
+    let end = () => {};
+    const r = room({
+      during: (hooks) => { hooks.onDelta?.("Checking now. "); hooks.onBlockStart?.("tool_use"); hooks.onBlockEnd?.(); },
+      hold: new Promise<void>((resolve) => { end = resolve; }),
+    }, { holdMusicAfterMs: AFTER }, { file });
+    await r.mouth.music(() => true);
+    const turn = r.c.turn("something slow");
+    await until(() => r.tracks.length > 0);
+    expect(r.tracks).toHaveLength(1);
+    expect(r.said).toEqual(["Checking now."]);
     end();
     await turn;
   });
