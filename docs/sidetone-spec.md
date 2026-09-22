@@ -76,6 +76,8 @@ project bridge stays in place.
 
 4.3 LiveKit separates the control channel from the audio channel. Control events do not compete with audio frames.
 
+4.3.1 A note in the transcript is for something Chris must know and cannot see elsewhere. A change that a control or the status light already shows gets no note. The bridge writes it to the journal, and the app writes it to the screen log (17.12) as an event with no bubble. These are events: the audio cut and resumed (11.12), the microphone cut and opened by the button, the words that an interrupt left unspoken (11.10), a silent microphone and the rejoin (18.9), and where the screen log goes (14.11).
+
 4.4 LiveKit has a native Android SDK. The same transport, the same framework, and the same echo cancellation carry over from the web client to the Android app. The bridge does not change when the client changes.
 
 4.5 The speech engine is fully local on the desktop machine. This is not a default. This is a constraint. No part of the voice path goes to a cloud service, in any mode, at any time. Speech-to-text is local. Text-to-speech is local. Wake-word matching is local. This removes the per-use cost, keeps the audio private, and removes a network hop that a car connection would make slow.
@@ -290,7 +292,7 @@ project bridge stays in place.
 
 11.9.1 Interrupting stops the voice. It stops the turn only when the turn will not end by itself within a set time. An interrupt reaches a subagent and stops it, and the voice is silent either way, so the bridge waits before it insists.
 
-11.10 What the bridge did not say is kept for one turn. The client shows it, a command says it, and the agent is told where Chris stopped hearing, because the agent's own context holds the whole answer either way.
+11.10 What the bridge did not say is kept for one turn. The client already shows it, because the words reach the client ahead of the voice (14.7, 14.9), so the bridge adds no note (4.3.1). A command says it, and the agent is told where Chris stopped hearing, because the agent's own context holds the whole answer either way.
 
 11.11 The bridge speaks what the agent says between turns. Background work that finishes makes the agent answer without being asked, and that answer is news, so it is spoken over a held one.
 
@@ -378,13 +380,13 @@ project bridge stays in place.
 
 14.10.5 The bridge does not keep the message for the history (14.8). A client that joins while the agent works gets the state at the next heartbeat. The web client ignores the message.
 
-14.11 The client sends its screen log (17.12) to the bridge, and the bridge writes it to disk. The agent cannot see the phone, and the file lets it read what the app showed.
+14.11 The client sends its screen log (17.12) to the bridge as it grows, and the bridge appends it to disk. The agent cannot see the phone, and the file lets it read what the app showed.
 
-14.11.1 The `screen` message carries one part of the log. It has `id`, which names the log, `part`, which counts from 1, `of`, which is the number of parts, and `entries`, which is a list of entries. The app makes each part smaller than 12,000 bytes, because one data message is small.
+14.11.1 The `screen` message carries new entries of the log. It has `id`, which names the log, and `entries`, which is a list of entries. The app sends the entries it has not sent once a second, in messages smaller than 12,000 bytes, because one data message is small. While the app is out of the room, it keeps at most 2,000 unsent entries and drops the oldest. A message that fails goes again at the next second.
 
-14.11.2 The bridge collects the parts of one `id`. When it has all `of` parts, it writes the entries to `~/.sidetone/screen/<time>.jsonl`. It writes one entry on each line, in the order of the parts. The time is the time of writing, in UTC, with a hyphen in place of each colon. A part with a new `id` drops a log that is not whole.
+14.11.2 The bridge appends the entries to `~/.sidetone/screen/<id>.jsonl`, one entry on each line. The `id` is the time in milliseconds when the app started the log, so one conversation is one file, across reconnects. `~/.sidetone/screen/latest.jsonl` links to the file written last.
 
-14.11.3 The bridge writes one line to the journal when it writes the file. The line names the file and the number of lines. It sends the same line to the client as a note. It says in the same way when it drops a log, when a part is not readable, and when it cannot write the file.
+14.11.3 The bridge writes one line to the journal when a new `id` starts a file, and when a message is not readable or the file cannot be written. It sends no note (4.3.1).
 
 14.11.4 The bridge does not read the entries or act on them. The agent reads the file and needs no help from Chris. The web client does not send the message.
 
@@ -466,7 +468,7 @@ project bridge stays in place.
 
 17.9.1 The time of a live bubble is the time the phone got its first message. The words that follow do not change it. A bubble from the history (14.8) shows the time that the bridge kept it. For an answer, this is the end of the turn.
 
-17.10 The app has one button that cuts the audio. The button reads "Cut the audio". While the audio is cut, it reads "Audio off — tap to resume". The button sits above the volume slider.
+17.10 The app has one button that cuts the audio. The button reads "Cut the audio". While the audio is cut, it reads "Audio off — resume". It shares one row with the button that cuts the microphone, which reads "Cut the mic", and "Mic off — resume" while the microphone is cut. The row sits above the volume slider.
 
 17.10.1 On the tap, the app sets the gain of the remote audio track to zero at once. It does not wait for the bridge. Then it sends the `voice` message (11.12).
 
@@ -474,7 +476,7 @@ project bridge stays in place.
 
 17.10.3 A track that the bridge publishes while the audio is cut starts with a gain of zero.
 
-17.10.4 The app adds one note to the transcript for each change: "audio off" or "audio on".
+17.10.4 The app records each change as an event in the screen log, "audio off" or "audio on", and adds no note (4.3.1).
 
 17.11 The app shows a working sign in its status row, after the connection quality. The sign says that the agent works (14.10). It has three states.
 
@@ -507,7 +509,7 @@ project bridge stays in place.
 
 17.12.3 The log has a cap. It holds at most 500 entries and 200,000 characters of text. When it is over the cap, the app drops the oldest entries first. It always keeps the newest entry. One entry keeps at most 4,000 characters of `text`. A longer text keeps its last 4,000 characters.
 
-17.13 The app has a button "Send the screen log". It sits beside the button "End the turn", and it is enabled in the same cases. On the tap, the app sends the log to the bridge as `screen` messages (14.11.1). The bridge confirms with a note (14.11.3). If the app cannot send a part, it adds the note "the screen log was not sent". The log is not cleared by the tap.
+17.13 The app sends its screen log to the bridge by itself (14.11). It has no button for it.
 
 17.14 Chris can select the words of any bubble or note in the transcript, and copy them. A long press starts the selection. The copy gives the plain words, without the clock time. The typing box accepts a paste.
 
@@ -557,7 +559,7 @@ project bridge stays in place.
 
 18.9.1 The bridge finds the fault when the track carries no sound for 30 seconds. It also finds the fault when no audio arrives for 30 seconds though the phone says its microphone is open.
 
-18.9.2 When the bridge first finds the fault, it sends the phone one `rejoin` message. It sends no second message until the microphone has carried sound again. The bridge also says the fault in a note, as before.
+18.9.2 When the bridge first finds the fault, it sends the phone one `rejoin` message. It sends no second message until the microphone has carried sound again. The bridge writes the fault to the journal and sends no note (4.3.1). The app shows the rejoin in its status light: the light takes the tertiary colour and the word "rejoining" until the app is in the room again.
 
 18.9.3 The app leaves the room and joins it again when it gets the message. It opens the microphone again if the microphone was open.
 

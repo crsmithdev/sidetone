@@ -50,6 +50,9 @@ class Transcript(val log: ScreenLog = ScreenLog()) {
         log.record(now, "turn", turn.answer, null, turn.line.text, before, lines)
     }
 
+    /** 4.3.1 something the app records and does not show, such as a microphone cut. It is no line. */
+    fun onEvent(kind: String, text: String, now: Long) = log.add(Shown(now, kind, null, null, null, null, text))
+
     /** 17.11 the working sign changed. It is no line, so the entry has no bubble, and its text is the words of the sign. */
     fun onSign(sign: Sign, now: Long) = log.add(Shown(now, "working", null, null, null, null, signWord(sign)))
 

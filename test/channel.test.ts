@@ -51,11 +51,11 @@ describe("what a client is told (4.3, 14.7)", () => {
 });
 
 describe("what a client says about its screen (14.11)", () => {
-  test("a part of the screen log goes to the screen end, and what it says reaches the journal and the client as a note", () => {
+  test("screen log entries go to the screen end, and what it says reaches the journal only", () => {
     const { c, did, sent, journal } = channel();
-    c.receive({ kind: "screen", id: "a1", part: 1, of: 1, entries: [] });
+    c.receive({ kind: "screen", id: "a1", entries: [] });
     expect(did).toEqual(["screen a1"]);
-    expect(sent).toEqual([{ kind: "narration", text: "screen said" }]);
+    expect(sent).toEqual([]);
     expect(journal).toEqual(["[screen said]"]);
   });
 
@@ -114,11 +114,12 @@ describe("what a client sends (4.3)", () => {
     expect(did).toEqual(["microphone true"]);
   });
 
-  test("the audio off leaves the words, and says so where the words are", () => {
-    const { c, did, sent } = channel();
+  test("the audio off leaves the words, and says so in the journal only (4.3.1)", () => {
+    const { c, did, sent, journal } = channel();
     c.receive({ kind: "voice", on: false });
     expect(did).toEqual(["voice false"]);
-    expect(sent).toEqual([{ kind: "narration", text: "the audio is off; the words carry on in the transcript" }]);
+    expect(sent).toEqual([]);
+    expect(journal).toEqual(["[the audio is off; the words carry on in the transcript]"]);
   });
 
   test("the connection is said when it changes and not when it repeats", () => {
@@ -141,16 +142,17 @@ describe("what a client sends (4.3)", () => {
 
 describe("18 a microphone that stopped", () => {
   test("it is said once, and again only after the microphone came back", () => {
-    const { c, sent } = channel();
+    const { c, sent, journal } = channel();
     c.silence(null);
     c.silence({ kind: "no frames", ms: 30_000 });
     c.silence({ kind: "no frames", ms: 40_000 });
-    expect(sent.map((m) => m.kind)).toEqual(["narration", "rejoin"]);
-    expect(sent[0]).toMatchObject({ text: "no audio from the phone for 30s, though it says its microphone is open. Leave the room and rejoin to publish a new track" });
+    // 18.9.2 the client gets the rejoin and no note; the journal keeps the words
+    expect(sent.map((m) => m.kind)).toEqual(["rejoin"]);
+    expect(journal).toContain("[no audio from the phone for 30s, though it says its microphone is open. Leave the room and rejoin to publish a new track]");
     c.silence(null);
     c.silence({ kind: "silence", ms: 31_000 });
-    expect(sent.map((m) => m.kind)).toEqual(["narration", "rejoin", "narration", "rejoin"]);
-    expect(sent[2]).toMatchObject({ text: "the phone's microphone has carried no sound at all for 31s. Leave the room and rejoin to publish a new track" });
+    expect(sent.map((m) => m.kind)).toEqual(["rejoin", "rejoin"]);
+    expect(journal).toContain("[the phone's microphone has carried no sound at all for 31s. Leave the room and rejoin to publish a new track]");
   });
 
   test("18.9 the phone is asked to rejoin once, and the journal says so in one line", () => {

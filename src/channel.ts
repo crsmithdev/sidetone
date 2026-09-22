@@ -68,6 +68,11 @@ export class Channel {
     this.tell({ kind: "narration", text });
   }
 
+  /** What the bridge records and does not show: the journal only (4.3.1). */
+  journal(text: string): void {
+    this.say(`[${text}]`);
+  }
+
   /**
    * 4.3 a client that joins is told the words it has to say back, then what it
    * missed (14.8). 17.15 `apk` is the app the bridge serves, if it has one.
@@ -100,11 +105,13 @@ export class Channel {
     if (value.kind === "voice") {
       const on = value.on !== false;
       this.ends.voice(on);
-      this.narrate(on ? "the audio is on" : "the audio is off; the words carry on in the transcript");
+      // 4.3.1 the app shows its own state; the note said it a second time
+      this.journal(on ? "the audio is on" : "the audio is off; the words carry on in the transcript");
       return;
     }
     if (value.kind === "screen") {
-      for (const line of this.ends.screen(value)) this.narrate(line);
+      // 14.11 the log streams, so where it goes is the journal's business, not a note
+      for (const line of this.ends.screen(value)) this.journal(line);
       return;
     }
     // N.1.4 the phone's own reading of its uplink. It is the same signal this
@@ -137,7 +144,8 @@ export class Channel {
     const text = reading.kind === "no frames"
       ? `no audio from the phone for ${seconds}s, though it says its microphone is open`
       : `the phone's microphone has carried no sound at all for ${seconds}s`;
-    this.narrate(`${text}. Leave the room and rejoin to publish a new track`);
+    // 18.9.2 the app shows the rejoin in its status light
+    this.journal(`${text}. Leave the room and rejoin to publish a new track`);
     this.send({ kind: "rejoin" });
     this.say("[asked the phone to rejoin]");
   }

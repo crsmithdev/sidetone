@@ -230,7 +230,13 @@ private fun Conversation(state: Bridge.State, onLeave: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             val live = state.status == Bridge.Status.LISTENING
-            Box(Modifier.size(10.dp).background(if (live) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, CircleShape))
+            // 18.9 a rejoin shows in the light, not in a note
+            val light = when {
+                live -> MaterialTheme.colorScheme.primary
+                state.status == Bridge.Status.REJOINING -> MaterialTheme.colorScheme.tertiary
+                else -> MaterialTheme.colorScheme.outline
+            }
+            Box(Modifier.size(10.dp).background(light, CircleShape))
             Text(statusWord(state.status), style = MaterialTheme.typography.titleMedium)
             Text(state.quality ?: "—", color = MaterialTheme.colorScheme.onSurfaceVariant)
             WorkingSign(state.sign)
@@ -258,18 +264,17 @@ private fun Conversation(state: Bridge.State, onLeave: () -> Unit) {
             }
         }
         HoldToTalk(state)
-        Toggle(on = state.micOn, enabled = !state.holding, onClick = { Bridge.setMic(!state.micOn) }) {
-            Text(if (state.micOn) "Cut the microphone" else "Microphone off — tap to resume")
-        }
-        Toggle(on = state.audioOn, onClick = { Bridge.setAudio(!state.audioOn) }) {
-            Text(if (state.audioOn) "Cut the audio" else "Audio off — tap to resume")
+        // 17.10 the two cuts share one row
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Toggle(on = state.micOn, enabled = !state.holding, onClick = { Bridge.setMic(!state.micOn) }, modifier = Modifier.weight(1f)) {
+                Text(if (state.micOn) "Cut the mic" else "Mic off — resume")
+            }
+            Toggle(on = state.audioOn, onClick = { Bridge.setAudio(!state.audioOn) }, modifier = Modifier.weight(1f)) {
+                Text(if (state.audioOn) "Cut the audio" else "Audio off — resume")
+            }
         }
         VolumeSlider(state.volume)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = Bridge::endTurn, modifier = Modifier.weight(1f), enabled = state.endTurn != null) { Text("End the turn") }
-            // 17.13 the agent reads the file the bridge writes; the button needs the room, as the Stop button does
-            TextButton(onClick = Bridge::sendScreenLog, modifier = Modifier.weight(1f), enabled = state.endTurn != null) { Text("Send the screen log") }
-        }
+        OutlinedButton(onClick = Bridge::endTurn, modifier = Modifier.fillMaxWidth(), enabled = state.endTurn != null) { Text("End the turn") }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
                 value = draft,
@@ -291,7 +296,7 @@ private fun Conversation(state: Bridge.State, onLeave: () -> Unit) {
  * it takes the error container, so a cut shows at a glance.
  */
 @Composable
-private fun Toggle(on: Boolean, onClick: () -> Unit, enabled: Boolean = true, content: @Composable RowScope.() -> Unit) {
+private fun Toggle(on: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, content: @Composable RowScope.() -> Unit) {
     val colors = if (on) {
         ButtonDefaults.filledTonalButtonColors()
     } else {
@@ -300,7 +305,7 @@ private fun Toggle(on: Boolean, onClick: () -> Unit, enabled: Boolean = true, co
             contentColor = MaterialTheme.colorScheme.onErrorContainer,
         )
     }
-    FilledTonalButton(onClick = onClick, enabled = enabled, colors = colors, modifier = Modifier.fillMaxWidth(), content = content)
+    FilledTonalButton(onClick = onClick, enabled = enabled, colors = colors, modifier = modifier, content = content)
 }
 
 /** A problem with the connection, in the error container rather than loose red text. */
@@ -382,6 +387,7 @@ internal fun statusWord(status: Bridge.Status) = when (status) {
     Bridge.Status.IDLE, Bridge.Status.CONNECTING -> "connecting"
     Bridge.Status.LISTENING -> "listening"
     Bridge.Status.RECONNECTING -> "reconnecting"
+    Bridge.Status.REJOINING -> "rejoining"
     Bridge.Status.UNREACHABLE -> "disconnected"
 }
 

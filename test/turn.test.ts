@@ -445,11 +445,13 @@ describe("11.9 a question that lands mid-answer", () => {
     expect(r.channel.missed().some((entry) => entry.text === "what is the tallest one")).toBe(true);
   });
 
-  test("interrupting: what was not spoken reaches the client as text", async () => {
+  test("interrupting: what was not spoken is already on the client as text, and gets no note (11.10)", async () => {
     const r = await midAnswer({ interruptOnSpeech: true });
     await r.c.heard("what is the tallest one");
-    const notes = r.told.flatMap((value) => (value.kind === "narration" && value.text.startsWith("not spoken:") ? [value.text] : []));
-    expect(notes).toEqual(["not spoken: Two. Three."]);
+    expect(r.told.some((value) => value.kind === "narration" && value.text.startsWith("not spoken:"))).toBe(false);
+    const shown = r.told.flatMap((value) => (value.kind === "sentence" || value.kind === "delta" ? [value.text] : [])).join(" ");
+    expect(shown).toContain("Two.");
+    expect(shown).toContain("Three.");
   });
 
   test("carry on says the rest, once, without asking the agent again", async () => {

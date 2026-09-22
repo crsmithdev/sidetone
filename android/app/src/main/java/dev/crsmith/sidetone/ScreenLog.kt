@@ -60,7 +60,12 @@ fun Shown.toJson(zone: ZoneId = ZoneId.systemDefault()): JsonObject = buildJsonO
  * 17.12 what the app showed, in the order it showed it, and capped in size. It
  * holds changes, not the transcript: the transcript is `Bridge.State.lines`.
  */
-class ScreenLog(private val maxEntries: Int = SCREEN_MAX_ENTRIES, private val maxChars: Int = SCREEN_MAX_CHARS) {
+class ScreenLog(
+    private val maxEntries: Int = SCREEN_MAX_ENTRIES,
+    private val maxChars: Int = SCREEN_MAX_CHARS,
+    /** 14.11 hears of each entry as it is added, so it can go to the bridge. */
+    private val onAdd: (Shown) -> Unit = {},
+) {
     private val shown = ArrayDeque<Shown>()
     private var chars = 0
 
@@ -85,6 +90,7 @@ class ScreenLog(private val maxEntries: Int = SCREEN_MAX_ENTRIES, private val ma
     }
 
     fun add(entry: Shown) {
+        onAdd(entry)
         shown.addLast(entry)
         chars += entry.text.length + (entry.got?.length ?: 0)
         while (shown.size > 1 && (shown.size > maxEntries || chars > maxChars)) {
@@ -100,9 +106,8 @@ class ScreenLog(private val maxEntries: Int = SCREEN_MAX_ENTRIES, private val ma
 }
 
 /**
- * 14.11 the log as messages for the bridge, each of at most `limit` bytes,
- * because one data message is small. A log with no entries is one part with
- * none, so the bridge still writes a file that says the screen showed nothing.
+ * 14.11 entries as messages for the bridge, each of at most `limit` bytes,
+ * because one data message is small. The bridge appends each to the file of `id`.
  */
 fun screenParts(entries: List<Shown>, id: String, limit: Int = SCREEN_PART_BYTES, zone: ZoneId = ZoneId.systemDefault()): List<ByteArray> {
     val groups = mutableListOf(mutableListOf<JsonObject>())

@@ -208,7 +208,8 @@ export class Conversation {
     // the turn is no longer the one that owns the mouth, whatever becomes of it
     this.turnId++;
     const unspoken = this.mouth.discard().join(" ");
-    if (unspoken) this.channel.narrate(`not spoken: ${unspoken}`);
+    // 11.10 the bubbles already hold these words, so they are recorded and not shown again
+    if (unspoken) this.channel.journal(`not spoken: ${unspoken}`);
     const last = this.mouth.said.at(-1);
     const running = (this.running ?? Promise.resolve()).then(() => true, () => true);
     // Give it a moment to end by itself. An interrupt is what costs a subagent,

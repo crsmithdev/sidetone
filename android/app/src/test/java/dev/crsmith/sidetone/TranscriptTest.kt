@@ -96,4 +96,15 @@ class TranscriptTest {
         t.onSentence(Incoming.Sentence("Two.", 1), 2)
         assertEquals(listOf("Two."), t.lines.map { it.text })
     }
+
+    @Test
+    fun anEventIsLoggedAndStreamedButShowsNoLine() {
+        val streamed = mutableListOf<String>()
+        val t = Transcript(ScreenLog(onAdd = { streamed.add(it.kind) }))
+        t.onLines("heard", 1_000, Line(Line.Kind.YOU, "hello"))
+        t.onEvent("microphone", "microphone off", 2_000)
+        assertEquals(listOf("hello"), t.lines.map { it.text })
+        assertEquals(listOf("heard b=0 'hello'", "microphone b=null 'microphone off'"), t.entries().map { it.brief() })
+        assertEquals(listOf("heard", "microphone"), streamed)
+    }
 }

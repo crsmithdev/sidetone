@@ -504,20 +504,23 @@ started has no `pid` file and does not show.
 
 ### The screen log
 
-The app keeps a log of what it showed. The "Send the screen log" button sends
-it to the bridge, over the same LiveKit data channel as the rest. The bridge
-writes `~/.sidetone/screen/<time>.jsonl`, and the journal says so:
+The app keeps a log of what it showed, and sends each new entry to the bridge
+once a second, over the same LiveKit data channel as the rest. The bridge
+appends it to `~/.sidetone/screen/<id>.jsonl`, one file for each conversation,
+and `latest.jsonl` links to the newest. The journal says when a file starts:
 
 ```text
-[screen log written to /home/you/.sidetone/screen/2026-09-21T16-40-12.345Z.jsonl, 214 lines]
+[screen log at /home/you/.sidetone/screen/1790036106725.jsonl]
 ```
+
+The log also holds events that the screen does not show as notes, such as a
+microphone cut, an audio cut and a rejoin (spec 4.3.1).
 
 The file has one JSON entry on each line, oldest first (spec 17.12). Read the
 newest one, and read the last entry of a bubble to see what the screen held:
 
 ```bash
-f=$(ls -t ~/.sidetone/screen/*.jsonl | head -1)
-jq -c '{time, kind, answer, block, bubble, text}' "$f" | tail -20
+jq -c '{time, kind, answer, block, bubble, text}' ~/.sidetone/screen/latest.jsonl | tail -20
 jq -s 'group_by(.bubble) | map(last | {bubble, text})' "$f"
 ```
 
