@@ -392,3 +392,35 @@ where each feature happened to land.
 
 Done when there is a written review of this layer, the way the 22 September
 one covered the service, that Chris can read and decide what to act on.
+
+## 24. `/play` fights the agent's own speech and hold music
+
+Noted 22 September 2026. Low priority. Not started.
+
+Measured live on 22 September, playing Apple Music preview clips for Chris:
+`/play` (src/serve.ts:175-193) stops the track it is playing the moment
+`mouth.busy` or `transport.speaking` goes true, the same check that ends a
+track for a barge-in or the audio going off. Two ways this bit the agent
+today, not Chris directly, but it made the feature clumsy to drive:
+
+- The agent called `/play`, then kept talking in the same turn ("Playing it
+  now. That's Opus No. 1…"). Its own next sentence set `mouth.busy`, so the
+  track played for about one second and stopped. The log: `[playing
+  /tmp/preview-opus-no-1.m4a]` immediately followed by `[the track stopped]`.
+- The agent then tried `/play` again for a second track while still inside
+  one long tool-heavy turn. The turn's own length armed hold music (spec
+  15.7.5, and see item 17), and hold music plays through the same path
+  `/play` needs, so every attempt got `{"error":"the bridge is speaking or
+  playing"}` for about two minutes straight, until the agent stopped calling
+  tools and hold music cleared.
+
+The agent worked around both by going silent and hand-timing waits around
+the call, which is fragile and not something to rely on. Worth a cleaner way
+for the agent (or a client) to play a one-off file without it being at war
+with its own narration and hold music — maybe a queue instead of an
+immediate stop-on-busy, maybe a way to ask "is the mouth free" without
+guessing from silence.
+
+Done when the agent can play a file and say something about it in the same
+turn without one cutting the other short, and without a multi-minute retry
+loop to get a turn in edgewise.
