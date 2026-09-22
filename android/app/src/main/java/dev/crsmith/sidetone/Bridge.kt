@@ -83,6 +83,9 @@ object Bridge {
     private var workingOn = false
     private var workingAt = 0L
 
+    /** 17.17 whether the app is on the screen. [MainActivity] sets it. */
+    var inFront = false
+
     /** 14.7 and 17.12 the lines on the screen and the log of them. */
     private val transcript = Transcript()
 
@@ -206,13 +209,22 @@ object Bridge {
                 is Incoming.Delta -> show { it.onDelta(message, now()) }
                 is Incoming.BlockEnd -> Unit
                 is Incoming.Said -> when (message.line.kind) {
-                    Line.Kind.BRIDGE -> show { it.onTurn(message, now()) }
+                    Line.Kind.BRIDGE -> {
+                        show { it.onTurn(message, now()) }
+                        // 17.17.2 a reply the voice did not play
+                        if (!inFront && !_state.value.audioOn) Alerts.post(app, "Reply", message.line.text)
+                    }
                     Line.Kind.YOU -> append("heard", message.line)
                     Line.Kind.NOTE -> append("note", message.line)
                 }
                 is Incoming.Protocol -> {
                     _state.update { it.copy(endTurn = message.endTurn) }
                     offer(message.apk)
+                }
+                is Incoming.Announce -> {
+                    append("note", message.line)
+                    // 17.17.1 the voice says it too, but not to a phone in a pocket with the audio cut
+                    if (!inFront) Alerts.post(app, "Sidetone", message.line.text)
                 }
                 is Incoming.Rejoin -> rejoin(ended)
                 is Incoming.Working -> {

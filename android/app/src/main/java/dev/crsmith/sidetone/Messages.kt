@@ -39,6 +39,9 @@ sealed interface Incoming {
     /** 14.9 the block is complete. The app has nothing to do: the next block names itself. */
     data class BlockEnd(val answer: Int, val block: Int) : Incoming
 
+    /** 17.17 a line the bridge queued to say, such as the end of a job. The app notifies it when it is not in front. */
+    data class Announce(val line: Line) : Incoming
+
     /** 14.8 the turns that happened while this client was away. */
     data class History(val lines: List<Line>) : Incoming
 
@@ -90,6 +93,7 @@ fun decode(payload: ByteArray): Incoming? {
         val lines = turns.mapNotNull { (it as? JsonObject)?.let(::lineOf) }.filter { it.kind != Line.Kind.NOTE }
         return Incoming.History(lines)
     }
+    if (kind == "narration" && message.bool("announce") == true) return lineOf(message)?.let(Incoming::Announce)
     return lineOf(message)?.let { Incoming.Said(it, message.int("answer")) } ?: Incoming.Unknown(kind)
 }
 

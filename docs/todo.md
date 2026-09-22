@@ -160,35 +160,6 @@ and the status word on the screen (`RECONNECTING`, `UNREACHABLE` or
 
 Done when the service restarts and the app is listening again with no touch.
 
-## 10. Lock screen controls in the Android app
-
-Noted 21 September 2026. Not started.
-
-Chris wants controls on the Android lock screen. Today the app shows one
-low-importance notification while a conversation runs (`BridgeService.kt`), with
-no buttons and no media session. Add a media session, so the lock screen and
-the notification shade show the state and give the main controls. Chris has
-not chosen the buttons. The likely set is mute and unmute, and hold to talk.
-Ask before you build.
-
-Done when Chris can mute, unmute and see the state from the lock screen, with
-the phone locked.
-
-## 11. Notifications when the app is not in front
-
-Noted 21 September 2026. Not started.
-
-Chris wants the app to notify him when he is not looking at it, as the official
-Claude app does. The app already asks for `POST_NOTIFICATIONS` in
-`AndroidManifest.xml`, but it posts only the fixed service notification. Post a
-notification when a reply arrives, and when a background job ends (spec 14.10.4),
-while the app is not in front. Tapping it opens the chat. Ask Chris which
-events he wants before you build, and whether a reply that the voice already
-spoke needs a notification.
-
-Done when a reply or a finished job, with the app in the background, gives a
-notification that opens the app.
-
 ## 12. Format text in the phone app chat
 
 Noted 21 September 2026. Not started. Keep the selection of spec 17.14.

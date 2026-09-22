@@ -242,4 +242,23 @@ class MessagesTest {
         // the installed file could not be read, so there is nothing to compare
         assertNull(updateFor(null, apk))
     }
+
+    @Test
+    fun anAnnouncedNarrationIsAnAnnouncement() {
+        assertEquals(
+            Incoming.Announce(Line(Line.Kind.NOTE, "Job build finished.")),
+            decode(bytes("""{"kind":"narration","text":"Job build finished.","announce":true}""")),
+        )
+        // a plain narration stays a note
+        assertEquals(Incoming.Said(Line(Line.Kind.NOTE, "reading a file")), decode(bytes("""{"kind":"narration","text":"reading a file"}""")))
+    }
+
+    @Test
+    fun theNotificationSaysTheStateInOneLine() {
+        assertEquals("listening", stateLine(BridgeService.Shown(Bridge.Status.LISTENING, micOn = true, audioOn = true, inRoom = true, sign = Sign.OFF)))
+        assertEquals(
+            "listening · mic off · audio off · working",
+            stateLine(BridgeService.Shown(Bridge.Status.LISTENING, micOn = false, audioOn = false, inRoom = true, sign = Sign.WORKING)),
+        )
+    }
 }

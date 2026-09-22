@@ -72,7 +72,8 @@ export type Outgoing =
   | { kind: "blockStart"; answer: number; block: number }
   | { kind: "delta"; text: string; answer: number; block: number }
   | { kind: "blockEnd"; answer: number; block: number }
-  | { kind: "narration"; text: string }
+  /** 17.17 `announce` marks a line that `/say` queued, such as the end of a job; the app notifies it */
+  | { kind: "narration"; text: string; announce?: true }
   | { kind: "error"; text: string }
   | { kind: "history"; turns: Kept[] }
   | { kind: "rejoin" }

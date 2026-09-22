@@ -204,6 +204,8 @@ export async function serve(dir: string, config: Config): Promise<void> {
         if (!text) return Response.json({ error: "text must be a line to say" }, { status: 400 });
         console.log(`[to say when free: ${text}]`);
         mouth.announce(text, () => !conversation.busy);
+        // 17.17 the words go to the app at once, which notifies them when it is not in front
+        channel.tell({ kind: "narration", text, announce: true });
         return Response.json({ queued: text }, { status: 202 });
       }
       // 12.1 the boundary. Everything below here needs the code or a token.

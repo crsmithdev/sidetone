@@ -34,6 +34,11 @@
             android:exported="false"
             android:foregroundServiceType="microphone" />
 
+        <!-- 17.16 the buttons on the conversation notification -->
+        <receiver
+            android:name=".BridgeService$Controls"
+            android:exported="false" />
+
         <!-- download the scanner with the app, not on the first scan -->
         <meta-data
             android:name="com.google.mlkit.vision.DEPENDENCIES"

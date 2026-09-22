@@ -521,6 +521,20 @@ project bridge stays in place.
 
 17.15.4 A cancel or a failure adds a note to the transcript, and the button is available again. A success replaces the app and ends its process. Chris opens the app again.
 
+17.16 The notification of the foreground service (17.2) shows the state of the conversation and three buttons. It shows on the lock screen.
+
+17.16.1 The text is the status word, then what is cut, then the working sign (17.11), joined by " · ". An example is "listening · mic off · working".
+
+17.16.2 The buttons are "Mic off" or "Mic on", "Audio off" or "Audio on", and "End turn". Each does what the same control in the app does (9.5, 17.10, 9.4.8). "End turn" shows only while the app is in the room.
+
+17.16.3 The channel has default importance, with no sound and no vibration, so that the phone does not hide it as a silent notification. The notification alerts only once. It stays for as long as the conversation.
+
+17.17 The app posts an alerting notification for two events, while the app is not on the screen. A tap opens the app and clears the notification.
+
+17.17.1 A line that the bridge queued to say. A `/say` request (14.10.4) also sends the line to the client as a `narration` with `announce` set to true. The app shows it as a note, and notifies it. The end of a detached job is such a line.
+
+17.17.2 A reply that the voice did not play, because the audio is cut (17.10). The notification holds the words of the reply.
+
 ## 18. MEASUREMENTS TO MAKE
 
 18.1 No measurement blocks the build. Make each measurement during the build. Change a setting from Section 21 with the result.

@@ -93,6 +93,16 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        Bridge.inFront = true
+    }
+
+    override fun onStop() {
+        Bridge.inFront = false
+        super.onStop()
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         onInstallStatus(intent)
@@ -325,7 +335,7 @@ private fun WorkingSign(sign: Sign) {
     }
 }
 
-private fun statusWord(status: Bridge.Status) = when (status) {
+internal fun statusWord(status: Bridge.Status) = when (status) {
     Bridge.Status.IDLE, Bridge.Status.CONNECTING -> "connecting"
     Bridge.Status.LISTENING -> "listening"
     Bridge.Status.RECONNECTING -> "reconnecting"
