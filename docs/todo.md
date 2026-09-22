@@ -124,16 +124,6 @@ Look for cheaper ideas too, on the speech end: a shorter first sentence, or a
 kept line that plays while the first sentence is made. Measure each one with
 `kind: "answered"` in `~/.sidetone/record.jsonl`, not by ear.
 
-## 6. A quick design pass on the Android app
-
-Noted 21 September 2026. Not started.
-
-Chris wants a short polish pass, like the one the `impeccable` skill gives a
-web page. The app is native Jetpack Compose (`MainActivity.kt`), and
-`impeccable` is written for web front ends. Check first how much of it
-applies. If little, use its questions as a checklist by hand: spacing, type,
-colour, states, empty and error screens. Keep the pass small.
-
 ## 7. The app should reconnect when the bridge restarts
 
 Noted 21 September 2026. Not investigated yet.

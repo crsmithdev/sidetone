@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -36,11 +37,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -228,35 +230,45 @@ private fun Conversation(state: Bridge.State, onLeave: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             val live = state.status == Bridge.Status.LISTENING
-            Box(Modifier.size(10.dp).background(if (live) Color(0xFF3DDC84) else MaterialTheme.colorScheme.outline, CircleShape))
+            Box(Modifier.size(10.dp).background(if (live) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, CircleShape))
             Text(statusWord(state.status), style = MaterialTheme.typography.titleMedium)
             Text(state.quality ?: "—", color = MaterialTheme.colorScheme.onSurfaceVariant)
             WorkingSign(state.sign)
             Spacer(Modifier.weight(1f))
             TextButton(onClick = onLeave) { Text("Leave") }
         }
-        state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        state.error?.let { ErrorBanner(it) }
         // 17.15 only while the bridge serves an app that is not this one
         if (state.update != null) {
-            Button(onClick = Bridge::installUpdate, enabled = !state.updating, modifier = Modifier.fillMaxWidth()) {
+            FilledTonalButton(onClick = Bridge::installUpdate, enabled = !state.updating, modifier = Modifier.fillMaxWidth()) {
                 Text(if (state.updating) "Downloading the update…" else "Update the app")
             }
         }
-        LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = list, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(shown) { TranscriptLine(it) }
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            if (shown.isEmpty()) {
+                Text(
+                    "Nothing said yet.",
+                    modifier = Modifier.align(Alignment.Center),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            LazyColumn(Modifier.fillMaxSize(), state = list, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(shown) { TranscriptLine(it) }
+            }
         }
         HoldToTalk(state)
-        Button(onClick = { Bridge.setMic(!state.micOn) }, enabled = !state.holding, modifier = Modifier.fillMaxWidth()) {
+        Toggle(on = state.micOn, enabled = !state.holding, onClick = { Bridge.setMic(!state.micOn) }) {
             Text(if (state.micOn) "Cut the microphone" else "Microphone off — tap to resume")
         }
-        Button(onClick = { Bridge.setAudio(!state.audioOn) }, modifier = Modifier.fillMaxWidth()) {
+        Toggle(on = state.audioOn, onClick = { Bridge.setAudio(!state.audioOn) }) {
             Text(if (state.audioOn) "Cut the audio" else "Audio off — tap to resume")
         }
         VolumeSlider(state.volume)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = Bridge::endTurn, modifier = Modifier.weight(1f), enabled = state.endTurn != null) { Text("End the turn") }
             // 17.13 the agent reads the file the bridge writes; the button needs the room, as the Stop button does
-            OutlinedButton(onClick = Bridge::sendScreenLog, modifier = Modifier.weight(1f), enabled = state.endTurn != null) { Text("Send the screen log") }
+            TextButton(onClick = Bridge::sendScreenLog, modifier = Modifier.weight(1f), enabled = state.endTurn != null) { Text("Send the screen log") }
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
@@ -270,6 +282,37 @@ private fun Conversation(state: Bridge.State, onLeave: () -> Unit) {
             )
             Button(onClick = ::send) { Text("Send") }
         }
+    }
+}
+
+/**
+ * A button that cuts something (17.10). It is tonal while the thing is on, so
+ * the hold to talk button stays the one filled button. While the thing is cut,
+ * it takes the error container, so a cut shows at a glance.
+ */
+@Composable
+private fun Toggle(on: Boolean, onClick: () -> Unit, enabled: Boolean = true, content: @Composable RowScope.() -> Unit) {
+    val colors = if (on) {
+        ButtonDefaults.filledTonalButtonColors()
+    } else {
+        ButtonDefaults.filledTonalButtonColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer,
+            contentColor = MaterialTheme.colorScheme.onErrorContainer,
+        )
+    }
+    FilledTonalButton(onClick = onClick, enabled = enabled, colors = colors, modifier = Modifier.fillMaxWidth(), content = content)
+}
+
+/** A problem with the connection, in the error container rather than loose red text. */
+@Composable
+private fun ErrorBanner(text: String) {
+    Surface(color = MaterialTheme.colorScheme.errorContainer, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onErrorContainer,
+        )
     }
 }
 
@@ -358,18 +401,18 @@ private fun TranscriptLine(line: Line) {
         }
         Line.Kind.YOU, Line.Kind.BRIDGE -> {
             val you = line.kind == Line.Kind.YOU
-            val ink = if (you) colors.onPrimaryContainer else colors.onSurfaceVariant
+            val ink = if (you) colors.onPrimaryContainer else colors.onSurface
             Box(Modifier.fillMaxWidth(), contentAlignment = if (you) Alignment.CenterEnd else Alignment.CenterStart) {
                 Column(
                     modifier = Modifier
                         .widthIn(max = 320.dp)
-                        .background(if (you) colors.primaryContainer else colors.surfaceVariant, RoundedCornerShape(16.dp))
+                        .background(if (you) colors.primaryContainer else colors.surfaceContainerHigh, MaterialTheme.shapes.large)
                         .padding(horizontal = 14.dp, vertical = 10.dp),
                 ) {
                     SelectionContainer { Text(line.text.trim(), color = ink) }
                     // 17.9 the time the bubble began
                     line.at?.let {
-                        Text(clock(it), modifier = Modifier.align(Alignment.End), style = MaterialTheme.typography.labelSmall, color = ink.copy(alpha = 0.7f))
+                        Text(clock(it), modifier = Modifier.align(Alignment.End), style = MaterialTheme.typography.labelSmall, color = if (you) ink else colors.onSurfaceVariant)
                     }
                 }
             }
