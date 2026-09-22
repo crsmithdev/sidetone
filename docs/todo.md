@@ -453,3 +453,73 @@ state down.
 Done when there is a specific case, with timing and network state on
 record, enough to say from evidence rather than guess where the jump comes
 from.
+
+## 26. Automated coverage for a barge-in / echo-cancellation regression, before item 27
+
+Noted 22 September 2026. Not started. Must land before item 27.
+
+The volume-slider incident (item 1: "Shipped 21 September 2026, reverted 22
+September 2026") shipped a gain change that was never wrong in the server's
+own barge-in logic — it broke because real playback, on a real phone, was
+loud enough to defeat the phone's hardware echo cancellation, so the bridge
+heard itself and barged in on itself. That failure lives in the phone's
+audio hardware and Android's echo canceller, not in anything test/ exercises
+today.
+
+What already exists: test/ear.test.ts, test/audio.test.ts, test/turn.test.ts,
+test/mouth.test.ts and test/conversation.test.ts cover the server's own
+barge-in decision logic well, and architecture-review item 1 (queued,
+already running) is making that logic testable against the real object
+graph instead of hand-built copies. None of that catches a real acoustic
+feedback loop on a real device — that is a different category of test,
+closer to hardware-in-the-loop than a unit test.
+
+Chris wants a way to catch a regression like the volume-slider one in
+testing, before it ships, not on a live drive. Figure out what is realistic:
+a known-safe gain range asserted in a unit test, an Android instrumented
+test that plays a track and checks the mic does not just hear the speaker
+back unattenuated, or something else. This needs its own investigation; it
+is not obviously a small addition to the existing suite.
+
+Done when there is some automated check that would have caught the
+volume-slider incident before it shipped, or a clear written reason none is
+practical and what replaces it (for example, a mandatory device smoke test
+before any audio-path change ships).
+
+## 27. Decouple audio focus from echo cancellation, so the app stops holding priority over other audio
+
+Noted 22 September 2026. Blocked on item 26 landing first.
+
+Item 1's decision on 21 September was to keep call mode
+(`AudioManager.MODE_IN_COMMUNICATION`) rather than switch to a
+media-playback audio model, because call mode is what currently gives the
+app LiveKit's echo cancellation, which barge-in depends on (spec 4.2, 11.4).
+The cost of switching away was never scoped; it was rejected on the strength
+of that reasoning alone. Chris also wants this because call mode holds
+priority over other audio on the phone, which media playback would not.
+
+Quick research on 22 September found a narrower option than "call mode or
+hand-build a canceller." Echo cancellation on Android comes from the
+microphone's capture audio source (`VOICE_COMMUNICATION`), which is
+separate from `AudioManager`'s mode, the setting that makes the app act
+like a phone call and take over audio focus from everything else on the
+phone. Apps such as WhatsApp use the communication audio source for
+cancellation while handling focus more like an ordinary app. LiveKit's own
+Android SDK, already in use here, exposes this same separation:
+`AudioOptions.focusMode` and `disableCommunicationModeWorkaround` sit apart
+from its `echoCancellation` setting in `AudioCaptureOptions`. Neither is set
+today — `android/app/src/main/java/dev/crsmith/sidetone/Bridge.kt:178` sets
+only `echoCancellation = true`, `noiseSuppression = true` and
+`autoGainControl = true`. Two things to keep in mind regardless of what's
+chosen: the canceller only works if it can hear the assistant's own voice
+through the path it watches, and it needs a few seconds after starting to
+adapt.
+
+This does not remove the risk item 1 already lived through: even a small
+gain change inside call mode broke echo cancellation on a real device once.
+Changing the focus/mode setup is at least as likely to move that same
+failure mode around, which is why item 26 needs to land first.
+
+Done when the app holds audio focus more like an ordinary app rather than a
+phone call, without losing the echo cancellation barge-in depends on,
+verified by whatever item 26 puts in place plus a real drive test.
