@@ -424,3 +424,32 @@ guessing from silence.
 Done when the agent can play a file and say something about it in the same
 turn without one cutting the other short, and without a multi-minute retry
 loop to get a turn in edgewise.
+
+## 25. Playback volume sometimes jumps suddenly
+
+Noted 22 September 2026. Not investigated yet.
+
+Chris has heard the volume jump suddenly during playback, especially with
+hold music. He suspects it may be tied to delivery to the phone, latency or
+a connection issue, rather than the bridge itself, but is not sure.
+
+One thing narrows it a little: hold music's gain is set once, at decode
+time, not adjusted during playback (`Mouth` decodes the file once and
+applies the gain in that decode, spec 15.9; the `gain` argument of
+`wavFromFile` in src/audio.ts:69 is the only place a level is set). So a
+jump mid-playback is unlikely to be the bridge changing its own level on the
+fly; it more likely sits in the transport to the phone (the LiveKit/WebRTC
+path) or the phone's own audio handling. This may or may not share a cause
+with item 1 (the app ignoring the volume setting) — both sit in the same
+phone audio path, worth checking together rather than assuming they are one
+bug.
+
+Get a specific case on record: the time, what was playing (a sentence, a
+cue, hold music), and the status and quality shown on screen at that moment
+(spec 17.10, 17.11 — see item 16, reworking that same row). A screenshot
+from the new screenshot feature at the moment it happens would help pin the
+state down.
+
+Done when there is a specific case, with timing and network state on
+record, enough to say from evidence rather than guess where the jump comes
+from.
