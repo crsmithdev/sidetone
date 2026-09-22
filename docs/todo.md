@@ -481,10 +481,21 @@ test that plays a track and checks the mic does not just hear the speaker
 back unattenuated, or something else. This needs its own investigation; it
 is not obviously a small addition to the existing suite.
 
+Widen the pass before settling on that, though. Read back over the last
+couple days of session transcripts — `~/.claude/projects/-home-crsmi-sidetone/*.jsonl`,
+one file per session, roughly 20 September onward — for other friction that
+came up along the way: things that broke, surprised Chris, or took a
+work-around, the way the volume slider and the `/play` interruptions (item
+24) did. Use those to suggest other areas worth automated coverage, not only
+the echo-cancellation case. Say plainly what turned up and why each one
+would, or would not, have been caught by a test.
+
 Done when there is some automated check that would have caught the
 volume-slider incident before it shipped, or a clear written reason none is
 practical and what replaces it (for example, a mandatory device smoke test
-before any audio-path change ships).
+before any audio-path change ships); and when the transcript read-back has
+produced a short list of other testing gaps, if any turned up, for Chris to
+weigh separately.
 
 ## 27. Decouple audio focus from echo cancellation, so the app stops holding priority over other audio
 
