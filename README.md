@@ -13,33 +13,6 @@ model with a few tools.
 It is built for the car. The phone stays in the cradle, you talk, and the
 answer comes back as speech while the agent works.
 
-## What it does
-
-- **Speech stays local.** Transcription (faster-whisper) and speech synthesis
-  (Chatterbox, Kokoro or Piper) run on your GPU. No audio goes to a cloud
-  speech service.
-- **It speaks while the agent writes.** The reply is cut at sentence ends, and
-  each sentence is spoken while the next one is still being written.
-- **You can interrupt it.** Start to talk and the speech stops at once. What you
-  say next decides whether the rest of the answer resumes or is dropped.
-- **It does not go silent.** While a tool runs, the bridge says what the agent is
-  doing. Short tones say that it heard you, that it is working, or that it is
-  restarting.
-- **You can command the bridge itself.** Say the wake word "sidetone" and a
-  command: `mute`, `say again`, `summarize`, `recap`, `stats`, `end turn`,
-  `male voice`. The wake word is matched by sound, not by spelling, so
-  mis-transcriptions still land.
-- **Risky commands wait for a spoken "continue".** Clearing the context, or
-  letting a long turn run on, happens only after the agreement word. "Yes" is
-  not enough, because a reflex or a bad transcription must not approve anything.
-- **It looks after the agent process.** A supervisor restarts a Claude Code
-  process that dies, loops on compaction or leaks memory. A turn that runs for
-  ten minutes asks before it continues.
-- **Any project works.** Point it at a directory. The project's own
-  instructions file tells the agent what to do there.
-
-## How it works
-
 ```
  phone ── WebRTC (LiveKit) ──▶ bridge ── stream-json ──▶ claude
  mic, speaker, transcript      speech to text             one warm process
@@ -89,10 +62,35 @@ bun src/main.ts serve ~/some-project
 `serve` prints a pairing code and a QR code. Open the page on the phone and give
 it the code once.
 
-Piper is quick to set up and has one voice. The default engine is Chatterbox, which clones a
-voice from a short recording and needs an environment of its own. The
-[operating guide](docs/operating.md) gives its setup, and the setup for Kokoro,
-HTTPS, Tailscale, the Android app and the systemd units.
+Piper is quick to set up and has one voice. The default engine is Chatterbox,
+which clones a voice from a short recording and needs an environment of its
+own. The [operating guide](docs/operating.md) gives its setup, and the setup
+for Kokoro, HTTPS, Tailscale, the Android app and the systemd units.
+
+## What it does
+
+- **Speech stays local.** Transcription (faster-whisper) and speech synthesis
+  (Chatterbox, Kokoro or Piper) run on your GPU. No audio goes to a cloud
+  speech service.
+- **It speaks while the agent writes.** The reply is cut at sentence ends, and
+  each sentence is spoken while the next one is still being written.
+- **You can interrupt it.** Start to talk and the speech stops at once. What you
+  say next decides whether the rest of the answer resumes or is dropped.
+- **It does not go silent.** While a tool runs, the bridge says what the agent is
+  doing. Short tones say that it heard you, that it is working, or that it is
+  restarting.
+- **You can command the bridge itself.** Say the wake word "sidetone" and a
+  command: `mute`, `say again`, `summarize`, `recap`, `stats`, `end turn`,
+  `male voice`. The wake word is matched by sound, not by spelling, so
+  mis-transcriptions still land.
+- **Risky commands wait for a spoken "continue".** Clearing the context, or
+  letting a long turn run on, happens only after the agreement word. "Yes" is
+  not enough, because a reflex or a bad transcription must not approve anything.
+- **It looks after the agent process.** A supervisor restarts a Claude Code
+  process that dies, loops on compaction or leaks memory. A turn that runs for
+  ten minutes asks before it continues.
+- **Any project works.** Point it at a directory. The project's own
+  instructions file tells the agent what to do there.
 
 ## Configuration
 
@@ -105,10 +103,38 @@ No file is needed. To change a setting, put only that setting in
 
 `bun src/main.ts config` prints every setting and marks the ones you changed.
 
-## Status
+## When not to use it
 
-Sidetone is a personal project for one user and one machine. The text loop,
-the voice path, the web client and a side-loaded Android app all work. It is not packaged. Expect to read the operating guide.
+- You have no NVIDIA GPU on the machine. Both speech engines run locally, and
+  there is no cloud fallback.
+- You want an app to install. Sidetone is not packaged: it is a checkout, a
+  Python environment and a side-loaded Android app.
+- You want to watch a diff while it works. The bridge is voice only; the phone
+  shows a transcript, not the code.
+- You want several people, or several projects at once. One bridge keeps one
+  session in one directory.
+- You want it hosted. It runs on your machine, and reaching it from outside the
+  house is your own HTTPS or Tailscale problem.
+
+## Layout
+
+| Path | Holds |
+|---|---|
+| `src/` | the bridge: the agent loop, the sentence cutter, the wake word, the supervisor |
+| `speech/` | the Python workers for transcription and the voices |
+| `client/` | the web client the phone opens |
+| `android/` | the side-loaded Android app |
+| `deploy/`, `scripts/` | the systemd units and the operating scripts |
+| `test/` | the suite; no GPU, no audio |
+| `~/.sidetone/` | config, models and the pairing token |
+
+## Development
+
+```bash
+bun test                            # the whole suite; no GPU, no audio
+bun run typecheck
+SIDETONE_GPU=1 bun test speech.smoke   # the real engines, on the GPU
+```
 
 ## Documentation
 
@@ -120,13 +146,11 @@ the voice path, the web client and a side-loaded Android app all work. It is not
 | [`docs/adr/`](docs/adr) | the decisions and the reasons for them |
 | [`docs/next.md`](docs/next.md) | what is done, and what is not verified yet |
 
-## Development
+## Status
 
-```bash
-bun test                            # the whole suite; no GPU, no audio
-bun run typecheck
-SIDETONE_GPU=1 bun test speech.smoke   # the real engines, on the GPU
-```
+Sidetone is a personal project for one user and one machine. The text loop, the
+voice path, the web client and a side-loaded Android app all work. It is not
+packaged. Expect to read the operating guide.
 
 ## License
 
