@@ -175,3 +175,28 @@ each button keeps one label and shows its on/off state by color alone.
 
 Done when the row holds three buttons, one each for mic, audio and music,
 each with a fixed label and a color that shows its state.
+
+## 14. Make the cues click-like, atonal and quieter
+
+Noted 22 September 2026. Not started.
+
+`src/cues.ts` (spec 15) plays a short detuned sine-pair note for each of
+`heard`, `thinking` and `starting`. Chris wants a different character: closer
+to a click than a tone, more atonal, and quieter than today. Keep the three
+cues distinct from each other and audible over road noise (spec 15.4), the
+two constraints the current design was tuned against.
+
+Done when the three cues have the new character and still read as distinct
+over road noise.
+
+## 15. A gentle tone for hold-to-talk on and off
+
+Noted 22 September 2026. Not started.
+
+Hold-to-talk (`state.holding` in `Bridge.kt`, spec 9.5.1) has no cue today;
+only `heard`, `thinking` and `starting` play a sound (spec 15). Chris wants a
+very gentle tone when the hold starts and another when it releases, so the
+toggle is audible without looking at the screen.
+
+Done when starting and releasing hold-to-talk each play a distinct, gentle
+cue.
