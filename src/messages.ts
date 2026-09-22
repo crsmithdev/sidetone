@@ -44,8 +44,9 @@ export const INCOMING = {
  * with its audio off is still a whole conversation, read rather than heard. The
  * kind kept the name it had when the voice was all the audio there was.
  * `screen` is one part of the app's screen log (14.11); the bridge writes the log to disk.
+ * `screenshot` is one part of a screenshot from the phone (14.12); the bridge writes the image to disk.
  */
-export const OUTGOING = ["said", "mic", "quality", "voice", "screen"] as const;
+export const OUTGOING = ["said", "mic", "quality", "voice", "screen", "screenshot"] as const;
 
 /** 14.8 a line a returning client is given again: what Chris said and what was answered. */
 export type Kept =

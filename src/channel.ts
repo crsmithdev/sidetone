@@ -32,6 +32,8 @@ export interface Ends {
   quality(side: Side, quality: Quality): boolean;
   /** 14.11 one part of the phone's screen log; what to say about it, if anything */
   screen(part: Record<string, unknown>): string[];
+  /** 14.12 one part of a screenshot from the phone; what to say about it, if anything */
+  screenshot(part: Record<string, unknown>): string[];
 }
 
 /** The ear's reading of a dead microphone, as `Ear.silence` gives it. */
@@ -112,6 +114,11 @@ export class Channel {
     if (value.kind === "screen") {
       // 14.11 the log streams, so where it goes is the journal's business, not a note
       for (const line of this.ends.screen(value)) this.journal(line);
+      return;
+    }
+    if (value.kind === "screenshot") {
+      // 14.12 the same as the screen log: the journal, not a note
+      for (const line of this.ends.screenshot(value)) this.journal(line);
       return;
     }
     // N.1.4 the phone's own reading of its uplink. It is the same signal this

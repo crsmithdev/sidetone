@@ -42,7 +42,7 @@ What plays one sentence once the mouth has made it. The room's plays over LiveKi
 _Avoid_: the sink, the audio output.
 
 **The control channel**:
-The words between the bridge and a client, apart from the audio: what was heard, the words of an answer as the agent writes them, each sentence as it is known, a turn, a note, whether the agent works, the screen log, and what a returning client missed. One module owns its vocabulary in both directions.
+The words between the bridge and a client, apart from the audio: what was heard, the words of an answer as the agent writes them, each sentence as it is known, a turn, a note, whether the agent works, the screen log, a screenshot, and what a returning client missed. One module owns its vocabulary in both directions.
 _Avoid_: the data channel, the transcript feed, the messages.
 
 ### The conversation
@@ -120,6 +120,10 @@ _Avoid_: the spinner, the busy light, the status.
 **The screen log**:
 What the app showed, one entry for each change of a line on the screen, with the time and the exact text. A button in the app sends it to the bridge, which writes it to `~/.sidetone/screen/` for the agent to read.
 _Avoid_: the transcript (the transcript is the lines themselves), the log file, the record (the record is the bridge's own).
+
+**A screenshot**:
+The image Chris takes with the phone's own screenshot keys while the app is on the screen. The app sends it to the bridge, which writes it to `~/.sidetone/screenshots/`, with `latest.jpg` for the newest, for the agent to read.
+_Avoid_: a screen capture, a picture, the screen log (the screen log is text).
 
 **The microphone cut**:
 The client releases the recording device, so the phone's own indicator goes out. It is not a mute.

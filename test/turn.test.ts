@@ -110,7 +110,7 @@ function room(script: Script = {}, overrides: Partial<Config> = {}, music?: Musi
 }
 
 /** The channel's other end, which no test here drives. */
-const ends = { heard: async () => {}, microphone: () => {}, voice: () => {}, quality: () => false, screen: () => [] };
+const ends = { heard: async () => {}, microphone: () => {}, voice: () => {}, quality: () => false, screen: () => [], screenshot: () => [] };
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 

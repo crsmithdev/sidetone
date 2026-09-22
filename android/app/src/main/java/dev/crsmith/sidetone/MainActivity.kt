@@ -1,6 +1,7 @@
 package dev.crsmith.sidetone
 
 import android.Manifest
+import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageInstaller
 import android.content.pm.PackageManager
@@ -93,12 +94,17 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** 17.18 the system says that Chris took a screenshot of the app. It does not give the image. */
+    private val screenCapture = Activity.ScreenCaptureCallback { Bridge.sendScreenshot(System.currentTimeMillis()) }
+
     override fun onStart() {
         super.onStart()
         Bridge.inFront = true
+        registerScreenCaptureCallback(mainExecutor, screenCapture)
     }
 
     override fun onStop() {
+        unregisterScreenCaptureCallback(screenCapture)
         Bridge.inFront = false
         super.onStop()
     }
@@ -128,6 +134,8 @@ private val PERMISSIONS = arrayOf(
     Manifest.permission.RECORD_AUDIO,
     Manifest.permission.POST_NOTIFICATIONS,
     Manifest.permission.BLUETOOTH_CONNECT,
+    // 17.18 the screenshot is read from the phone's images
+    Manifest.permission.READ_MEDIA_IMAGES,
 )
 
 @Composable

@@ -211,5 +211,17 @@ object Outgoing {
         put("entries", JsonArray(entries))
     })
 
+    /**
+     * 14.12 one part of a screenshot, for the bridge to write to disk. `id` names the
+     * image, `part` counts from 1, `of` is how many parts there are, and `data` is a slice of its base64.
+     */
+    fun screenshot(id: String, part: Int, of: Int, data: String): ByteArray = encode(buildJsonObject {
+        put("kind", "screenshot")
+        put("id", id)
+        put("part", part)
+        put("of", of)
+        put("data", data)
+    })
+
     private fun encode(message: JsonObject): ByteArray = message.toString().encodeToByteArray()
 }

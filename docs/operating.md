@@ -531,6 +531,21 @@ after the change, and `got` is what the message carried. The log holds the last
 500 entries. It lives in the app process, so it is gone when Chris taps Leave
 or the phone ends the app.
 
+### The screenshot
+
+Take a screenshot with the power and volume-down keys while the app is on the
+screen. The app sends the image to the bridge over the same data channel, and
+the bridge writes it to `~/.sidetone/screenshots/<id>.jpg`. `latest.jpg` links
+to the newest. The journal says where each image goes:
+
+```text
+[screenshot at /home/you/.sidetone/screenshots/1790036106725.jpg]
+```
+
+The app needs the photos permission (spec 17.18). Without it, the app sends
+nothing and says nothing. Give it in the system settings of the app, under
+Permissions, Photos and videos, "Allow all".
+
 ### Reaching it from the phone
 
 Three things have to be true, and each one fails quietly on its own.

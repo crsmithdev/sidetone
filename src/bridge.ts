@@ -23,6 +23,7 @@ import type { Outgoing } from "./messages.ts";
 import { Mouth, keptLines, type Speaker } from "./mouth.ts";
 import { Recorder } from "./record.ts";
 import { Screens } from "./screen.ts";
+import { Screenshots } from "./screenshot.ts";
 import { LocalWhisper, SpokenAhead, textToSpeech, type TextToSpeech } from "./speech.ts";
 import { Working, jobsRunning } from "./working.ts";
 
@@ -75,6 +76,7 @@ export function assemble(
   });
 
   const screens = new Screens();
+  const screenshots = new Screenshots();
   const channel: Channel = new Channel(config, send, {
     heard: (text) => conversation.heard(text),
     // ADR 0008 a cut drops the half recording, and the hold with it, or nothing
@@ -85,6 +87,7 @@ export function assemble(
     voice: (on) => mouth.setAudio(on),
     quality: (side, quality) => conversation.network.saw(side, quality),
     screen: (part) => screens.receive(part),
+    screenshot: (part) => screenshots.receive(part),
   }, say);
 
   const conversation: Conversation = new Conversation(dir, config, mouth, channel, {

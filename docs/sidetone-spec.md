@@ -7,6 +7,7 @@ Date: 9 September 2026. Open points resolved. The narration hook of 7.1 is remov
 Blocks, bubbles and times (14.9, 17.8, 17.9) added 21 September 2026.
 The working sign and the screen log (14.10, 14.11, 17.11 to 17.13) added 21 September 2026.
 Text selection in the transcript (17.14) added 21 September 2026.
+The screenshot (14.12, 17.18) added 22 September 2026.
 
 This document is the complete specification for Sidetone. It
 includes the background, the settled design decisions, the reasoning behind
@@ -388,6 +389,18 @@ project bridge stays in place.
 
 14.11.4 The bridge does not read the entries or act on them. The agent reads the file and needs no help from Chris. The web client does not send the message.
 
+14.12 The client sends a screenshot (17.18) to the bridge, and the bridge writes it to disk. The agent cannot see the phone, and the file lets it see what Chris saw.
+
+14.12.1 The `screenshot` message carries one part of one image. It has `id`, which names the image, `part`, which counts from 1, `of`, which is how many parts there are, and `data`, which is a slice of the base64 of the JPEG. The app sends messages smaller than 12,000 bytes, as in 14.11.1. A slice is a multiple of 4 characters. The bridge accepts at most 200 parts for one image.
+
+14.12.2 The bridge keeps the parts of one image until it has all of them. It then writes the image to `~/.sidetone/screenshots/<id>.jpg`. The `id` is the time in milliseconds when the phone said that Chris took the screenshot. `~/.sidetone/screenshots/latest.jpg` links to the image written last, so the agent finds the newest image without its `id`.
+
+14.12.3 A part of a different image drops an image that is not whole. The app does not send a part again.
+
+14.12.4 The bridge writes one line to the journal for each image it writes, for an image that it drops, and when a message is not readable or the file cannot be written. It sends no note (4.3.1).
+
+14.12.5 The bridge does not read the image or act on it. Chris talks about the image as he does about anything else, and his words go into the transcript. The agent reads the file when the words ask for it. The web client does not send the message.
+
 ## 15. AUDIBLE STATE
 
 15.1 The bridge does not leave silence when it cannot answer. Silence is ambiguous.
@@ -530,6 +543,16 @@ project bridge stays in place.
 17.17.1 A line that the bridge queued to say. A `/say` request (14.10.4) also sends the line to the client as a `narration` with `announce` set to true. The app shows it as a note, and notifies it. The end of a detached job is such a line.
 
 17.17.2 A reply that the voice did not play, because the audio is cut (17.10). The notification holds the words of the reply.
+
+17.18 The app sends a screenshot to the bridge (14.12) when Chris takes one while the app is on the screen. Chris uses the system screenshot, with the power and volume-down keys. The app has no button for it.
+
+17.18.1 The system tells the app that a screenshot was taken of it, with `registerScreenCaptureCallback`. The system does not give the image. The app then reads the newest image in a `Screenshots` directory of the phone's images. It accepts only an image added at most 2 seconds before the system told it. The system can write the image late, so the app looks again every 500 ms, at most 10 times.
+
+17.18.2 The app makes the image smaller before it sends it. The longest edge is at most 1,080 pixels, and the JPEG quality is 70. A smaller image keeps its size.
+
+17.18.3 The app needs the permission to read images, READ_MEDIA_IMAGES. It asks for it with the other permissions when it opens. When Chris refuses it, or gives access to selected photos only, the app sends no screenshot and says nothing. Android stops the question after the second refusal.
+
+17.18.4 The app sends the image only while it is in the room. It does not keep an image for a later room.
 
 ## 18. MEASUREMENTS TO MAKE
 

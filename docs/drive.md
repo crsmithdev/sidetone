@@ -46,6 +46,7 @@ systemctl --user restart sidetone.service
 | the phone's screen | the app shows the answer word by word in one bubble for each block, with the clock time; the web page shows it a sentence at a time |
 | "working" beside the connection state, in the app | a slow pulse while a turn or a `scripts/job` job runs, with the audio cut too. Red "no signal" means the bridge sent nothing for 15 seconds while it said it worked. It is off when the agent is idle (spec 17.11) |
 | The screen log, sent by the app on its own | appends what the app showed to `~/.sidetone/screen/<id>.jsonl`, one file for each conversation. Read it with `jq -c '{time,kind,bubble,text}' ~/.sidetone/screen/latest.jsonl`. The journal has `screen log at` (spec 14.11, 17.12) |
+| a screenshot with the power and volume-down keys, with the app on the screen | the app sends the image; the bridge writes it to `~/.sidetone/screenshots/<id>.jpg`, and `latest.jpg` links to the newest. The journal has `screenshot at`. Say what it shows as usual (spec 14.12, 17.18) |
 | the journal, `begun at the tentative end` | the transcription started during the pause, so the round trip no longer waits for it |
 | the journal, `N false ends` on a `> ` line | a quiet of 400 ms that you then talked through. Each one is where a shorter pause would have cut you off; the total decides whether a turn detector is worth building |
 | swiping the app away | leaves the room; the bridge logs `[the room lost a microphone track]` |

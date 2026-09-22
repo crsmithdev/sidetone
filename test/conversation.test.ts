@@ -43,7 +43,7 @@ function mouthFor(overrides: Partial<Config> = {}) {
 
 /** A channel nobody is listening to: what a client is told is channel.test.ts's business. */
 function quiet(settings: Config = config): Channel {
-  return new Channel(settings, () => {}, { heard: async () => {}, microphone: () => {}, voice: () => {}, quality: () => false, screen: () => [] }, () => {});
+  return new Channel(settings, () => {}, { heard: async () => {}, microphone: () => {}, voice: () => {}, quality: () => false, screen: () => [], screenshot: () => [] }, () => {});
 }
 
 /** A conversation whose mouth keeps what it said, so a command can be checked. */

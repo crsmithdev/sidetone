@@ -1,7 +1,9 @@
 package dev.crsmith.sidetone
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.SystemClock
 import android.util.Log
 import io.livekit.android.LiveKit
@@ -97,6 +99,9 @@ object Bridge {
 
     /** 14.11 names the file the bridge appends this conversation's log to. */
     private var logId = System.currentTimeMillis().toString()
+
+    /** 14.12 one screenshot goes at a time, so the parts of two do not mix. */
+    private val screenshotLock = Mutex()
 
     /** 14.7 and 17.12 the lines on the screen and the log of them. */
     private val transcript = Transcript(ScreenLog(onAdd = { entry ->
@@ -396,6 +401,32 @@ object Bridge {
     private fun tell(room: Room, payload: ByteArray) {
         scope.launch {
             room.localParticipant.publishData(payload).onFailure { Log.w(TAG, "the bridge was not told", it) }
+        }
+    }
+
+    /**
+     * 17.18 Chris took a screenshot at `at`, in milliseconds, and the app was on the
+     * screen. Send the image to the bridge (14.12). Without the permission, the
+     * image or the room, nothing goes and nothing is said.
+     */
+    fun sendScreenshot(at: Long) {
+        if (app.checkSelfPermission(Manifest.permission.READ_MEDIA_IMAGES) != PackageManager.PERMISSION_GRANTED) return
+        scope.launch {
+            val jpeg = try {
+                newestScreenshot(app, at)
+            } catch (e: Exception) {
+                Log.w(TAG, "the screenshot was not read", e)
+                null
+            } ?: return@launch
+            screenshotLock.withLock {
+                for (part in screenshotParts(jpeg, at.toString())) {
+                    val room = room ?: return@launch
+                    if (room.localParticipant.publishData(part).isFailure) {
+                        Log.w(TAG, "the screenshot did not go")
+                        return@launch
+                    }
+                }
+            }
         }
     }
 

@@ -17,6 +17,7 @@ function channel(overrides: Partial<Config> = {}) {
     voice: (on) => { did.push(`voice ${on}`); },
     quality: (side, quality) => { did.push(`quality ${side} ${quality}`); return news; },
     screen: (part) => { did.push(`screen ${String(part.id)}`); return ["screen said"]; },
+    screenshot: (part) => { did.push(`screenshot ${String(part.id)}`); return ["screenshot said"]; },
   };
   const c = new Channel({ ...config, ...overrides }, (message) => sent.push(message), ends, (line) => journal.push(line));
   return { c, sent, journal, did, sameQuality: () => { news = false; } };
@@ -57,6 +58,14 @@ describe("what a client says about its screen (14.11)", () => {
     expect(did).toEqual(["screen a1"]);
     expect(sent).toEqual([]);
     expect(journal).toEqual(["[screen said]"]);
+  });
+
+  test("14.12 a part of a screenshot goes to the screenshot end, and what it says reaches the journal only", () => {
+    const { c, did, sent, journal } = channel();
+    c.receive({ kind: "screenshot", id: "a1", part: 1, of: 1, data: "" });
+    expect(did).toEqual(["screenshot a1"]);
+    expect(sent).toEqual([]);
+    expect(journal).toEqual(["[screenshot said]"]);
   });
 
   test("14.10 the working message is sent, and is not kept for a client that joins later", () => {
