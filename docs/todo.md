@@ -330,3 +330,65 @@ Done when hold music has more than one track to draw from, each used under
 terms Chris has actually confirmed rather than assumed, playback cycles
 between tracks instead of repeating one, and a track resumes from its last
 position instead of the start.
+
+## 21. A web dashboard for turns, timing and cost
+
+Noted 22 September 2026. Not started.
+
+Chris wants a web dashboard: as much as can be shown of turn timing, cost,
+and whatever else is useful for diagnostics, in one place he can look at
+rather than reading `~/.sidetone/record.jsonl` by hand or asking "sidetone,
+stats" out loud.
+
+Some of this already exists and mostly needs a front end. `/diagnostics`
+(src/serve.ts:146, backed by src/diagnostics.ts and src/measures.ts) already
+hands back a live summary, recent events and the settings in force —
+`docs/drive-tests-19-september.md` shows it read today with `curl`. But it
+only keeps a recent window; `~/.sidetone/record.jsonl` holds the same kinds
+of events (`heard`, `answered`, `spoke`, `barged`, `cutoff`, `session`,
+`setting`) persisted across sessions, which a dashboard covering real history
+would need to read as well.
+
+One gap: turn cost is tracked live per session (`Session.costUsd`, sent to
+clients in the `turn` message, src/session.ts) but is not currently written
+to `record.jsonl`, so a historical cost view needs that added first.
+
+Done when Chris can open a page and see turn timing and cost over time, not
+just the live recent window `/diagnostics` gives today.
+
+## 22. A desktop client
+
+Noted 22 September 2026. Lower priority. Not started.
+
+Chris wonders about an actual desktop client, alongside the phone app and
+the existing browser client in `client/`. Not scoped beyond that yet — worth
+finding out what a desktop client would give Chris that the browser client
+and the phone app do not, before building anything.
+
+Done when there is a clearer answer to what problem a desktop client solves,
+or it turns out the browser client already covers it.
+
+## 23. An architecture review of the delivery layer between the service and the app
+
+Noted 22 September 2026. Not started.
+
+The architecture review of 22 September (see items 1 through 5 of the
+"queue up" work already running, and docs/todo.md item 4 above) covered the
+service, `src/`. A later one is planned for the Android app. Chris wants a
+third pass, in between the two: how the service actually gets things to the
+app over the wire. Chunking, compression, message framing, and how
+consistently those are handled across the different things that get sent.
+
+Concretely this is at least: the screen log's chunking (`SCREEN_PART_BYTES`,
+android/app/src/main/java/dev/crsmith/sidetone/ScreenLog.kt) and the
+screenshot's (`Screenshot.kt`, `screenshotParts`), both against LiveKit's
+data channel, which carries messages of only about 12-15 KiB; whether
+anything is compressed before it goes out, given base64 alone inflates an
+image by about a third; and the reliability difference already on record
+from building the screenshot feature — the screen log keeps its entries and
+retries on a dropped part, a screenshot does not, one bad part just drops the
+whole image. Worth asking whether that difference is intentional or just
+where each feature happened to land.
+
+Done when there is a written review of this layer, the way the 22 September
+one covered the service, that Chris can read and decide what to act on.
