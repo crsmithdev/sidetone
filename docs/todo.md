@@ -32,16 +32,13 @@ Decision, 21 September 2026: do not change the audio type to media audio for
 now. It would leave call mode, and call mode gives the echo cancellation that
 barge-in needs (spec 4.2). Look for a fix that keeps call mode.
 
-Shipped 21 September 2026: an in-app volume slider (spec 4.2.1). It sets the
-gain of the bridge's audio track in the app, apart from the Android stream
-volume, so a floor in the Android stream does not limit it. It scales the
-voice, the cues and the hold music. The app keeps the position across
-restarts. It sits under the "Cut the audio" button. Nothing has run on a
-device.
-
-Remains: the volume control on the phone alone, in the car, and on the bridge
-machine. No one has measured these. The slider does not change them. Test each
-case with the slider at full, then decide whether a cause is left.
+Shipped 21 September 2026, reverted 22 September 2026: an in-app volume
+slider (spec 4.2.1) set the gain of the bridge's audio track in the app,
+apart from the Android stream volume. It shipped untested on a device; the
+first real run showed no audible effect and, worse, playback loud enough to
+defeat the phone's echo cancellation, so the bridge heard its own voice and
+barged in on itself. Reverted rather than tuned, since call mode's stock
+volume floor was never confirmed as the actual cause.
 
 Done when the voice follows the volume control on the phone alone, in the car,
 and on the bridge machine.

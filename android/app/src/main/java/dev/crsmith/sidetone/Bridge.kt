@@ -12,7 +12,6 @@ import io.livekit.android.events.collect
 import io.livekit.android.room.Room
 import io.livekit.android.room.track.LocalAudioTrack
 import io.livekit.android.room.track.LocalAudioTrackOptions
-import io.livekit.android.room.track.RemoteAudioTrack
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -49,8 +48,6 @@ object Bridge {
         val holding: Boolean = false,
         /** 11.12 whether the bridge makes any sound, or only writes its answers. */
         val audioOn: Boolean = true,
-        /** 4.2.1 the playback slider, 0 to 1. It survives [leave] and a refused pairing. */
-        val volume: Float = 1f,
         /** 9.4.8 what the Stop button says, as the bridge gave it. */
         val endTurn: String? = null,
         /** 17.11 whether the bridge says the agent works. It is shown whatever the audio does. */
@@ -82,7 +79,6 @@ object Bridge {
     private val micLock = Mutex()
     private lateinit var app: Context
     private lateinit var store: CredentialStore
-    private lateinit var volumeStore: VolumeStore
     private var session: Job? = null
     private var room: Room? = null
     private var mic: LocalAudioTrack? = null
@@ -112,8 +108,7 @@ object Bridge {
         if (::store.isInitialized) return
         app = context.applicationContext
         store = CredentialStore(context.applicationContext)
-        volumeStore = VolumeStore(context.applicationContext)
-        _state.update { it.copy(paired = store.load() != null, volume = volumeStore.load()) }
+        _state.update { it.copy(paired = store.load() != null) }
     }
 
     suspend fun pairWith(link: Link) {
@@ -138,7 +133,7 @@ object Bridge {
                     store.clear()
                     stop(app)
                     reset()
-                    _state.update { State(volume = it.volume, error = "The bridge refused the saved pairing ($reason). Scan the code again.") }
+                    _state.value = State(error = "The bridge refused the saved pairing ($reason). Scan the code again.")
                     return@launch
                 }
                 _state.update { it.copy(status = Status.UNREACHABLE, error = "Cannot reach the bridge: $reason. Retrying.") }
@@ -150,7 +145,7 @@ object Bridge {
     fun leave(context: Context) {
         stop(context.applicationContext)
         reset()
-        _state.update { State(paired = store.load() != null, volume = it.volume) }
+        _state.value = State(paired = store.load() != null)
     }
 
     /** A conversation that ended has no lines, no log and no work to show. */
@@ -217,8 +212,6 @@ object Bridge {
         when (event) {
             is RoomEvent.Reconnecting -> _state.update { it.copy(status = Status.RECONNECTING) }
             is RoomEvent.Reconnected -> _state.update { it.copy(status = Status.LISTENING) }
-            // 4.2.1 a track the bridge publishes later, or again, starts at the level in force
-            is RoomEvent.TrackSubscribed -> (event.track as? RemoteAudioTrack)?.setVolume(currentGain())
             is RoomEvent.Disconnected -> ended.complete(event.error?.message ?: reasonWord(event.reason))
             // N.1.4 the phone reads its own uplink and tells the bridge
             is RoomEvent.ConnectionQualityChanged -> {
@@ -332,39 +325,13 @@ object Bridge {
      * 17.10 cut the bridge's audio, without stopping the conversation. The
      * transcript is a data message and never went down the audio path, so the
      * words carry on arriving and only the sound goes.
-     *
-     * The gain goes first, so the sound stops on the tap and does not wait for
-     * the bridge to hear the message and stop.
      */
     fun setAudio(on: Boolean) {
         if (_state.value.audioOn == on) return
         _state.update { it.copy(audioOn = on) }
         val room = room ?: return
-        applyGain(room)
         tell(room, Outgoing.audio(on))
         record("audio", if (on) "audio on" else "audio off")
-    }
-
-    /**
-     * 4.2.1 the level of everything the bridge sends, apart from the Android
-     * stream volume. The bridge sends one audio track for the voice, the cues
-     * and the hold music, so one gain on that track scales all three. While
-     * the audio is cut (17.10) the slider moves and the gain stays at zero.
-     */
-    fun setVolume(level: Float) {
-        val clamped = level.coerceIn(0f, 1f)
-        _state.update { it.copy(volume = clamped) }
-        volumeStore.save(clamped)
-        room?.let(::applyGain)
-    }
-
-    private fun currentGain(): Double = outputGain(_state.value.volume, _state.value.audioOn)
-
-    private fun applyGain(room: Room) {
-        val gain = currentGain()
-        room.remoteParticipants.values.forEach { participant ->
-            participant.audioTrackPublications.forEach { (_, track) -> (track as? RemoteAudioTrack)?.setVolume(gain) }
-        }
     }
 
     /** 17.15 show the update when the bridge serves an app that is not this one. */

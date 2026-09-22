@@ -72,8 +72,6 @@ project bridge stays in place.
 
 4.2 LiveKit gives the echo cancellation at the framework level, across the browser and the native app. The bridge does not build its own echo cancellation.
 
-4.2.1 The app has a volume slider. The slider sets the gain of the remote audio track in the app. It is independent of the Android stream volume, which has a minimum in call mode (`MODE_IN_COMMUNICATION`). The app stays in call mode, because call mode gives the echo cancellation of 4.2. The gain scales all sound from the bridge: the voice, the cues and the hold music. The full slider is the level the bridge sends. The gain is the square of the slider position. The app keeps the position on the phone across restarts. The bridge does not know the position. The audio cut (17.10) overrides the gain.
-
 4.3 LiveKit separates the control channel from the audio channel. Control events do not compete with audio frames.
 
 4.3.1 A note in the transcript is for something Chris must know and cannot see elsewhere. A change that a control or the status light already shows gets no note. The bridge writes it to the journal, and the app writes it to the screen log (17.12) as an event with no bubble. These are events: the audio cut and resumed (11.12), the microphone cut and opened by the button, the words that an interrupt left unspoken (11.10), a silent microphone and the rejoin (18.9), and where the screen log goes (14.11).
@@ -468,15 +466,11 @@ project bridge stays in place.
 
 17.9.1 The time of a live bubble is the time the phone got its first message. The words that follow do not change it. A bubble from the history (14.8) shows the time that the bridge kept it. For an answer, this is the end of the turn.
 
-17.10 The app has one button that cuts the audio. The button reads "Cut the audio". While the audio is cut, it reads "Audio off — resume". It shares one row with the button that cuts the microphone, which reads "Cut the mic", and "Mic off — resume" while the microphone is cut. The row sits above the volume slider.
+17.10 The app has one button that cuts the audio. The button reads "Cut the audio". While the audio is cut, it reads "Audio off — resume". It shares one row with the button that cuts the microphone, which reads "Cut the mic", and "Mic off — resume" while the microphone is cut.
 
-17.10.1 On the tap, the app sets the gain of the remote audio track to zero at once. It does not wait for the bridge. Then it sends the `voice` message (11.12).
+17.10.1 On the tap, the app sends the `voice` message (11.12). The bridge stops the sentence in flight and the hold music at once (11.12.2).
 
-17.10.2 The cut is separate from the volume slider (4.2.1). While the audio is cut, the gain is zero, whatever the slider says. A move of the slider changes the saved position and not the gain. On resume, the gain returns to the level of the slider.
-
-17.10.3 A track that the bridge publishes while the audio is cut starts with a gain of zero.
-
-17.10.4 The app records each change as an event in the screen log, "audio off" or "audio on", and adds no note (4.3.1).
+17.10.2 The app records each change as an event in the screen log, "audio off" or "audio on", and adds no note (4.3.1).
 
 17.11 The app shows a working sign in its status row, after the connection quality. The sign says that the agent works (14.10). It has three states.
 

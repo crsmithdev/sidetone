@@ -46,7 +46,6 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -72,7 +71,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
-import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -273,7 +271,6 @@ private fun Conversation(state: Bridge.State, onLeave: () -> Unit) {
                 Text(if (state.audioOn) "Cut the audio" else "Audio off — resume")
             }
         }
-        VolumeSlider(state.volume)
         OutlinedButton(onClick = Bridge::endTurn, modifier = Modifier.fillMaxWidth(), enabled = state.endTurn != null) { Text("End the turn") }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
@@ -341,20 +338,6 @@ private fun HoldToTalk(state: Bridge.State) {
         interactionSource = source,
     ) {
         Text(if (state.holding) "Listening — let go to send" else "Hold to talk", style = MaterialTheme.typography.titleLarge)
-    }
-}
-
-/**
- * 4.2.1 the playback level of the bridge's audio in the app. It sits under the
- * audio button, in reach of the thumb, in a row 56 dp tall for a car. Android's
- * own volume has a floor in call mode; this has none.
- */
-@Composable
-private fun VolumeSlider(volume: Float) {
-    Row(Modifier.fillMaxWidth().height(56.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Volume", style = MaterialTheme.typography.titleMedium)
-        Slider(value = volume, onValueChange = Bridge::setVolume, modifier = Modifier.weight(1f))
-        Text("${(volume * 100).roundToInt()}%", modifier = Modifier.widthIn(min = 44.dp), style = MaterialTheme.typography.titleMedium)
     }
 }
 
