@@ -271,3 +271,27 @@ hold-to-talk tones of item 15.
 
 Done when a click or quiet tone plays exactly once, at the true end of a
 turn's speech, and never between sentences of the same turn.
+
+## 19. Highlight the chat text as it is actually spoken
+
+Noted 22 September 2026. Not investigated yet.
+
+The official Claude app shows upcoming text greyed out, then brings each
+part to full weight as the words are actually spoken, so the reading eye can
+follow the voice. Chris wants something like that here, even if it only
+works sentence by sentence rather than word by word.
+
+The chat bubble already shows a sentence as soon as it is known, ahead of the
+voice (the `sentence` message, src/messages.ts:66, spec 14.7) — that is the
+greyed-out part, more or less, already. What is missing is a signal for when
+a given sentence actually starts playing, so the app can light it up at the
+right moment rather than as soon as it arrives. `Mouth` already tracks this
+server-side: whether a sentence is playing, and which sentences Chris has
+heard this turn, whole, in order (src/mouth.ts:196, :200). The research is
+mostly in whether to send that as a new message kind, how it survives a
+barge-in or a hold, and how MainActivity.kt's `TranscriptLine` (item 12
+touches the same composable) renders a bubble that is partly lit and partly
+not without fighting the formatting item 12 is adding.
+
+Done when a bubble's text visibly lights up in step with the voice, at least
+sentence by sentence, and stays correct through a barge-in and a hold.
