@@ -534,3 +534,30 @@ failure mode around, which is why item 26 needs to land first.
 Done when the app holds audio focus more like an ordinary app rather than a
 phone call, without losing the echo cancellation barge-in depends on,
 verified by whatever item 26 puts in place plus a real drive test.
+
+## 28. A proper options menu in the Android app
+
+Noted 22 September 2026. Not started.
+
+Today the only way to change a setting is a voice command (spec 9, e.g.
+"music on"/"music off") or editing the config file on the bridge machine by
+hand. There is no settings screen in the app — MainActivity.kt has the
+button row (item 13), the transcript, the text field and the End the turn
+button, and nothing else. Chris wants a real options menu.
+
+`src/config.ts`'s `IN_FORCE` list (config.ts:359-367) is every setting that
+is already live-changeable and persists across restarts: hold music on/off,
+its volume and its delay, cue volume, the TTS voice and engine, the wake
+word, and a run of other tuning knobs besides (barge-in timing, speech
+thresholds, chatterbox parameters). That whole list is not the menu — most
+of it is internal tuning, not something Chris asks for from his phone. Start
+from what he named, hold music volume and "things like that," and work out
+with him which of the rest, if any, belong in a phone menu versus staying
+voice-only or config-file-only.
+
+This also gives item 20 (more hold music tracks, cycling) a natural home,
+rather than another one-off control bolted onto the main screen.
+
+Done when there is a settings screen in the app, reachable from the main
+screen, that can change at least hold music's volume, and Chris has said
+which other settings belong there.
