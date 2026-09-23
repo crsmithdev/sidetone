@@ -945,3 +945,35 @@ send order, a lost or repeated chunk, or the way the app joins the chunks.
 
 Done when a bubble on a weak link shows the words in the order the bridge sent
 them, or a report says why it cannot.
+
+## 44. Change more settings without a rebuild or a restart
+
+Noted 23 September 2026. Not started.
+
+Chris tries a setting such as the hardware or software echo canceller by
+building a new app, installing it and restarting the bridge. Each try costs
+minutes, and it made the build in the room hard to know (item 42).
+
+Move as many settings as possible out of the code and into values that change
+while the app and the bridge run. Some changes will always need a build or a
+restart, such as a new permission or a new engine. The aim is that the common
+ones do not.
+
+Two ways to change a setting:
+
+- From the bridge to the phone. The agent or a script sends a settings message
+  and the app applies it at once, or at the next room join. Candidates: the
+  echo canceller (hardware or software), the audio mode and focus, the noise
+  suppression and gain, and the volume gates.
+- From the phone to the bridge. The options menu (item 28) sends a setting and
+  the bridge applies it without a restart. Candidates: the thresholds
+  `minSpeechPeak` and `bargeInLevel`, the pause length, the voice, the echo
+  drop of item 1 of the echo research, and the hold music.
+
+Start with a list of every setting in `Audio.kt`, `Bridge.kt`, and the bridge
+config, and mark each one as fixed, applied at join, or applied at once. Reuse
+the settings message and the config file that exist now; add no new channel.
+
+Done when Chris switches the echo canceller and one bridge threshold from a
+menu or a command, and the next turn uses the new value with no build and no
+restart.
