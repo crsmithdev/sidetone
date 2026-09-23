@@ -586,3 +586,32 @@ with the live engine's output. Play one by itself, and play it through the room.
 
 Done when the pre-rendered replies sound the same as a fresh reply, or a
 written reason says why they cannot.
+
+## 33. Let the agent hear the audio it sent
+
+Noted 23 September 2026. Not started.
+
+The agent cannot hear its own voice. On 23 September Chris reported garbled
+replies (item 32). He also reports that regular speech comes out garbled now and
+then, and no cause is known. The agent could only read the record, and the
+record holds text and timings, not sound.
+
+Keep the audio of the last few replies, so the agent can inspect it. Two parts:
+
+1. Keep a bounded set of the most recent outgoing clips on disk, with the text
+   each clip was made from, the time, and whether it came from a stored clip or
+   fresh synthesis. Delete the oldest first.
+2. Give the agent a way to check a clip: transcribe it with the speech worker
+   and compare the result with the source text. A large difference marks a
+   garbled clip. Also report the length, the sample rate and the peak.
+
+Limit: a copy taken in the bridge does not show a fault that starts later, in
+the network, the room or the phone's decoder. If the copy is clean and Chris
+still hears garbling, the fault is after the bridge. A second copy taken on the
+phone would then be needed.
+
+Decide how many clips to keep, and whether the copy is opt-in, since it stores
+speech.
+
+Done when the agent can name the last clips, run the check on one, and say
+whether a garbled reply was garbled at the bridge.
