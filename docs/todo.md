@@ -314,6 +314,38 @@ and the phone app do not, before building anything.
 Done when there is a clearer answer to what problem a desktop client solves,
 or it turns out the browser client already covers it.
 
+Discussed 23 September 2026. Two separate problems:
+
+1. The desktop client. A laptop joins the same LiveKit room as the phone, with
+   a microphone, a speaker and the transcript. The web page may already do most
+   of this. Chris prefers this kind of interface and wants it on the desktop.
+2. Work across several projects. The bridge has one voice, so one project
+   speaks live at a time. Proposed rule: a current project, and the wake command
+   "sidetone, switch to <project>". The other projects keep working. Their news
+   waits until the current turn ends, as "Job finished" does now. Each project
+   has its own conversation, working directory and permission mode.
+
+Route, tested 23 September 2026: the bridge session can already list and message
+the other Claude sessions on this machine (`ListAgents`, `SendMessage`), named
+after their repos. Remote Control is not needed.
+
+- An idle session in "prompting" mode answered a message at once, and sent the
+  idle notice afterwards.
+- A session that ran a background command received a second message while it
+  ran, and answered both in order.
+- Not tested: a session in the middle of a long model turn, a session that waits
+  on a permission prompt, and a session in a stricter permission mode. Such a
+  session can hold the message for its user to approve.
+- Several sessions can exist for one repo, for example `sidetone-05`,
+  `sidetone-77` and `sidetone-3b`. Each is a separate address. The switch needs
+  a rule: the most recently active one, or the one Chris names.
+- Replies come back as messages. The bridge does not see the other session's
+  screen.
+
+Open: whether the bridge attaches to sessions that Chris opened himself, or
+starts one for each repo. The first is more flexible and depends on the tests
+that are not yet done.
+
 ## 26. Automated coverage for a barge-in / echo-cancellation regression, before item 27
 
 Noted 22 September 2026. Not started. Must land before item 27.
