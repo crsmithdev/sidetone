@@ -928,3 +928,20 @@ show it in its menu.
 
 Done when the journal line for a joining client names its build, and "sidetone,
 stats" or the record says whether it is the build the bridge serves now.
+
+## 43. Words in a chat bubble arrive scrambled on a bad connection
+
+Noted 23 September 2026. Not started.
+
+At 16:33 on a weak link, the phone showed a bubble with words out of order and
+words cut in half. One example: "but it Dropping such only logs it. a turn".
+Another: "canran, perio route celler and aud connection". The bridge journal holds
+the same text intact, so the damage happens between the bridge and the app.
+
+The screenshot is `~/.sidetone/screenshots/1790206414025.jpg`. The screen log
+for the conversation is in `~/.sidetone/screen/`. Compare what the app showed
+with what the bridge sent for that turn, and find where the words break: the
+send order, a lost or repeated chunk, or the way the app joins the chunks.
+
+Done when a bubble on a weak link shows the words in the order the bridge sent
+them, or a report says why it cannot.
