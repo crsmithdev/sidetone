@@ -284,6 +284,17 @@ terms Chris has actually confirmed rather than assumed, playback cycles
 between tracks instead of repeating one, and a track resumes from its last
 position instead of the start.
 
+Decided 23 September 2026:
+
+- The licensing part is closed. Chris buys the tracks he uses.
+- The bridge reads a folder. Every audio file in `~/.sidetone/hold/` is a
+  track, so a new track needs no settings edit. `holdMusicFile` goes.
+- The order is by file name, and wraps around at the end.
+- The position of each track is kept in the memory of the bridge only. A restart
+  starts every track from the beginning.
+- A track resumes two seconds before where it stopped.
+- Chris brings the tracks later on 23 September 2026.
+
 ## 21. A web dashboard for turns, timing and cost
 
 Noted 22 September 2026. Not started.
@@ -518,8 +529,9 @@ which other settings belong there.
 Decided 23 September 2026: the menu holds the verbosity selector (item 37), the
 tones switch, and a volume control for the hold music. The voice choice and the
 audio switch stay as they are, because each already has a command or a button.
-The hold music volume needs its own setting on the bridge; check first whether
-one exists. It sits beside item 1, the volume the app ignores.
+The hold music volume is the existing `holdMusicGain` setting (0.4), so the
+slider needs no new setting on the bridge. It sits beside item 1, the volume
+the app ignores.
 
 Decided 23 September 2026: the menu also holds the "Leave" button, moved from
 the status row (item 30). It still quits the app. It may go away after item 27.
