@@ -777,9 +777,22 @@ and the double status is found or shown not to exist.
 
 ## 39. The app sends no crash report, and nobody has checked it for stability
 
-Noted 23 September 2026. Not started.
+Noted 23 September 2026. Part 1 built on branch `crash-report`, not landed and
+not tried on the phone. Part 2 investigated in
+`~/.sidetone/findings/stability-39b.md`; no fix made.
 
-The app has no crash handler. After a crash, Chris sees a closed app and the
+Built (spec 14.14, 17.20): an uncaught-exception handler in the app writes
+the time, the thread, the stack trace and the app state to a file in the
+app's storage, and lets the crash go on. After the next connect, the app
+sends each file as one `crash` message and deletes it when the send
+succeeds. The bridge writes `~/.sidetone/crashes/<id>.txt` and logs
+`crash report at`.
+
+Not built: a report of a native crash or an ANR. The findings recommend
+`getHistoricalProcessExitReasons` on each launch for these. Not done: the
+forced crash on the phone that the done line below asks for.
+
+Before this, the app had no crash handler. After a crash, Chris sees a closed app and the
 agent sees nothing. The screen log shows what the app displayed, but not why
 it stopped.
 

@@ -39,6 +39,8 @@ export interface Ends {
   screen(part: Record<string, unknown>): string[];
   /** 14.12 one part of a screenshot from the phone; what to say about it, if anything */
   screenshot(part: Record<string, unknown>): string[];
+  /** 14.14 a crash report from the phone; what to say about it */
+  crash(report: Record<string, unknown>): string;
 }
 
 /** The ear's reading of a dead microphone, as `Ear.silence` gives it. */
@@ -150,6 +152,11 @@ export class Channel {
     if (value.kind === "screenshot") {
       // 14.12 the same as the screen log: the journal, not a note
       for (const line of this.ends.screenshot(value)) this.journal(line);
+      return;
+    }
+    if (value.kind === "crash") {
+      // 14.14 the same as the screenshot: the journal, not a note
+      this.journal(this.ends.crash(value));
       return;
     }
     // N.1.4 the phone's own reading of its uplink. It is the same signal this

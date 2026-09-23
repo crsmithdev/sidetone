@@ -31,6 +31,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
+import java.io.File
 
 /**
  * The conversation, above the screen. It lives in the process, not in the
@@ -80,6 +81,7 @@ object Bridge {
     private val micLock = Mutex()
     private lateinit var app: Context
     private lateinit var store: CredentialStore
+    private lateinit var crashes: Crashes
     private var session: Job? = null
     private var room: Room? = null
     private var mic: LocalAudioTrack? = null
@@ -109,6 +111,9 @@ object Bridge {
         if (::store.isInitialized) return
         app = context.applicationContext
         store = CredentialStore(context.applicationContext)
+        // 17.20 a crash writes a report, and the next room sends it
+        crashes = Crashes(File(app.filesDir, "crashes"))
+        crashes.catchAll { crashState(_state.value) }
         _state.update { it.copy(paired = store.load() != null) }
     }
 
@@ -190,6 +195,7 @@ object Bridge {
             if (!_state.value.audioOn) tell(room, Outgoing.audio(false))
             if (!_state.value.musicOn) tell(room, Outgoing.music(false))
             if (_state.value.micOn) micLock.withLock { openMic(room) }
+            sendCrashes(room)
             ended.await()
         } catch (e: CancellationException) {
             throw e
@@ -457,6 +463,19 @@ object Bridge {
      */
     private fun showSign() {
         if (conversation.tick(SystemClock.elapsedRealtime(), now())) shown()
+    }
+
+    /** 17.20.2 each report goes once, oldest first. A report that fails goes with the next room. */
+    private fun sendCrashes(room: Room) {
+        scope.launch {
+            for (file in crashes.unsent()) {
+                if (room.localParticipant.publishData(crashMessage(file.nameWithoutExtension, file.readText())).isFailure) {
+                    Log.w(TAG, "the crash report did not go")
+                    return@launch
+                }
+                file.delete()
+            }
+        }
     }
 
     /**

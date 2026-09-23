@@ -20,6 +20,7 @@ import { encodeWav } from "./audio.ts";
 import { Channel } from "./channel.ts";
 import { saveSettings, settingsInForce, type Config } from "./config.ts";
 import { Conversation, type MakeAgent } from "./conversation.ts";
+import { receiveCrash } from "./crash.ts";
 import { Cues } from "./cues.ts";
 import type { Event } from "./diagnostics.ts";
 import { Ear, SILENCE_MS } from "./ear.ts";
@@ -150,6 +151,7 @@ export function assemble(
     setting: (patch) => conversation.set(patch),
     screen: (part) => screens.receive(part),
     screenshot: (part) => screenshots.receive(part),
+    crash: (report) => receiveCrash(report),
   }, say, () => ({ audio: mouth.audioOn }));
 
   const conversation: Conversation = new Conversation(dir, config, mouth, channel, {

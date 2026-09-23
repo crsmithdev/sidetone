@@ -298,5 +298,12 @@ object Outgoing {
         put("drop", true)
     })
 
+    /** 14.14 one crash report, whole or cut to fit. */
+    fun crash(id: String, text: String): ByteArray = encode(buildJsonObject {
+        put("kind", "crash")
+        put("id", id)
+        put("text", text)
+    })
+
     private fun encode(message: JsonObject): ByteArray = message.toString().encodeToByteArray()
 }

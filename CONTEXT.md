@@ -50,7 +50,7 @@ What the app does about the room: the status word it shows, whether it waits and
 _Avoid_: the connection, the socket, the retry loop.
 
 **The control channel**:
-The words between the bridge and a client, apart from the audio: what was heard, the words of an answer as the agent writes them, each sentence as it is known, a turn, a note, whether the agent works, the screen log, a screenshot, and what a returning client missed. One module owns its vocabulary in both directions.
+The words between the bridge and a client, apart from the audio: what was heard, the words of an answer as the agent writes them, each sentence as it is known, a turn, a note, whether the agent works, the screen log, a screenshot, a crash report, and what a returning client missed. One module owns its vocabulary in both directions.
 _Avoid_: the data channel, the transcript feed, the messages.
 
 ### The conversation
@@ -144,6 +144,10 @@ _Avoid_: a screen capture, a picture, the screen log (the screen log is text).
 **A pending screenshot**:
 A screenshot that the bridge wrote and that no turn has taken. The next turn that Chris's words start takes every pending screenshot, and one line for the agent names each file. It expires after 2 minutes, and Chris can drop it with a tap on its thumbnail.
 _Avoid_: an attachment, a queued image.
+
+**A crash report**:
+What the app writes when an error that nothing catches ends it: the time, the thread, the stack trace and the app state. The app sends it to the bridge in the next room, and the bridge writes it to `~/.sidetone/crashes/` for the agent to read.
+_Avoid_: a crash log, a tombstone (a tombstone is Android's record of a native crash), the screen log (the screen log is what the app showed).
 
 **The microphone cut**:
 The client releases the recording device, so the phone's own indicator goes out. It is not a mute.

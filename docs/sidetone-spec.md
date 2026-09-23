@@ -12,6 +12,7 @@ Formatted text in the bubbles (17.19) added 22 September 2026.
 The status row shows one state (17.11.6) from 22 September 2026.
 The status row is one dot (17.11.6) from 23 September 2026.
 The pending screenshot (14.12.5 to 14.12.7, 17.18.5) added 23 September 2026.
+The crash report (14.14, 17.20) added 23 September 2026.
 
 This document is the complete specification for Sidetone. It
 includes the background, the settled design decisions, the reasoning behind
@@ -432,6 +433,16 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 
 14.13 The bridge says when the voice reaches a sentence. A sentence message (14.7) says the words are known; this says they are being said, which is a different moment: the engine takes a fraction of a second and the queue can be seconds long. The message carries the words and the answer they belong to. A reply from the bridge itself carries no answer. A sentence a barge-in cut is said again from its start, so the message can repeat. A client that shows the words can light the ones being said.
 
+14.14 The client sends a crash report (17.20) to the bridge, and the bridge writes it to disk. The agent cannot see the phone, and the file lets it read why the app stopped.
+
+14.14.1 The `crash` message carries one whole report. It has `id`, which is the time of the crash in milliseconds, and `text`, which is the report. The app sends a message smaller than 12,000 bytes, as in 14.11.1. A longer report loses its end, and the text then ends with `[cut]`.
+
+14.14.2 The bridge writes the report to `~/.sidetone/crashes/<id>.txt`. A report that comes again writes the same file again.
+
+14.14.3 The bridge writes one line to the journal for each report: `crash report at` and the file, or that the message is not readable or the file cannot be written. It sends no note (4.3.1).
+
+14.14.4 The bridge does not read the report or act on it. The agent reads the file. The web client does not send the message.
+
 ## 15. AUDIBLE STATE
 
 15.1 The bridge does not leave silence when it cannot answer. Silence is ambiguous.
@@ -613,6 +624,14 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 17.19.3 A marker with no partner shows as text. A bubble grows word by word (14.9.2), so a marker can wait for its partner.
 
 17.19.4 Selection (17.14) works on the formatted words. The copy gives the words as they show, without the markers.
+
+17.20 The app writes a crash report when an error that nothing catches ends it, and sends the report to the bridge (14.14) in the next room.
+
+17.20.1 The report holds the time, the thread, the stack trace and the app state, in that order. The state gives the number of lines in the transcript, not their words. The app writes the report to its own storage, one file for each crash, and then lets the crash go on.
+
+17.20.2 The app sends each report after it connects to the room, oldest first. It deletes a report when the send succeeds. A report that fails stays for the next room.
+
+17.20.3 The report catches only an error in the app's own code. A crash in native code and a freeze of the screen (an ANR) give no report.
 
 ## 18. MEASUREMENTS TO MAKE
 
