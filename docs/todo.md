@@ -216,7 +216,13 @@ Decided 23 September 2026:
   never heard stays grey.
 - A hold changes nothing. The last spoken sentence stays lit until the next
   `speaking` message.
-- Still open: how the partly lit bubble fits the formatting of item 12.
+- The formatting of item 12 stays as it is. `markdown()` in Markdown.kt makes
+  one string for the bubble, and the app lays one grey colour span over the part
+  after the spoken sentence. To find where that part starts, the app formats
+  the raw text up to the end of the spoken sentence and measures its length.
+  A sentence that ends inside a bold or code span may show a slightly wrong
+  edge. That is accepted. If the app cannot find the spoken sentence in the
+  bubble, it greys nothing.
 
 ## 20. More hold music tracks, cycled, each resuming where it left off
 
