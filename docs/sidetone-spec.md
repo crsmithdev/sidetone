@@ -427,7 +427,7 @@ project bridge stays in place.
 
 15.7.2 The agent decides ahead of time whether a turn is long, because it knows before it starts whether it will run tools or think hard. The bridge does not guess from the silence that a turn is long. The bridge measures the silence only to place the music inside a long turn. The bridge does not rely on the agent's word alone, since a tool call (15.7.5) settles it on its own.
 
-15.7.3 Chris turns the hold music on and off by voice. He says "music on" or "music off" after the wake word. The bridge answers "Music on." or "Music off." The choice is a setting. The bridge keeps it across restarts. The bridge does not play the hold music while the setting is off. If Chris turns the music off while a track plays, the track stops. The two commands are not in the default muted set (9.6), because the hold music does not play while the bridge is muted (15.11).
+15.7.3 Chris turns the hold music on and off by voice. He says "music on" or "music off" after the wake word. The bridge answers "Music on." or "Music off." The choice is a setting. The bridge keeps it across restarts. The bridge does not play the hold music while the setting is off. The "Music" button of the app sets the same setting (17.10.3). If Chris turns the music off while a track plays, the track stops. The two commands are not in the default muted set (9.6), because the hold music does not play while the bridge is muted (15.11).
 
 15.7.4 The voice instruction (6.5) tells the agent to start its reply with the marker `[long]` when it expects a slow turn. A reply that starts with the marker makes a long turn. The agent writes no marker when it expects a quick answer, and that turn gets no hold music. The bridge removes the marker before the text reaches the sentence splitter, the voice, the app and the transcript. The marker can arrive split across stream deltas, and the bridge holds the start of the reply until it is certain. Only the very start of the reply counts. The bridge does not remove `[long]` from later in the text.
 
@@ -490,11 +490,13 @@ project bridge stays in place.
 
 17.9.1 The time of a live bubble is the time the phone got its first message. The words that follow do not change it. A bubble from the history (14.8) shows the time that the bridge kept it. For an answer, this is the end of the turn.
 
-17.10 The app has one button that cuts the audio. The button reads "Cut the audio". While the audio is cut, it reads "Audio off — resume". It shares one row with the button that cuts the microphone, which reads "Cut the mic", and "Mic off — resume" while the microphone is cut.
+17.10 The app has one row of three buttons: "Mic", "Audio" and "Music". "Mic" cuts the microphone (9.5), "Audio" cuts the audio (11.12), and "Music" turns the hold music off (15.7.3). Each button keeps its label. Its color shows the state: tonal while the thing is on, and the error container while it is cut.
 
-17.10.1 On the tap, the app sends the `voice` message (11.12). The bridge stops the sentence in flight and the hold music at once (11.12.2).
+17.10.1 On the tap of "Audio", the app sends the `voice` message (11.12). The bridge stops the sentence in flight and the hold music at once (11.12.2).
 
-17.10.2 The app records each change as an event in the screen log, "audio off" or "audio on", and adds no note (4.3.1).
+17.10.2 The app records each change as an event in the screen log, "audio off" or "audio on", "music off" or "music on", and adds no note (4.3.1).
+
+17.10.3 On the tap of "Music", the app sends the `music` message with `on` set to false or to true. The bridge sets the setting of 15.7.3 and keeps it across restarts. It gives no answer. A track that plays stops at once (15.10.3). The app starts with the music on. An app that has the music off sends the message again when it joins the room. The bridge does not tell the app the setting, so "music off" by voice does not change the button.
 
 17.11 The app shows a working sign in its status row, after the connection quality. The sign says that the agent works (14.10). It has three states.
 

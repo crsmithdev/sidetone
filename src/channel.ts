@@ -29,6 +29,8 @@ export interface Ends {
   microphone(on: boolean, hold: boolean): void;
   /** 11.12 the audio off leaves the words */
   voice(on: boolean): void;
+  /** 17.10 the app's music button: the hold music on or off (15.7.3) */
+  music(on: boolean): void;
   /** N.1 a reading of the connection; true when it is news */
   quality(side: Side, quality: Quality): boolean;
   /** 9.4.9 a setting a client changed, in the same words the config uses */
@@ -131,6 +133,13 @@ export class Channel {
     // 9.4.9 a setting a client changed. It does what the spoken command does.
     if (value.kind === "setting" && value.patch && typeof value.patch === "object") {
       this.ends.setting(value.patch as Record<string, unknown>);
+      return;
+    }
+    if (value.kind === "music") {
+      const on = value.on !== false;
+      this.ends.music(on);
+      // 4.3.1 the button shows its own state
+      this.journal(on ? "the hold music is on" : "the hold music is off");
       return;
     }
     if (value.kind === "screen") {

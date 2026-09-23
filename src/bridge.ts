@@ -141,6 +141,8 @@ export function assemble(
       if (!on) ear.reset(hold);
     },
     voice: (on) => mouth.setAudio(on),
+    // 15.7.3 the setting the voice command sets; the conversation reads it on every look
+    music: (on) => conversation.setMusic(on),
     quality: (side, quality) => conversation.network.saw(side, quality),
     setting: (patch) => conversation.set(patch),
     screen: (part) => screens.receive(part),

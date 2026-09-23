@@ -20,7 +20,7 @@ test("the message a client joins to carries the vocabulary", () => {
   expect(message.kind).toBe("protocol");
   expect(message.endTurn).toBe("sidetone end the turn");
   expect(Object.keys(message.incoming)).toEqual(["heard", "sentence", "blockStart", "delta", "blockEnd", "turn", "narration", "error", "history", "protocol", "rejoin", "working", "settings", "speaking"]);
-  expect(OUTGOING).toEqual(["said", "mic", "quality", "voice", "screen", "screenshot", "setting"]);
+  expect(OUTGOING).toEqual(["said", "mic", "quality", "voice", "music", "screen", "screenshot", "setting"]);
 });
 
 test("what counts as a refused token", () => {

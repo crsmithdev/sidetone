@@ -220,6 +220,8 @@ class MessagesTest {
         assertEquals("""{"kind":"quality","quality":"good"}""", Outgoing.quality("good").decodeToString())
         // 11.12 the audio cut keeps the kind the bridge already knows
         assertEquals("""{"kind":"voice","on":false}""", Outgoing.audio(false).decodeToString())
+        // 17.10 the music button sets the hold music (15.7.3)
+        assertEquals("""{"kind":"music","on":false}""", Outgoing.music(false).decodeToString())
     }
 
     @Test

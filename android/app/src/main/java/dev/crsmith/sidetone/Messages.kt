@@ -248,6 +248,9 @@ object Outgoing {
      */
     fun audio(on: Boolean): ByteArray = encode(buildJsonObject { put("kind", "voice"); put("on", on) })
 
+    /** 15.7.3 the hold music off or on; the voice and the tones stay as they are. */
+    fun music(on: Boolean): ByteArray = encode(buildJsonObject { put("kind", "music"); put("on", on) })
+
     /**
      * 14.11 one part of the screen log, for the bridge to write to disk. `id` names the
      * log, `part` counts from 1 and `of` is how many parts there are.

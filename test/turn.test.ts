@@ -602,6 +602,18 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
     await r.turn;
   });
 
+  test("the app's music button stops the track as the command does (17.10)", async () => {
+    const r = await slow();
+    await until(() => r.tracks.length > 0);
+    r.c.setMusic(false);
+    await wait(20);
+    expect(r.tracks[0]?.stopped).toBe(true);
+    await wait(AFTER * 4);
+    expect(r.tracks).toHaveLength(1);
+    r.end();
+    await r.turn;
+  });
+
   test("\"music on\" in the middle of a turn starts it again (15.7.3)", async () => {
     const r = await slow({ holdMusic: false });
     await wait(AFTER * 2);

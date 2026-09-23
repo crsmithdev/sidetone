@@ -47,6 +47,8 @@ object Bridge {
         val holding: Boolean = false,
         /** 11.12 whether the bridge makes any sound, or only writes its answers. */
         val audioOn: Boolean = true,
+        /** 15.7.3 whether the bridge may play hold music. */
+        val musicOn: Boolean = true,
         /** 9.4.8 what the Stop button says, as the bridge gave it. */
         val endTurn: String? = null,
         /** 17.11 whether the bridge says the agent works. It is shown whatever the audio does. */
@@ -185,6 +187,7 @@ object Bridge {
             // the bridge starts every process with its audio on, so an audio cut has to be
             // said again to a room this app has only just joined
             if (!_state.value.audioOn) tell(room, Outgoing.audio(false))
+            if (!_state.value.musicOn) tell(room, Outgoing.music(false))
             if (_state.value.micOn) micLock.withLock { openMic(room) }
             ended.await()
         } catch (e: CancellationException) {
@@ -298,6 +301,18 @@ object Bridge {
         val room = room ?: return
         tell(room, Outgoing.audio(on))
         record("audio", if (on) "audio on" else "audio off")
+    }
+
+    /**
+     * 17.10 turn the hold music off or on, as "music off" and "music on" do
+     * (15.7.3). The voice and the tones carry on.
+     */
+    fun setMusic(on: Boolean) {
+        if (_state.value.musicOn == on) return
+        _state.update { it.copy(musicOn = on) }
+        val room = room ?: return
+        tell(room, Outgoing.music(on))
+        record("music", if (on) "music on" else "music off")
     }
 
     /** 17.15 show the update when the bridge serves an app that is not this one. */

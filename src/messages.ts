@@ -47,12 +47,13 @@ export const INCOMING = {
  * transcript is a data message and does not go down the audio path, so a bridge
  * with its audio off is still a whole conversation, read rather than heard. The
  * kind kept the name it had when the voice was all the audio there was.
+ * `music` turns the hold music on or off (15.7.3), as the app's music button does (17.10).
  * `screen` is one part of the app's screen log (14.11); the bridge writes the log to disk.
  * `screenshot` is one part of a screenshot from the phone (14.12); the bridge writes the image to disk.
  * `setting` changes one setting, and does exactly what the spoken command does,
  * down to the voice saying so: a client cannot do more by tapping than by talking.
  */
-export const OUTGOING = ["said", "mic", "quality", "voice", "screen", "screenshot", "setting"] as const;
+export const OUTGOING = ["said", "mic", "quality", "voice", "music", "screen", "screenshot", "setting"] as const;
 
 /** 14.8 a line a returning client is given again: what Chris said and what was answered. */
 export type Kept =

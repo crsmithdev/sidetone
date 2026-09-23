@@ -173,6 +173,8 @@ export class Conversation {
   get isMuted(): boolean { return this.muted; }
   /** 15.4 whether the cues are on, for a transport that plays one of its own. */
   get tonesOn(): boolean { return this.tones; }
+  /** 15.7.3 whether the hold music may play. */
+  get musicOn(): boolean { return this.holdMusic; }
 
   /**
    * What the ear tells, in the modules that own it. A barge-in holds the
@@ -661,9 +663,17 @@ export class Conversation {
     return "resume";
   }
 
-  private setHoldMusic(on: boolean): Hold {
+  /**
+   * 15.7.3 the hold music on or off, kept across restarts. The app's music
+   * button (17.10) sets it with no answer, as the audio button does.
+   */
+  setMusic(on: boolean): void {
     this.holdMusic = on;
     this.onSetting?.({ holdMusic: on });
+  }
+
+  private setHoldMusic(on: boolean): Hold {
+    this.setMusic(on);
     this.reply(on ? "Music on." : "Music off.");
     return "resume";
   }

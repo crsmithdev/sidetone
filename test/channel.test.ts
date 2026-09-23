@@ -16,6 +16,7 @@ function channel(overrides: Partial<Config> = {}) {
     microphone: (on, hold) => { did.push(`microphone ${on}${hold ? " hold" : ""}`); },
     voice: (on) => { did.push(`voice ${on}`); },
     setting: (patch) => { did.push(`setting ${JSON.stringify(patch)}`); },
+    music: (on) => { did.push(`music ${on}`); },
     quality: (side, quality) => { did.push(`quality ${side} ${quality}`); return news; },
     screen: (part) => { did.push(`screen ${String(part.id)}`); return ["screen said"]; },
     screenshot: (part) => { did.push(`screenshot ${String(part.id)}`); return ["screenshot said"]; },
@@ -144,6 +145,15 @@ describe("what a client sends (4.3)", () => {
     expect(did).toEqual(["voice false"]);
     expect(sent).toEqual([]);
     expect(journal).toEqual(["[the audio is off; the words carry on in the transcript]"]);
+  });
+
+  test("the music button reaches the hold music, and says so in the journal only (4.3.1)", () => {
+    const { c, did, sent, journal } = channel();
+    c.receive({ kind: "music", on: false });
+    c.receive({ kind: "music", on: true });
+    expect(did).toEqual(["music false", "music true"]);
+    expect(sent).toEqual([]);
+    expect(journal).toEqual(["[the hold music is off]", "[the hold music is on]"]);
   });
 
   test("the connection is said when it changes and not when it repeats", () => {

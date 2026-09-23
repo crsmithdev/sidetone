@@ -66,6 +66,17 @@ describe("the hold music switch (15.7.3)", () => {
     await c.heard("sidetone music on");
     expect(patches).toEqual([{ holdMusic: false }, { holdMusic: false }, { holdMusic: true }]);
   });
+  test("the app's button sets the same setting, and is not answered (17.10)", async () => {
+    const { c, patches, said } = room();
+    c.setMusic(false);
+    expect(c.musicOn).toBe(false);
+    c.setMusic(true);
+    await settled();
+    expect(c.musicOn).toBe(true);
+    expect(patches).toEqual([{ holdMusic: false }, { holdMusic: true }]);
+    // 17.10 the button shows its own state, so the voice says nothing about it
+    expect(said).toEqual([]);
+  });
   test("the tones are left as they were", async () => {
     const { c } = watched();
     await c.heard("sidetone music off");

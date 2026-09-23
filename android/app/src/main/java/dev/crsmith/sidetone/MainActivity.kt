@@ -272,13 +272,16 @@ private fun Conversation(state: Bridge.State, onLeave: () -> Unit) {
             }
         }
         HoldToTalk(state)
-        // 17.10 the two cuts share one row
+        // 17.10 the three cuts share one row; each keeps its label, and the color shows the state
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Toggle(on = state.micOn, enabled = !state.holding, onClick = { Bridge.setMic(!state.micOn) }, modifier = Modifier.weight(1f)) {
-                Text(if (state.micOn) "Cut the mic" else "Mic off — resume")
+                Text("Mic")
             }
             Toggle(on = state.audioOn, onClick = { Bridge.setAudio(!state.audioOn) }, modifier = Modifier.weight(1f)) {
-                Text(if (state.audioOn) "Cut the audio" else "Audio off — resume")
+                Text("Audio")
+            }
+            Toggle(on = state.musicOn, onClick = { Bridge.setMusic(!state.musicOn) }, modifier = Modifier.weight(1f)) {
+                Text("Music")
             }
         }
         OutlinedButton(onClick = Bridge::endTurn, modifier = Modifier.fillMaxWidth(), enabled = state.endTurn != null) { Text("End the turn") }

@@ -469,7 +469,7 @@ log `[hold music stopped]`.
 
 ### The audio cut
 
-The "Cut the audio" button in the app sends the `voice` message (spec 11.12).
+The "Audio" button in the app sends the `voice` message (spec 11.12).
 The bridge then makes no sound: no voice, no tone and no hold music. The
 sentence in flight and the track stop at once. The words still reach the
 transcript, and the journal shows `[the audio is off; the words carry on in the
@@ -477,6 +477,10 @@ transcript]`. `POST /play` refuses with 409 while the audio is off. A new bridge
 process starts with the audio on, and the app sends the cut again when it joins.
 The app also sets the gain of its audio track to zero on the tap, so the sound
 stops without waiting for the bridge (spec 17.10).
+
+The "Music" button in the app sends the `music` message (spec 17.10.3). It
+sets the same setting as "music off" and "music on", with no spoken answer. The
+journal shows `[the hold music is off]` or `[the hold music is on]`.
 
 The track is "Local Forecast - Elevator" by Kevin MacLeod (incompetech.com),
 licensed under Creative Commons Attribution 4.0
