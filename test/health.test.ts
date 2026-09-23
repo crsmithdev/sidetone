@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { wellEnough } from "../src/serve.ts";
+import { wellEnough } from "../src/routes.ts";
 
 const SECOND = 1_000;
 const MINUTE = 60 * SECOND;

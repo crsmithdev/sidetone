@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { DEFAULTS } from "../src/config.ts";
-import { afterWakeWord, commandIn, match } from "../src/commands.ts";
+import { afterWakeWord, commandIn, match, read } from "../src/commands.ts";
 
 const WAKE = DEFAULTS.wakeWord;
 const MUTED = DEFAULTS.mutedCommands;
@@ -194,5 +194,22 @@ describe("a wake word run into its command (9.3)", () => {
     for (const said of ["stats", "stets", "steph", "status"]) expect(commandIn(said)).toBe("stats");
     // "that's" is a word Chris says, so it is deliberately not one of them
     expect(commandIn("thats wrong")).not.toBe("stats");
+  });
+});
+
+describe("an utterance, read once (9.1, 9.5, 10.2)", () => {
+  test("inside the wake-word hold a short utterance is the command, and a long one is speech", () => {
+    expect(read("Mute.", DEFAULTS, false, true)).toEqual({ kind: "command", name: "mute", agreed: false });
+    expect(read("Mute.", DEFAULTS, false, false)).toEqual({ kind: "speech", agreed: false });
+    expect(read("how do i stop the server", DEFAULTS, false, true)).toEqual({ kind: "speech", agreed: false });
+  });
+  test("the muted rule holds inside the wake-word hold too", () => {
+    expect(read("stats", DEFAULTS, true, true)).toEqual({ kind: "speech", agreed: false });
+    expect(read("unmute", DEFAULTS, true, true)).toEqual({ kind: "command", name: "unmute", agreed: false });
+    expect(read("sidetone stats", DEFAULTS, true, false)).toEqual({ kind: "unclear", agreed: false });
+  });
+  test("the agreement word is found in anything said", () => {
+    expect(read("Continue.", DEFAULTS, false, false)).toEqual({ kind: "speech", agreed: true });
+    expect(read("yes go on", DEFAULTS, false, false).agreed).toBe(false);
   });
 });

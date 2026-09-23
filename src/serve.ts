@@ -8,13 +8,13 @@
  * what makes barge-in possible at all (11.1 to 11.3), and it is why 11.4 says
  * not to hand-build a canceller.
  */
-import { wavFromFile } from "./audio.ts";
 import { ApkHash } from "./apk.ts";
 import { assemble } from "./bridge.ts";
 import { Outbound } from "./outbound.ts";
-import { settingsInForce, type Config } from "./config.ts";
+import type { Config } from "./config.ts";
 import type { Apk } from "./messages.ts";
 import { advertiseHost, livekitConfig, loadOrCreateKeys } from "./keys.ts";
+import { Pairing, routes } from "./routes.ts";
 import { RTC_RATE, Transport, roomSpeaker, tokenFor } from "./transport.ts";
 import { renderUnicodeCompact } from "uqr";
 
@@ -29,30 +29,6 @@ function pairingCode(): string {
  * goes in the fragment, so a phone camera that opens the link as a web page
  * never sends it to the server or into a log.
  */
-/**
- * How long an engine may take to warm before a health probe calls it a fault.
- * The recover timer probes every 120 seconds, so anything under the real load
- * time makes the bridge restart itself forever.
- *
- * Chatterbox took 146 seconds to load on a quiet machine on 23 September 2026
- * and 240 on a busy one, so the spread matters more than the figure. Ten
- * minutes is deliberately far above both: a bridge that restarts itself
- * forever is unusable, and a stuck engine that waits ten minutes instead of
- * five is a bridge Chris is already listening to and can hear is silent.
- */
-const WARMUP_MS = 10 * 60_000;
-
-/**
- * Whether the bridge is well enough to leave alone. The recover timer restarts
- * it when this says no, so it has to say yes while an engine is still loading
- * and no when one never loads. Before 23 September 2026 the port did not open
- * until the engines were warm, so the probe could not ask at all, and the
- * bridge restarted itself every two minutes forever.
- */
-export function wellEnough(connected: boolean, running: boolean, warm: boolean, upMs: number): boolean {
-  return connected && running && (warm || upMs < WARMUP_MS);
-}
-
 export function pairingLink(origin: string, code: string): string {
   return `${origin}/#pair=${code}`;
 }
@@ -89,7 +65,7 @@ export async function serve(dir: string, config: Config): Promise<void> {
   // session with it.
   const outbound = new Outbound((payload) => transport.publish(payload));
   const bridge = assemble(dir, config, RTC_RATE, roomSpeaker(transport), (message) => outbound.send(message));
-  const { channel, ear, mouth, conversation, measures, stt, tts } = bridge;
+  const { channel, ear, stt, tts } = bridge;
 
   // 17 the Android app, as the last `assembleDebug` in this checkout left it
   const apk = new URL("../android/app/build/outputs/apk/debug/app-debug.apk", import.meta.url).pathname;
@@ -115,137 +91,31 @@ export async function serve(dir: string, config: Config): Promise<void> {
   transport.onQuality((quality, identity) => channel.quality(transport.isSelf(identity) ? "bridge" : "phone", quality));
 
   const code = pairingCode();
-  /**
-   * 12.1 three words drawn from twenty-six is 17,576 codes, and until
-   * 15 September a wrong one cost nothing but the round trip. The port is open
-   * to the tailnet for the phone, and a token is thirty days of joining the
-   * room, hearing everything and driving the agent.
-   *
-   * Each wrong code now makes the next one slower, to ten seconds, which turns
-   * the whole space into weeks. It does not stop a caller guessing down many
-   * connections at once: the answer to that is a longer code, not a longer
-   * wait, and the code is read out loud so it stays three words for now.
-   */
-  let wrongCodes = 0;
-  const page = await Bun.file(new URL("../client/index.html", import.meta.url).pathname).text();
-  const sdk = new URL("../node_modules/livekit-client/dist/livekit-client.esm.mjs", import.meta.url).pathname;
-  // 4.3 the page's reading of a message, which a test replays the fixture through
-  const decoder = new URL("../client/decode.js", import.meta.url).pathname;
+  const pairing = new Pairing(code, async () => ({
+    token: await tokenFor(keys, config.room, `phone-${Date.now()}`, config.tokenDays * 24),
+    url: clientUrl,
+    room: config.room,
+  }));
+  const handle = routes({
+    config,
+    bridge,
+    pairing,
+    page: await Bun.file(new URL("../client/index.html", import.meta.url).pathname).text(),
+    files: {
+      sdk: new URL("../node_modules/livekit-client/dist/livekit-client.esm.mjs", import.meta.url).pathname,
+      // 4.3 the page's reading of a message, which a test replays the fixture through
+      decoder: new URL("../client/decode.js", import.meta.url).pathname,
+      apk,
+    },
+    health: () => ({ room: transport.connected, speech: tts.sampleRate > 0, transcription: stt.warmupSeconds > 0 }),
+    startedAt,
+  });
 
   const server = Bun.serve({
     port: config.servePort,
     hostname: "0.0.0.0",
     ...(secure ? { tls: { cert: Bun.file(config.tlsCert), key: Bun.file(config.tlsKey) } } : {}),
-    async fetch(request, server) {
-      const url = new URL(request.url);
-      if (url.pathname === "/") return new Response(page, { headers: { "content-type": "text/html; charset=utf-8" } });
-      if (url.pathname === "/livekit-client.mjs") return new Response(Bun.file(sdk), { headers: { "content-type": "text/javascript" } });
-      if (url.pathname === "/decode.js") return new Response(Bun.file(decoder), { headers: { "content-type": "text/javascript" } });
-      if (url.pathname === "/sidetone.apk") {
-        if (!(await Bun.file(apk).exists())) return new Response("not built", { status: 404 });
-        return new Response(Bun.file(apk), { headers: { "content-type": "application/vnd.android.package-archive", "content-disposition": 'attachment; filename="sidetone.apk"' } });
-      }
-      /**
-       * Whether this is working, not whether it is running. Restart=always
-       * cannot tell the difference: a process that holds a dead room, or has
-       * lost the agent, looks exactly like a healthy one from outside. On
-       * 13 September 2026 a crash loop went unnoticed for an hour because
-       * nothing ever asked.
-       */
-      /**
-       * Everything measured lately, for reading a session back afterwards.
-       *
-       * 12.1 this one carries the transcript: every word said and every word
-       * answered. It is served to this machine only. The port is open to the
-       * tailnet for the phone, and until 15 September anyone who could reach
-       * it could read the conversation without the pairing code.
-       */
-      if (url.pathname === "/diagnostics") {
-        if (!isLocal(server.requestIP(request)?.address)) return new Response("not found", { status: 404 });
-        return Response.json({
-          summary: measures.summary(),
-          settings: settingsInForce(config),
-          latency: measures.rounds(),
-          network: { phone: conversation.network.get("phone"), bridge: conversation.network.get("bridge") },
-          recent: measures.recent(count(url.searchParams.get("n"), 40)),
-        });
-      }
-      if (url.pathname === "/health") {
-        const warm = tts.sampleRate > 0 && stt.warmupSeconds > 0;
-        const upMs = Date.now() - startedAt;
-        const well = wellEnough(transport.connected, conversation.agent.running, warm, upMs);
-        const warming = !warm && upMs < WARMUP_MS;
-        return Response.json({
-          ok: well,
-          room: transport.connected ? "connected" : "gone",
-          agent: conversation.agent.running ? "running" : "stopped",
-          engines: { speech: tts.sampleRate > 0, transcription: stt.warmupSeconds > 0 },
-          warming,
-          // 11.12 the one state that makes a working bridge look dead. It cost
-          // two journal digs on 21 September, both times an accidental tap.
-          audio: mouth.audioOn ? "on" : "off",
-          muted: conversation.isMuted,
-          network: { phone: conversation.network.get("phone"), bridge: conversation.network.get("bridge") },
-          turns: conversation.agent.turns,
-          upSeconds: Math.round((Date.now() - startedAt) / 1000),
-        }, { status: well ? 200 : 503 });
-      }
-      /**
-       * 15.12 play a file to the room. It is for a shell on this machine, so
-       * the tailnet cannot reach it. The mouth owns the room's one source: the
-       * track waits until nothing is being said, then plays, and a sentence
-       * fades it out rather than refusing it. It plays nothing, and stops,
-       * while the audio is off (11.12).
-       */
-      if (url.pathname === "/play" && request.method === "POST") {
-        if (!isLocal(server.requestIP(request)?.address)) return new Response("not found", { status: 404 });
-        const body = await request.json().catch(() => ({})) as { file?: string };
-        const file = body.file ?? "";
-        // ffmpeg reads urls too; an absolute path is the one thing this takes
-        if (!file.startsWith("/") || !(await Bun.file(file).exists())) {
-          return Response.json({ error: "file must be the absolute path of a file that exists" }, { status: 400 });
-        }
-        let wav: Uint8Array;
-        try { wav = await wavFromFile(file, RTC_RATE); }
-        catch (error) { return Response.json({ error: (error as Error).message }, { status: 500 }); }
-        if (!mouth.audioOn) return Response.json({ error: "the audio is off" }, { status: 409 });
-        // 15.12 the mouth owns the room's one source: the track waits for a
-        // sentence rather than being cut off by it, which is what made playing
-        // a file and saying a word about it in the same turn impossible.
-        console.log(`[playing ${file} when the mouth is free]`);
-        mouth.play(wav, config.holdMusicFadeMs);
-        return Response.json({ playing: file }, { status: 202 })
-      }
-      /**
-       * Say one line when the bridge is free: `scripts/job` tells Chris here
-       * that a detached job ended. The same guard as /play: a shell on this
-       * machine only.
-       */
-      if (url.pathname === "/say" && request.method === "POST") {
-        if (!isLocal(server.requestIP(request)?.address)) return new Response("not found", { status: 404 });
-        const body = await request.json().catch(() => ({})) as { text?: string };
-        const text = body.text?.trim() ?? "";
-        if (!text) return Response.json({ error: "text must be a line to say" }, { status: 400 });
-        console.log(`[to say when free: ${text}]`);
-        bridge.announce(text);
-        return Response.json({ queued: text }, { status: 202 });
-      }
-      // 12.1 the boundary. Everything below here needs the code or a token.
-      if (url.pathname === "/pair" && request.method === "POST") {
-        const body = await request.json().catch(() => ({})) as { code?: string };
-        if (body.code?.trim().toLowerCase() !== code) {
-          wrongCodes++;
-          await Bun.sleep(Math.min(wrongCodes, 20) * 500);
-          return Response.json({ error: "that code is not right" }, { status: 403 });
-        }
-        wrongCodes = 0;
-        const token = await tokenFor(keys, config.room, `phone-${Date.now()}`, config.tokenDays * 24);
-        // 12.3 the same answer serves the web client and the Android app. The url
-        // is the one the phone can reach, never the loopback the bridge dials.
-        return Response.json({ token, url: clientUrl, room: config.room });
-      }
-      return new Response("not found", { status: 404 });
-    },
+    fetch: (request, server) => handle(request, server.requestIP(request)?.address),
   });
 
   // The port opens before the engines are warm, and answers /health while they
@@ -294,17 +164,6 @@ export async function serve(dir: string, config: Config): Promise<void> {
     });
   }
   await new Promise(() => {});
-}
-
-/** A window size from the query, or the default: `?n=abc` used to mean the whole buffer. */
-function count(value: string | null, fallback: number): number {
-  const n = Number(value);
-  return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
-}
-
-/** Loopback, in either family. Bun writes an IPv4 client on a dual-stack listener as ::ffff:127.0.0.1. */
-function isLocal(address: string | undefined): boolean {
-  return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
 }
 
 export { livekitConfig };

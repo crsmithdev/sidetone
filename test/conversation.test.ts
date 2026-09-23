@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { DEFAULTS, type Config } from "../src/config.ts";
 import { COMMAND_NAMES, spokenForms } from "../src/commands.ts";
 import { KEPT_LINES } from "../src/mouth.ts";
-import { bridge } from "./harness.ts";
+import { bridge, type Script } from "./harness.ts";
 
 const config: Config = { ...DEFAULTS, historyMaxAgeMs: 60_000 };
 
@@ -118,9 +118,12 @@ describe("the stats command (18.4)", () => {
 });
 
 /** A room: the whole bridge over fake engines. A turn in flight is turn.test.ts's business. */
-function room(overrides: Partial<Config> = {}) {
-  return bridge({ overrides: { ...config, ...overrides } });
+function room(overrides: Partial<Config> = {}, script: Script = {}) {
+  return bridge({ overrides: { ...config, ...overrides }, script });
 }
+
+/** An agent that fails every turn, so a question is seen to reach it. */
+const failing: Script = { fail: "no agent in a test" };
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -148,8 +151,7 @@ describe("the hold (11.3)", () => {
 
 
   test("a question for the agent drops the passage", async () => {
-    const r = room();
-    r.c.agent.ask = async () => { throw new Error("no agent in a test"); };
+    const r = room({}, failing);
     r.c.ears.stopSpeaking();
     r.mouth.say("the rest.");
     await r.c.heard("what is the config file for");
@@ -187,8 +189,7 @@ describe("the wake word on its own (9.1)", () => {
   });
 
   test("a question after a false start reaches the agent rather than vanishing", async () => {
-    const r = room();
-    r.c.agent.ask = async () => { throw new Error("no agent in a test"); };
+    const r = room({}, failing);
     await r.c.heard("Sidetone.");
     await r.c.heard("what does the serve command do");
     await tick();
@@ -197,10 +198,9 @@ describe("the wake word on its own (9.1)", () => {
   });
 
   test("it does not wait for ever", async () => {
-    const r = room({ wakeHoldMs: 20 });
+    const r = room({ wakeHoldMs: 20 }, failing);
     await r.c.heard("Sidetone.");
     await new Promise((resolve) => setTimeout(resolve, 40));
-    r.c.agent.ask = async () => { throw new Error("no agent in a test"); };
     await r.c.heard("Mute.");
     await tick();
     // too late to be the command, so it is what it sounds like: speech
@@ -208,8 +208,7 @@ describe("the wake word on its own (9.1)", () => {
   });
 
   test("the hold is spent once, not left armed", async () => {
-    const r = room();
-    r.c.agent.ask = async () => { throw new Error("no agent in a test"); };
+    const r = room({}, failing);
     await r.c.heard("Sidetone.");
     await r.c.heard("Mute.");
     await tick();
@@ -276,33 +275,30 @@ describe("end the turn with no turn running (9.4.8)", () => {
 describe("the gate on clearing the context (10)", () => {
   test("it reads back what it is about to do and waits", async () => {
     const r = room();
-    let restarted = false;
-    r.c.agent.restart = () => { restarted = true; };
+    const restarted = () => r.agent.calls.includes("restart cleared by voice");
     await r.c.heard("sidetone clear");
     await tick();
     expect(r.said).toEqual(["I am about to clear the context and start again. Say continue to let it happen."]);
-    expect(restarted).toBe(false);
+    expect(restarted()).toBe(false);
   });
 
   test("the agreement word lets it happen", async () => {
     const r = room();
-    let restarted = false;
-    r.c.agent.restart = () => { restarted = true; };
+    const restarted = () => r.agent.calls.includes("restart cleared by voice");
     await r.c.heard("sidetone clear");
     await r.c.heard("continue");
     await tick();
-    expect(restarted).toBe(true);
+    expect(restarted()).toBe(true);
     expect(r.said.at(-1)).toBe("Context cleared.");
   });
 
   test("10.5 anything else fails it closed", async () => {
     const r = room();
-    let restarted = false;
-    r.c.agent.restart = () => { restarted = true; };
+    const restarted = () => r.agent.calls.includes("restart cleared by voice");
     await r.c.heard("sidetone clear");
     await r.c.heard("sidetone tones off");
     await tick();
-    expect(restarted).toBe(false);
+    expect(restarted()).toBe(false);
     expect(r.said).toEqual([
       "I am about to clear the context and start again. Say continue to let it happen.",
       "Nothing was cleared.",
@@ -312,7 +308,6 @@ describe("the gate on clearing the context (10)", () => {
 
   test("the held passage waits with the gate rather than resuming under it", async () => {
     const r = room();
-    r.c.agent.restart = () => {};
     r.c.ears.stopSpeaking();
     r.mouth.say("the rest.");
     await r.c.heard("sidetone clear");
@@ -382,4 +377,91 @@ describe("the kept lines (11.6)", () => {
       for (const line of fixed) expect(KEPT_LINES as readonly string[]).toContain(line);
     });
   }
+});
+
+/**
+ * The table at the top of src/conversation.ts, one row at a time. Each row
+ * holds a passage behind a barge-in, says one thing, and reads what became of
+ * the passage: said, dropped, or still held.
+ */
+describe("what an utterance does to the hold: the table (11.3)", () => {
+  type Want = "resumes" | "dropped" | "held";
+  interface Row {
+    said: string;
+    want: Want;
+    /** what happened before the barge-in */
+    before?: (r: ReturnType<typeof room>) => Promise<void>;
+    /** a turn runs while it is said */
+    midTurn?: boolean;
+    overrides?: Partial<Config>;
+    script?: Script;
+  }
+  const answered = async (r: ReturnType<typeof room>) => { await r.c.turn("what does serve do"); };
+  const rows: Row[] = [
+    { said: "sidetone mute", want: "resumes" },
+    { said: "sidetone unmute", want: "resumes" },
+    { said: "sidetone tones off", want: "resumes" },
+    { said: "sidetone music off", want: "resumes" },
+    { said: "sidetone male voice", want: "resumes" },
+    { said: "sidetone interrupt on", want: "resumes" },
+    { said: "sidetone report the usage", want: "resumes" },
+    { said: "sidetone stats", want: "resumes" },
+    { said: "sidetone say that again", want: "resumes" },
+    { said: "sidetone wtaeuhnt", want: "resumes" },
+    { said: "what is the config file for", want: "resumes", before: async (r) => { await r.c.heard("sidetone mute"); } },
+    { said: "sidetone where are we", want: "dropped", before: answered, script: { deltas: ["It joins the room."] } },
+    { said: "sidetone summarize", want: "resumes", midTurn: true },
+    { said: "sidetone summarize", want: "dropped", before: answered, script: { deltas: ["It joins the room."] } },
+    { said: "what is the config file for", want: "dropped" },
+    { said: "what is the tallest one", want: "resumes", midTurn: true, overrides: { interruptOnSpeech: false } },
+    { said: "what is the tallest one", want: "dropped", midTurn: true, overrides: { interruptOnSpeech: true, interruptAfterMs: 5 } },
+    { said: "sidetone carry on", want: "resumes" },
+    { said: "sidetone end the turn", want: "dropped" },
+    { said: "sidetone end the turn", want: "dropped", midTurn: true },
+    { said: "sidetone clear the context", want: "held" },
+    { said: "continue", want: "dropped", before: async (r) => { await r.c.heard("sidetone clear the context"); } },
+    { said: "continue", want: "resumes", midTurn: true, script: { during: (hooks) => hooks.onCheckpoint?.(600_000) } },
+  ];
+
+  for (const row of rows) {
+    const when = row.midTurn ? "mid-turn" : row.before ? "after a setup" : "between turns";
+    const extra = row.overrides ? ` ${JSON.stringify(row.overrides)}` : "";
+    test(`"${row.said}", ${when}${extra}: the held passage ${row.want}`, async () => {
+      let end = () => {};
+      const hold = new Promise<void>((resolve) => { end = resolve; });
+      const r = room(row.overrides, row.midTurn ? { ...row.script, hold, onInterrupt: () => end() } : row.script);
+      await row.before?.(r);
+      const turn = row.midTurn ? r.c.turn("how does a suspension bridge work") : undefined;
+      await tick();
+      r.c.ears.stopSpeaking();
+      r.mouth.say("the rest.");
+      await r.c.heard(row.said);
+      await tick();
+      if (row.want === "resumes") expect(r.said).toContain("the rest.");
+      else expect(r.said).not.toContain("the rest.");
+      expect(r.mouth.onHold).toBe(row.want === "held");
+      end();
+      await turn;
+    });
+  }
+
+  test("noise resumes the held passage", async () => {
+    const r = room();
+    r.c.ears.stopSpeaking();
+    r.mouth.say("the rest.");
+    r.c.ears.heardNothing();
+    await tick();
+    expect(r.said).toContain("the rest.");
+  });
+
+  test("a gate that times out resumes the held passage", async () => {
+    const r = room({ checkpointWindowMs: 10 });
+    r.c.ears.stopSpeaking();
+    r.mouth.say("the rest.");
+    await r.c.heard("sidetone clear the context");
+    await tick();
+    expect(r.mouth.onHold).toBe(true);
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(r.said).toEqual(["I am about to clear the context and start again. Say continue to let it happen.", "Nothing was cleared.", "the rest."]);
+  });
 });

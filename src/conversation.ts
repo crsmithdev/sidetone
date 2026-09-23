@@ -1,21 +1,22 @@
 /**
  * What the bridge does with a thing Chris said, whatever carried it.
  *
- * The desk loop of 7.3 and the LiveKit room of 7.4 differ only in how audio
- * arrives and how it leaves. Everything above that — the turn, the sentences,
- * the wake commands, the checkpoint, the memory of what was said — is the same,
- * so it lives here and each transport supplies the two ends.
+ * The audio arrives and leaves through the room (ADR 0010). Everything above
+ * that — the turn, the sentences, the wake commands, the checkpoint, the
+ * memory of what was said — lives here, and `assemble` supplies the two ends.
  *
  * A barge-in stops the speech and *holds* it (11.3); the mouth does the
  * holding. What Chris said then decides what becomes of the held sentences,
- * and only two commands touch the agent at all:
+ * and only two commands touch the agent at all. `decide` gives every utterance
+ * one row of this table, and `apply` is the one place a row reaches the mouth:
  *
  * | what Chris said | the held speech | the turn |
  * |---|---|---|
- * | mute, unmute, tones, music | resumes after the acknowledgement | untouched |
+ * | mute, unmute, tones, music, a voice, interrupt | resumes after the acknowledgement | untouched |
  * | usage, stats | resumes after the report | untouched |
  * | say that again | resumes after the repeat | untouched |
  * | the wake word alone, or noise | resumes | untouched |
+ * | anything but a muted command, while muted | resumes | untouched |
  * | where are we | dropped | untouched |
  * | summarize, mid-turn | resumes; the command is refused | untouched |
  * | summarize, between turns | dropped | a new turn |
@@ -25,9 +26,12 @@
  * | carry on | the kept rest is said | untouched |
  * | end the turn | dropped, a replay too | interrupted |
  * | clear the context | held until the gate answers | dies with the process |
+ * | the agreement word, at the gate | dropped | dies with the process |
+ * | the agreement word, at the checkpoint | resumes | runs on |
+ * | nothing, until the gate times out | resumes | untouched |
  */
 import type { Channel } from "./channel.ts";
-import { commandIn, match, type CommandName } from "./commands.ts";
+import { read, type CommandName, type Reading } from "./commands.ts";
 import type { Config } from "./config.ts";
 import type { CueName } from "./cues.ts";
 import { echoOf } from "./echo.ts";
@@ -69,8 +73,18 @@ export type MakeAgent = (hooks: SessionHooks, config: Config) => Agent;
 /** The agent of ADR 0001: one Claude Code process, in the project directory. */
 export const claudeCode = (dir: string): MakeAgent => (hooks, config) => new Session(dir, config, hooks);
 
-/** What a command does to the sentences a barge-in held. */
+/** What an utterance does to the sentences a barge-in held. */
 export type Hold = "resume" | "discard" | "keep";
+
+/**
+ * An utterance, decided: its row of the table above. `then` is what follows
+ * once the hold is settled, which is a new turn: the stopped answer must be
+ * off the queue before the wait of 11.9.1 starts.
+ */
+interface Outcome {
+  hold: Hold;
+  then?: () => Promise<void>;
+}
 
 export interface ConversationHooks {
   onTurn?(turn: Turn): void;
@@ -199,8 +213,8 @@ export class Conversation {
   }
 
   /**
-   * 11.9 and 11.10 stop the answer, keep what is left of it, and tell the agent where
-   * Chris stopped hearing.
+   * 11.9 and 11.10 stop the answer and tell the agent where Chris stopped
+   * hearing. What is left of it was already kept, by the discard `apply` did.
    *
    * The agent's context holds the whole answer whatever the mouth managed to
    * say: measured 18 September, an interrupted agent quoted two paragraphs
@@ -214,9 +228,6 @@ export class Conversation {
   private async cutOff(): Promise<string> {
     // the turn is no longer the one that owns the mouth, whatever becomes of it
     this.turnId++;
-    const unspoken = this.mouth.discard().join(" ");
-    // 11.10 the bubbles already hold these words, so they are recorded and not shown again
-    if (unspoken) this.channel.journal(`not spoken: ${unspoken}`);
     const last = this.mouth.said.at(-1);
     const running = (this.running ?? Promise.resolve()).then(() => true, () => true);
     // Give it a moment to end by itself. An interrupt is what costs a subagent,
@@ -240,7 +251,7 @@ export class Conversation {
   /** The utterance held nothing a person said. Road noise must not cost a passage. */
   heardNothing(): void {
     this.measures.bargeInWas("nothing");
-    this.mouth.resume();
+    this.apply("resume");
   }
 
   /** One thing Chris said, and what it does to a held answer. */
@@ -253,87 +264,74 @@ export class Conversation {
       this.measures.echo(said, echoed);
       this.channel.journal(`the bridge may have heard itself: "${said}" repeats "${echoed}"`);
     }
-    const heard = match(said, this.config.wakeWord, this.muted, this.config.mutedCommands, this.config.wakeWordVariants);
+    const awaited = this.awaitingCommand > Date.now();
+    this.awaitingCommand = 0;
+    const reading = read(said, this.config, this.muted, awaited);
     this.channel.tell({ kind: "heard", text: said });
-    this.measures.bargeInWas(heard.kind === "command" ? "command" : "speech");
+    this.measures.bargeInWas(reading.kind === "command" ? "command" : "speech");
 
     // 10.5 the gate fails closed: anything that is not the agreement word
     // cancels the action, and is then handled as what it was.
-    if (this.gate && !this.agreed(said)) {
+    if (this.gate && !reading.agreed) {
       const denied = this.gate.denied;
       this.closeGate();
       this.reply(denied);
     }
+    const { hold, then } = this.decide(said, reading);
+    this.apply(hold);
+    await then?.();
+  }
 
-    // the wake word arrived a moment ago on its own, so this is its command.
-    // If it is not one, it falls through and reaches the agent as speech: a
-    // question asked after a false start must not be swallowed.
-    const awaited = this.awaitingCommand > Date.now();
-    this.awaitingCommand = 0;
-    if (awaited && heard.kind === "speech" && isShort(said)) {
-      const name = commandIn(plain(said));
-      if (name && (!this.muted || this.config.mutedCommands.includes(name))) {
-        this.measures.matched(said, name);
-        this.after(await this.run(name));
-        return;
-      }
-    }
-
-    if (heard.kind === "command") {
-      this.measures.matched(said, heard.name);
-      this.after(await this.run(heard.name));
-      return;
+  /** Which row of the table an utterance is. Everything it does to the hold is the `Hold` it returns. */
+  private decide(said: string, reading: Reading): Outcome {
+    if (reading.kind === "command") {
+      this.measures.matched(said, reading.name);
+      return { hold: this.run(reading.name) };
     }
     // 9.7 the wake word came through and the command did not. Wait for it
     // rather than complaining: the pause between the two is usually the reason.
-    if (heard.kind === "unclear") {
+    if (reading.kind === "unclear") {
       this.measures.matched(said, "waiting for the command");
       // Holding for the command and saying nothing is right. Saying nothing
       // anywhere is not: on 18 September the agent told Chris four times to put
       // the wake word in front of a sentence, and neither end could see why.
       this.channel.narrate(`the wake word arrived with no command, so nothing was done with: "${said}"`);
       this.awaitingCommand = Date.now() + this.config.wakeHoldMs;
-      this.mouth.resume();
-      return;
+      return { hold: "resume" };
     }
-    if (this.muted) { this.mouth.resume(); return; }
+    if (this.muted) return { hold: "resume" };
     // 10.2 the agreement word is a word said plainly, not a wake command
-    if (this.agreed(said)) {
-      if (this.gate) { const act = this.gate.act; this.closeGate(); act(); this.mouth.discard(); return; }
+    if (reading.agreed) {
+      if (this.gate) { const act = this.gate.act; this.closeGate(); act(); return { hold: "discard" }; }
       if (this.checkpointOpen) {
         this.checkpointOpen = false;
         this.agent.agree();
         this.reply("Carrying on.");
-        this.mouth.resume();
-        return;
+        return { hold: "resume" };
       }
     }
     // 15.1 a question that arrives mid-turn must not vanish into silence
     if (this.turnRunning) {
       if (!this.interrupting) {
         this.reply(`I am still on the last one. Say ${this.config.wakeWord}, end the turn, to stop it.`);
-        this.mouth.resume();
-        return;
+        return { hold: "resume" };
       }
       // 11.6 and 11.9 the Claude app's feel: the answer stops and the question
       // is the next turn, with no phrase to say first.
       this.measures.matched(said, "speech");
-      void this.turn(said, await this.cutOff());
-      return;
+      return { hold: "discard", then: async () => { void this.turn(said, await this.cutOff()); } };
     }
     this.measures.matched(said, "speech");
-    this.mouth.discard();
-    void this.turn(said);
+    return { hold: "discard", then: async () => { void this.turn(said); } };
   }
 
-  private after(hold: Hold): void {
+  /** The one place an utterance reaches the held answer (11.3). */
+  private apply(hold: Hold): void {
     if (hold === "resume") this.mouth.resume();
-    if (hold === "discard") this.mouth.discard();
-  }
-
-  /** 10.3 a specific word, so a reflex or a bad transcription cannot say it. */
-  private agreed(said: string): boolean {
-    return plain(said).includes(this.config.agreementWord.toLowerCase());
+    if (hold !== "discard") return;
+    const unspoken = this.mouth.discard().join(" ");
+    // 11.10 the bubbles already hold these words, so they are recorded and not shown again
+    if (unspoken) this.channel.journal(`not spoken: ${unspoken}`);
   }
 
   /**
@@ -346,7 +344,7 @@ export class Conversation {
     this.gate = {
       act,
       denied,
-      timer: setTimeout(() => { this.gate = null; this.reply(denied); this.mouth.resume(); }, this.config.checkpointWindowMs),
+      timer: setTimeout(() => { this.gate = null; this.reply(denied); this.apply("resume"); }, this.config.checkpointWindowMs),
     };
   }
 
@@ -512,7 +510,7 @@ export class Conversation {
    * 9.4 the commands. Each answers out loud, because silence is ambiguous
    * (15.1), and each says what becomes of a held answer.
    */
-  private async run(name: CommandName): Promise<Hold> {
+  private run(name: CommandName): Hold {
     switch (name) {
       // A setting changed and the answer did not, so the answer carries on.
       case "mute": this.muted = true; this.reply("Muted."); return "resume";
@@ -708,25 +706,6 @@ export class Conversation {
   /** One utterance of PCM becomes one thing Chris said. */
   start(): void { this.agent.start(); }
   stop(): void { this.agent.stop(); }
-}
-
-/**
- * Short enough to be a command and nothing else.
- *
- * Inside the wake-word hold an utterance is matched with no wake word in front
- * of it, and the command table holds bare single words: `stop`, `clear`,
- * `where`, `man`. So "how do I stop the server" ended the turn and the question
- * never reached the agent. Measured 14 September, a command after the wake word
- * is one or two words -- the longest the card asks for is "tones off".
- */
-const HOLD_WORDS = 3;
-
-function isShort(said: string): boolean {
-  return plain(said).split(" ").filter(Boolean).length <= HOLD_WORDS;
-}
-
-function plain(text: string): string {
-  return text.toLowerCase().replace(/[^a-z ]/g, "");
 }
 
 function firstSentence(text: string): string {

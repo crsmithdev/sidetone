@@ -170,13 +170,58 @@ export function commandIn(rest: string): CommandName | null {
 
 /**
  * 9.5 two commands work while muted, and 9.6 makes that set a setting, so the
- * gate is a list lookup rather than a pair of names in the code.
+ * gate is a list lookup rather than a pair of names in the code. This is the
+ * one place the rule is.
  */
+function allowed(name: CommandName, muted: boolean, mutedCommands: string[]): boolean {
+  return !muted || mutedCommands.includes(name);
+}
+
 export function match(said: string, wakeWord: string, muted: boolean, mutedCommands: string[], variants: string[] = []): Match {
   const rest = afterWakeWord(said, wakeWord, variants);
   if (rest === null) return { kind: "speech" };
   const name = commandIn(rest);
-  if (name === null) return { kind: "unclear" };
-  if (muted && !mutedCommands.includes(name)) return { kind: "unclear" };
+  if (name === null || !allowed(name, muted, mutedCommands)) return { kind: "unclear" };
   return { kind: "command", name };
+}
+
+/**
+ * Short enough to be a command and nothing else.
+ *
+ * Inside the wake-word hold an utterance is matched with no wake word in front
+ * of it, and the command table holds bare single words: `stop`, `clear`,
+ * `where`, `man`. So "how do I stop the server" ended the turn and the question
+ * never reached the agent. Measured 14 September, a command after the wake word
+ * is one or two words -- the longest the card asks for is "tones off".
+ */
+const HOLD_WORDS = 3;
+
+/** One utterance, read once: what it matched, and whether it holds the agreement word (10.2). */
+export type Reading = Match & { agreed: boolean };
+
+/** What reading an utterance needs to know: the words of 9.2, 9.6 and 10.2, as the config names them. */
+export interface Words {
+  wakeWord: string;
+  wakeWordVariants: string[];
+  mutedCommands: string[];
+  agreementWord: string;
+}
+
+/**
+ * Every utterance goes through here, and only through here. `awaiting` is the
+ * wake-word hold of 9.1: the wake word arrived a moment ago on its own, so a
+ * short utterance with no wake word is its command. A longer one, or one that
+ * names no command, is speech: a question asked after a false start must not
+ * be swallowed.
+ */
+export function read(said: string, words: Words, muted: boolean, awaiting: boolean): Reading {
+  const plain = normalize(said);
+  // 10.3 a specific word, so a reflex or a bad transcription cannot say it
+  const agreed = plain.includes(words.agreementWord.toLowerCase());
+  const matched = match(said, words.wakeWord, muted, words.mutedCommands, words.wakeWordVariants);
+  if (matched.kind === "speech" && awaiting && plain.split(" ").length <= HOLD_WORDS) {
+    const name = commandIn(plain);
+    if (name && allowed(name, muted, words.mutedCommands)) return { kind: "command", name, agreed };
+  }
+  return { ...matched, agreed };
 }

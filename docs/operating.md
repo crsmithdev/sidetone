@@ -109,9 +109,11 @@ same hook that will feed the sentence collector when voice arrives.
 | `src/audio.ts` | the ends of a turn, and the barge-in, found in frames rather than by sox |
 | `src/latency.ts` | section 18.4: the round trip, measured rather than felt |
 | `src/network.ts` | the connection, as the framework reports it, from both ends |
-| `src/bridge.ts` | the bridge assembled once: the engines, the mouth, the conversation, the ear and the channel, joined. The room supplies a speaker and a sink |
-| `src/serve.ts` | section 7.4 and 12: the room, the client page and the pairing |
+| `src/bridge.ts` | the bridge assembled once: the mouth, the conversation, the ear and the channel, joined (ADR 0010). The room supplies a speaker and a sink and gets the real engines; a test passes fakes in `Parts` |
+| `src/serve.ts` | section 7.4 and 12: the room, and the server that hands requests to the routes |
+| `src/routes.ts` | section 12: every HTTP route, and the pairing code with its growing wait (ADR 0005), tested without a server or a room |
 | `client/index.html` | the phone client. Keep the screen on (2.4) |
+| `client/decode.js` | 4.3 what the page and the fake phone make of each message; a test replays `test/fixtures/messages.jsonl` through it |
 | `android/` | the Android app of 17: the same client, with the screen off |
 | `speech/*.py` | the two engines as long-lived workers, warmed at startup |
 | `src/session.ts` | one long-lived Claude Code process, text in and text out |
@@ -417,10 +419,10 @@ the first step of hold music. The route answers this machine only:
 curl -X POST localhost:3100/play -d '{"file":"/home/me/hold-samples/Bossa Antigua.mp3"}'
 ```
 
-It answers 202 when the track starts, 409 while the bridge speaks or plays
-another track, and 400 for a path that is not absolute or does not exist. The
-track stops when Chris talks and when the bridge has a sentence to say. Nothing
-else stops it yet.
+It answers 202 when the track is queued, 409 while the audio is off, and 400
+for a path that is not absolute or does not exist. The mouth plays it when
+nothing is being said (15.12). A sentence fades it out, and Chris talking or
+the audio going off stops it.
 
 ### Hold music
 

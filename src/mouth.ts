@@ -9,8 +9,9 @@
  *
  * The room and the desk used to each write the part between the queue and the
  * transport -- make the sentence, mark the round trip, start the next one,
- * play -- and neither copy had a test. It is one place now, and the two loops
- * supply only the part where they differ: a `Speaker`, which plays one wav.
+ * play -- and neither copy had a test. It is one place now, and the room is
+ * its one loop (ADR 0010); it and a test supply only a `Speaker`, which plays
+ * one wav.
  */
 import { wavFromFile } from "./audio.ts";
 import type { Config } from "./config.ts";
