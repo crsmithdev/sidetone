@@ -221,9 +221,9 @@ Decided 23 September 2026:
 - Correction to check first: Chris thought the third cue, rising, plays on a
   reconnect. In `src/cues.ts` it is `starting`, three clicks dark to bright,
   and it plays when the Claude Code process restarts (`onRestart` in
-  `src/conversation.ts`). Chris rarely hears it. Decide whether the new
-  two-click figure is a fourth cue that leaves `starting` as it is, or
-  replaces it.
+  `src/conversation.ts`). Chris rarely hears it. Decided: the new two-click
+  figure is a fourth cue, and `starting` stays as it is. The count of three
+  still tells them apart.
 
 ## 19. Highlight the chat text as it is actually spoken
 
