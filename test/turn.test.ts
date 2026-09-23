@@ -3,114 +3,18 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { encodeWav } from "../src/audio.ts";
-import { Channel } from "../src/channel.ts";
 import { DEFAULTS, type Config } from "../src/config.ts";
 import type { Outgoing } from "../src/messages.ts";
-import { Conversation, type Agent, type MakeAgent } from "../src/conversation.ts";
-import { Measures } from "../src/measures.ts";
-import { Mouth, type Speaker } from "../src/mouth.ts";
+import type { SessionHooks } from "../src/session.ts";
 import { Working } from "../src/working.ts";
-import type { SessionHooks, Turn } from "../src/session.ts";
+import { bridge, type Music, type Script } from "./harness.ts";
 
-const config: Config = { ...DEFAULTS, audioCueDelayMs: 10, audioCueEveryMs: 10 };
+const config: Partial<Config> = { audioCueDelayMs: 10, audioCueEveryMs: 10 };
 
-interface Script {
-  deltas?: string[];
-  text?: string;
-  rateLimit?: { fiveHour: number; sevenDay: number };
-  /** what the agent does before it answers, such as reaching the checkpoint */
-  during?: (hooks: SessionHooks) => void;
-  /** a turn that is still running: it answers when this resolves */
-  hold?: Promise<void>;
-  /** what the real process does with an interrupt: it returns a result */
-  onInterrupt?: () => void;
-  fail?: string;
-}
-
-/**
- * The agent, scripted. This is the whole point of the seam: a turn can be
- * driven — word by word, through a checkpoint, into a restart — with no
- * Claude Code process anywhere near it.
- */
-function scripted(script: Script = {}) {
-  const calls: string[] = [];
-  let hooks: SessionHooks = {};
-  const agent: Agent = {
-    start: () => calls.push("start"),
-    stop: () => calls.push("stop"),
-    async ask(said: string): Promise<Turn> {
-      calls.push(`ask ${said}`);
-      script.during?.(hooks);
-      if (script.hold) await script.hold;
-      for (const delta of script.deltas ?? []) hooks.onDelta?.(delta);
-      if (script.fail) throw new Error(script.fail);
-      return { number: 1, text: script.text ?? (script.deltas ?? []).join(""), costUsd: 0.02, isError: false };
-    },
-    agree: () => calls.push("agree"),
-    interrupt: () => { calls.push("interrupt"); script.onInterrupt?.(); },
-    restart: (reason: string) => calls.push(`restart ${reason}`),
-    running: true,
-    turns: 1,
-    rateLimit: script.rateLimit ?? { fiveHour: 0, sevenDay: 0 },
-    contextFraction: () => null,
-    totalCostUsd: () => 0.5,
-  };
-  const make: MakeAgent = (given) => { hooks = given; return agent; };
-  return { make, calls, hooks: () => hooks };
-}
-
-/** What a test may do to the hold music's source and to Chris's voice. */
-interface Music {
-  file: string;
-  /** the track ends by itself after this long; unset, it plays until it is cut */
-  lasts?: number;
-  /** a sentence takes this long to play, as a real one does; unset, it is instant */
-  sentenceMs?: number;
-}
-
+/** A room: the bridge as the car assembles it, over fake engines. */
 function room(script: Script = {}, overrides: Partial<Config> = {}, music?: Music) {
-  const said: string[] = [];
-  const cues: string[] = [];
-  const told: Outgoing[] = [];
-  const journal: string[] = [];
-  const tracks: Array<{ stopped: boolean }> = [];
-  const source = { taken: false, talking: false };
-  const agent = scripted(script);
-  const speaker: Speaker = {
-    async play(text) { said.push(text); if (music?.sentenceMs) await new Promise((resolve) => setTimeout(resolve, music.sentenceMs)); return true; },
-    cue(wav) { cues.push(wav); },
-    // the room's speaker, in miniature: a taken source refuses, and the cut is asked as it plays
-    track(_wav, cut, fade) {
-      if (source.taken) return null;
-      const track = { stopped: false };
-      tracks.push(track);
-      return new Promise<boolean>((resolve) => {
-        const started = Date.now();
-        let fadedAt = 0;
-        const poll = setInterval(() => {
-          // the transport's fade, in miniature: it runs out `ms` after it was asked for
-          if (!fadedAt && fade.when()) fadedAt = Date.now();
-          if (cut() || (fadedAt && Date.now() - fadedAt >= fade.ms)) { track.stopped = true; clearInterval(poll); resolve(false); }
-          else if (music?.lasts !== undefined && Date.now() - started >= music.lasts) { clearInterval(poll); resolve(true); }
-        }, 2);
-      });
-    },
-  };
-  const settings = { ...config, ...overrides };
-  const mouth = new Mouth(speaker, { take: async (text: string) => text, start: () => {}, use: () => true }, { file: (name) => name }, new Measures(), {
-    ...settings,
-    talking: () => source.talking,
-    music: music && { file: music.file, gain: 0.4, rate: 48_000, fadeMs: settings.holdMusicFadeMs },
-    say: (line) => journal.push(line),
-  });
-  const turns: Turn[] = [];
-  const channel = new Channel(settings, (message) => { told.push(message); }, ends, () => {});
-  const c = new Conversation("/tmp", settings, mouth, channel, { onTurn: (turn) => turns.push(turn) }, agent.make);
-  return { c, mouth, said, cues, turns, agent, told, channel, journal, tracks, source };
+  return bridge({ script, overrides: { ...config, ...overrides }, music });
 }
-
-/** The channel's other end, which no test here drives. */
-const ends = { heard: async () => {}, microphone: () => {}, voice: () => {}, quality: () => false, screen: () => [], screenshot: () => [] };
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -727,7 +631,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
     const r = await slow();
     await until(() => r.tracks.length > 0);
     expect(r.tracks[0]?.stopped).toBe(false);
-    r.source.talking = true;
+    r.talk();
     await wait(20);
     expect(r.tracks[0]?.stopped).toBe(true);
     r.end();
@@ -736,7 +640,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
 
   test("it does not start while Chris is talking", async () => {
     const r = await slow();
-    r.source.talking = true;
+    r.talk();
     await wait(AFTER * 2);
     expect(r.tracks).toHaveLength(0);
     r.end();
@@ -761,7 +665,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
     r.agent.hooks().onDelta?.("Done. ");
     await wait(20);
     expect(r.tracks[0]?.stopped).toBe(false);
-    r.source.talking = true;
+    r.talk();
     await wait(20);
     expect(r.tracks[0]?.stopped).toBe(true);
     r.end();

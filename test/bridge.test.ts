@@ -1,109 +1,95 @@
 /**
- * The bridge as the car runs it, with fake engines (spec 11.3, 11.9).
+ * The loops that only exist in `assemble` (spec 11.3, 11.9, 14.11, 9.4).
  *
- * Every other test here builds the wiring by hand, and the copies drifted: one
- * wires the mouth's `talking` to a flag on its own fake source, where
- * `assemble` wires it to the ear. So the one loop that decides a barge-in —
- * frames reach the ear, the ear stops the speech, the mouth holds the rest —
- * had no test at all. This drives it through the real objects.
+ * Each of these runs through two modules that the other test files drive one
+ * at a time: the ear and the mouth, the channel and the ear, a command and the
+ * settings the car keeps. They are the ones a drive exercises every minute and
+ * no test reached, because the wiring they need was made inside `assemble`.
  */
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { assemble, type Parts } from "../src/bridge.ts";
-import { DEFAULTS, type Config } from "../src/config.ts";
-import type { Agent, MakeAgent } from "../src/conversation.ts";
-import type { Outgoing } from "../src/messages.ts";
-import type { Speaker } from "../src/mouth.ts";
-import type { SessionHooks, Turn } from "../src/session.ts";
+import { bridge } from "./harness.ts";
 
-const RATE = 16_000;
+const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-// a barge-in waits `interruptAfterMs` for the turn to end by itself; a test does not
-const config: Config = { ...DEFAULTS, audioCueDelayMs: 10, audioCueEveryMs: 10, interruptAfterMs: 20, graceMs: 20 };
-
-/** A frame at a level, as the phone would send it. */
-function frame(level: number, ms = 20): Int16Array {
-  const samples = new Int16Array(Math.round((RATE * ms) / 1000));
-  samples.fill(Math.round(level * 32768));
-  return samples;
+/** The turn a client asks for is nobody's promise here, so the test waits for it. */
+async function until(done: () => boolean, ms = 1_000): Promise<void> {
+  const stop = Date.now() + ms;
+  while (!done() && Date.now() < stop) await Bun.sleep(2);
 }
 
-const speech = (frames: number) => Array.from({ length: frames }, () => frame(0.4));
-const quiet = (frames: number) => Array.from({ length: frames }, () => frame(0.001));
-
-/** The agent, scripted: it answers with the deltas it was given. */
-function scripted(deltas: string[]): { make: MakeAgent } {
-  let hooks: SessionHooks = {};
-  const agent: Agent = {
-    start: () => {},
-    stop: () => {},
-    async ask(): Promise<Turn> {
-      for (const delta of deltas) hooks.onDelta?.(delta);
-      return { number: 1, text: deltas.join(""), costUsd: 0, isError: false };
-    },
-    agree: () => {},
-    interrupt: () => {},
-    restart: () => {},
-    running: true,
-    turns: 1,
-    rateLimit: { fiveHour: 0, sevenDay: 0 },
-    contextFraction: () => null,
-    totalCostUsd: () => 0,
-  };
-  return { make: (given) => { hooks = given; return agent; } };
-}
-
-/**
- * The bridge with fakes at the two ends that cost seconds and a graphics card:
- * the engines, the record and the agent. Everything between them is the real
- * wiring the car runs.
- */
-function bridge(options: { deltas?: string[]; said?: string[]; heard?: string; sentenceMs?: number } = {}) {
-  const said = options.said ?? [];
-  const told: Outgoing[] = [];
-  const speaker: Speaker = {
-    async play(text) {
-      said.push(text);
-      if (options.sentenceMs) await new Promise((resolve) => setTimeout(resolve, options.sentenceMs));
-      return true;
-    },
-    cue() {},
-    track() { return null; },
-  };
-  const parts: Parts = {
-    stt: { start: async () => {}, warmupSeconds: 1, transcribe: async () => options.heard ?? "", stop: () => {} },
-    tts: { start: async () => {}, sampleRate: RATE, synthesize: async (_text, wav) => wav, switchable: true, use: () => {}, voice: "test", stop: () => {} },
-    made: { take: async (text: string) => text, start: () => {}, use: () => true },
-    cues: { file: (name) => name, build: async () => {} },
-    record: () => {},
-    makeAgent: scripted(options.deltas ?? []).make,
-    jobs: () => 0,
-    scratch: mkdtempSync(`${tmpdir()}/sidetone-test-`),
-  };
-  return { ...assemble("/tmp", config, RATE, speaker, (message) => told.push(message), () => {}, parts), said, told };
-}
-
-describe("the bridge, assembled as the car runs it", () => {
+describe("the bridge, assembled as the car assembles it", () => {
   test("the engines are the ones it was given, and the health check reads them", async () => {
-    const b = bridge();
-    await b.ready;
-    expect(b.stt.warmupSeconds).toBeGreaterThan(0);
-    expect(b.tts.sampleRate).toBe(RATE);
-    b.stop();
+    const r = bridge();
+    await r.ready;
+    expect(r.stt.warmupSeconds).toBeGreaterThan(0);
+    expect(r.tts.sampleRate).toBeGreaterThan(0);
   });
 
   test("Chris speaking over the answer holds the rest of it (11.3, 11.9)", async () => {
-    const b = bridge({ deltas: ["One. ", "Two. ", "Three. "], sentenceMs: 30, heard: "never mind" });
-    const turn = b.conversation.turn("say three sentences");
-    // let the first sentence reach the speaker, then talk over it
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    for (const f of speech(25)) b.ear.frame(f);
-    expect(b.ear.bargingIn).toBe(true);
-    expect(b.mouth.onHold).toBe(true);
-    // the ear's word is what the mouth reads: no flag of a test's own
-    for (const f of quiet(90)) b.ear.frame(f);
+    const r = bridge({ script: { deltas: ["One. ", "Two. ", "Three. "] }, overrides: { interruptAfterMs: 20, graceMs: 20 } });
+    const turn = r.c.turn("say three sentences");
+    await tick();
+    // the mouth reads the ear, not a flag of this test's own
+    r.talk();
+    expect(r.ear.bargingIn).toBe(true);
+    expect(r.mouth.onHold).toBe(true);
+    r.hush();
     await turn;
-    b.stop();
+  });
+
+  test("road noise that carried no words lets the answer go on (11.7)", async () => {
+    const r = bridge({ script: { deltas: ["One. ", "Two. "] }, overrides: { interruptAfterMs: 20 } });
+    const turn = r.c.turn("say two sentences");
+    await tick();
+    r.talk();
+    expect(r.mouth.onHold).toBe(true);
+    // the engine finds nothing in it, which is a lorry and not a barge-in
+    r.hush();
+    await turn;
+    await tick();
+    expect(r.mouth.onHold).toBe(false);
+  });
+
+  test("a microphone cut ends the utterance, and an open one does not (ADR 0008)", () => {
+    const r = bridge();
+    r.talk();
+    expect(r.ear.bargingIn).toBe(true);
+    r.channel.receive({ kind: "mic", on: false, release: true });
+    // the cut dropped the half recording, so nothing is being said any more
+    expect(r.ear.bargingIn).toBe(false);
+    expect(r.journal.some((line) => line.includes("cut its microphone"))).toBe(true);
+  });
+
+  test("the audio off reaches the mouth, and the words carry on (11.12)", () => {
+    const r = bridge();
+    expect(r.mouth.audioOn).toBe(true);
+    r.channel.receive({ kind: "voice", on: false });
+    expect(r.mouth.audioOn).toBe(false);
+    r.channel.receive({ kind: "voice", on: true });
+    expect(r.mouth.audioOn).toBe(true);
+  });
+
+  test("what the phone says it hears reaches the reading both ends keep (N.1)", () => {
+    const r = bridge();
+    r.channel.receive({ kind: "quality", quality: "excellent" });
+    expect(r.c.network.get("phone")).toBe("excellent");
+  });
+
+  test("a setting said out loud changes the live copy, is kept, and is recorded (9.4)", async () => {
+    const r = bridge();
+    expect(r.config.holdMusic).toBe(false);
+    await r.c.heard("sidetone music on");
+    // the live copy is what /diagnostics reports, the patch is what the next run reads
+    expect(r.config.holdMusic).toBe(true);
+    expect(r.patches).toEqual([{ holdMusic: true }]);
+    expect(r.measures.recent().some((event) => event.kind === "setting")).toBe(true);
+  });
+
+  test("what Chris says arrives through the channel as a turn (14.11)", async () => {
+    const r = bridge({ script: { deltas: ["Four."] } });
+    r.channel.receive({ kind: "said", text: "what is two plus two" });
+    await until(() => r.said.length > 0);
+    expect(r.agent.calls).toContain("ask what is two plus two");
+    expect(r.said).toEqual(["Four."]);
   });
 });

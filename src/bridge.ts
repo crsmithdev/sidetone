@@ -73,6 +73,11 @@ export interface Parts {
   makeAgent?: MakeAgent;
   /** 14.10 how many detached jobs run, which is work with no turn behind it */
   jobs?: () => number;
+  /**
+   * 9.4 where a setting said out loud is kept for the next run. The car writes
+   * the config file; a test must not, and passing this is how it says so.
+   */
+  settings?: (patch: Partial<Config>) => void;
   /** where the wavs of this run are written */
   scratch?: string;
 }
@@ -101,6 +106,7 @@ export function assemble(
   // 18 the record outlives the process: the scorecard is read after a drive,
   // and a restart in between used to leave nothing to read.
   const write = parts.record ?? recorder(config);
+  const keep = parts.settings ?? saveSettings;
   // 18 one bookkeeper: the spoken report and the record are the same facts
   const measures = new Measures(write);
   // 11.3 whether Chris is talking is the ear's word; it stops the frames
@@ -130,7 +136,7 @@ export function assemble(
   const conversation: Conversation = new Conversation(dir, config, mouth, channel, {
     // 9.4 the file is for the next run; the live copy is what /diagnostics and
     // the health line report now; the record says when it changed
-    onSetting: (patch) => { Object.assign(config, patch); saveSettings(patch); measures.setting(patch); },
+    onSetting: (patch) => { Object.assign(config, patch); keep(patch); measures.setting(patch); },
     onTurn: (turn) => say(`[turn ${turn.number}, $${conversation.agent.totalCostUsd().toFixed(4)} this session]`),
   }, parts.makeAgent);
 

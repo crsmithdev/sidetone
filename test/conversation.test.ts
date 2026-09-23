@@ -1,56 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import { DEFAULTS, type Config } from "../src/config.ts";
-import { Channel } from "../src/channel.ts";
 import { COMMAND_NAMES, spokenForms } from "../src/commands.ts";
-import { Conversation } from "../src/conversation.ts";
-import { Measures } from "../src/measures.ts";
-import { KEPT_LINES, Mouth, type Speaker } from "../src/mouth.ts";
+import { KEPT_LINES } from "../src/mouth.ts";
+import { bridge } from "./harness.ts";
 
 const config: Config = { ...DEFAULTS, historyMaxAgeMs: 60_000 };
 
-/**
- * A mouth over a speaker that keeps what it played, and can be made to block
- * mid-sentence and to report a sentence cut short, which is what a barge-in
- * looks like from up here. Making a sentence takes one tick, the way the
- * engine takes a moment, so by then the agent has usually streamed more.
- */
-function mouthFor(overrides: Partial<Config> = {}) {
-  const said: string[] = [];
-  const cues: string[] = [];
-  const lookahead: Array<string | undefined> = [];
-  const switched: string[] = [];
-  let gate: (() => void) | null = null;
-  let blocking = false;
-  let whole = true;
-  const speaker: Speaker = {
-    async play(text) {
-      said.push(text);
-      if (blocking) await new Promise<void>((resolve) => { gate = resolve; });
-      return whole;
-    },
-    cue(wav) { cues.push(wav); },
-    track: () => null,
-  };
-  const made = { take: async (text: string) => text, start: (text: string | undefined) => { lookahead.push(text); }, use: (voice: string) => { switched.push(voice); return true; } };
-  const mouth = new Mouth(speaker, made, { file: (name) => name }, new Measures(), { ...config, ...overrides });
-  return {
-    mouth, said, cues, lookahead, switched,
-    blockSay: (on: boolean) => { blocking = on; },
-    cutSay: (on: boolean) => { whole = !on; },
-    release: () => { gate?.(); gate = null; },
-  };
-}
-
-/** A channel nobody is listening to: what a client is told is channel.test.ts's business. */
-function quiet(settings: Config = config): Channel {
-  return new Channel(settings, () => {}, { heard: async () => {}, microphone: () => {}, voice: () => {}, quality: () => false, screen: () => [], screenshot: () => [] }, () => {});
-}
-
 /** A conversation whose mouth keeps what it said, so a command can be checked. */
 function watched() {
-  const m = mouthFor();
-  const c = new Conversation("/tmp", config, m.mouth, quiet());
-  return { c, said: m.said, cues: m.cues };
+  return bridge({ overrides: config });
 }
 
 /** The speech queue is a promise chain, so a command's reply lands a tick later. */
@@ -102,8 +60,7 @@ describe("the hold music switch (15.7.3)", () => {
     expect(said).toEqual(["Music off.", "Music on."]);
   });
   test("the setting reaches the hook, and the explicit form does not flip what is already right", async () => {
-    const patches: Array<Record<string, unknown>> = [];
-    const c = new Conversation("/tmp", config, mouthFor().mouth, quiet(), { onSetting: (patch) => patches.push(patch) });
+    const { c, patches } = room();
     await c.heard("sidetone music off");
     await c.heard("sidetone music off");
     await c.heard("sidetone music on");
@@ -149,16 +106,9 @@ describe("the stats command (18.4)", () => {
   });
 });
 
-/** A room: the conversation over a scripted mouth. A turn in flight is turn.test.ts's business. */
+/** A room: the whole bridge over fake engines. A turn in flight is turn.test.ts's business. */
 function room(overrides: Partial<Config> = {}) {
-  const m = mouthFor(overrides);
-  const c = new Conversation("/tmp", { ...config, ...overrides }, m.mouth, quiet({ ...config, ...overrides }));
-  return {
-    c, mouth: m.mouth, said: m.said, cues: m.cues, lookahead: m.lookahead,
-    blockSay: m.blockSay,
-    cutSay: m.cutSay,
-    release: m.release,
-  };
+  return bridge({ overrides: { ...config, ...overrides } });
 }
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -267,8 +217,7 @@ describe("the commands that were wrong mid-turn", () => {
 
 describe("a setting changed out loud is handed on (9.4)", () => {
   test("interrupt, tones and the voice reach the hook as the setting they change", async () => {
-    const patches: Array<Record<string, unknown>> = [];
-    const c = new Conversation("/tmp", config, mouthFor().mouth, quiet(), { onSetting: (patch) => patches.push(patch) });
+    const { c, patches } = room();
     await c.heard("sidetone interrupt on");
     await c.heard("sidetone tones off");
     await c.heard("sidetone male voice");
@@ -364,16 +313,15 @@ describe("the gate on clearing the context (10)", () => {
 
 describe("switching voice (4.9)", () => {
   test("it changes the voice, keeps the setting, and leaves the answer alone", async () => {
-    const m = mouthFor();
-    const patches: Array<Record<string, unknown>> = [];
-    const c = new Conversation("/tmp", config, m.mouth, quiet(), { onSetting: (patch) => patches.push(patch) });
+    const r = room();
+    const { c, patches } = r;
     c.ears.stopSpeaking();
-    m.mouth.say("the rest of the answer.");
+    r.mouth.say("the rest of the answer.");
     await c.heard("sidetone male voice");
     await new Promise((r) => setTimeout(r, 0));
-    expect(m.switched).toEqual([config.voiceChoices.male]);
+    expect(r.switched).toEqual([config.voiceChoices.male]);
     expect(patches).toEqual([{ ttsVoice: config.voiceChoices.male }]);
-    expect(m.said).toEqual(["Switched to the male voice.", "the rest of the answer."]);
+    expect(r.said).toEqual(["Switched to the male voice.", "the rest of the answer."]);
   });
 });
 
@@ -392,11 +340,10 @@ describe("the wake-word hold", () => {
   });
 
   test("a question is not a command, however it ends", async () => {
-    const m = mouthFor();
-    const c = new Conversation("/tmp", config, m.mouth, quiet());
+    const { c, mouth } = room();
     await c.heard("sidetone");
     await c.heard("how do i stop the server");
-    const commands = m.mouth.measures.recent().flatMap((e) => (e.kind === "matched" ? [e.became] : []));
+    const commands = mouth.measures.recent().flatMap((e) => (e.kind === "matched" ? [e.became] : []));
     expect(commands).not.toContain("endTurn");
   });
 });
