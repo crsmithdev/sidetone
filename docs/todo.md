@@ -296,6 +296,8 @@ Decided 23 September 2026:
 - Langfuse keeps the traces of the agent and the model. The dashboard does not
   copy them. The turn view links to the Langfuse trace of that turn.
 - Build the turn view first. Decide the aggregate views after Chris has used it.
+- What else to record, and the order to build it, is in
+  [`observability-brief.md`](observability-brief.md).
 
 ## 22. A desktop client
 
