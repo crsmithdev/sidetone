@@ -29,6 +29,25 @@ function pairingCode(): string {
  * goes in the fragment, so a phone camera that opens the link as a web page
  * never sends it to the server or into a log.
  */
+/**
+ * How long an engine may take to warm before a health probe calls it a fault.
+ * Chatterbox loads in about 160 seconds on this machine, and whisper in about
+ * seven. The recover timer probes every 120 seconds, so anything under the
+ * real load time makes the bridge restart itself forever.
+ */
+const WARMUP_MS = 5 * 60_000;
+
+/**
+ * Whether the bridge is well enough to leave alone. The recover timer restarts
+ * it when this says no, so it has to say yes while an engine is still loading
+ * and no when one never loads. Before 23 September 2026 the port did not open
+ * until the engines were warm, so the probe could not ask at all, and the
+ * bridge restarted itself every two minutes forever.
+ */
+export function wellEnough(connected: boolean, running: boolean, warm: boolean, upMs: number): boolean {
+  return connected && running && (warm || upMs < WARMUP_MS);
+}
+
 export function pairingLink(origin: string, code: string): string {
   return `${origin}/#pair=${code}`;
 }
@@ -90,21 +109,6 @@ export async function serve(dir: string, config: Config): Promise<void> {
   // machine is reaching the room, the phone's says whether the car is.
   transport.onQuality((quality, identity) => channel.quality(transport.isSelf(identity) ? "bridge" : "phone", quality));
 
-  // the engines warm and the room is joined at the same time: whisper's warmup
-  // is about seven seconds, and the wait for LiveKit does not need them
-  try {
-    await Promise.all([
-      bridge.ready,
-      transport.joinWhenReady(keys, config.room, config.livekitWaitMs, (text) => console.log(`[${text}]`)),
-    ]);
-  } catch (error) {
-    // the agent and the engines were started for a room that never came
-    bridge.stop();
-    throw error;
-  }
-  // the frames need the engines; nothing is heard before they are warm
-  transport.onAudio((frame) => ear.frame(frame));
-
   const code = pairingCode();
   /**
    * 12.1 three words drawn from twenty-six is 17,576 codes, and until
@@ -162,12 +166,16 @@ export async function serve(dir: string, config: Config): Promise<void> {
         });
       }
       if (url.pathname === "/health") {
-        const well = transport.connected && conversation.agent.running;
+        const warm = tts.sampleRate > 0 && stt.warmupSeconds > 0;
+        const upMs = Date.now() - startedAt;
+        const well = wellEnough(transport.connected, conversation.agent.running, warm, upMs);
+        const warming = !warm && upMs < WARMUP_MS;
         return Response.json({
           ok: well,
           room: transport.connected ? "connected" : "gone",
           agent: conversation.agent.running ? "running" : "stopped",
           engines: { speech: tts.sampleRate > 0, transcription: stt.warmupSeconds > 0 },
+          warming,
           // 11.12 the one state that makes a working bridge look dead. It cost
           // two journal digs on 21 September, both times an accidental tap.
           audio: mouth.audioOn ? "on" : "off",
@@ -234,6 +242,27 @@ export async function serve(dir: string, config: Config): Promise<void> {
       return new Response("not found", { status: 404 });
     },
   });
+
+  // The port opens before the engines are warm, and answers /health while they
+  // warm. It used to open after, and on 23 September 2026 that cost the bridge
+  // its own restart loop: chatterbox takes about 160 seconds to load, the
+  // health probe runs every 120, and each failed probe restarted the service
+  // before it could finish. Nothing on the port needs a warm engine.
+  // the engines warm and the room is joined at the same time: whisper's warmup
+  // is about seven seconds, and the wait for LiveKit does not need them
+  try {
+    await Promise.all([
+      bridge.ready,
+      transport.joinWhenReady(keys, config.room, config.livekitWaitMs, (text) => console.log(`[${text}]`)),
+    ]);
+  } catch (error) {
+    // the agent and the engines were started for a room that never came
+    bridge.stop();
+    server.stop();
+    throw error;
+  }
+  // the frames need the engines; nothing is heard before they are warm
+  transport.onAudio((frame) => ear.frame(frame));
 
   console.log(`bridge on ${origin}, room ${config.room}, Claude Code in ${dir}`);
   console.log(`the phone reaches LiveKit at ${clientUrl}`);
