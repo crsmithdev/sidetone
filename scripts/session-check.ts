@@ -76,7 +76,7 @@ function since(text: string | undefined): number | undefined {
 /** One line for the journal: the figures that say a session went wrong. */
 function brief(window?: string): void {
   const drive = readDrive(config.recordPath, since(window));
-  if (!drive) { console.log(`[card] nothing recorded${window ? ` in the last ${window}` : ""}]`); return; }
+  if (!drive) { console.log(`[card: nothing recorded${window ? ` in the last ${window}` : ""}]`); return; }
   const card = score(drive.events);
   const parts = [
     `heard ${card.heard.total}`,
