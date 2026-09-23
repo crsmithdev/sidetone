@@ -619,3 +619,55 @@ clean, the fault is in the engine or a stored clip, and it may be the same
 fault as item 32. Also check how the bridge turns a path into speech.
 
 Done when the cause is known, and a path in a reply is spoken once.
+
+## 35. Permissions stop the agent, and the spoken confirm word may not exist
+
+Noted 23 September 2026. Not investigated yet.
+
+On 23 September 2026 the permission check refused a headless `claude -p
+--dangerously-skip-permissions` job that earlier jobs had run without trouble.
+The agent had to stop and ask Chris. Chris then gave permission by voice, and
+the same command ran.
+
+Chris remembers an early plan: for anything dangerous he would say a specific
+word to continue. He does not remember that it ever fired. A search of
+`docs/sidetone-spec.md` finds no such rule.
+
+Two parts:
+
+1. Find what the check refuses and why it refused this time, and set the
+   permissions so that `scripts/job` and its `claude -p` jobs run without a
+   stop. Chris should not have to repeat a grant by voice.
+2. Find out what happened to the spoken confirm word. Look in the earlier
+   plans, the vault and the git log. Then decide with Chris whether to build
+   it, and for which actions.
+
+Done when a job started by `scripts/job` does not stop on a permission, and the
+confirm word is either built or removed from the plans.
+
+## 36. Review every wake-word command
+
+Noted 23 September 2026. Not started.
+
+Chris wants a review of all the commands that follow the wake word, the ones in
+`src/commands.ts`: what each does, which phrases reach it, which ones are
+missing, which ones nobody uses, and which ones clash. Check each one against
+`docs/sidetone-spec.md` 9 and the heard corpus (ADR 0006).
+
+Done when there is a written list of the commands with a keep, change, add or
+drop decision for each one.
+
+## 37. A verbosity setting, as a command and in the app
+
+Noted 23 September 2026. Not started.
+
+Chris wants to set how much the agent says: a voice command after the wake
+word, and a control in the app. This is the same idea as the tone commands
+(`tones`, `tones on`, `tones off`) but for the length of the reply.
+
+Decide first what the levels are, and how the setting reaches the agent: as a
+line in the prompt, a setting the bridge holds, or both. Then add the command,
+the control in the options menu of item 28, and a test.
+
+Done when Chris can say a command or tap a control and the next reply is
+shorter or longer.
