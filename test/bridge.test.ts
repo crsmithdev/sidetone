@@ -116,6 +116,26 @@ describe("the bridge, assembled as the car assembles it", () => {
     expect(r.said).toEqual([]);
   });
 
+  test("the bridge hearing its own voice goes in the record (18.10)", async () => {
+    const r = bridge({ script: { deltas: ["The service restarted about nine minutes ago. "] } });
+    await r.c.turn("when did it restart");
+    // the phone's echo canceller let the speaker through, which is the volume slider of 21 September
+    await r.c.heard("the service restarted about nine minutes ago");
+    const echoes = r.measures.recent().flatMap((event) => (event.kind === "echo" ? [event] : []));
+    expect(echoes).toHaveLength(1);
+    expect(echoes[0]?.spoke).toBe("The service restarted about nine minutes ago.");
+    expect(r.journal.some((line) => line.includes("may have heard itself"))).toBe(true);
+    // it is recorded, not acted on: the words still reach the agent
+    expect(r.agent.calls).toContain("ask the service restarted about nine minutes ago");
+  });
+
+  test("what Chris actually says is not taken for an echo (18.10)", async () => {
+    const r = bridge({ script: { deltas: ["The service restarted about nine minutes ago. "] } });
+    await r.c.turn("when did it restart");
+    await r.c.heard("why did it restart in the first place");
+    expect(r.measures.recent().filter((event) => event.kind === "echo")).toEqual([]);
+  });
+
   test("what Chris says arrives through the channel as a turn (14.11)", async () => {
     const r = bridge({ script: { deltas: ["Four."] } });
     r.channel.receive({ kind: "said", text: "what is two plus two" });

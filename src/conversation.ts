@@ -30,6 +30,7 @@ import type { Channel } from "./channel.ts";
 import { commandIn, match, type CommandName } from "./commands.ts";
 import type { Config } from "./config.ts";
 import type { CueName } from "./cues.ts";
+import { echoOf } from "./echo.ts";
 import type { Ears } from "./ear.ts";
 import type { Measures } from "./measures.ts";
 import type { Mouth } from "./mouth.ts";
@@ -238,6 +239,14 @@ export class Conversation {
 
   /** One thing Chris said, and what it does to a held answer. */
   async heard(said: string): Promise<void> {
+    // 18.10 an utterance that repeats what the voice just said is the room, not
+    // Chris: the phone's echo canceller let the speaker through. It is recorded
+    // rather than acted on, because a person may read a sentence back.
+    const echoed = echoOf(said, this.mouth.lastSpoken);
+    if (echoed) {
+      this.measures.echo(said, echoed);
+      this.channel.journal(`the bridge may have heard itself: "${said}" repeats "${echoed}"`);
+    }
     const heard = match(said, this.config.wakeWord, this.muted, this.config.mutedCommands, this.config.wakeWordVariants);
     this.channel.tell({ kind: "heard", text: said });
     this.measures.bargeInWas(heard.kind === "command" ? "command" : "speech");

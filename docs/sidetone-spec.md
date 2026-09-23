@@ -594,6 +594,12 @@ project bridge stays in place.
 
 18.9.6 The web client ignores the message. The page has no rule to renew its own track.
 
+18.10 The bridge writes down when it hears its own voice. An utterance that repeats what the voice has just said is almost always the room rather than Chris: the phone's echo canceller let the speaker through. The bridge compares each utterance against the last few sentences it started, whole or cut. An utterance of fewer than four words is never an echo, because the bridge and Chris say the same short words. An utterance that shares at least seven words in ten with a recent sentence is one.
+
+18.10.1 The bridge records the echo and writes it to the journal. It does nothing else: it does not drop the utterance and it does not hold the answer, because Chris may read a sentence back and being wrong about that costs more than a line in the record. The scorecard counts the echoes of a drive.
+
+18.10.2 This exists because of the volume slider of 21 September, which was never wrong in the barge-in logic: it made the phone play loudly enough to defeat its own echo cancellation, and the bridge barged in on itself. Nothing in the code could see it, and a drive is what found it. An echo in the record is the first minute of a device run finding it instead.
+
 ## 19. POINT STATUS
 
 19.1 Muted command subset. Mute, unmute, and the three commands that turn the tones on and off. The set is a list in the settings, so Chris adds more later. The tone commands are on it because Chris mutes when the car is loud, and the tones are the next noise he wants gone; silencing them asks nothing of the microphone. See 9.5 and 9.6.

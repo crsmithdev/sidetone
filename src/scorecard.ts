@@ -45,6 +45,8 @@ export interface Scorecard {
   roundTrip: { rounds: number; medianMs: number; worstMs: number; medianAgentMs: number; medianSentenceMs: number; medianSynthesisMs: number };
   bargeIns: number;
   invented: number;
+  /** 18.10 utterances that repeat what the voice had just said: the bridge hearing itself. */
+  echoes: number;
 }
 
 const plain = (text: string) => text.toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
@@ -126,6 +128,8 @@ export function score(events: Event[], script = SCRIPT, passage = PASSAGE): Scor
       medianSynthesisMs: marked((a) => a.synthesisMs),
     },
     bargeIns: events.filter((e) => e.kind === "barged").length,
+    // 18.10 a drive with any of these has an echo canceller that is not holding
+    echoes: events.filter((e) => e.kind === "echo").length,
     // A turn from something nobody said, judged against this session rather
     // than against a number. The real one, "Thank you.", peaked at 0.12 where
     // the session's speech sat at 0.48: a quarter of it. An absolute threshold

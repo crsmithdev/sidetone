@@ -77,6 +77,9 @@ export const ANNOUNCE_POLL_MS = 500;
  * which `when` is true, the level falls in a straight line to nothing over
  * `ms`. A cut still stops it at once.
  */
+/** 18.10 how many spoken sentences an echo is looked for in. */
+const LATELY = 4;
+
 /** 14.13 a sentence on a queue, and the answer it belongs to. A reply has none. */
 export interface Queued {
   text: string;
@@ -126,6 +129,12 @@ export class Mouth {
   private tail: string[] = [];
   /** What has actually reached Chris's ears this turn, for 9.4.5. */
   private heard: string[] = [];
+  /**
+   * 18.10 the last few sentences the voice started, whole or cut, across turns.
+   * `heard` holds only whole ones and is emptied each turn; an echo is loudest
+   * in the sentence that was playing when the microphone heard it.
+   */
+  private lately: string[] = [];
   /** 11.12 whether the bridge makes any sound at all. The words go either way. */
   private audio = true;
   /** 18.4 whether the next sentence of the answer is the turn's first. */
@@ -207,6 +216,8 @@ export class Mouth {
   get onHold(): boolean { return this.holding; }
   /** The sentences Chris heard this turn, whole, in order. */
   get said(): readonly string[] { return this.heard; }
+  /** 18.10 the last few sentences the voice started, whole or cut, newest last. */
+  get lastSpoken(): readonly string[] { return this.lately; }
   /** 15.7 when the last sentence ended, in milliseconds since the epoch. Zero before the first. */
   get lastVoiceAt(): number { return this.voiceEndedAt; }
 
@@ -421,6 +432,8 @@ export class Mouth {
         // 14.13 the voice reached this sentence: a client lights the words as
         // they are said rather than as they arrive.
         this.settings.speaking?.(queued);
+        this.lately.push(text);
+        if (this.lately.length > LATELY) this.lately.shift();
         let whole = true;
         // the same choice the next turn of this loop will make, asked whenever
         // the sentence is made and about to play

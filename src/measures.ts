@@ -102,6 +102,15 @@ export class Measures {
     this.diagnostics.setting(patch);
   }
 
+  /**
+   * 18.10 the bridge heard its own voice. It is recorded and not acted on: a
+   * person may read a sentence back, and the cost of being wrong about that is
+   * higher than the cost of a line in the record.
+   */
+  echo(said: string, spoke: string): void {
+    this.diagnostics.echo(said, spoke);
+  }
+
   /** 15.7 a track began on the room's speaker: the hold music, or a file asked for. */
   trackStarted(what: "music" | "file"): void {
     this.diagnostics.trackStarted(what);

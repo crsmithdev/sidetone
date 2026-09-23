@@ -62,8 +62,14 @@ export interface Setting { kind: "setting"; at: number; patch: Record<string, un
  * ran and whether it reached its end. Without these the record said nothing
  * about when music actually started, and "it came on late" could not be checked.
  */
+/**
+ * 18.10 the bridge heard its own voice: an utterance that repeats what it just
+ * said. The volume slider of 21 September did this on a real phone and only a
+ * drive noticed. `said` is what the engine wrote, `spoke` the sentence it echoes.
+ */
+export interface Echo { kind: "echo"; at: number; said: string; spoke: string }
 export interface Track { kind: "track"; at: number; what: "music" | "file"; on: boolean; ms?: number; whole?: boolean }
-export type Event = Heard | Matched | Barged | Answered | Cutoff | Spoke | Note | Setting | Track;
+export type Event = Heard | Matched | Barged | Answered | Cutoff | Spoke | Note | Setting | Track | Echo;
 
 /** Enough to read a drive back, not so much that it is a log of its own. */
 const KEEP = 120;
@@ -120,6 +126,11 @@ export class Diagnostics {
   /** 9.4 a setting changed by voice, so the record explains what came after it. */
   setting(patch: Record<string, unknown>, at = Date.now()): void {
     this.add({ kind: "setting", at, patch });
+  }
+
+  /** 18.10 an utterance that repeats what the voice just said. */
+  echo(said: string, spoke: string, at = Date.now()): void {
+    this.add({ kind: "echo", at, said, spoke });
   }
 
   /** 15.7 a track started. */
