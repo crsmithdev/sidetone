@@ -692,3 +692,16 @@ Decided 23 September 2026:
   brief stays at brief.
 - The app shows a three-way selector in the options menu of item 28. The status
   row does not show the level, because item 30 makes that row smaller.
+
+Decided 23 September 2026 (item 35):
+
+- The confirm word is "continue".
+- It is needed for the irreversible actions: a force push, the deletion of a
+  remote branch, `rm -rf` outside the project, and the drop of a production
+  database. Every other action runs without a word.
+- When a permission check blocks any other action, such as the start of a
+  headless job, the agent asks Chris in one sentence. Chris says "continue" and
+  the agent runs the action. This replaces a grant in the settings file, and
+  Chris can still make one.
+- "Continue" is a common word. The bridge must count it as the confirm word
+  only as the answer to a question the agent just asked, not at any other time.
