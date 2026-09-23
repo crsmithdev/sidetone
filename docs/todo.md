@@ -615,3 +615,19 @@ speech.
 
 Done when the agent can name the last clips, run the check on one, and say
 whether a garbled reply was garbled at the bridge.
+
+## 34. The voice said ".ts" about twelve times in a row
+
+Noted 23 September 2026. Not investigated yet.
+
+In the reply that reported the three finished jobs, Chris heard the voice say
+".ts" about twelve times in a row. It did not show in the transcript on the
+screen. The reply named files such as `src/sentences.ts` and
+`src/conversation.ts`, but not twelve times.
+
+Find the `spoke` events for that reply in `~/.sidetone/record.jsonl` and read
+the exact text sent to the voice engine. Look for a repeat there. If the text is
+clean, the fault is in the engine or a stored clip, and it may be the same
+fault as item 32. Also check how the bridge turns a path into speech.
+
+Done when the cause is known, and a path in a reply is spoken once.
