@@ -46,6 +46,14 @@ export interface Scorecard {
   bargeIns: number;
   invented: number;
   /**
+   * 18.12 hold music, as it actually behaved. Of the turns long enough to earn
+   * it, how many got it. The feature shipped on 21 September and was dead for a
+   * day under 25 passing tests, because the tests encoded a rule about which
+   * turns are long and the rule was wrong about real turns. No unit test can
+   * find that; this can.
+   */
+  music: { earned: number; played: number; logged: boolean };
+  /**
    * 18.11 utterances the room made rather than Chris: a filler, or one of the
    * engine's own silence tokens. Measured over two hours in a coffee shop on
    * 22 September: 63 of 74 transcribed utterances, 22 of them "Thank you.",
@@ -66,7 +74,7 @@ export function wordAccuracy(said: string, heard: string): number {
   return want.filter((word) => got.has(word)).length / want.length;
 }
 
-export function score(events: Event[], script = SCRIPT, passage = PASSAGE): Scorecard {
+export function score(events: Event[], script = SCRIPT, passage = PASSAGE, settings: Record<string, unknown> = {}): Scorecard {
   const heard = events.filter((e): e is Heard => e.kind === "heard");
   const matched = events.filter((e): e is Matched => e.kind === "matched");
 
@@ -144,6 +152,7 @@ export function score(events: Event[], script = SCRIPT, passage = PASSAGE): Scor
     // quieter one an invention, which is how this rule was found to be wrong.
     invented: invented(heard),
     unasked: unasked(heard),
+    music: music(events, typeof settings.holdMusicAfterMs === "number" ? settings.holdMusicAfterMs : 8_000),
   };
 }
 
@@ -168,6 +177,39 @@ const ROOM = new Set([
   "yeah", "yes", "yep", "okay", "ok", "oh", "ah", "uh", "um", "hmm", "mm hmm", "mhm", "mm",
   "right", "sure", "wow", "hey", "hi", "hello", "huh", "haha", "hehehe", "pshh",
 ]);
+
+/**
+ * 18.12 the turns that waited long enough for hold music, and the ones that got
+ * it. A track that starts while the answer is still being made belongs to that
+ * turn: the record has both ends of the track and the agent's share of the turn.
+ */
+function music(events: Event[], after: number): { earned: number; played: number; logged: boolean } {
+  const tracks = events.flatMap((event) => (event.kind === "track" ? [event] : []));
+  /**
+   * Whether this window can answer the question at all, and from when.
+   *
+   * A track has only been written down since 22 September. Over a window that
+   * reaches back before that, "no music played" and "this build did not write it
+   * down" look the same, and 36 turns from this morning read as a fault that is
+   * really an upgrade. So the count starts at the first track of any kind — the
+   * moment the record proves the build says. The cost is a blind spot: a window
+   * in which nothing at all played says "not recorded" rather than raising the
+   * alarm. A card that cries wolf every hour is a card nobody reads, so that is
+   * the way round to be wrong.
+   */
+  const from = tracks[0]?.at;
+  if (from === undefined) return { earned: 0, played: 0, logged: false };
+  const started = tracks.flatMap((event) => (event.what === "music" && event.on ? [event.at] : []));
+  let earned = 0;
+  let played = 0;
+  for (const event of events) {
+    if (event.kind !== "answered" || event.agentMs <= after || event.at < from) continue;
+    earned++;
+    // the turn ran from `at - agentMs` to `at`; music inside that span is its own
+    if (started.some((at) => at >= event.at - event.agentMs && at <= event.at)) played++;
+  }
+  return { earned, played, logged: true };
+}
 
 function unasked(heard: Heard[]): number {
   return heard.filter((h) => h.text && ROOM.has(plain(h.text))).length;

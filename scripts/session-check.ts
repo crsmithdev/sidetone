@@ -77,7 +77,7 @@ function since(text: string | undefined): number | undefined {
 function brief(window?: string): void {
   const drive = readDrive(config.recordPath, since(window));
   if (!drive) { console.log(`[card: nothing recorded${window ? ` in the last ${window}` : ""}]`); return; }
-  const card = score(drive.events);
+  const card = score(drive.events, SCRIPT, PASSAGE, drive.settings);
   const parts = [
     `heard ${card.heard.total}`,
     `unasked ${card.unasked}`,
@@ -87,11 +87,16 @@ function brief(window?: string): void {
     `barge-ins ${card.bargeIns}`,
     `answers ${card.roundTrip.rounds}`,
     `round trip ${card.roundTrip.medianMs}ms`,
+    `music ${card.music.logged ? `${card.music.played}/${card.music.earned}` : "not recorded"}`,
   ];
   console.log(`[card${window ? ` ${window}` : ""}: ${parts.join(", ")}]`);
   // the two that mean something is wrong rather than merely busy
   if (card.unasked > 0) console.log(`[card: ${card.unasked} utterances the room said, not Chris (18.11)]`);
   if (card.echoes > 0) console.log(`[card: ${card.echoes} times the bridge heard its own voice (18.10)]`);
+  // 18.12 the way hold music was dead for a day with every test passing
+  if (card.music.logged && card.music.earned >= 3 && card.music.played === 0) {
+    console.log(`[card: ${card.music.earned} turns waited long enough for hold music and none of them got it (18.12)]`);
+  }
 }
 
 function report(window?: string): void {
@@ -102,7 +107,7 @@ function report(window?: string): void {
     console.error(`nothing to score in ${config.recordPath}. Has a drive been recorded since the bridge last started?`);
     process.exit(1);
   }
-  const card = score(drive.events);
+  const card = score(drive.events, SCRIPT, PASSAGE, drive.settings);
   const when = new Date(drive.at).toLocaleString();
   const line = (name: string, value: unknown, note = "") => console.log(`  ${name.padEnd(26)} ${String(value).padStart(8)}  ${note}`);
 
@@ -128,6 +133,11 @@ function report(window?: string): void {
   line("median length", `${card.heard.medianMs}ms`);
   line("median peak", card.heard.medianPeak, "the level minSpeechPeak is judged against");
   line("barge-ins", card.bargeIns);
+  line(
+    "hold music",
+    card.music.logged ? `${card.music.played}/${card.music.earned}` : "not recorded",
+    !card.music.logged ? "no track was written down in this window" : card.music.earned && !card.music.played ? "<-- long turns that got none (18.12)" : "of the turns long enough for it",
+  );
 
   console.log("\n  ROUND TRIP");
   line("answers", card.roundTrip.rounds);

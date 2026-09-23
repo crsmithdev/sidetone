@@ -604,6 +604,10 @@ project bridge stays in place.
 
 18.11.1 The count is a measurement and not a gate. The bridge still sends every utterance to the agent. Whether to stop a short filler reaching the agent at all is a separate decision, and this number is what it should be decided on.
 
+18.12 The scorecard says how hold music actually behaved: of the turns whose agent time passed `holdMusicAfterMs`, how many played a track. Hold music shipped on 21 September and was dead for a day while 25 tests passed over it, because the tests encoded the rule about which turns are long and the rule was wrong about real turns. No unit test finds that; this does, from the record.
+
+18.12.1 The count starts at the first track the window recorded, because a track has only been written down since 22 September and an older record cannot tell "no music played" from "this build did not say". A window with no track at all reads as not recorded rather than as a fault. The cost is a blind spot, and it is the right way round: a card that raises a false alarm every hour is a card nobody reads.
+
 ## 19. POINT STATUS
 
 19.1 Muted command subset. Mute, unmute, and the three commands that turn the tones on and off. The set is a list in the settings, so Chris adds more later. The tone commands are on it because Chris mutes when the car is loud, and the tones are the next noise he wants gone; silencing them asks nothing of the microphone. See 9.5 and 9.6.

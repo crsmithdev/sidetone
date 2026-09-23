@@ -202,3 +202,42 @@ describe("a room talking near the phone (18.11)", () => {
     expect(score(events).invented).toBe(0);
   });
 });
+
+/**
+ * 18.12 hold music shipped on 21 September and was dead for a day with 25 tests
+ * passing over it: they encoded a rule about which turns are long, and the rule
+ * was wrong about real turns. This is the check that does not care about the
+ * rule, only about what happened.
+ */
+describe("hold music, as it behaved (18.12)", () => {
+  const answered = (at: number, agentMs: number): Event =>
+    ({ kind: "answered", at, answerMs: agentMs + 500, pauseMs: 1_500, transcribeMs: 200, agentMs, sentenceMs: 300, synthesisMs: 200 });
+  const track = (at: number, what: "music" | "file", on: boolean): Event => ({ kind: "track", at, what, on });
+
+  test("a long turn that got no music is counted against it", () => {
+    const events = [
+      track(1_000, "music", true), track(4_000, "music", false),
+      answered(20_000, 12_000),
+      answered(40_000, 30_000),
+    ];
+    const card = score(events, [], [], { holdMusicAfterMs: 8_000 });
+    expect(card.music).toEqual({ earned: 2, played: 0, logged: true });
+  });
+
+  test("music inside the turn's own span counts for it", () => {
+    const events = [answered(20_000, 12_000), track(12_000, "music", true), track(16_000, "music", false)];
+    const card = score(events, [], [], { holdMusicAfterMs: 8_000 });
+    expect(card.music).toEqual({ earned: 1, played: 1, logged: true });
+  });
+
+  test("a short turn earns nothing, however loud the day was", () => {
+    const events = [track(1_000, "file", true), answered(20_000, 3_000)];
+    expect(score(events, [], [], { holdMusicAfterMs: 8_000 }).music.earned).toBe(0);
+  });
+
+  test("a record from before a track was written down says so, rather than crying wolf", () => {
+    // the 36 long turns of 22 September morning: the build did not record a track yet
+    const events = [answered(20_000, 30_000), answered(60_000, 40_000), answered(90_000, 50_000)];
+    expect(score(events, [], [], { holdMusicAfterMs: 8_000 }).music).toEqual({ earned: 0, played: 0, logged: false });
+  });
+});
