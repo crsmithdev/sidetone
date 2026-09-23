@@ -682,6 +682,20 @@ Two parts:
    puts the file in `~/.sidetone/share/`, or a message kind on the control
    channel. The agent then reads the file.
 
+Design, agreed 23 September 2026. The screenshot handler already saves the
+file to `~/.sidetone/screenshots/`. Only the link to Chris's words is missing.
+
+- A saved screenshot stays pending. It joins the next turn, and the turn text
+  names the file path. The agent opens the file when it needs to.
+- The pending screenshot expires after about two minutes, so an old picture
+  never joins an unrelated turn.
+- The app shows the thumbnail in the transcript with a mark "attached to your
+  next message". A tap drops it.
+- Several screenshots before one turn all join that turn, in order.
+- A screenshot that arrives after Chris speaks does not join the turn in
+  progress. That would race with the answer (11.11). It waits for the next turn.
+- A screenshot with no words does not wake the agent. It stays pending.
+
 Done when Chris can send a screenshot from the phone and the agent can open it,
 and the double status is found or shown not to exist.
 
