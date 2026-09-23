@@ -41,6 +41,10 @@ _Avoid_: the output, the player, the speech queue.
 What plays one sentence once the mouth has made it. The room's plays over LiveKit; a test's writes the sentence down.
 _Avoid_: the sink, the audio output.
 
+**The client's conversation**:
+What a client knows about the conversation and what one message does to it: the lines, the log of them, the words of the Stop button, whether the history has been shown, and the working sign. It needs no room, and a message either changes it or asks the room for something. In the app it is one module of that name, beside the transcript.
+_Avoid_: the view model, the state, the store.
+
 **The control channel**:
 The words between the bridge and a client, apart from the audio: what was heard, the words of an answer as the agent writes them, each sentence as it is known, a turn, a note, whether the agent works, the screen log, a screenshot, and what a returning client missed. One module owns its vocabulary in both directions.
 _Avoid_: the data channel, the transcript feed, the messages.

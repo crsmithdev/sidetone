@@ -59,19 +59,16 @@ class MessagesTest {
         assertNull(decode(bytes("""{"kind":"delta","text":"Let me "}""")))
     }
 
-    /** What a client does with each message, as `Bridge` does it: the lines and the growing line after. */
+    /**
+     * What a client does with each message. It is the real [Conversation], not
+     * a copy of its dispatch: the copy that used to live here had already
+     * drifted, and handled four of the message kinds by failing.
+     */
     private class Screen {
-        var lines = listOf<Line>()
-        var growing: Growing? = null
+        private val c = Conversation()
+        val lines: List<Line> get() = c.lines
         fun receive(json: String, now: Long) {
-            when (val message = decode(json.encodeToByteArray())) {
-                is Incoming.Sentence -> grow(lines, growing, message, now).let { lines = it.first; growing = it.second }
-                is Incoming.BlockStart -> write(lines, growing, message.answer, message.block, "", now).let { lines = it.first; growing = it.second }
-                is Incoming.Delta -> write(lines, growing, message.answer, message.block, message.text, now).let { lines = it.first; growing = it.second }
-                is Incoming.BlockEnd -> Unit
-                is Incoming.Said -> if (message.line.kind == Line.Kind.BRIDGE) { lines = answered(lines, growing, message, now); growing = null } else lines = lines + message.line.copy(at = message.line.at ?: now)
-                else -> error("not a line")
-            }
+            c.receive(decode(json.encodeToByteArray()), now, now, inFront = true, audioOn = true)
         }
     }
 

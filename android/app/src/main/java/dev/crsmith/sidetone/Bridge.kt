@@ -84,12 +84,7 @@ object Bridge {
     private var session: Job? = null
     private var room: Room? = null
     private var mic: LocalAudioTrack? = null
-    private var historyShown = false
     private var rejoinedAt: Long? = null
-
-    /** 17.11 what the bridge last said about work, and when, on the clock of [SystemClock.elapsedRealtime]. */
-    private var workingOn = false
-    private var workingAt = 0L
 
     /** 17.17 whether the app is on the screen. [MainActivity] sets it. */
     var inFront = false
@@ -103,11 +98,11 @@ object Bridge {
     /** 14.12 one screenshot goes at a time, so the parts of two do not mix. */
     private val screenshotLock = Mutex()
 
-    /** 14.7 and 17.12 the lines on the screen and the log of them. */
-    private val transcript = Transcript(ScreenLog(onAdd = { entry ->
+    /** 14.7 and 17.12 what a message does to the screen and to the log of it. */
+    private val conversation = Conversation(Transcript(ScreenLog(onAdd = { entry ->
         unsent.addLast(entry)
         while (unsent.size > UNSENT_MAX) unsent.removeFirst()
-    }))
+    })))
 
     fun load(context: Context) {
         if (::store.isInitialized) return
@@ -155,16 +150,15 @@ object Bridge {
 
     /** A conversation that ended has no lines, no log and no work to show. */
     private fun reset() {
-        transcript.clear()
+        conversation.clear()
         unsent.clear()
         logId = System.currentTimeMillis().toString()
-        workingOn = false
     }
 
     private fun stop(app: Context) {
         session?.cancel()
         session = null
-        historyShown = false
+        conversation.forgetHistory()
         app.stopService(Intent(app, BridgeService::class.java))
     }
 
@@ -203,9 +197,8 @@ object Bridge {
             watch.cancel()
             stream.cancel()
             // the protocol, the last reading and the last word about work belonged to a room that is gone
-            workingOn = false
-            showSign()
-            _state.update { it.copy(quality = null, endTurn = null) }
+            conversation.roomEnded(SystemClock.elapsedRealtime(), now())
+            _state.update { it.copy(quality = null, endTurn = conversation.endTurn, sign = conversation.sign) }
             this@Bridge.room = null
             mic = null
             // release disposes every published track, the microphone included
@@ -226,44 +219,14 @@ object Bridge {
                 _state.update { it.copy(quality = quality) }
                 tell(room, Outgoing.quality(quality))
             }
-            is RoomEvent.DataReceived -> when (val message = decode(event.data)) {
-                is Incoming.Sentence -> show { it.onSentence(message, now()) }
-                is Incoming.BlockStart -> show { it.onBlock(message, now()) }
-                is Incoming.Delta -> show { it.onDelta(message, now()) }
-                is Incoming.BlockEnd -> Unit
-                is Incoming.Said -> when (message.line.kind) {
-                    Line.Kind.BRIDGE -> {
-                        show { it.onTurn(message, now()) }
-                        // 17.17.2 a reply the voice did not play
-                        if (!inFront && !_state.value.audioOn) Alerts.post(app, "Reply", message.line.text)
-                    }
-                    Line.Kind.YOU -> append("heard", message.line)
-                    Line.Kind.NOTE -> append("note", message.line)
+            is RoomEvent.DataReceived -> {
+                val effects = conversation.receive(decode(event.data), now(), SystemClock.elapsedRealtime(), inFront, _state.value.audioOn)
+                shown()
+                for (effect in effects) when (effect) {
+                    is Conversation.Effect.Alert -> Alerts.post(app, effect.title, effect.text)
+                    is Conversation.Effect.Offer -> offer(effect.apk)
+                    is Conversation.Effect.Rejoin -> rejoin(ended)
                 }
-                is Incoming.Protocol -> {
-                    _state.update { it.copy(endTurn = message.endTurn) }
-                    offer(message.apk)
-                }
-                is Incoming.Announce -> {
-                    append("note", message.line)
-                    // 17.17.1 the voice says it too, but not to a phone in a pocket with the audio cut
-                    if (!inFront) Alerts.post(app, "Sidetone", message.line.text)
-                }
-                is Incoming.Rejoin -> rejoin(ended)
-                is Incoming.Working -> {
-                    workingOn = message.on
-                    workingAt = SystemClock.elapsedRealtime()
-                    showSign()
-                }
-                is Incoming.Unknown -> append("unknown", Line(Line.Kind.NOTE, "(unknown message: ${message.kind})"))
-                is Incoming.History -> {
-                    if (historyShown) return
-                    historyShown = true
-                    if (message.lines.isEmpty()) return
-                    // say plainly that this is older, or it reads as the conversation in progress
-                    append("history", Line(Line.Kind.NOTE, "earlier"), *message.lines.toTypedArray(), Line(Line.Kind.NOTE, "now"))
-                }
-                null -> Unit
             }
             else -> Unit
         }
@@ -443,15 +406,17 @@ object Bridge {
      * 17.9 a line the bridge sent live is stamped with the time it arrived; a kept
      * line keeps the time the bridge gave it. `kind` is what the screen log (17.12) calls the message.
      */
-    private fun append(kind: String, vararg lines: Line) = show { it.onLines(kind, now(), *lines) }
+    private fun append(kind: String, vararg lines: Line) {
+        conversation.transcript.onLines(kind, now(), *lines)
+        shown()
+    }
 
     /** 4.3.1 an event for the screen log, with no line on the screen. */
-    private fun record(kind: String, text: String) = transcript.onEvent(kind, text, now())
+    private fun record(kind: String, text: String) = conversation.record(kind, text, now())
 
-    /** A message changes the transcript, and the screen shows what it holds now. */
-    private fun show(change: (Transcript) -> Unit) {
-        change(transcript)
-        _state.update { it.copy(lines = transcript.lines) }
+    /** The screen shows what the conversation holds now. */
+    private fun shown() {
+        _state.update { it.copy(lines = conversation.lines, endTurn = conversation.endTurn, sign = conversation.sign) }
     }
 
     /**
@@ -459,10 +424,7 @@ object Bridge {
      * to the screen and to the log.
      */
     private fun showSign() {
-        val next = sign(workingOn, workingAt, SystemClock.elapsedRealtime())
-        if (next == _state.value.sign) return
-        _state.update { it.copy(sign = next) }
-        transcript.onSign(next, now())
+        if (conversation.tick(SystemClock.elapsedRealtime(), now())) shown()
     }
 
     /**

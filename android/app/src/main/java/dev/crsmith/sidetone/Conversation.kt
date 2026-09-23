@@ -1,0 +1,127 @@
+package dev.crsmith.sidetone
+
+/**
+ * What the client knows about the conversation, and what one message does to it
+ * (14.7, 14.9, 17.11, 17.12).
+ *
+ * This used to live inside `Bridge.on`, a function that takes the room and the
+ * thing that ends it, so none of it ran without a room: nine of its eleven
+ * branches need no room at all, and the two that do only send a reading and ask
+ * for a rejoin. The cost showed in the tests, which held a second copy of the
+ * dispatch so the behaviour could be asserted, and that copy had already
+ * drifted away from this one.
+ *
+ * So the state and the decisions are here, and they are a message in and a new
+ * state plus a few [Effect]s out. `Bridge` keeps the room, the microphone and
+ * the retry, and does the effects.
+ */
+class Conversation(val transcript: Transcript = Transcript()) {
+    /** What a message asks of the world outside the conversation. */
+    sealed interface Effect {
+        /** 17.17 a notification, because the phone is in a pocket or the audio is cut. */
+        data class Alert(val title: String, val text: String) : Effect
+        /** 17.15 the bridge named the app it serves; fetch it if it is not this one. */
+        data class Offer(val apk: Apk?) : Effect
+        /** 18.9 leave the room and join again, so a new microphone track is published. */
+        data object Rejoin : Effect
+    }
+
+    val lines: List<Line> get() = transcript.lines
+
+    /** 9.4.8 what the Stop button says, as the bridge gave it. Null when no room has said. */
+    var endTurn: String? = null
+        private set
+
+    /** 17.11 whether the bridge says the agent works. */
+    var sign: Sign = Sign.OFF
+        private set
+
+    private var historyShown = false
+    private var workingOn = false
+    private var workingAt = 0L
+
+    /**
+     * One message from the bridge. `at` is the wall clock, which stamps a line,
+     * and `since` is [android.os.SystemClock.elapsedRealtime], which decides
+     * whether the sign has gone stale. `inFront` and `audioOn` decide only
+     * whether a line is also worth a notification.
+     */
+    fun receive(message: Incoming?, at: Long, since: Long, inFront: Boolean, audioOn: Boolean): List<Effect> {
+        when (message) {
+            null -> return emptyList()
+            is Incoming.Sentence -> transcript.onSentence(message, at)
+            is Incoming.BlockStart -> transcript.onBlock(message, at)
+            is Incoming.Delta -> transcript.onDelta(message, at)
+            is Incoming.BlockEnd -> Unit
+            is Incoming.Said -> when (message.line.kind) {
+                Line.Kind.BRIDGE -> {
+                    transcript.onTurn(message, at)
+                    // 17.17.2 a reply the voice did not play
+                    if (!inFront && !audioOn) return listOf(Effect.Alert("Reply", message.line.text))
+                }
+                Line.Kind.YOU -> transcript.onLines("heard", at, message.line)
+                Line.Kind.NOTE -> transcript.onLines("note", at, message.line)
+            }
+            is Incoming.Protocol -> {
+                endTurn = message.endTurn
+                return listOf(Effect.Offer(message.apk))
+            }
+            is Incoming.Announce -> {
+                transcript.onLines("note", at, message.line)
+                // 17.17.1 the voice says it too, but not to a phone in a pocket with the audio cut
+                if (!inFront) return listOf(Effect.Alert("Sidetone", message.line.text))
+            }
+            is Incoming.Rejoin -> return listOf(Effect.Rejoin)
+            is Incoming.Working -> {
+                workingOn = message.on
+                workingAt = since
+                tick(since)
+            }
+            is Incoming.Unknown -> transcript.onLines("unknown", at, Line(Line.Kind.NOTE, "(unknown message: ${message.kind})"))
+            is Incoming.History -> {
+                if (historyShown) return emptyList()
+                historyShown = true
+                if (message.lines.isEmpty()) return emptyList()
+                // say plainly that this is older, or it reads as the conversation in progress
+                transcript.onLines("history", at, Line(Line.Kind.NOTE, "earlier"), *message.lines.toTypedArray(), Line(Line.Kind.NOTE, "now"))
+            }
+        }
+        return emptyList()
+    }
+
+    /**
+     * 17.11 the sign goes to "no signal" with no message to say so, so the clock
+     * decides as well as the messages. True when it changed, which is when the
+     * screen and the log need it.
+     */
+    fun tick(since: Long, at: Long = System.currentTimeMillis()): Boolean {
+        val next = sign(workingOn, workingAt, since)
+        if (next == sign) return false
+        sign = next
+        transcript.onSign(next, at)
+        return true
+    }
+
+    /** 4.3.1 something the app records and does not show, such as a microphone cut. */
+    fun record(kind: String, text: String, at: Long) = transcript.onEvent(kind, text, at)
+
+    /** The room is gone: its protocol and its last word about work went with it. */
+    fun roomEnded(since: Long, at: Long = System.currentTimeMillis()) {
+        workingOn = false
+        endTurn = null
+        tick(since, at)
+    }
+
+    /** A conversation that ended has no lines, no log and no work to show. */
+    fun clear() {
+        transcript.clear()
+        historyShown = false
+        workingOn = false
+        endTurn = null
+    }
+
+    /** A room that ended shows its history again when the next one opens. */
+    fun forgetHistory() {
+        historyShown = false
+    }
+}
