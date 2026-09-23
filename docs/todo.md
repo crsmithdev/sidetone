@@ -513,3 +513,40 @@ Decide whether an unprompted reply streams. If it does, one `Answer` type
 serves both paths, and the `turn` with no `answer` goes from both clients.
 If it does not, the closures in `runTurn` stay where they are: an `Answer`
 type for one caller only moves them.
+
+## 30. Compact the status row, and design it rather than grow it
+
+Noted 23 September 2026. Not started. To be designed.
+
+Item 16 fixed what the row *said*: the quality and the working sign now show
+only while the room is live (spec 17.11.6), so it cannot read as a
+contradiction. It did not touch what the row *is*. The row at
+`MainActivity.kt:238` is still a line of separate pieces laid side by side, and
+each piece was added on its own:
+
+| Piece | What it shows |
+|---|---|
+| A 10 dp dot | primary when live, tertiary on a rejoin, outline otherwise |
+| `statusWord(state.status)` | "connecting", "listening", "reconnecting", "rejoining", "disconnected" |
+| `qualityWord(...)` | "excellent" to "poor", or "—", live only |
+| `WorkingSign(...)` | a second dot, pulsing or red, plus "working" or "stalled", live only |
+| A "Leave" button | |
+
+So at its widest the row is two dots and three words before the button, on a
+phone held at arm's length in a car. Two of the words are near synonyms of the
+dot beside them, and the two dots mean different things while looking alike.
+Chris wants it compacted: fewer marks, each earning its place, read in one
+glance rather than parsed left to right.
+
+The design is not settled and is Chris's to make. Things worth putting in front
+of him: one mark instead of two, with colour and motion carrying the state that
+the words carry now; the words kept only for the states that are genuinely
+surprising; and whether the row needs the "Leave" button at all, given a
+settings screen is coming (item 28).
+
+Judge any candidate in the car, not at the desk. The row is read at a glance in
+bright light, and the question is whether Chris knows the state before he has
+read a word.
+
+Done when the row shows the same states in fewer marks, Chris has picked the
+design, and he has read it while driving.
