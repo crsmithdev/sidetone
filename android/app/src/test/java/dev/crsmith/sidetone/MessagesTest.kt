@@ -287,12 +287,11 @@ class MessagesTest {
 
     @Test
     fun theNotificationSaysTheStateInOneLine() {
-        assertEquals("listening", stateLine(BridgeService.Shown(Status.LISTENING, micOn = true, audioOn = true, inRoom = true, sign = Sign.OFF)))
-        assertEquals(
-            "listening · mic off · audio off · working",
-            stateLine(BridgeService.Shown(Status.LISTENING, micOn = false, audioOn = false, inRoom = true, sign = Sign.WORKING)),
-        )
+        fun line(status: Status, sign: Sign, micOn: Boolean = true, audioOn: Boolean = true) =
+            stateLine(BridgeService.Shown(reading(status, "good", sign), micOn, audioOn, inRoom = true))
+        assertEquals("listening", line(Status.LISTENING, Sign.OFF))
+        assertEquals("listening · mic off · audio off · working", line(Status.LISTENING, Sign.WORKING, micOn = false, audioOn = false))
         // 17.11.6 the sign of a room that is not live does not show
-        assertEquals("reconnecting", stateLine(BridgeService.Shown(Status.RECONNECTING, micOn = true, audioOn = true, inRoom = true, sign = Sign.SILENT)))
+        assertEquals("reconnecting", line(Status.RECONNECTING, Sign.SILENT))
     }
 }

@@ -510,7 +510,7 @@ project bridge stays in place.
 
 17.11.5 The app has no setting for the sign.
 
-17.11.6 The status row shows one state, not three readings that can disagree. The connection quality and the sign show only while the status word is "listening". In any other state no message can come, so the status word says why, and the row shows no quality and no sign. The notification (17.16) follows the same rule for the sign.
+17.11.6 The status row shows one state, not three readings that can disagree. The connection quality and the sign show only while the status word is "listening". In any other state no message can come, so the status word says why, and the row shows no quality and no sign. The notification (17.16) follows the same rule for the sign. When the status is "listening" and LiveKit says the connection of the phone is lost, the room is not live: the status word is "signal lost", and the row shows no quality and no sign. One function in the app gives this reading, and a test tries every input.
 
 17.12 The app keeps a screen log: what it showed, in the order it showed it. Each change of a line on the screen is one entry. The log is in the memory of the app process. It ends when Chris leaves the room with the Leave button.
 

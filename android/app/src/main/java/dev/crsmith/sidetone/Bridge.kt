@@ -121,22 +121,20 @@ object Bridge {
         app.startForegroundService(Intent(app, BridgeService::class.java))
         session = scope.launch {
             while (true) {
-                joining.opening()
-                showJoining()
+                link(Joining.Event.Opening)
                 val reason = runRoom(app, credentials)
                 Log.i(TAG, "the room ended: $reason")
-                val next = joining.ended(reason)
-                showJoining()
-                when (next) {
-                    is Joining.Next.Open -> continue
-                    is Joining.Next.WaitThenOpen -> delay(next.ms)
-                    is Joining.Next.Forget -> {
+                for (effect in link(Joining.Event.Ended(reason))) when (effect) {
+                    is Joining.Effect.Open -> delay(effect.at - SystemClock.elapsedRealtime())
+                    is Joining.Effect.Forget -> {
                         store.clear()
                         stop(app)
                         reset()
                         _state.value = State(error = joining.error)
                         return@launch
                     }
+                    // no room is open to end
+                    is Joining.Effect.End -> Unit
                 }
             }
         }
@@ -145,7 +143,7 @@ object Bridge {
     fun leave(context: Context) {
         stop(context.applicationContext)
         reset()
-        joining.left()
+        link(Joining.Event.Left)
         _state.value = State(paired = store.load() != null)
     }
 
@@ -182,8 +180,7 @@ object Bridge {
         val stream = launch { while (true) { delay(STREAM_MS); sendScreenLog(room) } }
         try {
             room.connect(credentials.url, credentials.token)
-            joining.open()
-            showJoining()
+            link(Joining.Event.Connected)
             // the bridge starts every process with its audio on, so an audio cut has to be
             // said again to a room this app has only just joined
             if (!_state.value.audioOn) tell(room, Outgoing.audio(false))
@@ -211,8 +208,8 @@ object Bridge {
 
     private fun on(room: Room, event: RoomEvent, ended: CompletableDeferred<String>) {
         when (event) {
-            is RoomEvent.Reconnecting -> { joining.reconnecting(); showJoining() }
-            is RoomEvent.Reconnected -> { joining.reconnected(); showJoining() }
+            is RoomEvent.Reconnecting -> link(Joining.Event.Reconnecting)
+            is RoomEvent.Reconnected -> link(Joining.Event.Reconnected)
             is RoomEvent.Disconnected -> ended.complete(event.error?.message ?: reasonWord(event.reason))
             // N.1.4 the phone reads its own uplink and tells the bridge
             is RoomEvent.ConnectionQualityChanged -> {
@@ -242,14 +239,17 @@ object Bridge {
      * [REJOIN_MS] of the last rejoin is ignored, so a silent phone cannot loop.
      */
     private fun rejoin(ended: CompletableDeferred<String>) {
-        if (!joining.rejoinAsked(SystemClock.elapsedRealtime())) {
-            Log.i(TAG, "the bridge asked for a rejoin inside ${REJOIN_MS / 1000} s of the last one; ignored")
-            return
+        val effects = link(Joining.Event.RejoinAsked)
+        if (effects.isEmpty()) Log.i(TAG, "the bridge asked for a rejoin inside ${REJOIN_MS / 1000} s of the last one; ignored")
+        for (effect in effects) when (effect) {
+            is Joining.Effect.End -> {
+                Log.i(TAG, "the bridge asked for a rejoin")
+                record("rejoin", "rejoining to publish a new microphone track")
+                ended.complete(effect.reason)
+            }
+            // a rejoin asks only for the room to end; the loop in join opens the next
+            is Joining.Effect.Open, Joining.Effect.Forget -> Unit
         }
-        Log.i(TAG, "the bridge asked for a rejoin")
-        record("rejoin", "rejoining to publish a new microphone track")
-        showJoining()
-        ended.complete(Joining.REJOINING)
     }
 
     /**
@@ -427,9 +427,11 @@ object Bridge {
     /** 4.3.1 an event for the screen log, with no line on the screen. */
     private fun record(kind: String, text: String) = conversation.record(kind, text, now())
 
-    /** The screen shows what the link says now. */
-    private fun showJoining() {
+    /** One event for the link, on the elapsed clock. The screen shows what the link says after it. */
+    private fun link(event: Joining.Event): List<Joining.Effect> {
+        val effects = joining.on(event, SystemClock.elapsedRealtime())
         _state.update { it.copy(status = joining.status, error = joining.error) }
+        return effects
     }
 
     /** The screen shows what the conversation holds now. */

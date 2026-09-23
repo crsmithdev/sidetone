@@ -125,6 +125,10 @@ _Avoid_: voice off, mute (mute is the bridge that listens and acts on nothing), 
 A small sign in the app's status row that the agent works: a turn runs, or a detached job runs. It follows a message from the bridge, so it shows with the audio off. It says "stalled" when the bridge stops sending that message. It shows only while the room is live.
 _Avoid_: the spinner, the busy light, the status.
 
+**The reading**:
+What the app's status row says about the room: the dot, the status word, the connection quality and the working sign. One function gives it from the status, the quality and the sign, so no two parts can disagree. The quality and the sign show only while the room is live.
+_Avoid_: the status (the status is one input), the indicator.
+
 **The screen log**:
 What the app showed, one entry for each change of a line on the screen, with the time and the exact text. A button in the app sends it to the bridge, which writes it to `~/.sidetone/screen/` for the agent to read.
 _Avoid_: the transcript (the transcript is the lines themselves), the log file, the record (the record is the bridge's own).

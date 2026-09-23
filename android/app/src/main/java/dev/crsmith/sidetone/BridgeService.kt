@@ -68,9 +68,10 @@ class BridgeService : Service() {
     }
 
     /** What the notification shows, so a change elsewhere in the state does not post it again. */
-    data class Shown(val status: Status, val micOn: Boolean, val audioOn: Boolean, val inRoom: Boolean, val sign: Sign) {
+    data class Shown(val reading: Reading, val micOn: Boolean, val audioOn: Boolean, val inRoom: Boolean) {
         companion object {
-            fun of(state: Bridge.State) = Shown(state.status, state.micOn, state.audioOn, state.endTurn != null, state.sign)
+            fun of(state: Bridge.State) =
+                Shown(reading(state.status, state.quality, state.sign), state.micOn, state.audioOn, state.endTurn != null)
         }
     }
 
@@ -124,8 +125,8 @@ class BridgeService : Service() {
 
 /** 17.16 the status, and what is cut or running, in one line: "listening · mic off · working". */
 fun stateLine(shown: BridgeService.Shown): String = buildList {
-    add(statusWord(shown.status))
+    add(shown.reading.word)
     if (!shown.micOn) add("mic off")
     if (!shown.audioOn) add("audio off")
-    shownSign(shown.status, shown.sign).let { if (it != Sign.OFF) add(signWord(it)) }
+    if (shown.reading.sign != Sign.OFF) add(signWord(shown.reading.sign))
 }.joinToString(" · ")

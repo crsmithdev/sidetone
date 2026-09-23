@@ -27,11 +27,3 @@ fun signWord(sign: Sign): String = when (sign) {
     Sign.WORKING -> "working"
     Sign.SILENT -> "stalled"
 }
-
-/**
- * 17.11.6 the sign that shows beside the status word. Outside a live room no
- * message can come, so the status word says why and the sign shows nothing.
- * In a live room the link is up, so "stalled" can only be the bridge.
- */
-fun shownSign(status: Status, sign: Sign): Sign =
-    if (status == Status.LISTENING) sign else Sign.OFF

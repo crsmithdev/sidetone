@@ -236,18 +236,16 @@ private fun Conversation(state: Bridge.State, onLeave: () -> Unit) {
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            val live = state.status == Status.LISTENING
-            // 18.9 a rejoin shows in the light, not in a note
-            val light = when {
-                live -> MaterialTheme.colorScheme.primary
-                state.status == Status.REJOINING -> MaterialTheme.colorScheme.tertiary
-                else -> MaterialTheme.colorScheme.outline
+            val reading = reading(state.status, state.quality, state.sign)
+            val light = when (reading.light) {
+                Light.LIVE -> MaterialTheme.colorScheme.primary
+                Light.REJOINING -> MaterialTheme.colorScheme.tertiary
+                Light.OFF -> MaterialTheme.colorScheme.outline
             }
             Box(Modifier.size(10.dp).background(light, CircleShape))
-            Text(statusWord(state.status), style = MaterialTheme.typography.titleMedium)
-            // 17.11.6 the quality and the sign are readings of a live room, so they show only in one
-            qualityWord(state.status, state.quality)?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            WorkingSign(shownSign(state.status, state.sign))
+            Text(reading.word, style = MaterialTheme.typography.titleMedium)
+            reading.quality?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            WorkingSign(reading.sign)
             Spacer(Modifier.weight(1f))
             TextButton(onClick = onLeave) { Text("Leave") }
         }
@@ -377,18 +375,6 @@ private fun WorkingSign(sign: Sign) {
         Box(Modifier.size(8.dp).alpha(if (silent) 1f else pulse).background(if (silent) colors.error else colors.primary, CircleShape))
         Text(signWord(sign), style = MaterialTheme.typography.bodyMedium, color = ink)
     }
-}
-
-/** 17.11.6 the connection quality, only while the room is live. A reading from a room that is gone is old. */
-internal fun qualityWord(status: Status, quality: String?): String? =
-    if (status == Status.LISTENING) quality ?: "—" else null
-
-internal fun statusWord(status: Status) = when (status) {
-    Status.IDLE, Status.CONNECTING -> "connecting"
-    Status.LISTENING -> "listening"
-    Status.RECONNECTING -> "reconnecting"
-    Status.REJOINING -> "rejoining"
-    Status.UNREACHABLE -> "disconnected"
 }
 
 @Composable

@@ -1,31 +1,54 @@
 package dev.crsmith.sidetone
 
+import dev.crsmith.sidetone.Joining.Effect
+import dev.crsmith.sidetone.Joining.Event
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+/**
+ * The link to the bridge, with no room, no LiveKit and no Android. The clock is
+ * the test's own, so a retry is a time in an [Effect.Open], not a wait.
+ */
 class JoiningTest {
+    private val joining = Joining()
+
+    /** The elapsed clock, in milliseconds. */
+    private var now = 100_000L
+
+    private fun on(event: Event) = joining.on(event, now)
+
+    /**
+     * What `Bridge.join` does with the effects: wait until an [Effect.Open] is
+     * due, then open. Returns the time the next room opens, or null for none.
+     */
+    private fun ended(reason: String): Long? {
+        val effects = on(Event.Ended(reason))
+        return effects.filterIsInstance<Effect.Open>().singleOrNull()?.at
+    }
+
+    private fun opened() {
+        on(Event.Opening)
+        on(Event.Connected)
+    }
+
     @Test
     fun aRoomThatOpensIsListening() {
-        val joining = Joining()
         assertEquals(Status.IDLE, joining.status)
-        joining.opening()
+        assertEquals(emptyList<Effect>(), on(Event.Opening))
         assertEquals(Status.CONNECTING, joining.status)
-        joining.open()
+        assertEquals(emptyList<Effect>(), on(Event.Connected))
         assertEquals(Status.LISTENING, joining.status)
         assertNull(joining.error)
     }
 
     @Test
     fun theTransportGettingTheRoomBackByItselfSaysSo() {
-        val joining = Joining()
-        joining.opening()
-        joining.open()
-        joining.reconnecting()
+        opened()
+        on(Event.Reconnecting)
         assertEquals(Status.RECONNECTING, joining.status)
-        joining.reconnected()
+        on(Event.Reconnected)
         assertEquals(Status.LISTENING, joining.status)
     }
 
@@ -45,79 +68,131 @@ class JoiningTest {
             "signal close",
             "room closed",
             "java.net.SocketTimeoutException: timeout",
+            "failed to validate connection",
+            "websocket failure: Failed to connect to /100.64.12.9:7880",
             "",
         )
         for (reason in reasons) {
             val joining = Joining()
-            joining.opening()
-            joining.open()
-            val next = joining.ended(reason)
-            assertEquals("$reason should be tried again", Joining.Next.WaitThenOpen(Joining.RETRY_MS), next)
+            joining.on(Event.Opening, now)
+            joining.on(Event.Connected, now)
+            val effects = joining.on(Event.Ended(reason), now)
+            assertEquals("$reason should be tried again", listOf(Effect.Open(now + Joining.RETRY_MS)), effects)
             assertEquals(Status.UNREACHABLE, joining.status)
             assertTrue(joining.error!!.contains("Retrying"))
         }
     }
 
-    /** A bridge that stays down is asked again and again, not once. */
+    /**
+     * docs/todo.md item 7, the restart that ends the room: LiveKit restarts with
+     * the bridge. The transport tries to get the room back and fails, the room
+     * ends, and while LiveKit is down every try fails at once. The app tries
+     * every 5 s on the clock, and the first try after LiveKit is back is an
+     * ordinary live room, with no touch and with the pairing kept.
+     */
+    @Test
+    fun theAppIsListeningAgainAfterTheServerComesBack() {
+        opened()
+        now += 60_000
+        on(Event.Reconnecting)
+        assertEquals(Status.RECONNECTING, joining.status)
+        now += 15_000
+        var at = ended("the connection dropped")!!
+        assertEquals(now + Joining.RETRY_MS, at)
+        assertEquals(Status.UNREACHABLE, joining.status)
+        // LiveKit takes 40 s to come back; each try inside that fails
+        val back = now + 40_000
+        var tries = 0
+        while (true) {
+            now = at
+            on(Event.Opening)
+            tries++
+            assertEquals(Status.CONNECTING, joining.status)
+            if (now >= back) break
+            at = ended("websocket failure: Failed to connect to /100.64.12.9:7880")!!
+            assertEquals(now + Joining.RETRY_MS, at)
+        }
+        on(Event.Connected)
+        assertEquals(Status.LISTENING, joining.status)
+        assertNull(joining.error)
+        // the first try at or after the server is back, and not a try later
+        assertEquals(8, tries)
+        assertTrue(now - back < Joining.RETRY_MS)
+    }
+
+    /**
+     * docs/todo.md item 7, the restart that keeps the room: the bridge restarts
+     * and LiveKit does not. The transport sees a blip at most, and gets the room
+     * back itself. Nothing ends, so nothing is tried again and nothing is forgotten.
+     */
+    @Test
+    fun aBridgeRestartThatKeepsTheRoomNeedsNothing() {
+        opened()
+        now += 1_000
+        assertEquals(emptyList<Effect>(), on(Event.Reconnecting))
+        now += 3_000
+        assertEquals(emptyList<Effect>(), on(Event.Reconnected))
+        assertEquals(Status.LISTENING, joining.status)
+        assertNull(joining.error)
+    }
+
+    /** A bridge that stays down is asked again and again, not once, and never forgotten. */
     @Test
     fun aBridgeThatStaysDownIsTriedAgainEveryTime() {
-        val joining = Joining()
         for (attempt in 1..20) {
-            joining.opening()
+            on(Event.Opening)
             assertEquals(Status.CONNECTING, joining.status)
-            assertEquals(Joining.Next.WaitThenOpen(Joining.RETRY_MS), joining.ended("the connection dropped"))
+            val effects = on(Event.Ended("the connection dropped"))
+            assertEquals(listOf(Effect.Open(now + Joining.RETRY_MS)), effects)
+            now += Joining.RETRY_MS
         }
-        // and the room it finally gets is an ordinary live room
-        joining.opening()
-        joining.open()
+        opened()
         assertEquals(Status.LISTENING, joining.status)
         assertNull(joining.error)
     }
 
     @Test
     fun aRefusedPairingIsTheOneEndThatStops() {
-        val joining = Joining()
-        joining.opening()
-        val next = joining.ended("unauthorized")
-        assertEquals(Joining.Next.Forget, next)
+        on(Event.Opening)
+        assertEquals(listOf(Effect.Forget), on(Event.Ended("unauthorized")))
         assertEquals(Status.IDLE, joining.status)
         assertTrue(joining.error!!.contains("Scan the code again"))
     }
 
-    /** 18.9 a rejoin is the app's own doing, so it opens again at once and says nothing went wrong. */
+    /** 18.9 a rejoin is the app's own doing, so it ends the room, opens again at once and says nothing went wrong. */
     @Test
     fun aRejoinOpensAgainAtOnceAndIsNoFault() {
-        val joining = Joining()
-        joining.opening()
-        joining.open()
-        assertTrue(joining.rejoinAsked(now = 1_000))
+        opened()
+        assertEquals(listOf(Effect.End(Joining.REJOINING)), on(Event.RejoinAsked))
         assertEquals(Status.REJOINING, joining.status)
-        assertEquals(Joining.Next.Open, joining.ended(Joining.REJOINING))
+        assertEquals(listOf(Effect.Open(now)), on(Event.Ended(Joining.REJOINING)))
         assertNull(joining.error)
         // the word stays until the room is back, so a rejoin does not read as a drop
-        joining.opening()
+        on(Event.Opening)
         assertEquals(Status.REJOINING, joining.status)
-        joining.open()
+        on(Event.Connected)
         assertEquals(Status.LISTENING, joining.status)
     }
 
     /** 18.9 a phone that is simply silent asks for rejoin after rejoin. Only the first counts. */
     @Test
     fun aSecondRejoinInsideTheWindowIsRefused() {
-        val joining = Joining()
-        joining.opening()
-        joining.open()
-        assertTrue(joining.rejoinAsked(now = 1_000))
-        assertFalse(joining.rejoinAsked(now = 1_000 + REJOIN_MS - 1))
-        assertTrue(joining.rejoinAsked(now = 1_000 + REJOIN_MS))
+        opened()
+        assertEquals(1, on(Event.RejoinAsked).size)
+        on(Event.Ended(Joining.REJOINING))
+        opened()
+        now += REJOIN_MS - 1
+        assertEquals(emptyList<Effect>(), on(Event.RejoinAsked))
+        assertEquals(Status.LISTENING, joining.status)
+        now += 1
+        assertEquals(1, on(Event.RejoinAsked).size)
     }
 
     @Test
     fun aConversationEndedByHandIsIdleAndHasNothingWrong() {
-        val joining = Joining()
-        joining.opening()
-        joining.ended("the connection dropped")
-        joining.left()
+        on(Event.Opening)
+        on(Event.Ended("the connection dropped"))
+        assertEquals(emptyList<Effect>(), on(Event.Left))
         assertEquals(Status.IDLE, joining.status)
         assertNull(joining.error)
     }
@@ -125,9 +200,8 @@ class JoiningTest {
     /** The reason the room gives goes on the screen, so Chris can say what he saw. */
     @Test
     fun theReasonTheRoomGaveIsShown() {
-        val joining = Joining()
-        joining.opening()
-        joining.ended("the connection dropped")
+        on(Event.Opening)
+        on(Event.Ended("the connection dropped"))
         assertEquals("Cannot reach the bridge: the connection dropped. Retrying.", joining.error)
     }
 }

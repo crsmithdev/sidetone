@@ -152,6 +152,12 @@ gives up after, and every other reason waits and tries again. That is the app
 answering for itself. It does not close the item, because no restart has been
 watched since, and the case Chris hit may not be the app giving up at all.
 
+Later on 23 September, `Joining` takes the room's events and the elapsed clock,
+and gives back effects, as `Conversation` does. `JoiningTest` now plays both
+restarts on its own clock. When LiveKit restarts, the app tries every 5 s and
+is listening at the first try after LiveKit is back, with the pairing kept.
+When the bridge restarts alone, the room does not end and nothing is tried.
+
 Done when the service restarts and the app is listening again with no touch.
 
 ## 17. Hold music can arm very late on a turn whose first content is one large tool call
