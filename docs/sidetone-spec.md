@@ -8,6 +8,7 @@ Blocks, bubbles and times (14.9, 17.8, 17.9) added 21 September 2026.
 The working sign and the screen log (14.10, 14.11, 17.11 to 17.13) added 21 September 2026.
 Text selection in the transcript (17.14) added 21 September 2026.
 The screenshot (14.12, 17.18) added 22 September 2026.
+Formatted text in the bubbles (17.19) added 22 September 2026.
 
 This document is the complete specification for Sidetone. It
 includes the background, the settled design decisions, the reasoning behind
@@ -561,6 +562,16 @@ project bridge stays in place.
 17.18.3 The app needs the permission to read images, READ_MEDIA_IMAGES. It asks for it with the other permissions when it opens. When Chris refuses it, or gives access to selected photos only, the app sends no screenshot and says nothing. Android stops the question after the second refusal.
 
 17.18.4 The app sends the image only while it is in the room. It does not keep an image for a later room.
+
+17.19 The app formats the markdown in the bubbles of the agent. The bubbles of Chris and the notes stay as plain words.
+
+17.19.1 The app formats only what the agent writes. Code and a fence show in a fixed-width font on a background of a different color. Bold, italic and a heading show in bold or italic. A list keeps its number, or shows a bullet. A table shows each row on one line, with its cells between bars. A quote shows in italic. The app removes the markers.
+
+17.19.2 A link opens on a tap. A link is a named link, a bare address, or an address in code.
+
+17.19.3 A marker with no partner shows as text. A bubble grows word by word (14.9.2), so a marker can wait for its partner.
+
+17.19.4 Selection (17.14) works on the formatted words. The copy gives the words as they show, without the markers.
 
 ## 18. MEASUREMENTS TO MAKE
 

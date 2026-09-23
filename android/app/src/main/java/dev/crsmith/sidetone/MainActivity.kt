@@ -65,6 +65,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -406,7 +407,12 @@ private fun TranscriptLine(line: Line) {
                         .background(if (you) colors.primaryContainer else colors.surfaceContainerHigh, MaterialTheme.shapes.large)
                         .padding(horizontal = 14.dp, vertical = 10.dp),
                 ) {
-                    SelectionContainer { Text(line.text.trim(), color = ink) }
+                    // 17.19 the agent's markdown shows formatted; what Chris said stays as the words he said
+                    val words = line.text.trim()
+                    val shown = remember(words, colors) {
+                        if (you) AnnotatedString(words) else markdown(words, code = colors.surfaceContainerHighest, link = colors.primary)
+                    }
+                    SelectionContainer { Text(shown, color = ink) }
                     // 17.9 the time the bubble began
                     line.at?.let {
                         Text(clock(it), modifier = Modifier.align(Alignment.End), style = MaterialTheme.typography.labelSmall, color = if (you) ink else colors.onSurfaceVariant)
