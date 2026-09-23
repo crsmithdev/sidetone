@@ -55,6 +55,8 @@ export class Channel {
     private readonly send: (message: Outgoing) => void,
     private readonly ends: Ends,
     private readonly say: (line: string) => void = console.log,
+    /** 11.12 the settings that belong to this run rather than to the file. */
+    private readonly live?: () => Record<string, unknown>,
   ) {}
 
   /** Say it to the client. A word said or answered is kept for 14.8; a note is written to the journal. */
@@ -67,9 +69,13 @@ export class Channel {
     this.send(message);
   }
 
-  /** 9.4.9 the settings in force, whenever they change and when a client joins. */
-  settings(map: Record<string, unknown>): void {
-    this.send({ kind: "settings", settings: map });
+  /**
+   * 9.4.9 the settings in force, whenever they change and when a client joins.
+   * `live` names the ones that are not in the config file: the audio, which is
+   * this run's own state and the one a client most needs to read back.
+   */
+  settings(): void {
+    this.send({ kind: "settings", settings: { ...settingsInForce(this.config), ...this.live?.() } });
   }
 
   /** 2.3 what the bridge says about itself, on the journal and in the client. */
@@ -88,7 +94,7 @@ export class Channel {
    */
   joined(apk?: Apk): void {
     this.send(protocolMessage(this.config, apk));
-    this.settings(settingsInForce(this.config));
+    this.settings();
     this.send({ kind: "history", turns: this.missed() });
   }
 

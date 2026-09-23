@@ -45,6 +45,13 @@ export interface Scorecard {
   roundTrip: { rounds: number; medianMs: number; worstMs: number; medianAgentMs: number; medianSentenceMs: number; medianSynthesisMs: number };
   bargeIns: number;
   invented: number;
+  /**
+   * 18.11 utterances the room made rather than Chris: a filler, or one of the
+   * engine's own silence tokens. Measured over two hours in a coffee shop on
+   * 22 September: 63 of 74 transcribed utterances, 22 of them "Thank you.",
+   * and every one of them a turn nobody asked for.
+   */
+  unasked: number;
   /** 18.10 utterances that repeat what the voice had just said: the bridge hearing itself. */
   echoes: number;
 }
@@ -136,6 +143,7 @@ export function score(events: Event[], script = SCRIPT, passage = PASSAGE): Scor
     // looked right on that session and then called every utterance of a
     // quieter one an invention, which is how this rule was found to be wrong.
     invented: invented(heard),
+    unasked: unasked(heard),
   };
 }
 
@@ -145,6 +153,25 @@ export function score(events: Event[], script = SCRIPT, passage = PASSAGE): Scor
  * recordings of the same voice and neither is the wrong one.
  */
 const QUIET_SHARE = 0.45;
+
+/**
+ * 18.11 what a room says when nobody is talking to the bridge.
+ *
+ * Whisper writes "Thank you." over silence; a person nearby says "Yeah." The
+ * peak does not separate these from speech — in the coffee shop they ran from
+ * 0.16 to 0.53, well over `minSpeechPeak` — and `invented` cannot either,
+ * because it is relative to the session's own median and a noisy session
+ * raises its own bar. The words are what separate them.
+ */
+const ROOM = new Set([
+  "thank you", "thanks", "thank you very much", "thanks for watching", "you", "bye", "bye bye",
+  "yeah", "yes", "yep", "okay", "ok", "oh", "ah", "uh", "um", "hmm", "mm hmm", "mhm", "mm",
+  "right", "sure", "wow", "hey", "hi", "hello", "huh", "haha", "hehehe", "pshh",
+]);
+
+function unasked(heard: Heard[]): number {
+  return heard.filter((h) => h.text && ROOM.has(plain(h.text))).length;
+}
 
 function invented(heard: Heard[]): number {
   const spoken = heard.filter((h) => h.text);

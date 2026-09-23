@@ -41,6 +41,8 @@ export const KEPT_LINES = [
   "Tones off.",
   "Music on.",
   "Music off.",
+  "Audio on.",
+  "Audio off.",
   "Interrupting on.",
   "Interrupting off.",
   "Carrying on.",

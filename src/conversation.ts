@@ -76,6 +76,8 @@ export interface ConversationHooks {
   onTurn?(turn: Turn): void;
   /** 9.4 a setting Chris changed out loud, for whoever keeps settings. */
   onSetting?(patch: Partial<Config>): void;
+  /** 11.12 the audio went on or off by voice, so every client can be told. */
+  onAudio?(): void;
 }
 
 export class Conversation {
@@ -157,10 +159,12 @@ export class Conversation {
     };
     this.onTurn = hooks.onTurn;
     this.onSetting = hooks.onSetting;
+    this.onAudio = hooks.onAudio;
   }
 
   private onTurn?: (turn: Turn) => void;
   private onSetting?: (patch: Partial<Config>) => void;
+  private onAudio?: () => void;
   /** Where the agent's words and blocks go while a turn of ours runs; null between turns. */
   private answering: { delta(text: string): void; blockStart(type: string): void; blockEnd(): void } | null = null;
 
@@ -517,6 +521,13 @@ export class Conversation {
       // 15.7.3 the hold music is the other sound Chris may not want in the car
       case "musicOn": return this.setHoldMusic(true);
       case "musicOff": return this.setHoldMusic(false);
+      /**
+       * 11.12 the audio, which the app also has a button for. With it off the
+       * bridge looks dead from the car, so the way back has to be something
+       * that can be said: the microphone is still listening either way.
+       */
+      case "audioOn": return this.setAudio(true);
+      case "audioOff": return this.setAudio(false);
 
       // A question about the bridge, not about the work. Report, then carry on.
       case "usage": {
@@ -621,6 +632,25 @@ export class Conversation {
     const { said, voice } = this.mouth.switchVoice(which);
     if (voice) this.onSetting?.({ ttsVoice: voice });
     this.reply(said);
+    return "resume";
+  }
+
+  /**
+   * 11.12 the audio on or off. On, the voice says so; off, nothing could be
+   * heard anyway, so the client is told and the journal says it.
+   */
+  private setAudio(on: boolean): Hold {
+    if (on) {
+      this.mouth.setAudio(true);
+      this.reply("Audio on.");
+    } else {
+      // the last thing heard should say why it went quiet, so the line is said
+      // first and the audio goes off behind it
+      this.reply("Audio off.");
+      void this.mouth.drained().then(() => this.mouth.setAudio(false));
+      this.channel.journal("the audio is off; the words carry on in the transcript");
+    }
+    this.onAudio?.();
     return "resume";
   }
 

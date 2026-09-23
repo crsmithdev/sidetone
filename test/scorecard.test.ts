@@ -176,3 +176,29 @@ describe("the round trip", () => {
     expect(score([old]).roundTrip).toMatchObject({ rounds: 1, medianMs: 5_000, medianAgentMs: 0 });
   });
 });
+
+/**
+ * 18.11 the coffee shop of 22 September: two hours in a noisy room, 503
+ * utterances heard, 74 with any words in them, and 70 turns nobody asked for.
+ * The peaks were 0.16 to 0.53 — real sound, over `minSpeechPeak` — so neither
+ * guard saw a thing. These are the actual lines from ~/.sidetone/record.jsonl.
+ */
+describe("a room talking near the phone (18.11)", () => {
+  const room = ["Thank you.", "Thank you.", "Yeah.", "Oh", "Yes.", "Mm-hmm.", "Okay.", "Thanks for watching!"];
+  const chris = ["what is the service doing right now", "read me the last few lines of the log"];
+  const said = (text: string, peak: number): Event => heard(text, { peak });
+
+  test("what the room said is counted, and what Chris said is not", () => {
+    const events = [...room.map((text) => said(text, 0.3)), ...chris.map((text) => said(text, 0.3))];
+    const card = score(events);
+    expect(card.unasked).toBe(room.length);
+  });
+
+  test("loudness does not save them: these were louder than the speech floor", () => {
+    // 0.16 to 0.53 in the real window, against a minSpeechPeak of 0.15
+    const events = room.map((text, index) => said(text, 0.16 + index * 0.05));
+    expect(score(events).unasked).toBe(room.length);
+    // and the relative heuristic sees none of them, which is why this exists
+    expect(score(events).invented).toBe(0);
+  });
+});

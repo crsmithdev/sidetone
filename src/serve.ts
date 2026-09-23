@@ -165,6 +165,10 @@ export async function serve(dir: string, config: Config): Promise<void> {
           room: transport.connected ? "connected" : "gone",
           agent: conversation.agent.running ? "running" : "stopped",
           engines: { speech: tts.sampleRate > 0, transcription: stt.warmupSeconds > 0 },
+          // 11.12 the one state that makes a working bridge look dead. It cost
+          // two journal digs on 21 September, both times an accidental tap.
+          audio: mouth.audioOn ? "on" : "off",
+          muted: conversation.isMuted,
           network: { phone: conversation.network.get("phone"), bridge: conversation.network.get("bridge") },
           turns: conversation.agent.turns,
           upSeconds: Math.round((Date.now() - startedAt) / 1000),

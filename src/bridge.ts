@@ -140,7 +140,7 @@ export function assemble(
     setting: (patch) => conversation.set(patch),
     screen: (part) => screens.receive(part),
     screenshot: (part) => screenshots.receive(part),
-  }, say);
+  }, say, () => ({ audio: mouth.audioOn }));
 
   const conversation: Conversation = new Conversation(dir, config, mouth, channel, {
     // 9.4 the file is for the next run; the live copy is what /diagnostics and
@@ -150,9 +150,11 @@ export function assemble(
       keep(patch);
       measures.setting(patch);
       // 9.4.9 every client sees what is in force now, however it was changed
-      channel.settings(settingsInForce(config));
+      channel.settings();
     },
     onTurn: (turn) => say(`[turn ${turn.number}, $${conversation.agent.totalCostUsd().toFixed(4)} this session]`),
+    // 11.12 the audio went on or off by voice; the app's own button reads this back
+    onAudio: () => channel.settings(),
   }, parts.makeAgent);
 
   let counter = 0;

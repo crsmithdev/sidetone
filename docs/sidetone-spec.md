@@ -600,6 +600,10 @@ project bridge stays in place.
 
 18.10.2 This exists because of the volume slider of 21 September, which was never wrong in the barge-in logic: it made the phone play loudly enough to defeat its own echo cancellation, and the bridge barged in on itself. Nothing in the code could see it, and a drive is what found it. An echo in the record is the first minute of a device run finding it instead.
 
+18.11 The scorecard counts the utterances the room made rather than Chris: a filler, or one of the engine's own silence tokens, with nothing else in it. Measured over two hours in a coffee shop on 22 September: of 503 utterances heard, 74 carried any words, 63 of those were three words or fewer, and 70 turns were taken. "Thank you." alone appeared 22 times. Neither existing guard saw any of it. The peaks ran from 0.16 to 0.53, well above the 0.15 speech floor, and the invented count is relative to the session's own median, which a noisy session raises. The words are what separate them, so the count is by words.
+
+18.11.1 The count is a measurement and not a gate. The bridge still sends every utterance to the agent. Whether to stop a short filler reaching the agent at all is a separate decision, and this number is what it should be decided on.
+
 ## 19. POINT STATUS
 
 19.1 Muted command subset. Mute, unmute, and the three commands that turn the tones on and off. The set is a list in the settings, so Chris adds more later. The tone commands are on it because Chris mutes when the car is loud, and the tones are the next noise he wants gone; silencing them asks nothing of the microphone. See 9.5 and 9.6.

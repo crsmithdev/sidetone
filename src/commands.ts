@@ -16,7 +16,8 @@ export type CommandName =
   | "restate" | "summarize" | "where" | "endTurn"
   | "tones" | "tonesOn" | "tonesOff" | "musicOn" | "musicOff" | "stats"
   | "femaleVoice" | "maleVoice"
-  | "carryOn" | "interrupt" | "interruptOn" | "interruptOff";
+  | "carryOn" | "interrupt" | "interruptOn" | "interruptOff"
+  | "audioOn" | "audioOff";
 
 export type Match =
   /** 9.4 a command to do */
@@ -53,6 +54,14 @@ const COMMANDS: Array<{ name: CommandName; any: string[][]; phrases: string[] }>
   { name: "tonesOff", any: [["tones", "off"], ["tone", "off"], ["no", "tones"], ["sounds", "off"]], phrases: ["tones off"] },
   { name: "tonesOn", any: [["tones", "on"], ["tone", "on"], ["sounds", "on"]], phrases: ["tones on"] },
   { name: "tones", any: [["tones"], ["tone"], ["chimes"]], phrases: ["tones"] },
+  /**
+   * 11.12 the audio, which the app also has a button for. It is here because
+   * that button was tapped by accident twice on 21 September and there was no
+   * way back from the car: the bridge looked dead and only the journal said why.
+   * The explicit forms come first, as with the tones.
+   */
+  { name: "audioOff", any: [["audio", "off"], ["voice", "off"], ["no", "audio"]], phrases: ["audio off"] },
+  { name: "audioOn", any: [["audio", "on"], ["voice", "on"]], phrases: ["audio on"] },
   // 15.7.3 the hold music. "stop" is deliberately not a form: it ends the turn.
   { name: "musicOff", any: [["music", "off"]], phrases: ["music off"] },
   { name: "musicOn", any: [["music", "on"]], phrases: ["music on"] },

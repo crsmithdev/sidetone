@@ -125,6 +125,24 @@
    ]
   },
   {
+   "said": "sidetone, audio off",
+   "want": "audioOff",
+   "heard": [
+    "Side-tone audio off.",
+    "SideTone Audio Off.",
+    "SideTone Audio off."
+   ]
+  },
+  {
+   "said": "sidetone, audio on",
+   "want": "audioOn",
+   "heard": [
+    "SITONE Audio On.",
+    "SideTone Audio On.",
+    "SideTone Audio on."
+   ]
+  },
+  {
    "said": "sidetone, music off",
    "want": "musicOff",
    "heard": [

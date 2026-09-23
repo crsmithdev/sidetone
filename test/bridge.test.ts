@@ -136,6 +136,23 @@ describe("the bridge, assembled as the car assembles it", () => {
     expect(r.measures.recent().filter((event) => event.kind === "echo")).toEqual([]);
   });
 
+  test("the audio can be turned on again by voice, from the car (11.12)", async () => {
+    const r = bridge();
+    await r.c.heard("sidetone audio off");
+    await until(() => r.said.length > 0);
+    // it says so before it goes quiet, so the last thing heard says why
+    expect(r.said).toEqual(["Audio off."]);
+    await until(() => !r.mouth.audioOn);
+    expect(r.mouth.audioOn).toBe(false);
+    // and the way back is something that can be said: the ear never stopped
+    await r.c.heard("sidetone audio on");
+    await until(() => r.mouth.audioOn);
+    expect(r.mouth.audioOn).toBe(true);
+    // every client is told, because the app's own button has to read it back
+    const settings = r.told.flatMap((message) => (message.kind === "settings" ? [message.settings] : []));
+    expect(settings.at(-1)?.audio).toBe(true);
+  });
+
   test("what Chris says arrives through the channel as a turn (14.11)", async () => {
     const r = bridge({ script: { deltas: ["Four."] } });
     r.channel.receive({ kind: "said", text: "what is two plus two" });
