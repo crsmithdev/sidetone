@@ -215,6 +215,8 @@ class MessagesTest {
         assertEquals("""{"kind":"mic","on":false}""", Outgoing.mic(false).decodeToString())
         // 9.5.2 a hold to talk button let go: the bridge ends the utterance
         assertEquals("""{"kind":"mic","on":false,"release":true}""", Outgoing.mic(false, release = true).decodeToString())
+        // 15.12 a hold to talk button pressed: the bridge plays the press cue
+        assertEquals("""{"kind":"mic","on":true,"hold":true}""", Outgoing.mic(true, hold = true).decodeToString())
         assertEquals("""{"kind":"quality","quality":"good"}""", Outgoing.quality("good").decodeToString())
         // 11.12 the audio cut keeps the kind the bridge already knows
         assertEquals("""{"kind":"voice","on":false}""", Outgoing.audio(false).decodeToString())

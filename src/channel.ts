@@ -23,9 +23,10 @@ export interface Ends {
   heard(text: string): Promise<void>;
   /**
    * ADR 0008 the phone opened or cut its microphone; anything half recorded
-   * goes with a cut, unless `release` says it is a finished utterance (9.5.2)
+   * goes with a cut. `hold` says the hold to talk button made the change: a
+   * cut with it is a release, and ends a finished utterance (9.5.2).
    */
-  microphone(on: boolean, release: boolean): void;
+  microphone(on: boolean, hold: boolean): void;
   /** 11.12 the audio off leaves the words */
   voice(on: boolean): void;
   /** N.1 a reading of the connection; true when it is news */
@@ -113,8 +114,10 @@ export class Channel {
     if (value.kind === "mic") {
       this.micOn = value.on !== false;
       this.saidSilent = false;
-      const release = !this.micOn && value.release === true;
-      this.ends.microphone(this.micOn, release);
+      // 9.5.1 an open says `hold`, and 9.5.2 a cut says `release`
+      const hold = this.micOn ? value.hold === true : value.release === true;
+      const release = !this.micOn && hold;
+      this.ends.microphone(this.micOn, hold);
       this.say(`[the phone ${this.micOn ? "opened" : "cut"} its microphone${release ? " and ended the utterance" : ""}]`);
       return;
     }

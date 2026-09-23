@@ -134,7 +134,12 @@ export function assemble(
     // resolves it. An open leaves the recorder alone: an app that re-sends its
     // state on reconnect must not drop a command that is being transcribed.
     // 9.5.2 a release is a hold to talk button let go: the words end now.
-    microphone: (on, release) => { if (!on) ear.reset(release); },
+    // 15.14 a hold and a release each have a cue. The release cue goes first,
+    // so the `heard` that the reset plays comes after it.
+    microphone: (on, hold) => {
+      if (hold) conversation.cue(on ? "hold" : "release");
+      if (!on) ear.reset(hold);
+    },
     voice: (on) => mouth.setAudio(on),
     quality: (side, quality) => conversation.network.saw(side, quality),
     setting: (patch) => conversation.set(patch),

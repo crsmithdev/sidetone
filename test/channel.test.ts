@@ -13,7 +13,7 @@ function channel(overrides: Partial<Config> = {}) {
   let news = true;
   const ends: Ends = {
     heard: async (text) => { did.push(`heard ${text}`); },
-    microphone: (on, release) => { did.push(`microphone ${on}${release ? " release" : ""}`); },
+    microphone: (on, hold) => { did.push(`microphone ${on}${hold ? " hold" : ""}`); },
     voice: (on) => { did.push(`voice ${on}`); },
     setting: (patch) => { did.push(`setting ${JSON.stringify(patch)}`); },
     quality: (side, quality) => { did.push(`quality ${side} ${quality}`); return news; },
@@ -116,7 +116,7 @@ describe("what a client sends (4.3)", () => {
   test("9.5.2 a cut that says release ends the utterance, and the journal says so", () => {
     const { c, did, journal } = channel();
     c.receive({ kind: "mic", on: false, release: true });
-    expect(did).toEqual(["microphone false release"]);
+    expect(did).toEqual(["microphone false hold"]);
     expect(journal).toEqual(["[the phone cut its microphone and ended the utterance]"]);
   });
 
@@ -124,6 +124,18 @@ describe("what a client sends (4.3)", () => {
     const { c, did } = channel();
     c.receive({ kind: "mic", on: true, release: true });
     expect(did).toEqual(["microphone true"]);
+  });
+
+  test("15.14 an open that says hold is a hold to talk button pressed", () => {
+    const { c, did } = channel();
+    c.receive({ kind: "mic", on: true, hold: true });
+    expect(did).toEqual(["microphone true hold"]);
+  });
+
+  test("15.14 a cut is a hold only when it says release", () => {
+    const { c, did } = channel();
+    c.receive({ kind: "mic", on: false, hold: true });
+    expect(did).toEqual(["microphone false"]);
   });
 
   test("the audio off leaves the words, and says so in the journal only (4.3.1)", () => {

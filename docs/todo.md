@@ -160,18 +160,6 @@ each button keeps one label and shows its on/off state by color alone.
 Done when the row holds three buttons, one each for mic, audio and music,
 each with a fixed label and a color that shows its state.
 
-## 15. A gentle tone for hold-to-talk on and off
-
-Noted 22 September 2026. Not started.
-
-Hold-to-talk (`state.holding` in `Bridge.kt`, spec 9.5.1) has no cue today;
-only `heard`, `thinking` and `starting` play a sound (spec 15). Chris wants a
-very gentle tone when the hold starts and another when it releases, so the
-toggle is audible without looking at the screen.
-
-Done when starting and releasing hold-to-talk each play a distinct, gentle
-cue.
-
 ## 16. The status row can show contradictory words
 
 Noted 22 September 2026. Not started.

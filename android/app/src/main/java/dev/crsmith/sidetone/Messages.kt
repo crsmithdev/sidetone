@@ -214,9 +214,15 @@ object Outgoing {
     /**
      * 9.5.2 `release` says the cut is a hold to talk button let go: the bridge
      * ends what was recorded as an utterance. A cut without it drops the words.
+     * 15.12 `hold` says the open is a hold to talk button pressed, so the bridge
+     * plays the press cue.
      */
-    fun mic(on: Boolean, release: Boolean = false): ByteArray =
-        encode(buildJsonObject { put("kind", "mic"); put("on", on); if (release) put("release", true) })
+    fun mic(on: Boolean, release: Boolean = false, hold: Boolean = false): ByteArray =
+        encode(buildJsonObject {
+            put("kind", "mic"); put("on", on)
+            if (release) put("release", true)
+            if (hold) put("hold", true)
+        })
 
     fun quality(quality: String): ByteArray = encode(buildJsonObject { put("kind", "quality"); put("quality", quality) })
 

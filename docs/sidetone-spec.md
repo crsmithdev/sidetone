@@ -250,7 +250,7 @@ project bridge stays in place.
 
 9.5 Two commands work when the bridge is muted. The two commands are mute and unmute. All other commands do not work when the bridge is muted.
 
-9.5.1 The app has a hold to talk button. The button sits beside the button that cuts the microphone. The microphone is open only while Chris holds the hold to talk button. The hold to talk button is disabled while the microphone is open and Chris does not hold it. While Chris holds it, the button that cuts the microphone is disabled. The mute and unmute commands stay.
+9.5.1 The app has a hold to talk button. A press and a release each play a cue (15.14). The button sits beside the button that cuts the microphone. The microphone is open only while Chris holds the hold to talk button. The hold to talk button is disabled while the microphone is open and Chris does not hold it. While Chris holds it, the button that cuts the microphone is disabled. The mute and unmute commands stay.
 
 9.5.2 Chris lets go of the hold to talk button. The app then cuts the microphone. The app sends the `mic` message with `release` set. The bridge ends the utterance at once, and it does not wait for the end-of-turn pause (11.5). An ordinary cut still drops a half-recorded utterance (ADR 0008). While the microphone is cut, the bridge hears nothing, so a barge-in cannot happen.
 
@@ -449,6 +449,7 @@ project bridge stays in place.
 15.12 The /play route hands the file to the mouth, which owns the room's one audio source. The track waits until nothing is being said, then plays. A sentence that arrives while it plays fades it out (15.10.2). Chris talking and the audio going off cut it at once (15.10.3). The route answers 202 as soon as the file is decoded, so the agent can ask for a track and say a sentence about it in the same turn. Before this the route wrote to the transport itself and refused, or stopped, whenever the mouth was busy, and the agent's own next sentence ended the track one second in.
 
 15.13 The record says when a track started and when it stopped, for the hold music and for a file from /play, with how long it ran and whether it reached its end. Without those the record said nothing about when the music began, and "it came on late" (see docs/todo.md item 17) could not be checked after a drive.
+15.14 The bridge plays a cue when Chris presses the hold to talk button (9.5.1), and a different cue when he lets go (9.5.2). The press cue is one bright click. The release cue is one dark click. Both are half as long and half as loud as the other cues, because they play on every hold. The app sends the `mic` message with `hold` set when a press opens the microphone, and with `release` set when a release cuts it (9.5.2). A cut or an open from the button that cuts the microphone plays no cue. The two cues follow the same rules as the other cues: they are not played over the voice, and the tones setting turns them off (15.4).
 
 ## 16. LESSONS FROM PRIOR ART
 

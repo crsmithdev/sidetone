@@ -283,7 +283,7 @@ object Bridge {
                 _state.update { it.copy(micOn = on) }
                 val room = room ?: return@launch
                 if (on) openMic(room) else closeMic(room)
-                tell(room, Outgoing.mic(on, release = byHold && !on))
+                tell(room, Outgoing.mic(on, release = byHold && !on, hold = byHold && on))
                 if (!byHold) record("microphone", if (on) "microphone on" else "microphone off")
             }
         }
