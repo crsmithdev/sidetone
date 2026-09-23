@@ -13,10 +13,10 @@
  */
 export type CommandName =
   | "mute" | "unmute" | "clearContext" | "usage"
-  | "restate" | "summarize" | "where" | "endTurn"
-  | "tones" | "tonesOn" | "tonesOff" | "musicOn" | "musicOff" | "stats"
+  | "restate" | "where" | "endTurn"
+  | "tonesOn" | "tonesOff" | "musicOn" | "musicOff" | "stats"
   | "femaleVoice" | "maleVoice"
-  | "carryOn" | "interrupt" | "interruptOn" | "interruptOff"
+  | "carryOn" | "interruptOn" | "interruptOff"
   | "audioOn" | "audioOff"
   | "verbosityBrief" | "verbosityNormal" | "verbosityFull" | "shorter" | "longer";
 
@@ -38,10 +38,10 @@ export type Match =
 const COMMANDS: Array<{ name: CommandName; any: string[][]; phrases: string[] }> = [
   { name: "unmute", any: [["unmute"], ["un", "mute"], ["listen", "again"]], phrases: ["unmute"] },
   { name: "mute", any: [["mute"], ["stop", "listening"]], phrases: ["mute", "stop listening"] },
-  { name: "clearContext", any: [["clear"]], phrases: ["clear the context"] },
+  // item 36 two words: "clear" alone is a word Chris says, and it cost the session
+  { name: "clearContext", any: [["clear", "context"]], phrases: ["clear the context"] },
   { name: "usage", any: [["usage"], ["cost"], ["spent"]], phrases: ["report the usage"] },
   { name: "restate", any: [["restate"], ["say", "again"], ["repeat"]], phrases: ["say again"] },
-  { name: "summarize", any: [["summarize"], ["summarise"], ["summary"]], phrases: ["summarize"] },
   { name: "where", any: [["where"], ["catch", "up"], ["recap"]], phrases: ["recap"] },
   // 9.3 "end the" elides, and every engine tried writes it as "in the turn"
   // "nevermind" is one word to the engine, and "end the" elides far enough
@@ -50,16 +50,14 @@ const COMMANDS: Array<{ name: CommandName; any: string[][]; phrases: string[] }>
   // too much to say. A five letter word forgives one character, so "share" and
   // "shard" end the turn as well; neither follows the wake word in practice.
   { name: "endTurn", any: [["end", "turn"], ["in", "turn"], ["stop"], ["cancel"], ["never", "mind"], ["nevermind"], ["sharp"]], phrases: ["end turn", "never mind"] },
-  // the explicit forms come first: "tones" is inside "tones off", and the
-  // first command whose words are all present wins.
+  // item 36 no bare "tones": a toggle said blind leaves the tones in a state
+  // nobody knows, and "tones off" beside it is the one that is meant.
   { name: "tonesOff", any: [["tones", "off"], ["tone", "off"], ["no", "tones"], ["sounds", "off"]], phrases: ["tones off"] },
   { name: "tonesOn", any: [["tones", "on"], ["tone", "on"], ["sounds", "on"]], phrases: ["tones on"] },
-  { name: "tones", any: [["tones"], ["tone"], ["chimes"]], phrases: ["tones"] },
   /**
    * 11.12 the audio, which the app also has a button for. It is here because
    * that button was tapped by accident twice on 21 September and there was no
    * way back from the car: the bridge looked dead and only the journal said why.
-   * The explicit forms come first, as with the tones.
    */
   { name: "audioOff", any: [["audio", "off"], ["voice", "off"], ["no", "audio"]], phrases: ["audio off"] },
   { name: "audioOn", any: [["audio", "on"], ["voice", "on"]], phrases: ["audio on"] },
@@ -74,15 +72,13 @@ const COMMANDS: Array<{ name: CommandName; any: string[][]; phrases: string[] }>
   // "male voice" as "Mail Voice", and sometimes drops the second word, so
   // "mail" is one of the accepted forms and one word is enough. Requiring
   // "voice" was the first attempt and it matched nothing on a real run.
-  // 11.10 the rest of an answer a barge-in took off the queue. "continue" is
-  // also the agreement word of 10.3, which is said plainly and without the wake
-  // word, so the two never arrive by the same route.
-  { name: "carryOn", any: [["carry", "on"], ["go", "on"], ["continue"], ["the", "rest"]], phrases: ["carry on"] },
-  // 11.9 the two ways to treat a question that lands mid-answer. The explicit
-  // forms come first: "interrupt" is inside "interrupt off".
+  // 11.10 the rest of an answer a barge-in took off the queue. Not
+  // "continue": that is the agreement word of 10.3, and it has one job (item 36).
+  { name: "carryOn", any: [["carry", "on"], ["go", "on"], ["the", "rest"]], phrases: ["carry on"] },
+  // 11.9 the two ways to treat a question that lands mid-answer. No bare
+  // "interrupt", for the same reason as the tones (item 36).
   { name: "interruptOff", any: [["interrupt", "off"], ["interrupting", "off"]], phrases: ["interrupt off"] },
   { name: "interruptOn", any: [["interrupt", "on"], ["interrupting", "on"]], phrases: ["interrupt on"] },
-  { name: "interrupt", any: [["interrupt"], ["interrupting"], ["barge", "in"]], phrases: ["interrupt"] },
   // item 37 how much the agent says: a level by name, or one level either way
   { name: "verbosityBrief", any: [["verbosity", "brief"]], phrases: ["verbosity brief"] },
   { name: "verbosityNormal", any: [["verbosity", "normal"]], phrases: ["verbosity normal"] },
@@ -196,7 +192,7 @@ export function match(said: string, wakeWord: string, muted: boolean, mutedComma
  * Short enough to be a command and nothing else.
  *
  * Inside the wake-word hold an utterance is matched with no wake word in front
- * of it, and the command table holds bare single words: `stop`, `clear`,
+ * of it, and the command table holds bare single words: `stop`, `mute`,
  * `where`, `man`. So "how do I stop the server" ended the turn and the question
  * never reached the agent. Measured 14 September, a command after the wake word
  * is one or two words -- the longest the card asks for is "tones off".

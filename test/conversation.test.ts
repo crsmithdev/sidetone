@@ -29,13 +29,6 @@ describe("the tones (15.4)", () => {
     c.cue("heard");
     expect(cues).toEqual(["thinking"]);
   });
-  test("the bare word toggles, so it can be said twice while driving", async () => {
-    const { c } = watched();
-    await c.heard("sidetone tones");
-    expect(c.tonesOn).toBe(false);
-    await c.heard("sidetone tones");
-    expect(c.tonesOn).toBe(true);
-  });
   test("the explicit form does not flip what is already right", async () => {
     const { c } = watched();
     await c.heard("sidetone tones off");
@@ -340,7 +333,7 @@ describe("the gate on clearing the context (10)", () => {
   test("it reads back what it is about to do and waits", async () => {
     const r = room();
     const restarted = () => r.agent.calls.includes("restart cleared by voice");
-    await r.c.heard("sidetone clear");
+    await r.c.heard("sidetone clear context");
     await tick();
     expect(r.said).toEqual(["I am about to clear the context and start again. Say continue to let it happen."]);
     expect(restarted()).toBe(false);
@@ -349,7 +342,7 @@ describe("the gate on clearing the context (10)", () => {
   test("the agreement word lets it happen", async () => {
     const r = room();
     const restarted = () => r.agent.calls.includes("restart cleared by voice");
-    await r.c.heard("sidetone clear");
+    await r.c.heard("sidetone clear context");
     await r.c.heard("continue");
     await tick();
     expect(restarted()).toBe(true);
@@ -359,7 +352,7 @@ describe("the gate on clearing the context (10)", () => {
   test("10.5 anything else fails it closed", async () => {
     const r = room();
     const restarted = () => r.agent.calls.includes("restart cleared by voice");
-    await r.c.heard("sidetone clear");
+    await r.c.heard("sidetone clear context");
     await r.c.heard("sidetone tones off");
     await tick();
     expect(restarted()).toBe(false);
@@ -374,7 +367,7 @@ describe("the gate on clearing the context (10)", () => {
     const r = room();
     r.c.ears.stopSpeaking();
     r.mouth.say("the rest.");
-    await r.c.heard("sidetone clear");
+    await r.c.heard("sidetone clear context");
     await tick();
     expect(r.mouth.onHold).toBe(true);
     expect(r.said).toEqual(["I am about to clear the context and start again. Say continue to let it happen."]);
@@ -474,8 +467,6 @@ describe("what an utterance does to the hold: the table (11.3)", () => {
     { said: "sidetone wtaeuhnt", want: "resumes" },
     { said: "what is the config file for", want: "resumes", before: async (r) => { await r.c.heard("sidetone mute"); } },
     { said: "sidetone where are we", want: "dropped", before: answered, script: { deltas: ["It joins the room."] } },
-    { said: "sidetone summarize", want: "resumes", midTurn: true },
-    { said: "sidetone summarize", want: "dropped", before: answered, script: { deltas: ["It joins the room."] } },
     { said: "what is the config file for", want: "dropped" },
     { said: "what is the tallest one", want: "resumes", midTurn: true, overrides: { interruptOnSpeech: false } },
     { said: "what is the tallest one", want: "dropped", midTurn: true, overrides: { interruptOnSpeech: true, interruptAfterMs: 5 } },

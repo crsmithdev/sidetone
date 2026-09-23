@@ -235,13 +235,13 @@ project bridge stays in place.
 
 9.4.2 Unmute. The bridge acts on speech again.
 
-9.4.3 Clear the context.
+9.4.3 Clear the context. The command needs the two words "clear context". The word "clear" alone does not clear the session.
 
 9.4.4 Report the usage.
 
 9.4.5 Restate the last answer.
 
-9.4.6 Summarize the last answer.
+9.4.6 The summarize command is removed. It overlaps with 9.4.7, and 9.4.10 gives short replies. The step numbers do not change, because other sections point to them.
 
 9.4.7 Report where we are. The bridge gives a short summary of the last three request and reply pairs. Chris uses this to reorient if something feels wrong.
 
@@ -250,6 +250,10 @@ project bridge stays in place.
 9.4.9 A client can read the settings in force and change one. The bridge sends a settings message when a client joins and again whenever a setting changes, however it changed. A client changes a setting by sending one, and the bridge does exactly what the spoken command does, the voice's answer included: a switch on a screen and the words spoken aloud cannot end anywhere different. The bridge acts only on the settings it has a spoken command for — the tones, the hold music, interrupting, which of the two voices speaks, and the verbosity — and ignores any other name. Before this a client could change a setting only by sending the words of the command, and had no way at all to read one back, so a settings screen would have shown values it could not verify.
 
 9.4.10 Set the verbosity: how much the agent says. The levels are brief, normal and full. Brief is one or two sentences and only the result. Normal is the behaviour from before the setting. Full gives the reasoning and more detail. The commands are "verbosity brief", "verbosity normal" and "verbosity full", and "shorter" and "longer" move one level. At either end, the level stays where it is. The bridge adds one line that names the level to the prompt of each turn. The level is kept in the settings file, so it survives a restart and a new session.
+
+9.4.11 A setting that goes on and off has two commands, one for on and one for off. There is no bare command that flips it. The bare "tones" and the bare "interrupt" are removed, because a flip said blind leaves the setting in a state that Chris does not know.
+
+9.4.12 "Continue" is the agreement word of 10.2 and nothing else. The command that says the rest of an answer (11.10) is "carry on", "go on" or "the rest".
 
 9.5 Two commands work when the bridge is muted. The two commands are mute and unmute. All other commands do not work when the bridge is muted.
 
@@ -631,7 +635,7 @@ project bridge stays in place.
 
 ## 19. POINT STATUS
 
-19.1 Muted command subset. Mute, unmute, and the three commands that turn the tones on and off. The set is a list in the settings, so Chris adds more later. The tone commands are on it because Chris mutes when the car is loud, and the tones are the next noise he wants gone; silencing them asks nothing of the microphone. See 9.5 and 9.6.
+19.1 Muted command subset. Mute, unmute, and the two commands that turn the tones on and off. The set is a list in the settings, so Chris adds more later. The tone commands are on it because Chris mutes when the car is loud, and the tones are the next noise he wants gone; silencing them asks nothing of the microphone. See 9.5 and 9.6.
 
 19.2 Default model. Sonnet. This is final. The model stays a setting. See 8.11.
 

@@ -387,9 +387,6 @@ describe("11.9 a question that lands mid-answer", () => {
     await r.c.heard("sidetone interrupt off");
     await tick();
     expect(r.said).toContain("Interrupting off.");
-    await r.c.heard("sidetone interrupt");
-    await tick();
-    expect(r.said.at(-1)).toBe("Interrupting on.");
   });
 });
 
@@ -508,7 +505,7 @@ describe("11.11 a turn nobody asked for", () => {
  * to reach in for `turnRunning` and `lastReply`; the scripted agent gets there
  * by the front door.
  */
-describe("what the bridge answers from itself (9.4.5, 9.4.6, 9.4.7)", () => {
+describe("what the bridge answers from itself (9.4.5, 9.4.7)", () => {
   async function midAnswer() {
     let answer = () => {};
     const hold = new Promise<void>((resolve) => { answer = resolve; });
@@ -529,17 +526,6 @@ describe("what the bridge answers from itself (9.4.5, 9.4.6, 9.4.7)", () => {
     await tick();
     expect(r.said.slice(0, 2)).toEqual(["One.", "One."]);
     expect(r.said).toContain("Two.");
-    r.answer();
-    await r.turn;
-  });
-
-  test("summarize mid-answer is refused, and the turn goes on", async () => {
-    const r = await midAnswer();
-    await r.c.heard("sidetone summarize");
-    await tick();
-    expect(r.said[1]).toBe("I am still on the last one. Say sidetone, end the turn, to stop it.");
-    expect(r.said).toContain("Two.");
-    expect(r.agent.calls.filter((call) => call.startsWith("ask"))).toHaveLength(1);
     r.answer();
     await r.turn;
   });

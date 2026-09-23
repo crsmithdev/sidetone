@@ -80,7 +80,7 @@ for Kokoro, HTTPS, Tailscale, the Android app and the systemd units.
   doing. Short tones say that it heard you, that it is working, or that it is
   restarting.
 - **You can command the bridge itself.** Say the wake word "sidetone" and a
-  command: `mute`, `say again`, `summarize`, `recap`, `stats`, `end turn`,
+  command: `mute`, `say again`, `recap`, `stats`, `end turn`,
   `male voice`. The wake word is matched by sound, not by spelling, so
   mis-transcriptions still land.
 - **Risky commands wait for a spoken "continue".** Clearing the context, or

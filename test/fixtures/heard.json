@@ -60,15 +60,6 @@
    ]
   },
   {
-   "said": "sidetone, summarize",
-   "want": "summarize",
-   "heard": [
-    "Side Tone Summarize.",
-    "Side tone summarize.",
-    "SideTone Summarize."
-   ]
-  },
-  {
    "said": "sidetone, recap",
    "want": "where",
    "heard": [
@@ -112,16 +103,6 @@
     "Side tone tones on.",
     "SideTone Tones On.",
     "SideTone tones on."
-   ]
-  },
-  {
-   "said": "sidetone, tones",
-   "want": "tones",
-   "heard": [
-    "Side Tone Tones",
-    "Side Tone Tones.",
-    "Side tone tones.",
-    "SideTone Tones"
    ]
   },
   {
@@ -203,15 +184,6 @@
     "Side Tone Interrupt On.",
     "Side tone interrupt on.",
     "SideTone Interrupt On."
-   ]
-  },
-  {
-   "said": "sidetone, interrupt",
-   "want": "interrupt",
-   "heard": [
-    "Cytone interrupt.",
-    "Side Tone Interrupt",
-    "Side Tone Interrupt."
    ]
   },
   {

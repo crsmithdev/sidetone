@@ -303,12 +303,11 @@ agent, and both say so in their name.
 |---|---|---|---|---|
 | mute | stops acting on speech | resumes | — | yes |
 | unmute | acts on speech again | resumes | — | yes |
-| tones, tones off, tones on | the cues on or off | resumes | — | yes |
+| tones off, tones on | the cues on or off | resumes | — | yes |
 | music off, music on | the hold music on or off | resumes | — | no |
 | report the usage | cost, rate limit, context | resumes | — | no |
 | stats | the round trip, measured | resumes | — | no |
 | say again | the last sentence, or the last answer | resumes | — | no |
-| summarize | a one-sentence summary | dropped; refused mid-turn | a new turn | no |
 | recap | the last three exchanges | dropped | — | no |
 | end turn | stops the agent | dropped | interrupted | no |
 | female voice, male voice | swaps the voice mid-sentence | resumes | — | no |

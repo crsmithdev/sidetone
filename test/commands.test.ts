@@ -51,7 +51,6 @@ describe("commands (9.4)", () => {
     expect(commandIn("clear the context")).toBe("clearContext");
     expect(commandIn("report the usage")).toBe("usage");
     expect(commandIn("say that again")).toBe("restate");
-    expect(commandIn("summarize the last answer")).toBe("summarize");
     expect(commandIn("report where we are")).toBe("where");
     expect(commandIn("end the turn")).toBe("endTurn");
   });
@@ -81,7 +80,6 @@ describe("the tone and stats commands", () => {
     expect(commandIn("turn the tones off")).toBe("tonesOff");
     expect(commandIn("sounds off")).toBe("tonesOff");
     expect(commandIn("tones on")).toBe("tonesOn");
-    expect(commandIn("tones")).toBe("tones");
   });
   test("the diagnostic printout has a few names", () => {
     for (const said of ["stats", "the stats", "latency", "how fast are we"]) {
@@ -107,17 +105,14 @@ describe("the tone and stats commands", () => {
   test("11.9 the rest of an answer, and the two ways to treat a question", () => {
     expect(commandIn("carry on")).toBe("carryOn");
     expect(commandIn("go on")).toBe("carryOn");
-    expect(commandIn("continue")).toBe("carryOn");
     expect(commandIn("say the rest")).toBe("carryOn");
     // the explicit forms first: "interrupt" is inside "interrupt off"
     expect(commandIn("interrupt off")).toBe("interruptOff");
     expect(commandIn("interrupt on")).toBe("interruptOn");
-    expect(commandIn("interrupt")).toBe("interrupt");
-    expect(commandIn("barge in")).toBe("interrupt");
     // and none of them takes a command that was already there
     expect(commandIn("tones on")).toBe("tonesOn");
     expect(commandIn("end the turn")).toBe("endTurn");
-    expect(commandIn("clear")).toBe("clearContext");
+    expect(commandIn("clear context")).toBe("clearContext");
   });
   test("the new words do not steal an older command", () => {
     expect(commandIn("mute")).toBe("mute");
@@ -228,10 +223,42 @@ describe("the verbosity commands (item 37)", () => {
     expect(commandIn("stop")).toBe("endTurn");
     expect(commandIn("mute")).toBe("mute");
     expect(commandIn("tones on")).toBe("tonesOn");
-    expect(commandIn("summarize")).toBe("summarize");
+    expect(commandIn("say that again")).toBe("restate");
   });
   test("they do not work while muted, which is the setting's default", () => {
     expect(match("sidetone shorter", WAKE, true, MUTED)).toEqual({ kind: "unclear" });
     expect(match("sidetone shorter", WAKE, false, MUTED)).toEqual({ kind: "command", name: "shorter" });
+  });
+});
+
+describe("the wake-word review (item 36)", () => {
+  test("summarize is gone: where and the verbosity cover it", () => {
+    expect(commandIn("summarize")).toBe(null);
+    expect(commandIn("summarize the last answer")).toBe(null);
+    expect(commandIn("summary")).toBe(null);
+  });
+  test("the bare tones and the bare interrupt are gone: each needs on or off", () => {
+    for (const said of ["tones", "tone", "chimes", "interrupt", "interrupting", "barge in"]) {
+      expect(commandIn(said)).toBe(null);
+    }
+    expect(match("sidetone tones", WAKE, false, MUTED)).toEqual({ kind: "unclear" });
+    expect(match("sidetone interrupt", WAKE, false, MUTED)).toEqual({ kind: "unclear" });
+    expect(commandIn("tones off")).toBe("tonesOff");
+    expect(commandIn("interrupt on")).toBe("interruptOn");
+  });
+  test("clearing the context needs the two words, and \"clear\" alone clears nothing", () => {
+    expect(commandIn("clear")).toBe(null);
+    expect(commandIn("clear the screen")).toBe(null);
+    expect(commandIn("clear context")).toBe("clearContext");
+    expect(commandIn("clear the context")).toBe("clearContext");
+    expect(read("clear", DEFAULTS, false, true)).toEqual({ kind: "speech", agreed: false });
+  });
+  test("\"continue\" is the agreement word only, and carry on keeps its other forms", () => {
+    expect(commandIn("continue")).toBe(null);
+    expect(read("sidetone continue", DEFAULTS, false, false)).toEqual({ kind: "unclear", agreed: true });
+    for (const said of ["carry on", "go on", "say the rest"]) expect(commandIn(said)).toBe("carryOn");
+  });
+  test("the muted set names no command that is gone", () => {
+    expect(MUTED).toEqual(["mute", "unmute", "tonesOn", "tonesOff"]);
   });
 });

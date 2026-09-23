@@ -86,7 +86,6 @@ export const KEPT_LINES = [
   "Nothing was cleared.",
   "That turn did not finish.",
   "There is nothing to restate yet.",
-  "There is nothing to summarize yet.",
   "There is nothing left of it.",
   "We have not started yet.",
   "This engine has only the one voice.",

@@ -252,7 +252,7 @@ export const DEFAULTS: Config = {
   interruptOnSpeech: false,
   interruptAfterMs: 5_000,
   minSpeechPeak: 0.15,
-  mutedCommands: ["mute", "unmute", "tones", "tonesOn", "tonesOff"],
+  mutedCommands: ["mute", "unmute", "tonesOn", "tonesOff"],
   agreementWord: "continue",
   narrationDelayMs: 5_000,
   pythonBin: new URL("../.venv/bin/python", import.meta.url).pathname,

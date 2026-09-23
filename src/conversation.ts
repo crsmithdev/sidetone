@@ -18,8 +18,6 @@
  * | the wake word alone, or noise | resumes | untouched |
  * | anything but a muted command, while muted | resumes | untouched |
  * | where are we | dropped | untouched |
- * | summarize, mid-turn | resumes; the command is refused | untouched |
- * | summarize, between turns | dropped | a new turn |
  * | a question for the agent, between turns | dropped | a new turn |
  * | a question for the agent, mid-turn, holding | resumes; the question is refused | untouched |
  * | a question for the agent, mid-turn, interrupting | kept for "carry on" | interrupted, then a new turn |
@@ -476,7 +474,6 @@ export class Conversation {
       case "unmute": this.muted = false; this.reply("Listening."); return "resume";
       // 15.4 the cues earn their keep while this is being built and are noise
       // once it works, so which it is stays Chris's to say, out loud.
-      case "tones": return this.setTones(!this.tones);
       case "tonesOn": return this.setTones(true);
       case "tonesOff": return this.setTones(false);
       // 15.7.3 the hold music is the other sound Chris may not want in the car
@@ -520,16 +517,6 @@ export class Conversation {
         return "resume";
       }
 
-      // 9.4.6 a second turn, which the agent refuses while the first one runs.
-      case "summarize":
-        if (this.turnRunning) {
-          this.reply(`I am still on the last one. Say ${this.config.wakeWord}, end the turn, to stop it.`);
-          return "resume";
-        }
-        if (!this.lastReply) { this.reply("There is nothing to summarize yet."); return "resume"; }
-        void this.turn("Summarize your last answer in one short spoken sentence.");
-        return "discard";
-
       // 9.4.7 this is for reorienting when something feels wrong. If Chris is
       // reorienting, the passage he stopped is not what he wants back.
       case "where":
@@ -543,7 +530,6 @@ export class Conversation {
         if (!this.mouth.carryOn()) this.reply("There is nothing left of it.");
         return "resume";
 
-      case "interrupt": return this.setInterrupting(!this.interrupting);
       case "interruptOn": return this.setInterrupting(true);
       case "interruptOff": return this.setInterrupting(false);
 
@@ -566,8 +552,8 @@ export class Conversation {
         this.reply("Stopped.");
         return "discard";
 
-      // 8.8 a fresh process is a fresh context. 10.1 gates it: the whole match
-      // is the one word "clear", and what it costs is the whole conversation.
+      // 8.8 a fresh process is a fresh context. 10.1 gates it, because what it
+      // costs is the whole conversation.
       case "clearContext":
         this.askFirst("I am about to clear the context and start again.", "Nothing was cleared.", () => {
           this.agent.restart("cleared by voice");
