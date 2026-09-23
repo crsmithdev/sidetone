@@ -3,57 +3,17 @@
  *
  * There are three clients of this: the bridge, the page in `client/` and the
  * Android app. Each used to restate it, and on 17 September 2026 the app and
- * the page disagreed about a refused token for half a day. The bridge is the
- * writer now: it sends this to any client that joins the room, and the types
- * below are what `Channel` may send at all, so a kind cannot be added on one
- * end only. `sentence` was, on 19 September, and the page said "unknown
- * message" until the vocabulary caught up.
+ * the page disagreed about a refused token for half a day. The types below
+ * are what `Channel` may send at all, so a kind cannot be added on one end
+ * only. `sentence` was, on 19 September, and the page said "unknown message"
+ * until the vocabulary caught up.
+ *
+ * The bridge used to send a map of the kinds on every join, and no client
+ * read it. The check now is `test/fixtures/messages.jsonl`: a bridge test
+ * writes what the bridge really sends, and the page, the app and the fake
+ * phone each decode that file in a test of their own (ADR 0007).
  */
 import type { Config } from "./config.ts";
-
-/** What the bridge sends, and how a client shows it. */
-export const INCOMING = {
-  /** what Chris said, as the engine wrote it */
-  heard: "you",
-  /** 14.7 one sentence of the answer, as soon as it is known */
-  sentence: "bridge",
-  /** 14.9 a block of the answer begins: a client that shows a bubble for each block starts one */
-  blockStart: "bridge",
-  /** 14.9 the words of the block, as the agent writes them; a client with bubbles grows the block's bubble */
-  delta: "bridge",
-  /** 14.9 the block is complete; a client shows nothing */
-  blockEnd: "none",
-  /** what the agent answered, whole */
-  turn: "bridge",
-  /** 2.3 what the bridge says while a tool runs */
-  narration: "note",
-  error: "note",
-  /** 14.8 the turns a client missed; kinds inside it are heard and turn */
-  history: "history",
-  /** this message: the words a client needs that only the bridge knows */
-  protocol: "protocol",
-  /** 18.9 leave the room and join it again; a client shows nothing */
-  rejoin: "none",
-  /** 14.10 whether the agent works; the app shows a sign, the page shows nothing */
-  working: "none",
-  /** 9.4.9 the settings in force, when a client joins and whenever one changes; a client shows them where it can */
-  settings: "none",
-  /** 14.13 the voice reached this sentence; a client lights the words as they are said */
-  speaking: "none",
-} as const;
-
-/**
- * What a client sends. `voice` cuts all the audio and leaves the words: the
- * transcript is a data message and does not go down the audio path, so a bridge
- * with its audio off is still a whole conversation, read rather than heard. The
- * kind kept the name it had when the voice was all the audio there was.
- * `music` turns the hold music on or off (15.7.3), as the app's music button does (17.10).
- * `screen` is one part of the app's screen log (14.11); the bridge writes the log to disk.
- * `screenshot` is one part of a screenshot from the phone (14.12); the bridge writes the image to disk.
- * `setting` changes one setting, and does exactly what the spoken command does,
- * down to the voice saying so: a client cannot do more by tapping than by talking.
- */
-export const OUTGOING = ["said", "mic", "quality", "voice", "music", "screen", "screenshot", "setting"] as const;
 
 /** 14.8 a line a returning client is given again: what Chris said and what was answered. */
 export type Kept =
@@ -100,7 +60,7 @@ export type Outgoing =
    * sentence a barge-in cut is said again from the start, so this can repeat.
    */
   | { kind: "speaking"; text: string; answer?: number }
-  | { kind: "protocol"; endTurn: string; incoming: typeof INCOMING; outgoing: typeof OUTGOING; apk?: Apk };
+  | { kind: "protocol"; endTurn: string; apk?: Apk };
 
 /** 17.15 the app the bridge serves: where to fetch it, and its SHA-256 in hex. */
 export interface Apk {
@@ -119,7 +79,7 @@ export function endTurnPhrase(config: Config): string {
 
 /** What a client is told when it joins. 17.15 `apk` is there when the bridge has an app to serve. */
 export function protocolMessage(config: Config, apk?: Apk): Outgoing {
-  return { kind: "protocol", endTurn: endTurnPhrase(config), incoming: INCOMING, outgoing: OUTGOING, ...(apk ? { apk } : {}) };
+  return { kind: "protocol", endTurn: endTurnPhrase(config), ...(apk ? { apk } : {}) };
 }
 
 /**

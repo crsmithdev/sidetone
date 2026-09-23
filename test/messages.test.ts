@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { DEFAULTS } from "../src/config.ts";
-import { INCOMING, OUTGOING, REFUSED, endTurnPhrase, protocolMessage } from "../src/messages.ts";
+import { REFUSED, endTurnPhrase, protocolMessage } from "../src/messages.ts";
 import { match } from "../src/commands.ts";
 
 test("the end-turn phrase is built from the wake word, and the bridge answers it", () => {
@@ -15,12 +15,8 @@ test("a different wake word moves the phrase with it", () => {
   expect(match(endTurnPhrase(config), config.wakeWord, false, config.mutedCommands, [])).toEqual({ kind: "command", name: "endTurn" });
 });
 
-test("the message a client joins to carries the vocabulary", () => {
-  const message = protocolMessage(DEFAULTS) as { kind: string; endTurn: string; incoming: Record<string, string> };
-  expect(message.kind).toBe("protocol");
-  expect(message.endTurn).toBe("sidetone end the turn");
-  expect(Object.keys(message.incoming)).toEqual(["heard", "sentence", "blockStart", "delta", "blockEnd", "turn", "narration", "error", "history", "protocol", "rejoin", "working", "settings", "speaking"]);
-  expect(OUTGOING).toEqual(["said", "mic", "quality", "voice", "music", "screen", "screenshot", "setting"]);
+test("the message a client joins to carries the words it says back, and nothing unread", () => {
+  expect(protocolMessage(DEFAULTS)).toEqual({ kind: "protocol", endTurn: "sidetone end the turn" });
 });
 
 test("what counts as a refused token", () => {

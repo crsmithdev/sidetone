@@ -1,0 +1,30 @@
+{"kind":"protocol","endTurn":"sidetone end the turn"}
+{"kind":"settings","settings":{"speechLevel":0.02,"speechOnsetMs":50,"endOfTurnPauseMs":1500,"earlyTranscribeMs":400,"bargeInLevel":0.05,"bargeInMs":400,"bargeInGapMs":200,"minSpeechPeak":0.15,"wakeHoldMs":6000,"interruptOnSpeech":false,"interruptAfterMs":5000,"holdBackstopMs":10000,"sentenceMaxChars":240,"audioCueDelayMs":4000,"audioCueEveryMs":6000,"holdMusic":false,"holdMusicAfterMs":8000,"holdMusicGain":0.4,"holdMusicFadeMs":300,"cueVolume":0.1,"ttsEngine":"chatterbox","ttsVoice":"som_00295","sttModel":"small.en","wakeWord":"sidetone","chatterboxExaggeration":0.5,"chatterboxCfg":0.5,"audio":true}}
+{"kind":"history","turns":[]}
+{"kind":"protocol","endTurn":"sidetone end the turn","apk":{"url":"https://bridge:3100/sidetone.apk","sha256":"ab12"}}
+{"kind":"settings","settings":{"speechLevel":0.02,"speechOnsetMs":50,"endOfTurnPauseMs":1500,"earlyTranscribeMs":400,"bargeInLevel":0.05,"bargeInMs":400,"bargeInGapMs":200,"minSpeechPeak":0.15,"wakeHoldMs":6000,"interruptOnSpeech":false,"interruptAfterMs":5000,"holdBackstopMs":10000,"sentenceMaxChars":240,"audioCueDelayMs":4000,"audioCueEveryMs":6000,"holdMusic":false,"holdMusicAfterMs":8000,"holdMusicGain":0.4,"holdMusicFadeMs":300,"cueVolume":0.1,"ttsEngine":"chatterbox","ttsVoice":"som_00295","sttModel":"small.en","wakeWord":"sidetone","chatterboxExaggeration":0.5,"chatterboxCfg":0.5,"audio":true}}
+{"kind":"history","turns":[]}
+{"kind":"heard","text":"look and tell me"}
+{"kind":"blockStart","answer":1,"block":1}
+{"kind":"delta","text":"Let me look. ","answer":1,"block":1}
+{"kind":"sentence","text":"Let me look.","answer":1}
+{"kind":"speaking","text":"Let me look.","answer":1}
+{"kind":"blockEnd","answer":1,"block":1}
+{"kind":"narration","text":"running Bash"}
+{"kind":"blockStart","answer":1,"block":2}
+{"kind":"delta","text":"Found it.","answer":1,"block":2}
+{"kind":"blockEnd","answer":1,"block":2}
+{"kind":"sentence","text":"Found it.","answer":1}
+{"kind":"speaking","text":"Found it.","answer":1}
+{"kind":"turn","number":1,"text":"Let me look. Found it.","costUsd":0.5,"answer":1}
+{"kind":"heard","text":"and again"}
+{"kind":"speaking","text":"That turn did not finish."}
+{"kind":"error","text":"the agent died"}
+{"kind":"speaking","text":"The build is green."}
+{"kind":"turn","number":2,"text":"The build is green.","costUsd":0.5}
+{"kind":"narration","text":"Job build finished.","announce":true}
+{"kind":"rejoin"}
+{"kind":"protocol","endTurn":"sidetone end the turn"}
+{"kind":"settings","settings":{"speechLevel":0.02,"speechOnsetMs":50,"endOfTurnPauseMs":1500,"earlyTranscribeMs":400,"bargeInLevel":0.05,"bargeInMs":400,"bargeInGapMs":200,"minSpeechPeak":0.15,"wakeHoldMs":6000,"interruptOnSpeech":false,"interruptAfterMs":5000,"holdBackstopMs":10000,"sentenceMaxChars":240,"audioCueDelayMs":4000,"audioCueEveryMs":6000,"holdMusic":false,"holdMusicAfterMs":8000,"holdMusicGain":0.4,"holdMusicFadeMs":300,"cueVolume":0.1,"ttsEngine":"chatterbox","ttsVoice":"som_00295","sttModel":"small.en","wakeWord":"sidetone","chatterboxExaggeration":0.5,"chatterboxCfg":0.5,"audio":true}}
+{"kind":"history","turns":[{"kind":"heard","text":"look and tell me","at":1789999559000},{"kind":"turn","number":1,"text":"Let me look. Found it.","costUsd":0.5,"answer":1,"at":1789999559000},{"kind":"heard","text":"and again","at":1789999559000},{"kind":"turn","number":2,"text":"The build is green.","costUsd":0.5,"at":1789999559000}]}
+{"kind":"working","on":true}

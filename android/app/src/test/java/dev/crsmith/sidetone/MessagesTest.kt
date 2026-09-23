@@ -2,7 +2,9 @@ package dev.crsmith.sidetone
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 import java.time.ZoneOffset
 
 class MessagesTest {
@@ -175,12 +177,41 @@ class MessagesTest {
         assertEquals(Incoming.History(listOf(Line(Line.Kind.YOU, "a"), Line(Line.Kind.BRIDGE, "b"))), history)
     }
 
+    /**
+     * ADR 0007 what the bridge really sends, which `test/fixture.test.ts` writes from the
+     * bridge itself. A change there that this app cannot read fails here, not in the car.
+     * Gradle runs this test in android/app.
+     */
+    private val fixture = File("../../test/fixtures/messages.jsonl").readLines().filter { it.isNotBlank() }
+
     @Test
-    fun takesTheWordsTheBridgeOwns() {
-        // src/messages.ts sends this when the app joins the room
+    fun readsEverythingTheBridgeSends() {
+        val decoded = fixture.map { decode(bytes(it)) }
+        decoded.forEachIndexed { at, message ->
+            assertTrue("line ${at + 1} of the fixture: ${fixture[at]}", message != null && message !is Incoming.Unknown)
+        }
+        assertEquals(Incoming.Protocol("sidetone end the turn"), decoded.first())
+        assertTrue(Incoming.Protocol("sidetone end the turn", Apk("https://bridge:3100/sidetone.apk", "ab12")) in decoded)
+        assertTrue(Incoming.Announce(Line(Line.Kind.NOTE, "Job build finished.")) in decoded)
+        assertTrue(Incoming.Rejoin in decoded)
+        assertTrue(Incoming.Working(true) in decoded)
+        val history = decoded.filterIsInstance<Incoming.History>().last()
+        assertEquals(listOf("look and tell me", "Let me look. Found it.", "and again", "The build is green."), history.lines.map { it.text })
+    }
+
+    @Test
+    fun theBridgesOwnMessagesMakeTheBubbles() {
+        val screen = Screen()
+        for ((at, json) in fixture.withIndex()) {
+            when (decode(bytes(json))) {
+                is Incoming.Said, is Incoming.Sentence, is Incoming.BlockStart, is Incoming.Delta, is Incoming.BlockEnd -> screen.receive(json, at.toLong())
+                else -> Unit
+            }
+        }
+        // 14.9 a tool call splits the answer into two bubbles, and its turn adds no third
         assertEquals(
-            Incoming.Protocol("sidetone end the turn"),
-            decode(bytes("""{"kind":"protocol","endTurn":"sidetone end the turn","incoming":{},"outgoing":[]}""")),
+            listOf("look and tell me", "Let me look. ", "running Bash", "Found it.", "and again", "the agent died", "The build is green."),
+            screen.lines.map { it.text },
         )
     }
 

@@ -120,6 +120,8 @@ export async function serve(dir: string, config: Config): Promise<void> {
   let wrongCodes = 0;
   const page = await Bun.file(new URL("../client/index.html", import.meta.url).pathname).text();
   const sdk = new URL("../node_modules/livekit-client/dist/livekit-client.esm.mjs", import.meta.url).pathname;
+  // 4.3 the page's reading of a message, which a test replays the fixture through
+  const decoder = new URL("../client/decode.js", import.meta.url).pathname;
 
   const server = Bun.serve({
     port: config.servePort,
@@ -129,6 +131,7 @@ export async function serve(dir: string, config: Config): Promise<void> {
       const url = new URL(request.url);
       if (url.pathname === "/") return new Response(page, { headers: { "content-type": "text/html; charset=utf-8" } });
       if (url.pathname === "/livekit-client.mjs") return new Response(Bun.file(sdk), { headers: { "content-type": "text/javascript" } });
+      if (url.pathname === "/decode.js") return new Response(Bun.file(decoder), { headers: { "content-type": "text/javascript" } });
       if (url.pathname === "/sidetone.apk") {
         if (!(await Bun.file(apk).exists())) return new Response("not built", { status: 404 });
         return new Response(Bun.file(apk), { headers: { "content-type": "application/vnd.android.package-archive", "content-disposition": 'attachment; filename="sidetone.apk"' } });

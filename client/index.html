@@ -78,6 +78,7 @@
 
 <script type="module">
 import { Room, RoomEvent, Track } from "/livekit-client.mjs";
+import { decode } from "/decode.js";
 
 const $ = (id) => document.getElementById(id);
 const log = $("log"), state = $("state"), dot = $("dot");
@@ -199,39 +200,22 @@ async function connect({ url, token }) {
   room.on(RoomEvent.DataReceived, (payload) => {
     let message;
     try { message = JSON.parse(new TextDecoder().decode(payload)); } catch { return; }
+    const shown = decode(message);
     // 14.8 the turns that happened while this client was away
-    if (message.kind === "history") {
+    if (shown.history) {
       if (log.dataset.filled) return;
       log.dataset.filled = "1";
-      const turns = message.turns ?? [];
-      if (turns.length === 0) return;
+      if (shown.history.length === 0) return;
       // say plainly that this is older, or it reads as the conversation in progress
       line("earlier", "note");
-      for (const past of turns) {
-        if (past.kind === "heard") line(past.text, "you");
-        else if (past.kind === "turn") line(past.text, "bridge");
-      }
+      for (const [text, kind] of shown.history) line(text, kind);
       line("now", "note");
       return;
     }
-    // 4.3 the bridge says what a client has to say back to it, so the Stop
-    // button is never a phrase the wake word has moved away from
-    if (message.kind === "protocol") { endTurn = message.endTurn; $("stop").disabled = false; return; }
-    if (message.kind === "heard") line(message.text, "you");
-    else if (message.kind === "sentence") sentence(message.text, message.answer);
-    else if (message.kind === "turn") answered(message.text, message.answer);
-    else if (message.kind === "narration") line(message.text, "note");
-    else if (message.kind === "error") line(message.text, "note");
-    // 18.9 the app renews its own microphone track on this; the page does not
-    else if (message.kind === "rejoin") return;
-    // 14.10 the app shows a sign that the agent works. The page shows nothing.
-    else if (message.kind === "working") return;
-    // 14.9 the app shows a bubble for each block of an answer. The page keeps its
-    // one line for each answer, grown by sentences, so it ignores the blocks.
-    else if (message.kind === "blockStart" || message.kind === "delta" || message.kind === "blockEnd") return;
-    // a kind this page does not know is the two ends drifting apart. Say so
-    // rather than dropping it, which is how it stayed hidden before.
-    else line(`(unknown message: ${message.kind})`, "note");
+    if (shown.endTurn !== undefined) { endTurn = shown.endTurn; $("stop").disabled = false; return; }
+    if (shown.line) line(...shown.line);
+    else if (shown.sentence) sentence(...shown.sentence);
+    else if (shown.answered) answered(...shown.answered);
   });
 
   await room.connect(url, token);

@@ -24,6 +24,7 @@
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { decode } from "../client/decode.js";
 import { Utterances, encodeWav } from "../src/audio.ts";
 import { loadConfig } from "../src/config.ts";
 import { LocalWhisper, textToSpeech } from "../src/speech.ts";
@@ -193,10 +194,12 @@ phone.onAudio((frame) => {
     .then(() => stt.transcribe(wav))
     .then((text) => { if (text) { heard.push(text); console.log(`${at()} heard  | ${text}`); } });
 });
+// the page's reading of a message, which a test checks against what the bridge sends
 phone.onMessage((value) => {
-  if (value.kind === "narration") console.log(`${at()} note   | ${String(value.text)}`);
+  const shown = decode(value);
+  if (shown.line?.[1] === "note") console.log(`${at()} note   | ${shown.line[0]}`);
   // 14.7 a sentence of the answer, as text, ahead of the voice
-  if (value.kind === "sentence") console.log(`${at()} text   | ${String(value.text)}`);
+  if (shown.sentence) console.log(`${at()} text   | ${shown.sentence[0]}`);
 });
 
 /** Speak a line the way a person would: as sound, not as text. */
