@@ -601,8 +601,9 @@ Decided 23 September 2026:
   music on and off, tones on and off, interrupt off, `restate`, `usage` (until
   item 21) and the two voice commands.
 - No command needs three words. Every form in `src/commands.ts` is one or two.
-- Still to do: the clash between `carryOn` "continue" and the confirm word of
-  item 35, and the five commands item 37 adds.
+- Remove "continue" from `carryOn`. It keeps "carry on", "go on" and "the
+  rest". "Continue" is the confirm word of item 35 and has one job.
+- Still to do: the five commands item 37 adds.
 
 ## 37. A verbosity setting, as a command and in the app
 
