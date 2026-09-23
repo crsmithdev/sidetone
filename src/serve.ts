@@ -11,6 +11,7 @@
 import { wavFromFile } from "./audio.ts";
 import { ApkHash } from "./apk.ts";
 import { assemble } from "./bridge.ts";
+import { Outbound } from "./outbound.ts";
 import { settingsInForce, type Config } from "./config.ts";
 import type { Apk } from "./messages.ts";
 import { advertiseHost, livekitConfig, loadOrCreateKeys } from "./keys.ts";
@@ -59,7 +60,11 @@ export async function serve(dir: string, config: Config): Promise<void> {
   const transport = new Transport();
   const startedAt = Date.now();
 
-  const bridge = assemble(dir, config, RTC_RATE, roomSpeaker(transport), (message) => { void transport.send(message); });
+  // 14.11 one exit, which measures, orders and never lets a failed message
+  // out as an unhandled rejection: that exits the process and takes the agent
+  // session with it.
+  const outbound = new Outbound((payload) => transport.publish(payload));
+  const bridge = assemble(dir, config, RTC_RATE, roomSpeaker(transport), (message) => outbound.send(message));
   const { channel, ear, mouth, conversation, measures, stt, tts } = bridge;
 
   // 17 the Android app, as the last `assembleDebug` in this checkout left it

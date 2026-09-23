@@ -165,7 +165,11 @@ export class Transport {
   }
 
   async send(value: unknown): Promise<void> {
-    const payload = new TextEncoder().encode(JSON.stringify(value));
+    await this.publish(new TextEncoder().encode(JSON.stringify(value)));
+  }
+
+  /** 14.11 the bytes of one data message. `Outbound` decides what goes in them. */
+  async publish(payload: Uint8Array): Promise<void> {
     await this.room.localParticipant?.publishData(payload, { reliable: true });
   }
 

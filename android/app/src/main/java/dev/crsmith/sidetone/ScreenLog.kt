@@ -16,7 +16,11 @@ const val SCREEN_MAX_CHARS = 200_000
 /** 17.12 the most characters one change keeps. A longer bubble keeps its last characters, and `from` says how many went. */
 const val SCREEN_MAX_TEXT = 4_000
 
-/** 14.11 the size of one part sent to the bridge, in bytes. The data channel carries about 15 KiB. */
+/**
+ * 14.11 the size of one part sent to the bridge, in bytes. Measured 22 September
+ * 2026: a data packet over about 64,000 bytes is refused outright, so this is
+ * well inside what the channel carries.
+ */
 const val SCREEN_PART_BYTES = 12_000
 
 /** Room in a part for what is not entries: the kind, the id, the two numbers and the brackets. */
@@ -27,7 +31,10 @@ private const val ENVELOPE_BYTES = 128
  * the line the change went into, and null when it went into none: a sentence
  * that a bubble already holds (14.9.5), the end of a block, and the sign.
  * `text` is the text of that line on the screen after the change, trimmed as
- * the screen trims it. `got` is the text the message carried.
+ * the screen trims it. `got` is the text the message carried, trimmed the same
+ * way: a turn's `got` is the whole answer, and one entry of an answer's length
+ * is larger than a part may be, which stalls the stream rather than losing one
+ * entry, because a part that fails is sent again (14.11.1).
  */
 data class Shown(
     val at: Long,
@@ -38,6 +45,8 @@ data class Shown(
     val got: String?,
     val text: String,
     val from: Int = 0,
+    /** how many characters of `got` went, the same way `from` counts `text` */
+    val gotFrom: Int = 0,
 )
 
 /** 17.12 hours, minutes, seconds and milliseconds, on the 24-hour clock of the phone. */
@@ -54,6 +63,7 @@ fun Shown.toJson(zone: ZoneId = ZoneId.systemDefault()): JsonObject = buildJsonO
     put("got", got)
     put("text", text)
     if (from > 0) put("from", from)
+    if (gotFrom > 0) put("gotFrom", gotFrom)
 }
 
 /**
@@ -83,16 +93,19 @@ class ScreenLog(
             return
         }
         for (bubble in changed) {
-            val full = after[bubble].text.trim()
-            val text = full.takeLast(SCREEN_MAX_TEXT)
-            add(Shown(at, kind, answer, block, bubble, got, text, full.length - text.length))
+            add(Shown(at, kind, answer, block, bubble, got, after[bubble].text.trim()))
         }
     }
 
+    /**
+     * 17.12 one entry, bounded here rather than by whoever makes it, so the
+     * promise `screenParts` makes about a part's size holds for every caller.
+     */
     fun add(entry: Shown) {
-        onAdd(entry)
-        shown.addLast(entry)
-        chars += entry.text.length + (entry.got?.length ?: 0)
+        val bounded = entry.bounded()
+        onAdd(bounded)
+        shown.addLast(bounded)
+        chars += bounded.text.length + (bounded.got?.length ?: 0)
         while (shown.size > 1 && (shown.size > maxEntries || chars > maxChars)) {
             val gone = shown.removeFirst()
             chars -= gone.text.length + (gone.got?.length ?: 0)
@@ -103,6 +116,19 @@ class ScreenLog(
         shown.clear()
         chars = 0
     }
+}
+
+/** 17.12 a change keeps its last characters, and says how many went. */
+private fun Shown.bounded(): Shown {
+    val keptText = text.takeLast(SCREEN_MAX_TEXT)
+    val keptGot = got?.takeLast(SCREEN_MAX_TEXT)
+    if (keptText.length == text.length && keptGot?.length == got?.length) return this
+    return copy(
+        got = keptGot,
+        text = keptText,
+        from = from + (text.length - keptText.length),
+        gotFrom = gotFrom + ((got?.length ?: 0) - (keptGot?.length ?: 0)),
+    )
 }
 
 /**

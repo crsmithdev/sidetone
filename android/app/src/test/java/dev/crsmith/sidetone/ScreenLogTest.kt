@@ -91,6 +91,27 @@ class ScreenLogTest {
     }
 
     @Test
+    fun aLongGotKeepsItsEndToo() {
+        // a turn's `got` is the whole answer, and an entry of that length made
+        // a part larger than one data message, which the retry then repeated
+        val log = ScreenLog()
+        val answer = (1..9_000).joinToString("") { (it % 10).toString() }
+        log.record(0, "turn", 1, null, answer, listOf(Line(Line.Kind.BRIDGE, "")), listOf(Line(Line.Kind.BRIDGE, "spoken")))
+        val entry = log.entries.single()
+        assertEquals(SCREEN_MAX_TEXT, entry.got!!.length)
+        assertEquals(answer.takeLast(SCREEN_MAX_TEXT), entry.got)
+        assertEquals(9_000 - SCREEN_MAX_TEXT, entry.gotFrom)
+    }
+
+    @Test
+    fun anEntryOfAnyLengthStillFitsOnePart() {
+        val log = ScreenLog()
+        val long = (1..20_000).joinToString("") { (it % 10).toString() }
+        log.record(0, "turn", 1, null, long, listOf(Line(Line.Kind.BRIDGE, "")), listOf(Line(Line.Kind.BRIDGE, long)))
+        for (part in screenParts(log.entries, "1")) assertTrue("a part of ${part.size} bytes", part.size <= SCREEN_PART_BYTES)
+    }
+
+    @Test
     fun aPartCountsBytesAndNotCharacters() {
         // each of these characters is three bytes in UTF-8
         val entries = (1..100).map { shown("é".repeat(300) + "語".repeat(300), at = it.toLong()) }
