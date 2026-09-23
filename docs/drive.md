@@ -146,6 +146,21 @@ speak.
 after it is reopened: `[the room has a microphone track]` and then a `> `
 line.
 
+## 15. Can the agent play a file and talk about it in the same turn?
+
+`/play` used to fight the agent's own speech and the hold music. On 22
+September a track stopped a second in, when the agent said one sentence about
+it. A second try met `the bridge is speaking or playing` for two minutes. Since
+912e3ae and 1ec210b, `Mouth.play` waits for a free source, and a sentence waits
+for the track. Only a live try is left.
+
+**Do.** Ask the agent to play a short file and to say one sentence about it in
+the same turn.
+
+**Pass.** The track and the sentence both play in full, one after the other,
+with no retry. The record has a `track` event for the file that says it
+finished.
+
 ## 8. Does the app come back after a restart? (last)
 
 Run this one last: it ends this session, and everything learned above goes
@@ -156,6 +171,19 @@ with it unless it is already written down.
 **Pass.** The app returns to "listening" without scanning a code, and the
 next thing Chris says is heard. Passed on the last drive in five seconds; this
 time also check test 2.
+
+**Fail.** If the app needs a touch, note the time and the status word on the
+screen: `RECONNECTING`, `UNREACHABLE` or `LISTENING`. That tells which restart
+case the app misses: the service comes back on the same address, or the
+session is lost.
+
+**Evidence.** LiveKit runs in Docker apart from the bridge, so a bridge
+restart does not end the phone's room. The app keeps the same room and sees no
+disconnect. On 21 September no restart after 07:35 needed a touch.
+`JoiningTest` plays both restarts on its own clock: after a LiveKit restart
+the app tries every 5 s and keeps the pairing, and after a bridge restart
+nothing is tried. A refused pairing is the one end the app gives up after.
+This test is the watched restart that `JoiningTest` cannot give.
 
 ## If it goes wrong mid-drive
 

@@ -4,9 +4,14 @@ Chris's list of things to build or look at. Add to the end. Delete an item
 when it ships, and say where in the commit message.
 [`docs/drive.md`](drive.md) holds the open car tests; this file holds the rest.
 
-## 1. The app ignores the volume setting
+## 1. The volume of the phone audio path
 
-Noted 21 September 2026. Not investigated yet.
+Noted 21 September 2026. Not investigated yet. Item 25, the sudden jumps in
+volume, merged into this item on 23 September 2026. Both are the level on the
+phone audio path. They may or may not have one cause, so check them together
+and do not assume they are one bug.
+
+### a. The app ignores the volume setting
 
 | Where | What Chris sees |
 |---|---|
@@ -40,12 +45,38 @@ defeat the phone's echo cancellation, so the bridge heard its own voice and
 barged in on itself. Reverted rather than tuned, since call mode's stock
 volume floor was never confirmed as the actual cause.
 
+### b. Playback volume sometimes jumps suddenly
+
+Noted 22 September 2026 as item 25. Not investigated yet.
+
+Chris has heard the volume jump suddenly during playback, especially with
+hold music. He suspects it may be tied to delivery to the phone, latency or
+a connection issue, rather than the bridge itself, but is not sure.
+
+One thing narrows it a little: hold music's gain is set once, at decode
+time, not adjusted during playback (`Mouth` decodes the file once and
+applies the gain in that decode, spec 15.9; the `gain` argument of
+`wavFromFile` in src/audio.ts:69 is the only place a level is set). So a
+jump mid-playback is unlikely to be the bridge changing its own level on the
+fly; it more likely sits in the transport to the phone (the LiveKit/WebRTC
+path) or the phone's own audio handling.
+
+Get a specific case on record: the time, what was playing (a sentence, a
+cue, hold music), and the status and quality shown on screen at that moment
+(spec 17.10, 17.11; the status row is now `Reading.kt`). A screenshot
+from the new screenshot feature at the moment it happens would help pin the
+state down.
+
+### Done
+
 Done when the voice follows the volume control on the phone alone, in the car,
-and on the bridge machine.
+and on the bridge machine; and when a jump in volume has a specific case, with
+timing and network state on record, enough to say from evidence rather than
+guess where the jump comes from.
 
 ## 4. Long jobs and the subagent interrupt
 
-Noted 21 September 2026. Chris wants part b today.
+Noted 21 September 2026. Part b, a setup for long jobs, is done and deleted.
 
 ### a. Keep subagents alive through an interrupt
 
@@ -75,16 +106,8 @@ Each time Chris speaks over a running turn, `~/.sidetone/record.jsonl` gets a
 count `interrupted: true` against `false`. A high count of `true` argues for
 a longer `interruptAfterMs`. The live service needs a restart to log it.
 
-### b. A setup for long jobs
-
-Built 21 September. `scripts/job <name> <command>` runs a command detached,
-writes to `~/.sidetone/jobs/<id>/`, and posts to `/say` when it ends. The
-bridge says "Job <name> finished." when no turn runs and nothing is playing.
-
-| Open | Why |
-|---|---|
-| One spoken test: "start a job that sleeps 60 s", then silence. | It proves the done condition in the room. |
-| The call that auto mode refused on 21 September. | Two `claude -p` runs in auto mode started a job with no refusal. On 21 September 2026 Chris allowed the rule `Bash(scripts/job:*)` in `.claude/settings.local.json`. That file is not in git. |
+This waits for Chris to decide. The count is in: 17 `interrupted: true`
+against 16 `false`.
 
 ## 5. Faster speech from the good voices
 
@@ -120,74 +143,6 @@ Nobody has listened to it yet. The runs, the wavs and the gaps are in
 Look for cheaper ideas too, on the speech end: a shorter first sentence, or a
 kept line that plays while the first sentence is made. Measure each one with
 `kind: "answered"` in `~/.sidetone/record.jsonl`, not by ear.
-
-## 7. The app should reconnect when the bridge restarts
-
-Noted 21 September 2026. Not investigated yet.
-
-When the `sidetone` service restarts, Chris must force quit the app and open it
-again. He wants the app to reconnect alone. `Bridge.kt` has a `RECONNECTING`
-status and a retry every 5 s, so find out which restart case it misses: the
-service comes back on the same address, or the session is lost.
-
-Read 21 September from the service journal and the LiveKit log. LiveKit runs
-in Docker apart from the bridge, so a bridge restart does not end the phone's
-room. The app keeps the same room and sees no disconnect.
-
-| Restart | What the logs show |
-|---|---|
-| Bridge, 09:02 and 09:15 | The phone was heard within a minute, with no touch. |
-| Bridge, 10:05 | The phone stayed in the room (`numParticipants: 1` at the rejoin). The bridge heard it at 10:48 with no touch. |
-| LiveKit container, 07:51 | The phone joined the new server 4 s after it started, with its saved token. |
-| Bridge, 07:27 | Chris paired again at 07:35. The logs from before 07:51 are gone, so the cause is not known. |
-
-No restart since 07:35 needed a touch. The next time one does, note the time
-and the status word on the screen (`RECONNECTING`, `UNREACHABLE` or
-`LISTENING`).
-
-23 September 2026: the app side of this is now a module of its own, `Joining`,
-with the retry and the status word apart from the room, and `JoiningTest`
-asserts the rule this item rests on: a refused pairing is the one end the app
-gives up after, and every other reason waits and tries again. That is the app
-answering for itself. It does not close the item, because no restart has been
-watched since, and the case Chris hit may not be the app giving up at all.
-
-Later on 23 September, `Joining` takes the room's events and the elapsed clock,
-and gives back effects, as `Conversation` does. `JoiningTest` now plays both
-restarts on its own clock. When LiveKit restarts, the app tries every 5 s and
-is listening at the first try after LiveKit is back, with the pairing kept.
-When the bridge restarts alone, the room does not end and nothing is tried.
-
-Done when the service restarts and the app is listening again with no touch.
-
-## 17. Hold music can arm very late on a turn whose first content is one large tool call
-
-Noted 22 September 2026. Not investigated yet.
-
-On a turn on 22 September 2026, Chris felt the hold music (spec 15.7) came on
-very late. That turn's own numbers, from `~/.sidetone/record.jsonl`: 69.6
-seconds of agent time before any words, almost all of it one large tool call
-(a several-thousand-word prompt as its argument) rather than a short one.
-Spec 15.7.5 says a tool call makes a turn long the moment it starts, and the
-music is meant to begin `holdMusicAfterMs` (8 seconds by default) after that.
-If the bridge only counts a tool call as started once it has seen a
-meaningful part of its argument, a tool call whose argument itself takes most
-of a minute to stream would arm the long-turn flag, and the music, close to
-the end of the wait rather than near the 8 second mark it was designed for.
-
-No timestamp for when hold music itself starts or stops is logged today,
-only the settings and the aggregate `answered` line, so this is a reading of
-the mechanism, not a confirmed measurement.
-
-Log when hold music actually starts and stops. Then look at a turn like this
-one, agent time dominated by one large tool call, and see whether the flag
-really arms late. Find out whether the fix is judging "the tool call has
-started" from the first delta of the tool_use block rather than from how much
-of it has streamed, or something else.
-
-Done when a turn like this one gets hold music near the 8 second mark like an
-ordinary long turn does, and the record shows when the music actually started
-and stopped, so this can be checked again without guessing.
 
 ## 18. A tone at the true end of the agent's speaking
 
@@ -253,25 +208,13 @@ sentence by sentence, and stays correct through a barge-in and a hold.
 
 Noted 22 September 2026. Not started.
 
-Three parts to this.
+Two parts are open. The licence part is closed by the decision below. The
+choice of a track in the app moved to item 28 on 23 September 2026.
 
 First, more tracks. `config.holdMusicFile` (src/config.ts:177, :328) points at
-one file, `~/.sidetone/hold/hold-music.mp3`. Chris wants a few more to choose
-from.
+one file, `~/.sidetone/hold/hold-music.mp3`. The bridge must read more than one.
 
-Second, licensing. Chris wants to know whether he can use tracks he does not
-hold the copyright to, since this runs only on his own machine for his own
-use and nothing is distributed. He believes this likely falls under fair
-use. That needs real thought, not a rubber stamp: fair use is fact-specific,
-and playing a whole commercial track for its ordinary purpose (background
-mood music), even privately, does not sit as cleanly under it as a
-transformative use would. The lowest-risk path sidesteps the question
-instead of resolving it: tracks that are royalty-free or carry a license
-that explicitly allows this (Creative Commons, a stock-music library, a
-personal-use license Chris already holds). Look into both paths and lay out
-what each actually permits, rather than assuming either is fine.
-
-Third, rotation and resume. Spec 15.10.1 today: the hold music plays once
+Second, rotation and resume. Spec 15.10.1 today: the hold music plays once
 per silent stretch, does not loop, and the next stretch plays the same track
 again from the start. Chris wants multiple tracks in rotation, cycling
 between them rather than repeating one, and wants each track to pick up
@@ -279,8 +222,7 @@ where it left off the last time it played rather than restarting from the
 beginning every time. `Mouth` decodes the file once and keeps the samples in
 memory (spec 15.9); this needs a position kept per track, not just per file.
 
-Done when hold music has more than one track to draw from, each used under
-terms Chris has actually confirmed rather than assumed, playback cycles
+Done when hold music has more than one track to draw from, playback cycles
 between tracks instead of repeating one, and a track resumes from its last
 position instead of the start.
 
@@ -332,92 +274,6 @@ and the phone app do not, before building anything.
 Done when there is a clearer answer to what problem a desktop client solves,
 or it turns out the browser client already covers it.
 
-## 23. An architecture review of the delivery layer between the service and the app
-
-Noted 22 September 2026. Not started.
-
-The architecture review of 22 September (see items 1 through 5 of the
-"queue up" work already running, and docs/todo.md item 4 above) covered the
-service, `src/`. A later one is planned for the Android app. Chris wants a
-third pass, in between the two: how the service actually gets things to the
-app over the wire. Chunking, compression, message framing, and how
-consistently those are handled across the different things that get sent.
-
-Concretely this is at least: the screen log's chunking (`SCREEN_PART_BYTES`,
-android/app/src/main/java/dev/crsmith/sidetone/ScreenLog.kt) and the
-screenshot's (`Screenshot.kt`, `screenshotParts`), both against LiveKit's
-data channel, which carries messages of only about 12-15 KiB; whether
-anything is compressed before it goes out, given base64 alone inflates an
-image by about a third; and the reliability difference already on record
-from building the screenshot feature — the screen log keeps its entries and
-retries on a dropped part, a screenshot does not, one bad part just drops the
-whole image. Worth asking whether that difference is intentional or just
-where each feature happened to land.
-
-Done when there is a written review of this layer, the way the 22 September
-one covered the service, that Chris can read and decide what to act on.
-
-## 24. `/play` fights the agent's own speech and hold music
-
-Noted 22 September 2026. Low priority. Not started.
-
-Measured live on 22 September, playing Apple Music preview clips for Chris:
-`/play` (src/serve.ts:175-193) stops the track it is playing the moment
-`mouth.busy` or `transport.speaking` goes true, the same check that ends a
-track for a barge-in or the audio going off. Two ways this bit the agent
-today, not Chris directly, but it made the feature clumsy to drive:
-
-- The agent called `/play`, then kept talking in the same turn ("Playing it
-  now. That's Opus No. 1…"). Its own next sentence set `mouth.busy`, so the
-  track played for about one second and stopped. The log: `[playing
-  /tmp/preview-opus-no-1.m4a]` immediately followed by `[the track stopped]`.
-- The agent then tried `/play` again for a second track while still inside
-  one long tool-heavy turn. The turn's own length armed hold music (spec
-  15.7.5, and see item 17), and hold music plays through the same path
-  `/play` needs, so every attempt got `{"error":"the bridge is speaking or
-  playing"}` for about two minutes straight, until the agent stopped calling
-  tools and hold music cleared.
-
-The agent worked around both by going silent and hand-timing waits around
-the call, which is fragile and not something to rely on. Worth a cleaner way
-for the agent (or a client) to play a one-off file without it being at war
-with its own narration and hold music — maybe a queue instead of an
-immediate stop-on-busy, maybe a way to ask "is the mouth free" without
-guessing from silence.
-
-Done when the agent can play a file and say something about it in the same
-turn without one cutting the other short, and without a multi-minute retry
-loop to get a turn in edgewise.
-
-## 25. Playback volume sometimes jumps suddenly
-
-Noted 22 September 2026. Not investigated yet.
-
-Chris has heard the volume jump suddenly during playback, especially with
-hold music. He suspects it may be tied to delivery to the phone, latency or
-a connection issue, rather than the bridge itself, but is not sure.
-
-One thing narrows it a little: hold music's gain is set once, at decode
-time, not adjusted during playback (`Mouth` decodes the file once and
-applies the gain in that decode, spec 15.9; the `gain` argument of
-`wavFromFile` in src/audio.ts:69 is the only place a level is set). So a
-jump mid-playback is unlikely to be the bridge changing its own level on the
-fly; it more likely sits in the transport to the phone (the LiveKit/WebRTC
-path) or the phone's own audio handling. This may or may not share a cause
-with item 1 (the app ignoring the volume setting) — both sit in the same
-phone audio path, worth checking together rather than assuming they are one
-bug.
-
-Get a specific case on record: the time, what was playing (a sentence, a
-cue, hold music), and the status and quality shown on screen at that moment
-(spec 17.10, 17.11 — see item 16, reworking that same row). A screenshot
-from the new screenshot feature at the moment it happens would help pin the
-state down.
-
-Done when there is a specific case, with timing and network state on
-record, enough to say from evidence rather than guess where the jump comes
-from.
-
 ## 26. Automated coverage for a barge-in / echo-cancellation regression, before item 27
 
 Noted 22 September 2026. Not started. Must land before item 27.
@@ -449,8 +305,8 @@ Widen the pass before settling on that, though. Read back over the last
 couple days of session transcripts — `~/.claude/projects/-home-crsmi-sidetone/*.jsonl`,
 one file per session, roughly 20 September onward — for other friction that
 came up along the way: things that broke, surprised Chris, or took a
-work-around, the way the volume slider and the `/play` interruptions (item
-24) did. Use those to suggest other areas worth automated coverage, not only
+work-around, the way the volume slider and the `/play` interruptions of 22
+September (fixed in 912e3ae) did. Use those to suggest other areas worth automated coverage, not only
 the echo-cancellation case. Say plainly what turned up and why each one
 would, or would not, have been caught by a test.
 
@@ -519,12 +375,18 @@ from what he named, hold music volume and "things like that," and work out
 with him which of the rest, if any, belong in a phone menu versus staying
 voice-only or config-file-only.
 
-This also gives item 20 (more hold music tracks, cycling) a natural home,
-rather than another one-off control bolted onto the main screen.
+The menu also holds the choice of hold music track, moved here from item 20
+on 23 September 2026. Chris wants a few tracks to choose from. Item 20 makes
+the bridge read and cycle them; this menu picks among them.
+
+The path from the app to the bridge must grow for the hold music volume
+slider. The bridge sends `settings` and takes `setting` from a client (spec
+9.4.9, `Messages.kt:70`, `:235`), but it acts on four settings only. Hold
+music volume is not one of them. The choice of track needs the same path.
 
 Done when there is a settings screen in the app, reachable from the main
 screen, that can change at least hold music's volume, and Chris has said
-which other settings belong there.
+which other settings belong there, and that can choose the hold music track.
 
 Decided 23 September 2026: the menu holds the verbosity selector (item 37), the
 tones switch, and a volume control for the hold music. The voice choice and the
@@ -588,32 +450,23 @@ Decided 23 September 2026 (design not yet read in the car):
   audio mode, a reconnect button that cuts the connection and stays in the app
   could replace it. Decide that after item 27.
 
-## 32. The pre-rendered replies come out garbled
+## 33. Garbled speech: first, let the agent hear the audio it sent
 
-Noted 23 September 2026. Not investigated yet.
+Noted 23 September 2026. Not started. Items 32 and 34 merged into this item on
+23 September 2026.
 
-Chris said "sidetone mute" and "sidetone unmute" on 23 September. The replies
-"Muted." and "Listening." came out garbled twice. He says the sounds are in the
-wrong order. A reply the voice engine speaks fresh, "Job delivery-review
-finished.", was not reported as garbled.
+Three reports of bad speech are open: the garbled pre-rendered replies (part b),
+the repeated ".ts" (part c), and regular speech that comes out garbled now and
+then. All three ask one question first: is the sound bad at the bridge? Part a
+builds the tool that answers it, and it comes first.
 
-The record shows `synthesisMs` 0 for both replies. This suggests they play from
-a stored clip. It is not verified. The journal shows no engine error.
-
-Find where these clips come from. Compare their format, sample rate and length
-with the live engine's output. Play one by itself, and play it through the room.
-
-Done when the pre-rendered replies sound the same as a fresh reply, or a
-written reason says why they cannot.
-
-## 33. Let the agent hear the audio it sent
-
-Noted 23 September 2026. Not started.
+### a. Let the agent hear the audio it sent
 
 The agent cannot hear its own voice. On 23 September Chris reported garbled
-replies (item 32). He also reports that regular speech comes out garbled now and
+replies (part b). He also reports that regular speech comes out garbled now and
 then, and no cause is known. The agent could only read the record, and the
-record holds text and timings, not sound.
+record holds text and timings, not sound. No code keeps outgoing audio.
+`echo.ts` (e9063e0) compares words, not sound.
 
 Keep the audio of the last few replies, so the agent can inspect it. Two parts:
 
@@ -632,24 +485,48 @@ phone would then be needed.
 Decide how many clips to keep, and whether the copy is opt-in, since it stores
 speech.
 
-Done when the agent can name the last clips, run the check on one, and say
-whether a garbled reply was garbled at the bridge.
+### b. The pre-rendered replies come out garbled
 
-## 34. The voice said ".ts" about twelve times in a row
+Noted 23 September 2026 as item 32. Not investigated yet.
 
-Noted 23 September 2026. Not investigated yet.
+Chris said "sidetone mute" and "sidetone unmute" on 23 September. The replies
+"Muted." and "Listening." came out garbled twice. He says the sounds are in the
+wrong order. A reply the voice engine speaks fresh, "Job delivery-review
+finished.", was not reported as garbled.
+
+The record shows `synthesisMs` 0 for both replies. This suggests they play from
+a stored clip. The journal shows no engine error.
+
+The stored clips exist: `keptLines` (`mouth.ts:71`) and `SpokenAhead` with
+`kept` (`speech.ts:283`) write under `~/.sidetone/spoken/<engine>-<signature>/`.
+Five such folders exist, some from old signatures.
+
+Compare their format, sample rate and length with the live engine's output.
+Play one by itself, and play it through the room.
+
+### c. The voice said ".ts" about twelve times in a row
+
+Noted 23 September 2026 as item 34. Not investigated yet.
 
 In the reply that reported the three finished jobs, Chris heard the voice say
 ".ts" about twelve times in a row. It did not show in the transcript on the
 screen. The reply named files such as `src/sentences.ts` and
 `src/conversation.ts`, but not twelve times.
 
-Find the `spoke` events for that reply in `~/.sidetone/record.jsonl` and read
-the exact text sent to the voice engine. Look for a repeat there. If the text is
-clean, the fault is in the engine or a stored clip, and it may be the same
-fault as item 32. Also check how the bridge turns a path into speech.
+The text is clean. The `spoke` lines of that reply in `~/.sidetone/record.jsonl`
+name each path once (at 1790181535318 and 1790181544578). So the repeat is in
+the engine or a stored clip, not the text, and it may be the same fault as
+part b. No code turns a path into speech: `sentences.ts` and `mouth.ts` have no
+match. Find out whether chatterbox loops on a token like `.ts`. A speakable
+form of a path would avoid it.
 
-Done when the cause is known, and a path in a reply is spoken once.
+### Done
+
+Done when the agent can name the last clips, run the check on one, and say
+whether a garbled reply was garbled at the bridge; when the pre-rendered
+replies sound the same as a fresh reply, or a written reason says why they
+cannot; and when the cause of the repeat is known, and a path in a reply is
+spoken once.
 
 ## 35. Permissions stop the agent, and the spoken confirm word may not exist
 
