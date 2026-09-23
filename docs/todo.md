@@ -526,6 +526,11 @@ serves both paths, and the `turn` with no `answer` goes from both clients.
 If it does not, the closures in `runTurn` stay where they are: an `Answer`
 type for one caller only moves them.
 
+Decided 23 September 2026: an unprompted reply streams. Chris can reverse this
+later. One `Answer` type serves both paths, and the `turn` with no `answer`
+goes from both clients. The test "a block start that arrives after the turn is
+over is not told" in `test/turn.test.ts` changes to match.
+
 ## 30. Compact the status row, and design it rather than grow it
 
 Noted 23 September 2026. Not started. To be designed.
