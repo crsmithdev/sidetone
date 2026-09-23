@@ -59,6 +59,10 @@ object Bridge {
         val update: Apk? = null,
         /** 17.15 the update downloads, or waits for Chris to confirm it. */
         val updating: Boolean = false,
+        /** 17.18.5 the JPEG of each screenshot this app sent, by id, for its thumbnail. */
+        val thumbnails: Map<String, ByteArray> = emptyMap(),
+        /** 14.12.7 what became of each screenshot, by id, as the bridge last said. */
+        val screenshots: Map<String, String> = emptyMap(),
     )
 
     private const val TAG = "Sidetone"
@@ -394,8 +398,11 @@ object Bridge {
                 Log.w(TAG, "the screenshot was not read", e)
                 null
             } ?: return@launch
+            val id = at.toString()
+            // 17.18.5 the thumbnail shows once the bridge says it has the image
+            _state.update { it.copy(thumbnails = it.thumbnails + (id to jpeg)) }
             screenshotLock.withLock {
-                for (part in screenshotParts(jpeg, at.toString())) {
+                for (part in screenshotParts(jpeg, id)) {
                     val room = room ?: return@launch
                     if (room.localParticipant.publishData(part).isFailure) {
                         Log.w(TAG, "the screenshot did not go")
@@ -404,6 +411,11 @@ object Bridge {
                 }
             }
         }
+    }
+
+    /** 17.18.5 Chris tapped a pending screenshot: no turn takes it (14.12.7). The bridge says when it is gone. */
+    fun dropScreenshot(id: String) {
+        room?.let { tell(it, Outgoing.dropScreenshot(id)) }
     }
 
     /** The room says why it ended as an enum, and the screen says it to Chris. */
@@ -436,7 +448,7 @@ object Bridge {
 
     /** The screen shows what the conversation holds now. */
     private fun shown() {
-        _state.update { it.copy(lines = conversation.lines, endTurn = conversation.endTurn, sign = conversation.sign) }
+        _state.update { it.copy(lines = conversation.lines, endTurn = conversation.endTurn, sign = conversation.sign, screenshots = conversation.screenshots) }
     }
 
     /**

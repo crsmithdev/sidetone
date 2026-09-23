@@ -91,6 +91,8 @@ export interface ConversationHooks {
   onSetting?(patch: Partial<Config>): void;
   /** 11.12 the audio went on or off by voice, so every client can be told. */
   onAudio?(): void;
+  /** 14.12.6 the files of the pending screenshots, taken by the turn about to start */
+  screenshots?(): string[];
 }
 
 export class Conversation {
@@ -176,9 +178,11 @@ export class Conversation {
     this.onTurn = hooks.onTurn;
     this.onSetting = hooks.onSetting;
     this.onAudio = hooks.onAudio;
+    this.screenshots = hooks.screenshots;
   }
 
   private onTurn?: (turn: Turn) => void;
+  private screenshots?: () => string[];
   private onSetting?: (patch: Partial<Config>) => void;
   private onAudio?: () => void;
   /** Where the agent's words and blocks go: the answer of the turn that runs, or one the agent began unasked; null between them. */
@@ -316,10 +320,25 @@ export class Conversation {
       // 11.6 and 11.9 the Claude app's feel: the answer stops and the question
       // is the next turn, with no phrase to say first.
       this.measures.matched(said, "speech");
-      return { hold: "discard", then: async () => { void this.turn(said, await this.cutOff()); } };
+      // 14.12.6 taken now: a screenshot that arrives during the wait is for the turn after
+      const shots = this.attached();
+      return { hold: "discard", then: async () => { void this.turn(said, [await this.cutOff(), shots].filter(Boolean).join("\n\n")); } };
     }
     this.measures.matched(said, "speech");
-    return { hold: "discard", then: async () => { void this.turn(said); } };
+    const shots = this.attached();
+    return { hold: "discard", then: async () => { void this.turn(said, shots); } };
+  }
+
+  /**
+   * 14.12.6 the line that names the pending screenshots to the agent, or
+   * nothing. The agent opens a file when Chris's words need it.
+   */
+  private attached(): string {
+    const files = this.screenshots?.() ?? [];
+    for (const file of files) this.channel.journal(`the turn carries the screenshot ${file}`);
+    if (files.length === 0) return "";
+    if (files.length === 1) return `[From the bridge, not from Chris: he took a screenshot of the app on the phone before he said this. It is at ${files[0]}. Open it if his words need it.]`;
+    return `[From the bridge, not from Chris: he took ${files.length} screenshots of the app on the phone before he said this. In the order he took them, they are at ${files.join(", ")}. Open them if his words need them.]`;
   }
 
   /** The one place an utterance reaches the held answer (11.3). */
@@ -360,7 +379,8 @@ export class Conversation {
 
   /**
    * One turn. `note` is for the agent alone and never joins the transcript:
-   * 11.10 uses it to say where an interrupt left Chris.
+   * 11.10 uses it to say where an interrupt left Chris, and 14.12.6 to name
+   * the pending screenshots.
    *
    * An interrupted turn runs on until its process returns a result, and by then
    * a newer turn owns the mouth. `mine` is what keeps the older one from

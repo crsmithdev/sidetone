@@ -141,6 +141,10 @@ _Avoid_: the transcript (the transcript is the lines themselves), the log file, 
 The image Chris takes with the phone's own screenshot keys while the app is on the screen. The app sends it to the bridge, which writes it to `~/.sidetone/screenshots/`, with `latest.jpg` for the newest, for the agent to read.
 _Avoid_: a screen capture, a picture, the screen log (the screen log is text).
 
+**A pending screenshot**:
+A screenshot that the bridge wrote and that no turn has taken. The next turn that Chris's words start takes every pending screenshot, and one line for the agent names each file. It expires after 2 minutes, and Chris can drop it with a tap on its thumbnail.
+_Avoid_: an attachment, a queued image.
+
 **The microphone cut**:
 The client releases the recording device, so the phone's own indicator goes out. It is not a mute.
 _Avoid_: mute the mic, disable audio.

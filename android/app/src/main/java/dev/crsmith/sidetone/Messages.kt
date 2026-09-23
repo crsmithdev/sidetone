@@ -18,9 +18,10 @@ import java.time.format.DateTimeFormatter
 /**
  * One line of the transcript (14.7). `at` is the time in milliseconds since 1970
  * that the line shows on its bubble (17.9), and null while nothing has stamped it.
+ * 17.18.5 a [Kind.SCREENSHOT] line shows the thumbnail of a screenshot, and its text is the screenshot's id.
  */
 data class Line(val kind: Kind, val text: String, val at: Long? = null) {
-    enum class Kind { YOU, BRIDGE, NOTE }
+    enum class Kind { YOU, BRIDGE, NOTE, SCREENSHOT }
 }
 
 /** 4.3 a message on the control channel, from the bridge. */
@@ -81,6 +82,12 @@ sealed interface Incoming {
      * queue is long. A sentence a barge-in cut is said again, so this can repeat.
      */
     data class Speaking(val text: String, val answer: Int?) : Incoming
+
+    /**
+     * 14.12.7 what became of a screenshot this app sent: "pending" until a turn
+     * takes it, then "sent", or "expired", or "dropped" when Chris tapped it.
+     */
+    data class Screenshot(val id: String, val state: String) : Incoming
 }
 
 fun decode(payload: ByteArray): Incoming? {
@@ -94,6 +101,7 @@ fun decode(payload: ByteArray): Incoming? {
     if (kind == "protocol") return Incoming.Protocol(message.string("endTurn") ?: return null, apk)
     if (kind == "apk") return Incoming.Offer(apk ?: return null)
     if (kind == "rejoin") return Incoming.Rejoin
+    if (kind == "screenshot") return Incoming.Screenshot(message.string("id") ?: return null, message.string("state") ?: return null)
     if (kind == "speaking") return Incoming.Speaking(message.string("text") ?: return null, message.int("answer"))
     if (kind == "settings") {
         val settings = message["settings"] as? JsonObject ?: return Incoming.Settings(emptyMap(), emptyMap())
@@ -281,6 +289,13 @@ object Outgoing {
         put("part", part)
         put("of", of)
         put("data", data)
+    })
+
+    /** 14.12.7 drop a pending screenshot, so no turn takes it. */
+    fun dropScreenshot(id: String): ByteArray = encode(buildJsonObject {
+        put("kind", "screenshot")
+        put("id", id)
+        put("drop", true)
     })
 
     private fun encode(message: JsonObject): ByteArray = message.toString().encodeToByteArray()

@@ -11,6 +11,9 @@
  * wants Chris talking makes him talk rather than setting a flag.
  */
 import { afterEach } from "bun:test";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { assemble, type Bridge, type Parts } from "../src/bridge.ts";
 import { DEFAULTS, type Config } from "../src/config.ts";
 import type { Agent, MakeAgent } from "../src/conversation.ts";
@@ -153,6 +156,7 @@ export function bridge(options: Options = {}) {
     // 9.4 a test never writes the config file the car keeps its settings in
     settings: (patch) => { patches.push(patch); },
     scratch: "/tmp",
+    screenshots: mkdtempSync(join(tmpdir(), "sidetone-screenshots-")),
   };
 
   const assembled = assemble("/tmp", config, RATE, speaker, (message) => told.push(message), (line) => journal.push(line), parts);
@@ -164,6 +168,8 @@ export function bridge(options: Options = {}) {
     /** 14.7 the turns the client was told about, read when a test asks, not when it starts */
     get turns() { return told.filter((message): message is Extract<Outgoing, { kind: "turn" }> => message.kind === "turn"); },
     config,
+    /** 14.12 where this bridge writes the screenshots */
+    screenshots: parts.screenshots!,
     blockSay: (on: boolean) => { blocking = on; },
     cutSay: (on: boolean) => { whole = !on; },
     release: () => { gate?.(); gate = null; },

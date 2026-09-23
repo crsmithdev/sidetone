@@ -11,6 +11,7 @@ The screenshot (14.12, 17.18) added 22 September 2026.
 Formatted text in the bubbles (17.19) added 22 September 2026.
 The status row shows one state (17.11.6) from 22 September 2026.
 The status row is one dot (17.11.6) from 23 September 2026.
+The pending screenshot (14.12.5 to 14.12.7, 17.18.5) added 23 September 2026.
 
 This document is the complete specification for Sidetone. It
 includes the background, the settled design decisions, the reasoning behind
@@ -412,7 +413,22 @@ project bridge stays in place.
 
 14.12.4 The bridge writes one line to the journal for each image it writes, for an image that it drops, and when a message is not readable or the file cannot be written. It sends no note (4.3.1).
 
-14.12.5 The bridge does not read the image or act on it. Chris talks about the image as he does about anything else, and his words go into the transcript. The agent reads the file when the words ask for it. The web client does not send the message.
+14.12.5 The bridge does not read the image. Chris talks about the image as he does about anything else, and his words go into the transcript. The next turn names the file to the agent (14.12.6), and the agent reads the file when the words ask for it. The web client does not send the message.
+
+14.12.6 A written screenshot is a pending screenshot. It joins the next turn that Chris starts with his words, spoken or typed. That turn takes every pending screenshot, in the order they arrived. One line for the agent names each file, and the line does not go into the transcript. The rules are these:
+
+- A pending screenshot expires 2 minutes after it arrives. It then joins no turn, so an old image does not join an unrelated turn.
+- The bridge takes the pending screenshots when it decides that Chris's words start a turn. A screenshot that arrives after that moment waits for the next turn. It does not join the turn in progress, because that turn races with its answer (11.11). This is also true while an interrupted turn stops (11.9).
+- A screenshot alone does not start a turn. Words that start no turn, such as a wake command or a question that the bridge refuses mid-turn, leave the screenshot pending.
+
+14.12.7 The bridge tells the client what becomes of each screenshot, with the `screenshot` message. It has `id`, and `state`, which is one of these:
+
+- `pending`: the bridge wrote the image, and it waits for the next turn.
+- `sent`: a turn took it.
+- `expired`: it waited 2 minutes, and no turn took it.
+- `dropped`: Chris dropped it.
+
+To drop a pending screenshot, the client sends a `screenshot` message with `id` and `drop` set to true. The bridge ignores a drop for an image that is not pending. The bridge writes one line to the journal when a turn takes an image, when an image expires, and when Chris drops one.
 
 14.13 The bridge says when the voice reaches a sentence. A sentence message (14.7) says the words are known; this says they are being said, which is a different moment: the engine takes a fraction of a second and the queue can be seconds long. The message carries the words and the answer they belong to. A reply from the bridge itself carries no answer. A sentence a barge-in cut is said again from its start, so the message can repeat. A client that shows the words can light the ones being said.
 
@@ -585,6 +601,8 @@ project bridge stays in place.
 17.18.3 The app needs the permission to read images, READ_MEDIA_IMAGES. It asks for it with the other permissions when it opens. When Chris refuses it, or gives access to selected photos only, the app sends no screenshot and says nothing. Android stops the question after the second refusal.
 
 17.18.4 The app sends the image only while it is in the room. It does not keep an image for a later room.
+
+17.18.5 When the bridge says that a screenshot is pending (14.12.7), the app shows its thumbnail in the transcript, on Chris's side, with the mark "attached to your next message". A tap on a pending thumbnail drops it, and the thumbnail goes from the transcript when the bridge says that it is dropped. When a turn takes it, the mark goes and the thumbnail stays. When it expires, the mark says that it was not sent.
 
 17.19 The app formats the markdown in the bubbles of the agent. The bubbles of Chris and the notes stay as plain words.
 

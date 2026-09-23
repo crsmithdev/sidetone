@@ -39,6 +39,8 @@ export function decode(message) {
     case "working":
     // 17.15.5 a new build of the app. The page is not the app.
     case "apk":
+    // 14.12.7 the app shows the mark on the thumbnail of its screenshot. The page sends none.
+    case "screenshot":
     // 14.9 the app shows a bubble for each block of an answer. The page keeps its
     // one line for each answer, grown by sentences, so it ignores the blocks.
     case "blockStart":

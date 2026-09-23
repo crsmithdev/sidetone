@@ -717,7 +717,7 @@ build "continue" on that path instead of a second one. The default of
 
 ## 38. A screenshot from the phone does not reach the agent, and the status shows twice
 
-Noted 23 September 2026. Not investigated.
+Noted 23 September 2026. Part 2 built, not landed. Part 1 not investigated.
 
 Chris saw a status message twice, and took a screenshot to show it. The
 screenshot did not reach the agent. Chris does not know which status doubled:
@@ -746,6 +746,31 @@ file to `~/.sidetone/screenshots/`. Only the link to Chris's words is missing.
 - A screenshot that arrives after Chris speaks does not join the turn in
   progress. That would race with the answer (11.11). It waits for the next turn.
 - A screenshot with no words does not wake the agent. It stays pending.
+
+Built 23 September 2026 on the branch `screenshot-link`, not landed (spec
+14.12.5 to 14.12.7, 17.18.5):
+
+- The bridge keeps each written screenshot pending, and the next turn takes
+  all of them in order. A line for the agent names each file, and the
+  transcript does not show that line.
+- A pending screenshot expires after 2 minutes. The bridge takes the pending
+  screenshots when it decides that the words start a turn, so one that
+  arrives later waits for the next turn. A screenshot alone starts no turn.
+- The bridge tells the app `screenshot` with a state: `pending`, `sent`,
+  `expired` or `dropped`. The app shows the thumbnail with the mark
+  "attached to your next message", and a tap sends a drop request.
+- Tests: `test/screenshot.test.ts`, the fixture, `ConversationTest`,
+  `ScreenshotTest` and `MessagesTest`.
+
+Not done:
+
+- Part 1: nobody has found which status doubled.
+- Nobody has tried it on the phone. The thumbnail, the mark and the tap
+  are not tested on a device, and no agent has opened a file that a turn
+  named.
+- The bridge forgets the pending screenshots when it restarts, and nothing
+  tells the app. The mark then stays "attached to your next message", but
+  no turn takes the screenshot.
 
 Done when Chris can send a screenshot from the phone and the agent can open it,
 and the double status is found or shown not to exist.

@@ -174,4 +174,30 @@ class ConversationTest {
         // the lines stay: what the screen shows belongs to the conversation, not to the room
         assertEquals(listOf("what is two plus two"), texts())
     }
+
+    @Test
+    fun aScreenshotTheBridgeHasIsOneLineWhoseStateFollowsTheBridge() {
+        send("""{"kind":"screenshot","id":"a","state":"pending"}""", at = 1_000)
+        assertEquals(listOf(Line(Line.Kind.SCREENSHOT, "a", 1_000)), c.lines)
+        assertEquals(mapOf("a" to "pending"), c.screenshots)
+        send("""{"kind":"heard","text":"what is doubled"}""", at = 2_000)
+        send("""{"kind":"screenshot","id":"a","state":"sent"}""", at = 2_000)
+        // the state changes, and the thumbnail stays where it was
+        assertEquals(listOf("a", "what is doubled"), texts())
+        assertEquals(mapOf("a" to "sent"), c.screenshots)
+        assertEquals(listOf("screenshot", "heard", "screenshot"), logKinds())
+    }
+
+    @Test
+    fun aDroppedScreenshotKeepsItsLineSoAGrowingAnswerStaysPut() {
+        send("""{"kind":"blockStart","answer":1,"block":1}""")
+        send("""{"kind":"delta","text":"Let me ","answer":1,"block":1}""")
+        send("""{"kind":"screenshot","id":"a","state":"pending"}""")
+        send("""{"kind":"screenshot","id":"a","state":"dropped"}""")
+        send("""{"kind":"delta","text":"look.","answer":1,"block":1}""")
+        assertEquals(listOf("Let me look.", "a"), texts())
+        assertEquals("dropped", c.screenshots["a"])
+        c.clear()
+        assertEquals(emptyMap<String, String>(), c.screenshots)
+    }
 }

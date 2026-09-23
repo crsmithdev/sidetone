@@ -73,4 +73,12 @@ class ScreenshotTest {
         assertEquals(720 to 1_080, fitted(720, 1_080))
         assertEquals(300 to 200, fitted(300, 200))
     }
+
+    @Test
+    fun aTapAsksTheBridgeToDropThePendingScreenshot() {
+        val drop = parse(Outgoing.dropScreenshot("1789999559000"))
+        assertEquals("screenshot", drop["kind"]!!.jsonPrimitive.content)
+        assertEquals("1789999559000", drop["id"]!!.jsonPrimitive.content)
+        assertEquals("true", drop["drop"]!!.jsonPrimitive.content)
+    }
 }

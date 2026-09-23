@@ -205,6 +205,8 @@ class MessagesTest {
         assertTrue(Incoming.Offer(Apk("https://bridge:3100/sidetone.apk", "cd34")) in decoded)
         assertTrue(Incoming.Rejoin in decoded)
         assertTrue(Incoming.Working(true) in decoded)
+        assertTrue(Incoming.Screenshot("1789999559000", "pending") in decoded)
+        assertTrue(Incoming.Screenshot("1789999559000", "sent") in decoded)
         val history = decoded.filterIsInstance<Incoming.History>().last()
         assertEquals(listOf("look and tell me", "Let me look. Found it.", "and again", "The build is green."), history.lines.map { it.text })
     }

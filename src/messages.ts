@@ -62,7 +62,13 @@ export type Outgoing =
   | { kind: "speaking"; text: string; answer?: number }
   | { kind: "protocol"; endTurn: string; apk?: Apk }
   /** 17.15.5 a new build while the client is in the room; `protocol` would reset more than the offer */
-  | { kind: "apk"; apk: Apk };
+  | { kind: "apk"; apk: Apk }
+  /**
+   * 14.12.7 what became of a screenshot the phone sent: it waits for the next
+   * turn, a turn took it, it waited too long, or Chris dropped it. The app
+   * shows the mark on the thumbnail from this.
+   */
+  | { kind: "screenshot"; id: string; state: "pending" | "sent" | "expired" | "dropped" };
 
 /** 17.15 the app the bridge serves: where to fetch it, and its SHA-256 in hex. */
 export interface Apk {

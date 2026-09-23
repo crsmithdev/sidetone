@@ -52,6 +52,8 @@ async function scenes(): Promise<Outgoing[]> {
       hooks.onBlockEnd?.();
     };
     script.text = "Let me look. Found it.";
+    // 14.12.7 a screenshot waits for the next turn, and the turn takes it
+    r.channel.receive({ kind: "screenshot", id: "1789999559000", part: 1, of: 1, data: "eA==" });
     r.channel.receive({ kind: "said", text: "look and tell me" });
     await until(() => r.told.some((m) => m.kind === "turn"));
 
@@ -99,7 +101,7 @@ describe("the control channel fixture (4.3, ADR 0007)", () => {
     expect(sent).toEqual(await read());
     // every kind the bridge may send is in it, so no decoder can skip one
     const kinds = new Set(sent.map((m) => m.kind));
-    const every: Array<Outgoing["kind"]> = ["heard", "sentence", "turn", "blockStart", "delta", "blockEnd", "narration", "error", "history", "rejoin", "working", "protocol", "settings", "speaking", "apk"];
+    const every: Array<Outgoing["kind"]> = ["heard", "sentence", "turn", "blockStart", "delta", "blockEnd", "narration", "error", "history", "rejoin", "working", "protocol", "settings", "speaking", "apk", "screenshot"];
     expect([...kinds].sort()).toEqual([...every].sort());
   }, 10_000);
 

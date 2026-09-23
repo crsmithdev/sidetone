@@ -5,6 +5,7 @@ import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageInstaller
 import android.content.pm.PackageManager
+import android.graphics.BitmapFactory
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -16,8 +17,10 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -66,6 +69,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
@@ -226,8 +231,9 @@ private fun Pairing(error: String?) {
 private fun Conversation(state: Bridge.State, onLeave: () -> Unit) {
     var draft by remember { mutableStateOf("") }
     val list = rememberLazyListState()
-    // 14.9 a bubble with no words yet is not shown: the block has begun and the first word has not come
-    val shown = state.lines.filter { it.text.isNotBlank() }
+    // 14.9 a bubble with no words yet is not shown: the block has begun and the first word has not come.
+    // 17.18.5 nor is a screenshot that Chris dropped.
+    val shown = state.lines.filter { it.text.isNotBlank() && !(it.kind == Line.Kind.SCREENSHOT && state.screenshots[it.text] == "dropped") }
     // the last bubble grows word by word, so the view follows its length as well as the count
     LaunchedEffect(shown.size, shown.lastOrNull()?.text?.length) {
         if (shown.isNotEmpty()) list.animateScrollToItem(shown.lastIndex)
@@ -264,7 +270,10 @@ private fun Conversation(state: Bridge.State, onLeave: () -> Unit) {
                 )
             }
             LazyColumn(Modifier.fillMaxSize(), state = list, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(shown) { TranscriptLine(it) }
+                items(shown) { line ->
+                    if (line.kind == Line.Kind.SCREENSHOT) ScreenshotLine(line, state.thumbnails[line.text], state.screenshots[line.text])
+                    else TranscriptLine(line)
+                }
             }
         }
         HoldToTalk(state)
@@ -409,6 +418,34 @@ private fun Options(onLeave: () -> Unit) {
     }
 }
 
+/**
+ * 17.18.5 the thumbnail of a screenshot the bridge has, on Chris's side. While it
+ * is pending it says so, and a tap drops it (14.12.7).
+ */
+@Composable
+private fun ScreenshotLine(line: Line, jpeg: ByteArray?, state: String?) {
+    val colors = MaterialTheme.colorScheme
+    val image = remember(jpeg) { jpeg?.let { BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap() } }
+    val mark = when (state) {
+        "pending" -> "attached to your next message"
+        "expired" -> "not sent: it waited too long"
+        else -> null
+    }
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+        Column(
+            modifier = Modifier
+                .widthIn(max = 160.dp)
+                .clickable(enabled = state == "pending") { Bridge.dropScreenshot(line.text) }
+                .semantics { contentDescription = listOfNotNull("screenshot", mark).joinToString(", ") },
+            horizontalAlignment = Alignment.End,
+        ) {
+            if (image != null) Image(image, contentDescription = null, modifier = Modifier.clip(MaterialTheme.shapes.medium))
+            else Text("screenshot", style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+            mark?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant) }
+        }
+    }
+}
+
 @Composable
 private fun TranscriptLine(line: Line) {
     val colors = MaterialTheme.colorScheme
@@ -423,6 +460,8 @@ private fun TranscriptLine(line: Line) {
                 color = colors.onSurfaceVariant,
             )
         }
+        // 17.18.5 the list shows a screenshot with ScreenshotLine
+        Line.Kind.SCREENSHOT -> Unit
         Line.Kind.YOU, Line.Kind.BRIDGE -> {
             val you = line.kind == Line.Kind.YOU
             val ink = if (you) colors.onPrimaryContainer else colors.onSurface

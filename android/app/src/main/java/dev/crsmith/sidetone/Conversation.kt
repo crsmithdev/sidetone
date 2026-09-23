@@ -45,6 +45,14 @@ class Conversation(val transcript: Transcript = Transcript()) {
     var settingWords: Map<String, String> = emptyMap()
         private set
 
+    /**
+     * 14.12.7 what became of each screenshot, by id, as the bridge last said:
+     * "pending", "sent", "expired" or "dropped". A dropped one keeps its line
+     * and is not shown, so the index of a growing line does not move.
+     */
+    var screenshots: Map<String, String> = emptyMap()
+        private set
+
     /** 17.11 whether the bridge says the agent works. */
     var sign: Sign = Sign.OFF
         private set
@@ -86,6 +94,12 @@ class Conversation(val transcript: Transcript = Transcript()) {
             }
             is Incoming.Rejoin -> return listOf(Effect.Rejoin)
             is Incoming.Speaking -> speaking = message.answer to message.text
+            is Incoming.Screenshot -> {
+                // 17.18.5 the bridge has it: the thumbnail joins the transcript once
+                if (message.id !in screenshots) transcript.onLines("screenshot", at, Line(Line.Kind.SCREENSHOT, message.id))
+                else transcript.onEvent("screenshot", "${message.id} ${message.state}", at)
+                screenshots = screenshots + (message.id to message.state)
+            }
             is Incoming.Settings -> {
                 settingsOn = message.on
                 settingWords = message.words
@@ -139,6 +153,7 @@ class Conversation(val transcript: Transcript = Transcript()) {
         settingsOn = emptyMap()
         settingWords = emptyMap()
         speaking = null
+        screenshots = emptyMap()
     }
 
     /** A room that ended shows its history again when the next one opens. */

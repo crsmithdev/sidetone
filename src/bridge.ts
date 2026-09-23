@@ -28,7 +28,7 @@ import type { Outgoing } from "./messages.ts";
 import { Mouth, keptLines, type Speaker } from "./mouth.ts";
 import { Recorder } from "./record.ts";
 import { Screens } from "./screen.ts";
-import { Screenshots } from "./screenshot.ts";
+import { SCREENSHOT_DIR, Screenshots } from "./screenshot.ts";
 import { LocalWhisper, SpokenAhead, textToSpeech, type SpeechToText, type TextToSpeech } from "./speech.ts";
 import { Working, jobsRunning } from "./working.ts";
 
@@ -86,6 +86,8 @@ export interface Parts {
   settings?: (patch: Partial<Config>) => void;
   /** where the wavs of this run are written */
   scratch?: string;
+  /** 14.12 where the screenshots from the phone are written */
+  screenshots?: string;
 }
 
 /**
@@ -127,7 +129,8 @@ export function assemble(
   });
 
   const screens = new Screens();
-  const screenshots = new Screenshots();
+  // 14.12.7 the client shows what became of each screenshot
+  const screenshots = new Screenshots(parts.screenshots ?? SCREENSHOT_DIR, (message) => channel.tell(message));
   const channel: Channel = new Channel(config, send, {
     heard: (text) => conversation.heard(text),
     // ADR 0008 a cut drops the half recording, and the hold with it, or nothing
@@ -162,6 +165,8 @@ export function assemble(
     onTurn: (turn) => say(`[turn ${turn.number}, $${conversation.agent.totalCostUsd().toFixed(4)} this session]`),
     // 11.12 the audio went on or off by voice; the app's own button reads this back
     onAudio: () => channel.settings(),
+    // 14.12.6 the pending screenshots join the turn Chris asks for next
+    screenshots: () => screenshots.take(),
   }, parts.makeAgent);
 
   let counter = 0;
@@ -176,7 +181,10 @@ export function assemble(
   const watch = setInterval(() => channel.silence(ear.silence()), SILENCE_MS / 3);
   // 14.10 whether the agent works, said to the client whatever the audio does
   const working = new Working(() => conversation.busy, parts.jobs ?? (() => jobsRunning()), (on) => channel.tell({ kind: "working", on }));
-  const work = setInterval(() => working.tick(), 1_000);
+  const work = setInterval(() => {
+    working.tick();
+    for (const line of screenshots.expire()) channel.journal(line);
+  }, 1_000);
 
   return {
     conversation, ear, mouth, channel, measures, stt, tts, ready,
