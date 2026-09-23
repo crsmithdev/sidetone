@@ -215,6 +215,55 @@
    ]
   },
   {
+   "said": "sidetone, verbosity brief",
+   "want": "verbosityBrief",
+   "heard": [
+    "Side Tone Verbosity Brief.",
+    "Side Tone Vibosity Brief.",
+    "Side Tone, Verbosity Brief.",
+    "Sigh tone, verbosity brief."
+   ]
+  },
+  {
+   "said": "sidetone, verbosity normal",
+   "want": "verbosityNormal",
+   "heard": [
+    "Side Tone Verbosity Normal.",
+    "Side Tone, Verbosity Normal."
+   ]
+  },
+  {
+   "said": "sidetone, verbosity full",
+   "want": "verbosityFull",
+   "heard": [
+    "Side Tone Verbosity Full",
+    "Side Tone Verbosity Full.",
+    "Side Tone Vibosity Full.",
+    "Sigh tone verbosity full.",
+    "Sigh-tone verbosity full."
+   ]
+  },
+  {
+   "said": "sidetone, shorter",
+   "want": "shorter",
+   "heard": [
+    "Side tone shorter.",
+    "Sigh tone shorter.",
+    "side tone shorter."
+   ]
+  },
+  {
+   "said": "sidetone, longer",
+   "want": "longer",
+   "heard": [
+    "SITONE LONGER",
+    "SideTone longer.",
+    "Sigh Tone Longer.",
+    "Sigh tone longer.",
+    "side tone longer."
+   ]
+  },
+  {
    "said": "sidetone, female voice",
    "want": "femaleVoice",
    "heard": [

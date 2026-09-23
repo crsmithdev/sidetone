@@ -105,6 +105,10 @@ _Avoid_: the hotword, the trigger, the activation phrase.
 Something Chris says to the bridge itself, after the wake word. Everything else he says is for the agent.
 _Avoid_: an instruction, a directive (those are for the agent).
 
+**The verbosity**:
+How much the agent says in a reply: brief, normal or full. The bridge names it in one line at the head of each turn's prompt (spec 9.4.10).
+_Avoid_: the length, the detail level.
+
 **A gated action**:
 An action the bridge does only after Chris speaks the agreement word. It fails closed.
 _Avoid_: a confirmation, an approval, a prompt.

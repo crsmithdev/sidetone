@@ -11,6 +11,10 @@ import { ENGINES } from "./speech.ts";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
+/** Item 37 how much the agent says, shortest first. */
+export const VERBOSITIES = ["brief", "normal", "full"] as const;
+export type Verbosity = typeof VERBOSITIES[number];
+
 export interface Config {
   /** 8.4.3 no activity on any channel for this long and the process is dead */
   silenceMs: number;
@@ -156,6 +160,12 @@ export interface Config {
   holdBackstopMs: number;
   /** 6.5 the voice instruction lives in the bridge, not in the aleph identity file */
   voiceInstruction: string;
+  /**
+   * Item 37 how much the agent says: brief is one or two sentences and only
+   * the result, normal is the behaviour from before the setting, full gives
+   * the reasoning and more detail. The bridge names it in every turn's prompt.
+   */
+  verbosity: Verbosity;
   /** 15.4 the cues are mostly a debugging aid, so they can be turned off by voice */
   tones: boolean;
   /** 15.6 how loud a cue is, as a fraction of full scale */
@@ -319,6 +329,7 @@ export const DEFAULTS: Config = {
     "Do not narrate the work while it runs and do not wait for it to finish before you answer.",
     "When work you started in the background finishes, say so in one short sentence, and say what came of it.",
   ].join(" "),
+  verbosity: "normal",
   tones: true,
   cueVolume: 0.1,
   audioCueDelayMs: 4_000,
@@ -364,7 +375,7 @@ export const IN_FORCE = [
   "sentenceMaxChars", "audioCueDelayMs", "audioCueEveryMs",
   "holdMusic", "holdMusicAfterMs", "holdMusicGain", "holdMusicFadeMs",
   "cueVolume", "ttsEngine", "ttsVoice", "sttModel", "wakeWord",
-  "chatterboxExaggeration", "chatterboxCfg",
+  "chatterboxExaggeration", "chatterboxCfg", "verbosity",
 ] as const satisfies ReadonlyArray<keyof Config>;
 
 export function settingsInForce(config: Config): Record<string, unknown> {
@@ -426,6 +437,9 @@ export function loadConfig(path = configPath()): Config {
   // throw away every utterance the detector just accepted
   if (merged.minSpeechPeak <= merged.speechLevel) {
     throw new Error(`minSpeechPeak (${merged.minSpeechPeak}) must be louder than speechLevel (${merged.speechLevel})`);
+  }
+  if (!VERBOSITIES.includes(merged.verbosity)) {
+    throw new Error(`verbosity must be one of ${VERBOSITIES.join(", ")}, not ${String(merged.verbosity)}`);
   }
   // 9.6 the muted set is a list of commands, and a typo in it is a command
   // that quietly stops working while muted

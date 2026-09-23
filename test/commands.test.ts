@@ -213,3 +213,25 @@ describe("an utterance, read once (9.1, 9.5, 10.2)", () => {
     expect(read("yes go on", DEFAULTS, false, false).agreed).toBe(false);
   });
 });
+
+describe("the verbosity commands (item 37)", () => {
+  test("each level has its own command, and one level either way has a word", () => {
+    expect(commandIn("verbosity brief")).toBe("verbosityBrief");
+    expect(commandIn("verbosity normal")).toBe("verbosityNormal");
+    expect(commandIn("verbosity full")).toBe("verbosityFull");
+    expect(commandIn("shorter")).toBe("shorter");
+    expect(commandIn("longer")).toBe("longer");
+    // "verbosity" alone names no level
+    expect(commandIn("verbosity")).toBe(null);
+  });
+  test("they do not take a command that was already there", () => {
+    expect(commandIn("stop")).toBe("endTurn");
+    expect(commandIn("mute")).toBe("mute");
+    expect(commandIn("tones on")).toBe("tonesOn");
+    expect(commandIn("summarize")).toBe("summarize");
+  });
+  test("they do not work while muted, which is the setting's default", () => {
+    expect(match("sidetone shorter", WAKE, true, MUTED)).toEqual({ kind: "unclear" });
+    expect(match("sidetone shorter", WAKE, false, MUTED)).toEqual({ kind: "command", name: "shorter" });
+  });
+});

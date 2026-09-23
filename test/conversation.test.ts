@@ -235,6 +235,70 @@ describe("a setting changed out loud is handed on (9.4)", () => {
   });
 });
 
+/**
+ * Item 37 how much the agent says. The bridge holds the level and names it in
+ * one line at the head of every turn's prompt; the command and the app set the
+ * same value, and the file keeps it.
+ */
+describe("the verbosity (item 37)", () => {
+  const asked = (r: ReturnType<typeof room>) => r.agent.calls.filter((call) => call.startsWith("ask ")).at(-1) ?? "";
+  const line = (prompt: string) => prompt.slice("ask ".length).split("\n")[0];
+
+  test("every turn's prompt opens with one line that names the level", async () => {
+    const r = room();
+    await r.c.turn("what is two plus two");
+    expect(line(asked(r))).toContain("verbosity is normal");
+    expect(asked(r)).toEndWith("\n\nwhat is two plus two");
+  });
+
+  test("the command sets the level, says so, keeps it, and the next turn has it", async () => {
+    const r = room();
+    await r.c.heard("sidetone verbosity brief");
+    await settled();
+    expect(r.said).toContain("Verbosity brief.");
+    expect(r.patches).toEqual([{ verbosity: "brief" }]);
+    await r.c.turn("what is two plus two");
+    expect(line(asked(r))).toContain("verbosity is brief");
+    await r.c.heard("sidetone verbosity full");
+    await r.c.turn("and three");
+    expect(line(asked(r))).toContain("verbosity is full");
+  });
+
+  test("the level in the settings file is the level of the first turn", async () => {
+    const r = room({ verbosity: "full" });
+    await r.c.turn("why");
+    expect(line(asked(r))).toContain("verbosity is full");
+  });
+
+  test("shorter and longer move one level, and stop at the ends", async () => {
+    const r = room();
+    await r.c.heard("sidetone shorter");
+    await r.c.heard("sidetone shorter");
+    await r.c.heard("sidetone longer");
+    await r.c.heard("sidetone longer");
+    await r.c.heard("sidetone longer");
+    expect(r.patches).toEqual([
+      { verbosity: "brief" }, { verbosity: "brief" }, { verbosity: "normal" }, { verbosity: "full" }, { verbosity: "full" },
+    ]);
+  });
+
+  test("the app sets the same value by the same path, and a level that does not exist is ignored", async () => {
+    const r = room();
+    r.c.set({ verbosity: "brief" });
+    r.c.set({ verbosity: "loud" });
+    await settled();
+    expect(r.patches).toEqual([{ verbosity: "brief" }]);
+    expect(r.said).toContain("Verbosity brief.");
+  });
+
+  test("a client reads the level back in the settings message", async () => {
+    const r = room();
+    await r.c.heard("sidetone verbosity full");
+    const settings = r.told.filter((message) => message.kind === "settings").at(-1);
+    expect(settings).toMatchObject({ settings: { verbosity: "full" } });
+  });
+});
+
 describe("end the turn with no turn running (9.4.8)", () => {
   test("the command itself is a barge-in, and still it says nothing is running", async () => {
     const { c, said } = watched();

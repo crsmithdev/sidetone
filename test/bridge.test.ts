@@ -126,7 +126,7 @@ describe("the bridge, assembled as the car assembles it", () => {
     expect(echoes[0]?.spoke).toBe("The service restarted about nine minutes ago.");
     expect(r.journal.some((line) => line.includes("may have heard itself"))).toBe(true);
     // it is recorded, not acted on: the words still reach the agent
-    expect(r.agent.calls).toContain("ask the service restarted about nine minutes ago");
+    expect(r.agent.calls.some((call) => call.endsWith("\n\nthe service restarted about nine minutes ago"))).toBe(true);
   });
 
   test("what Chris actually says is not taken for an echo (18.10)", async () => {
@@ -157,7 +157,7 @@ describe("the bridge, assembled as the car assembles it", () => {
     const r = bridge({ script: { deltas: ["Four."] } });
     r.channel.receive({ kind: "said", text: "what is two plus two" });
     await until(() => r.said.length > 0);
-    expect(r.agent.calls).toContain("ask what is two plus two");
+    expect(r.agent.calls.some((call) => call.endsWith("\n\nwhat is two plus two"))).toBe(true);
     expect(r.said).toEqual(["Four."]);
   });
 });

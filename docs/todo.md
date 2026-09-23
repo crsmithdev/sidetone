@@ -608,7 +608,10 @@ Decided 23 September 2026:
 
 ## 37. A verbosity setting, as a command and in the app
 
-Noted 23 September 2026. Not started.
+Noted 23 September 2026. The bridge side is built on the `verbosity` branch:
+the setting, the line in each turn's prompt, the five commands, and the
+`verbosity` key a client may set (9.4.9, 9.4.10). The app selector waits on
+item 28.
 
 Chris wants to set how much the agent says: a voice command after the wake
 word, and a control in the app. This is the same idea as the tone commands

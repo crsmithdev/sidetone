@@ -43,7 +43,7 @@ describe("a whole turn (5.5, 5.6)", () => {
     const r = room({ deltas: ["Two plus two ", "is four. ", "It always ", "was."] });
     await r.c.turn("what is two plus two");
     expect(r.said).toEqual(["Two plus two is four.", "It always was."]);
-    expect(r.agent.calls).toContain("ask what is two plus two");
+    expect(r.agent.calls.at(-1)).toEndWith("\n\nwhat is two plus two");
   });
 
   test("what the turn is remembered as is what was actually said", async () => {

@@ -17,7 +17,8 @@ export type CommandName =
   | "tones" | "tonesOn" | "tonesOff" | "musicOn" | "musicOff" | "stats"
   | "femaleVoice" | "maleVoice"
   | "carryOn" | "interrupt" | "interruptOn" | "interruptOff"
-  | "audioOn" | "audioOff";
+  | "audioOn" | "audioOff"
+  | "verbosityBrief" | "verbosityNormal" | "verbosityFull" | "shorter" | "longer";
 
 export type Match =
   /** 9.4 a command to do */
@@ -82,6 +83,12 @@ const COMMANDS: Array<{ name: CommandName; any: string[][]; phrases: string[] }>
   { name: "interruptOff", any: [["interrupt", "off"], ["interrupting", "off"]], phrases: ["interrupt off"] },
   { name: "interruptOn", any: [["interrupt", "on"], ["interrupting", "on"]], phrases: ["interrupt on"] },
   { name: "interrupt", any: [["interrupt"], ["interrupting"], ["barge", "in"]], phrases: ["interrupt"] },
+  // item 37 how much the agent says: a level by name, or one level either way
+  { name: "verbosityBrief", any: [["verbosity", "brief"]], phrases: ["verbosity brief"] },
+  { name: "verbosityNormal", any: [["verbosity", "normal"]], phrases: ["verbosity normal"] },
+  { name: "verbosityFull", any: [["verbosity", "full"]], phrases: ["verbosity full"] },
+  { name: "shorter", any: [["shorter"]], phrases: ["shorter"] },
+  { name: "longer", any: [["longer"]], phrases: ["longer"] },
   { name: "femaleVoice", any: [["female"], ["woman"]], phrases: ["female voice"] },
   { name: "maleVoice", any: [["male"], ["mail"], ["man"]], phrases: ["male voice"] },
 ];

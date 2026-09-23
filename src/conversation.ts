@@ -12,7 +12,7 @@
  *
  * | what Chris said | the held speech | the turn |
  * |---|---|---|
- * | mute, unmute, tones, music, a voice, interrupt | resumes after the acknowledgement | untouched |
+ * | mute, unmute, tones, music, a voice, interrupt, verbosity | resumes after the acknowledgement | untouched |
  * | usage, stats | resumes after the report | untouched |
  * | say that again | resumes after the repeat | untouched |
  * | the wake word alone, or noise | resumes | untouched |
@@ -33,7 +33,7 @@
 import { Answer } from "./answer.ts";
 import type { Channel } from "./channel.ts";
 import { read, type CommandName, type Reading } from "./commands.ts";
-import type { Config } from "./config.ts";
+import { VERBOSITIES, type Config, type Verbosity } from "./config.ts";
 import type { CueName } from "./cues.ts";
 import { echoOf } from "./echo.ts";
 import type { Ears } from "./ear.ts";
@@ -99,6 +99,8 @@ export class Conversation {
   private muted = false;
   private tones: boolean;
   private holdMusic: boolean;
+  /** item 37 how much the agent says, named at the head of every turn's prompt */
+  private verbosity: Verbosity;
   private turnRunning = false;
   private checkpointOpen = false;
   private lastReply = "";
@@ -163,6 +165,7 @@ export class Conversation {
     }, { ...config, claudeArgs: args });
     this.tones = config.tones;
     this.holdMusic = config.holdMusic;
+    this.verbosity = config.verbosity;
     this.interrupting = config.interruptOnSpeech;
     const self = this;
     this.ears = {
@@ -376,7 +379,7 @@ export class Conversation {
     const stopCue = this.cueWhileWaiting();
     const stopMusic = this.musicWhileWaiting(mine, () => answer.long);
     try {
-      const result = await this.agent.ask(note ? `${note}\n\n${said}` : said);
+      const result = await this.agent.ask([VERBOSITY_LINES[this.verbosity], note, said].filter(Boolean).join("\n\n"));
       if (!mine()) return;
       const turn = { ...result, text: withoutMarker(result.text) };
       answer.end();
@@ -544,6 +547,14 @@ export class Conversation {
       case "interruptOn": return this.setInterrupting(true);
       case "interruptOff": return this.setInterrupting(false);
 
+      // item 37 the level is for the next turn, so the answer carries on
+      case "verbosityBrief": return this.setVerbosity("brief");
+      case "verbosityNormal": return this.setVerbosity("normal");
+      case "verbosityFull": return this.setVerbosity("full");
+      // one level either way; at either end it stays where it is
+      case "shorter": return this.setVerbosity(VERBOSITIES[Math.max(VERBOSITIES.indexOf(this.verbosity) - 1, 0)] as Verbosity);
+      case "longer": return this.setVerbosity(VERBOSITIES[Math.min(VERBOSITIES.indexOf(this.verbosity) + 1, VERBOSITIES.length - 1)] as Verbosity);
+
       case "endTurn":
         // no turn, but a replay from "carry on" may be playing, and it stops too
         if (!this.turnRunning) {
@@ -653,6 +664,14 @@ export class Conversation {
     return "resume";
   }
 
+  /** Item 37 kept across restarts, and said back so Chris hears where it landed. */
+  private setVerbosity(level: Verbosity): Hold {
+    this.verbosity = level;
+    this.onSetting?.({ verbosity: level });
+    this.reply(`Verbosity ${level}.`);
+    return "resume";
+  }
+
   /**
    * 9.4.9 a setting a client changed. It goes through the same paths a spoken
    * command does, the voice's answer included, so tapping a switch and saying
@@ -664,12 +683,23 @@ export class Conversation {
     if (typeof patch.holdMusic === "boolean") this.setHoldMusic(patch.holdMusic);
     if (typeof patch.interruptOnSpeech === "boolean") this.setInterrupting(patch.interruptOnSpeech);
     if (patch.voice === "female" || patch.voice === "male") this.switchVoice(patch.voice);
+    if (VERBOSITIES.includes(patch.verbosity as Verbosity)) this.setVerbosity(patch.verbosity as Verbosity);
   }
 
   /** One utterance of PCM becomes one thing Chris said. */
   start(): void { this.agent.start(); }
   stop(): void { this.agent.stop(); }
 }
+
+/**
+ * Item 37 the one line at the head of every turn's prompt. It names the level
+ * and says what it means, because the agent reads it and nothing else does.
+ */
+const VERBOSITY_LINES: Record<Verbosity, string> = {
+  brief: "[From the bridge, not from Chris: verbosity is brief. Answer in one or two sentences, and give only the result.]",
+  normal: "[From the bridge, not from Chris: verbosity is normal. Answer as you usually do.]",
+  full: "[From the bridge, not from Chris: verbosity is full. Give your reasoning and more detail.]",
+};
 
 function firstSentence(text: string): string {
   const at = text.search(/[.!?]\s/);

@@ -28,6 +28,8 @@ describe("config (21)", () => {
     expect(DEFAULTS.holdMusicGain).toBe(0.4);
     expect(DEFAULTS.holdMusicFadeMs).toBe(300);
     expect(DEFAULTS.holdMusic).toBe(true);
+    // item 37 normal is the behaviour from before the setting existed
+    expect(DEFAULTS.verbosity).toBe("normal");
     expect(DEFAULTS.holdMusicFolder.endsWith("/.sidetone/hold")).toBe(true);
     // 9.6 the set is a setting, and the tones are on it: you mute because the
     // car is loud, and the tones are the next noise you want gone.
@@ -83,6 +85,11 @@ describe("a setting changed out loud is kept (9.4)", () => {
     expect(JSON.parse(readFileSync(path, "utf8"))).toEqual({ model: "opus", interruptOnSpeech: true, tones: false });
     expect(loadConfig(path).interruptOnSpeech).toBe(true);
   });
+  test("the verbosity survives a restart (item 37)", () => {
+    const path = withFile("{}");
+    saveSettings({ verbosity: "brief" }, path);
+    expect(loadConfig(path).verbosity).toBe("brief");
+  });
   test("with no file yet, the file is the patch", () => {
     const path = join(dir, "fresh.json");
     saveSettings({ ttsVoice: "bm_george" }, path);
@@ -96,6 +103,10 @@ describe("settings that arrive already checked", () => {
     writeFileSync(path, JSON.stringify(values));
     return path;
   };
+
+  test("a verbosity that is not a level is refused (item 37)", () => {
+    expect(() => loadConfig(write({ verbosity: "loud" }))).toThrow(/verbosity/);
+  });
 
   test("a barge-in quieter than speech is refused, not obeyed", () => {
     // 11.3 the wrong way round makes every recording a barge-in, which arrives
