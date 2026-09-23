@@ -32,6 +32,13 @@ class Conversation(val transcript: Transcript = Transcript()) {
     var endTurn: String? = null
         private set
 
+    /**
+     * 14.13 the sentence the voice is saying now, and the answer it belongs to.
+     * Null when nothing is being said. A screen lights these words.
+     */
+    var speaking: Pair<Int?, String>? = null
+        private set
+
     /** 9.4.9 the settings in force on the bridge: the switches, and the words of the rest. */
     var settingsOn: Map<String, Boolean> = emptyMap()
         private set
@@ -62,6 +69,8 @@ class Conversation(val transcript: Transcript = Transcript()) {
             is Incoming.Said -> when (message.line.kind) {
                 Line.Kind.BRIDGE -> {
                     transcript.onTurn(message, at)
+                    // 14.13 the answer is whole: nothing is being said any more
+                    speaking = null
                     // 17.17.2 a reply the voice did not play
                     if (!inFront && !audioOn) return listOf(Effect.Alert("Reply", message.line.text))
                 }
@@ -78,6 +87,7 @@ class Conversation(val transcript: Transcript = Transcript()) {
                 if (!inFront) return listOf(Effect.Alert("Sidetone", message.line.text))
             }
             is Incoming.Rejoin -> return listOf(Effect.Rejoin)
+            is Incoming.Speaking -> speaking = message.answer to message.text
             is Incoming.Settings -> {
                 settingsOn = message.on
                 settingWords = message.words
@@ -130,6 +140,7 @@ class Conversation(val transcript: Transcript = Transcript()) {
         endTurn = null
         settingsOn = emptyMap()
         settingWords = emptyMap()
+        speaking = null
     }
 
     /** A room that ended shows its history again when the next one opens. */

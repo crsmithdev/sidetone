@@ -68,6 +68,13 @@ sealed interface Incoming {
      * sends [Outgoing.setting] to change one.
      */
     data class Settings(val on: Map<String, Boolean>, val words: Map<String, String>) : Incoming
+
+    /**
+     * 14.13 the voice started saying this sentence. A [Sentence] says the words
+     * are known; this says they are being heard, which is seconds later when the
+     * queue is long. A sentence a barge-in cut is said again, so this can repeat.
+     */
+    data class Speaking(val text: String, val answer: Int?) : Incoming
 }
 
 fun decode(payload: ByteArray): Incoming? {
@@ -83,6 +90,7 @@ fun decode(payload: ByteArray): Incoming? {
         return Incoming.Protocol(endTurn, apk)
     }
     if (kind == "rejoin") return Incoming.Rejoin
+    if (kind == "speaking") return Incoming.Speaking(message.string("text") ?: return null, message.int("answer"))
     if (kind == "settings") {
         val settings = message["settings"] as? JsonObject ?: return Incoming.Settings(emptyMap(), emptyMap())
         val on = mutableMapOf<String, Boolean>()

@@ -77,6 +77,12 @@ export const ANNOUNCE_POLL_MS = 500;
  * which `when` is true, the level falls in a straight line to nothing over
  * `ms`. A cut still stops it at once.
  */
+/** 14.13 a sentence on a queue, and the answer it belongs to. A reply has none. */
+export interface Queued {
+  text: string;
+  answer?: number;
+}
+
 export interface Fade {
   when: () => boolean;
   ms: number;
@@ -104,8 +110,8 @@ export interface Speaker {
 }
 
 export class Mouth {
-  private readonly outbox: string[] = [];
-  private readonly ahead: string[] = [];
+  private readonly outbox: Queued[] = [];
+  private readonly ahead: Queued[] = [];
   private pumping = false;
   private playing = false;
   private waiters: Array<() => void> = [];
@@ -148,6 +154,8 @@ export class Mouth {
       talking?: () => boolean;
       /** 15.8 the hold music: the file, the gain, and the rate the room plays at. Absent means none. */
       music?: { file: string; gain: number; rate: number; fadeMs: number };
+      /** 14.13 the voice reached this sentence, as it starts to play */
+      speaking?: (sentence: Queued) => void;
       say?: (line: string) => void;
     },
   ) {
@@ -160,16 +168,16 @@ export class Mouth {
   private readonly cutOff = (): boolean => this.talking() || !this.audio;
 
   /** One sentence of the answer. It is what a barge-in holds. */
-  say(text: string): void {
+  say(text: string, answer?: number): void {
     // 18.4 the collector's share ends here, whatever the queue does next
     if (this.firstOfTurn) { this.firstOfTurn = false; this.measures.firstSentence(); }
-    this.outbox.push(text);
+    this.outbox.push({ text, answer });
     void this.pump();
   }
 
   /** One sentence from the bridge itself. It jumps a hold, because you asked now. */
   reply(text: string): void {
-    this.ahead.push(text);
+    this.ahead.push({ text });
     void this.pump();
   }
 
@@ -271,7 +279,7 @@ export class Mouth {
   discard(): readonly string[] {
     this.clearBackstop();
     this.holding = false;
-    const taken = this.outbox.splice(0);
+    const taken = this.outbox.splice(0).map((queued) => queued.text);
     if (taken.length > 0) this.tail = taken;
     // a bridge reply put back by the break in the pump is still waiting to be said
     if (this.ahead.length > 0) void this.pump();
@@ -294,7 +302,7 @@ export class Mouth {
   carryOn(): boolean {
     const rest = this.tail.splice(0);
     if (rest.length === 0) return false;
-    this.outbox.unshift(...rest);
+    this.outbox.unshift(...rest.map((text) => ({ text })));
     void this.pump();
     return true;
   }
@@ -406,14 +414,18 @@ export class Mouth {
         if (this.track) await this.track;
         // which queue it came from, so a cut sentence goes back to that one
         const jumped = this.ahead.length > 0;
-        const text = this.ahead.shift() ?? (this.holding ? undefined : this.outbox.shift());
-        if (text === undefined) break;
+        const queued = this.ahead.shift() ?? (this.holding ? undefined : this.outbox.shift());
+        if (queued === undefined) break;
+        const { text } = queued;
         this.playing = true;
+        // 14.13 the voice reached this sentence: a client lights the words as
+        // they are said rather than as they arrive.
+        this.settings.speaking?.(queued);
         let whole = true;
         // the same choice the next turn of this loop will make, asked whenever
         // the sentence is made and about to play
         const next = (): string | undefined =>
-          this.ahead[0] ?? (this.holding ? undefined : this.outbox[0]);
+          (this.ahead[0] ?? (this.holding ? undefined : this.outbox[0]))?.text;
         try { whole = await this.speak(text, next); }
         catch { /* a transport that dropped is not this loop's problem */ }
         finally { this.playing = false; }
@@ -433,7 +445,7 @@ export class Mouth {
           // Chris kept talking: eighteen copies of one refusal in three seconds
           // on the drive of 18 September. Whatever resolves the utterance --
           // `resume`, `discard` -- starts the pump again.
-          if (this.holding) { (jumped ? this.ahead : this.outbox).unshift(text); break; }
+          if (this.holding) { (jumped ? this.ahead : this.outbox).unshift(queued); break; }
         } else this.heard.push(text);
       }
     } finally {

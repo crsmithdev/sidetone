@@ -38,6 +38,8 @@ export const INCOMING = {
   working: "none",
   /** 9.4.9 the settings in force, when a client joins and whenever one changes; a client shows them where it can */
   settings: "none",
+  /** 14.13 the voice reached this sentence; a client lights the words as they are said */
+  speaking: "none",
 } as const;
 
 /**
@@ -90,6 +92,13 @@ export type Outgoing =
    * words of the command, and had no way at all to know what it was now.
    */
   | { kind: "settings"; settings: Record<string, unknown> }
+  /**
+   * 14.13 the voice started this sentence. A `sentence` message says the words
+   * are known; this says they are being heard, which is a different moment: the
+   * engine takes a fraction of a second and the queue can be seconds long. A
+   * sentence a barge-in cut is said again from the start, so this can repeat.
+   */
+  | { kind: "speaking"; text: string; answer?: number }
   | { kind: "protocol"; endTurn: string; incoming: typeof INCOMING; outgoing: typeof OUTGOING; apk?: Apk };
 
 /** 17.15 the app the bridge serves: where to fetch it, and its SHA-256 in hex. */

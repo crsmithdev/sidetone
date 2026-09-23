@@ -838,6 +838,45 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
  * sentence about it in the same turn, and its own sentence stopped the track
  * one second in.
  */
+describe("the voice reaching a sentence (14.13)", () => {
+  const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+  async function until(done: () => boolean): Promise<void> {
+    for (let i = 0; i < 200 && !done(); i++) await wait(10);
+  }
+
+  test("a client is told as each sentence starts, with the answer it belongs to", async () => {
+    const r = room({ deltas: ["One. ", "Two. "] });
+    await r.c.turn("say two sentences");
+    const spoken = r.told.flatMap((message) => (message.kind === "speaking" ? [message] : []));
+    expect(spoken.map((message) => message.text)).toEqual(["One.", "Two."]);
+    expect(spoken.every((message) => message.answer === 1)).toBe(true);
+    // the words are known before they are heard: the sentence message comes first
+    const kinds = r.told.map((message) => message.kind);
+    expect(kinds.indexOf("sentence")).toBeLessThan(kinds.indexOf("speaking"));
+  });
+
+  test("a reply from the bridge itself is said with no answer behind it", async () => {
+    const r = room();
+    r.mouth.reply("Muted.");
+    await until(() => r.said.length > 0);
+    const spoken = r.told.flatMap((message) => (message.kind === "speaking" ? [message] : []));
+    expect(spoken).toEqual([{ kind: "speaking", text: "Muted." }]);
+  });
+
+  test("a held sentence is not said to be speaking until it plays", async () => {
+    const r = room();
+    r.c.ears.stopSpeaking();
+    r.mouth.say("the rest of the answer.", 3);
+    await wait(20);
+    // 11.3 the words are known and queued, but the voice has not reached them
+    expect(r.told.filter((message) => message.kind === "speaking")).toEqual([]);
+    r.mouth.resume();
+    await until(() => r.said.length > 0);
+    expect(r.told.filter((message) => message.kind === "speaking"))
+      .toEqual([{ kind: "speaking", text: "the rest of the answer.", answer: 3 }]);
+  });
+});
+
 describe("a track asked for (15.12)", () => {
   const wav = new Uint8Array(64);
   const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));

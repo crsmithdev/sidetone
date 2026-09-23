@@ -403,6 +403,8 @@ project bridge stays in place.
 
 14.12.5 The bridge does not read the image or act on it. Chris talks about the image as he does about anything else, and his words go into the transcript. The agent reads the file when the words ask for it. The web client does not send the message.
 
+14.13 The bridge says when the voice reaches a sentence. A sentence message (14.7) says the words are known; this says they are being said, which is a different moment: the engine takes a fraction of a second and the queue can be seconds long. The message carries the words and the answer they belong to. A reply from the bridge itself carries no answer. A sentence a barge-in cut is said again from its start, so the message can repeat. A client that shows the words can light the ones being said.
+
 ## 15. AUDIBLE STATE
 
 15.1 The bridge does not leave silence when it cannot answer. Silence is ambiguous.

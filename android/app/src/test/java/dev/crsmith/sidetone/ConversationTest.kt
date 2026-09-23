@@ -119,6 +119,21 @@ class ConversationTest {
     }
 
     @Test
+    fun theVoiceReachingASentenceIsKeptForTheScreen() {
+        send("""{"kind":"blockStart","answer":1,"block":1}""")
+        send("""{"kind":"delta","text":"One. Two.","answer":1,"block":1}""")
+        // the words are on the screen, and the voice has not reached them yet
+        assertEquals(null, c.speaking)
+        send("""{"kind":"speaking","text":"One.","answer":1}""")
+        assertEquals(1 to "One.", c.speaking)
+        send("""{"kind":"speaking","text":"Two.","answer":1}""")
+        assertEquals(1 to "Two.", c.speaking)
+        // the whole answer arriving means the voice has finished with it
+        send("""{"kind":"turn","number":1,"text":"One. Two.","costUsd":0.01,"answer":1}""")
+        assertEquals(null, c.speaking)
+    }
+
+    @Test
     fun theSettingsInForceArriveAndAreKept() {
         send("""{"kind":"settings","settings":{"holdMusic":true,"tones":false,"ttsVoice":"som_00295","holdMusicGain":0.4}}""")
         assertEquals(mapOf("holdMusic" to true, "tones" to false), c.settingsOn)

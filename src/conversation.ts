@@ -182,8 +182,8 @@ export class Conversation {
   }
 
   /** One sentence of the answer. It is what a barge-in holds. */
-  private speak(text: string): void {
-    this.mouth.say(text);
+  private speak(text: string, answer?: number): void {
+    this.mouth.say(text, answer);
   }
 
   /** One sentence from the bridge itself. It jumps a hold, because you asked now. */
@@ -367,7 +367,7 @@ export class Conversation {
     // 14.7 a sentence reaches the client as soon as it is known, which is
     // before the voice reaches it: asked for on the drive of 18 September,
     // when the words arrived only after the whole answer had been spoken.
-    const say = (sentence: string) => { this.channel.tell({ kind: "sentence", text: sentence, answer: id }); this.speak(sentence); };
+    const say = (sentence: string) => { this.channel.tell({ kind: "sentence", text: sentence, answer: id }); this.speak(sentence, id); };
     // 14.9 the blocks of this answer that hold text, counted here: the stream's index restarts with each message
     let block = 0;
     let open = false;
