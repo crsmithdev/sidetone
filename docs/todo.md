@@ -498,6 +498,12 @@ Done when there is a settings screen in the app, reachable from the main
 screen, that can change at least hold music's volume, and Chris has said
 which other settings belong there.
 
+Decided 23 September 2026: the menu holds the verbosity selector (item 37), the
+tones switch, and a volume control for the hold music. The voice choice and the
+audio switch stay as they are, because each already has a command or a button.
+The hold music volume needs its own setting on the bridge; check first whether
+one exists. It sits beside item 1, the volume the app ignores.
+
 ## 29. Should a turn nobody asked for stream?
 
 Noted 22 September 2026, from the architecture review of that day (item 3,
@@ -671,3 +677,18 @@ the control in the options menu of item 28, and a test.
 
 Done when Chris can say a command or tap a control and the next reply is
 shorter or longer.
+
+Decided 23 September 2026:
+
+- Three levels: brief, normal and full. Brief is one or two sentences and only
+  the result. Normal is the behaviour today. Full gives the reasoning and more
+  detail.
+- The bridge holds the level and adds one line naming it to the prompt of each
+  turn. The voice command and the app set the same value.
+- The level is saved in the settings file and survives a restart and a new
+  session.
+- Voice commands after the wake word: `verbosity brief`, `verbosity normal`,
+  `verbosity full`, and `shorter` and `longer` to move one level. `shorter` at
+  brief stays at brief.
+- The app shows a three-way selector in the options menu of item 28. The status
+  row does not show the level, because item 30 makes that row smaller.
