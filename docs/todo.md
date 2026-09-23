@@ -568,3 +568,21 @@ waits behind it until the turn is nearly over.
 
 Done when the opening sentence plays before the hold music, or a written reason
 says why it cannot.
+
+## 32. The pre-rendered replies come out garbled
+
+Noted 23 September 2026. Not investigated yet.
+
+Chris said "sidetone mute" and "sidetone unmute" on 23 September. The replies
+"Muted." and "Listening." came out garbled twice. He says the sounds are in the
+wrong order. A reply the voice engine speaks fresh, "Job delivery-review
+finished.", was not reported as garbled.
+
+The record shows `synthesisMs` 0 for both replies. This suggests they play from
+a stored clip. It is not verified. The journal shows no engine error.
+
+Find where these clips come from. Compare their format, sample rate and length
+with the live engine's output. Play one by itself, and play it through the room.
+
+Done when the pre-rendered replies sound the same as a fresh reply, or a
+written reason says why they cannot.
