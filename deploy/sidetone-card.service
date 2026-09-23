@@ -1,0 +1,18 @@
+# ~/.config/systemd/user/sidetone-card.service
+#
+# Every figure this prints was already being counted, and nobody was reading
+# any of them. On 22 September a noisy coffee shop put 70 turns nobody asked
+# for through the agent over two hours, and the number that says so sat in the
+# record until a read-back went looking for it (spec 18.11).
+#
+# So the card runs itself and writes one line to the journal:
+#   journalctl --user -u sidetone-card -n 20
+[Unit]
+Description=Score the last hour of Sidetone against the card
+After=sidetone.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=%h/.sidetone/env
+WorkingDirectory=%h/sidetone
+ExecStart=/bin/sh -c '%h/.bun/bin/bun scripts/session-check.ts brief 1h'

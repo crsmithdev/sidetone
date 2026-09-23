@@ -79,7 +79,15 @@ export class Recorder {
  * one at the end of the file, and reading that back is the same zeros in a
  * different place.
  */
-export function readDrive(path: string): Drive | null {
+/**
+ * 18.11 what was recorded, either the last session or a window of them.
+ *
+ * Without `since` this is the last session that heard anything, which is what
+ * a drive is. With it, every event from that moment on, whichever sessions
+ * they fall in: a fault that shows over two hours in a coffee shop does not
+ * respect a restart, and reading only the last session hid it.
+ */
+export function readDrive(path: string, since?: number): Drive | null {
   let text: string;
   try { text = readFileSync(path, "utf8"); } catch { return null; }
   const lines: Line[] = [];
@@ -88,6 +96,7 @@ export function readDrive(path: string): Drive | null {
     // a hard kill truncates the last line; the rest of the file is still good
     try { lines.push(JSON.parse(raw) as Line); } catch { continue; }
   }
+  if (since !== undefined) return window(lines, since);
   let drive: Drive | null = null;
   let open: Drive | null = null;
   for (const line of lines) {
@@ -101,4 +110,22 @@ export function readDrive(path: string): Drive | null {
     if (line.kind === "heard") drive = open;
   }
   return drive;
+}
+
+/** Everything from `since` on, under the settings that were in force when it began. */
+function window(lines: Line[], since: number): Drive | null {
+  let settings: Record<string, unknown> = {};
+  const events: Event[] = [];
+  let at = since;
+  for (const line of lines) {
+    if (line.kind === "session") {
+      // the newest header at or before the window says what was in force in it
+      if (line.at <= since || events.length === 0) settings = line.settings;
+      continue;
+    }
+    if (line.at < since) continue;
+    if (events.length === 0) at = line.at;
+    events.push(line);
+  }
+  return events.length > 0 ? { at, settings, events } : null;
 }

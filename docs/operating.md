@@ -166,6 +166,12 @@ found in a live run, which is an expensive place to find it.
 The units are in `deploy/`, copied to `~/.config/systemd/user/`. Four things
 in them are there because something went wrong without them.
 
+**The card, hourly.** `sidetone-card.timer` scores the last hour and writes one
+line to the journal (`journalctl --user -u sidetone-card`). Every figure in it
+was already counted and none of it was read: a coffee shop on 22 September put
+70 turns nobody asked for through the agent over two hours, and the number that
+said so sat in the record until somebody went looking.
+
 **`PATH` in `~/.sidetone/env`.** A user manager boots with nothing from the
 home directory on its path. Without this the bridge cannot find `claude`, and
 the agent it starts cannot find anything either.
@@ -188,7 +194,7 @@ fifty-one restarts a year would cut off whatever was being said for nothing.
 loginctl enable-linger $USER
 cp deploy/*.service deploy/*.timer ~/.config/systemd/user/
 systemctl --user daemon-reload
-systemctl --user enable --now sidetone.service sidetone-cert.timer sidetone-health.timer
+systemctl --user enable --now sidetone.service sidetone-cert.timer sidetone-health.timer sidetone-card.timer
 ```
 
 ## What another repository depends on

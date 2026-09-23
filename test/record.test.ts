@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Utterance } from "../src/audio.ts";
@@ -122,5 +122,31 @@ describe("the drive record", () => {
     new Diagnostics((e) => heard.write(e)).heard(utterance(), "sidetone, stats", 150, 950);
     expect(readFileSync(path, "utf8").trim().split("\n").length).toBe(2);
     expect(readDrive(path)?.settings).toEqual({ cueVolume: 0.12 });
+  });
+});
+
+describe("a window of the record (18.11)", () => {
+  test("it reads across a restart, which a session does not", () => {
+    const path = join(scratch(), "record.jsonl");
+    const write = (line: Record<string, unknown>) => appendFileSync(path, `${JSON.stringify(line)}\n`);
+    write({ kind: "session", at: 1_000, settings: { wakeWord: "sidetone" } });
+    write({ kind: "heard", at: 2_000, text: "before the window", transcribeMs: 1, ms: 1, speechMs: 1, peak: 0.3, gapMs: 1, endedBy: "pause", falseEnds: 0 });
+    write({ kind: "heard", at: 6_000, text: "in the window", transcribeMs: 1, ms: 1, speechMs: 1, peak: 0.3, gapMs: 1, endedBy: "pause", falseEnds: 0 });
+    // the bridge restarted here, which is what hid the coffee shop
+    write({ kind: "session", at: 7_000, settings: { wakeWord: "sidetone" } });
+    write({ kind: "heard", at: 8_000, text: "after the restart", transcribeMs: 1, ms: 1, speechMs: 1, peak: 0.3, gapMs: 1, endedBy: "pause", falseEnds: 0 });
+
+    const lastSession = readDrive(path);
+    expect(lastSession?.events.map((event) => (event.kind === "heard" ? event.text : ""))).toEqual(["after the restart"]);
+
+    const window = readDrive(path, 5_000);
+    expect(window?.events.map((event) => (event.kind === "heard" ? event.text : ""))).toEqual(["in the window", "after the restart"]);
+    expect(window?.settings.wakeWord).toBe("sidetone");
+  });
+
+  test("a window with nothing in it is nothing to score", () => {
+    const path = join(scratch(), "record.jsonl");
+    appendFileSync(path, `${JSON.stringify({ kind: "session", at: 1_000, settings: {} })}\n`);
+    expect(readDrive(path, 9_000)).toBeNull();
   });
 });

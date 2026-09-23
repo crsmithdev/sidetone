@@ -1,0 +1,14 @@
+# ~/.config/systemd/user/sidetone-card.timer
+#
+# Hourly. A fault worth seeing -- the room talking to the agent, the bridge
+# hearing itself -- shows up in an hour and stays visible in the journal.
+[Unit]
+Description=Score Sidetone against the card, every hour
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=1h
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target

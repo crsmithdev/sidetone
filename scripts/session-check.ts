@@ -7,11 +7,18 @@
  * prints a card to read and then scores what the bridge recorded against it,
  * so two builds differ by figures rather than by memory.
  *
- *   bun scripts/session-check.ts card     what to say, in order
- *   bun scripts/session-check.ts score    how it went
+ *   bun scripts/session-check.ts card        what to say, in order
+ *   bun scripts/session-check.ts score       how the last drive went
+ *   bun scripts/session-check.ts score 2h    the last two hours, restarts and all
+ *   bun scripts/session-check.ts brief 2h    one line of it, for the journal
  *
  * Read the card with the bridge connected, then score it whenever you like:
  * the record is on disk, and a restart no longer takes the drive with it.
+ *
+ * `brief` is what the timer runs. Every figure here was already being counted
+ * and nobody was reading any of them: the coffee shop of 22 September put 70
+ * turns nobody asked for through the agent over two hours, and the number that
+ * says so was sitting in the record the whole time.
  */
 import { loadConfig } from "../src/config.ts";
 import { readDrive } from "../src/record.ts";
@@ -56,10 +63,41 @@ function card(): void {
 `);
 }
 
-function report(): void {
+/** "2h", "45m", "3d" -- how far back to read. */
+function since(text: string | undefined): number | undefined {
+  if (!text) return undefined;
+  const match = /^(\d+)([mhd])$/.exec(text);
+  if (!match) { console.error(`a window looks like 90m, 2h or 3d, not ${text}`); process.exit(2); }
+  const [, amount, unit] = match;
+  const ms = { m: 60_000, h: 3_600_000, d: 86_400_000 }[unit as "m" | "h" | "d"];
+  return Date.now() - Number(amount) * ms;
+}
+
+/** One line for the journal: the figures that say a session went wrong. */
+function brief(window?: string): void {
+  const drive = readDrive(config.recordPath, since(window));
+  if (!drive) { console.log(`[card] nothing recorded${window ? ` in the last ${window}` : ""}]`); return; }
+  const card = score(drive.events);
+  const parts = [
+    `heard ${card.heard.total}`,
+    `unasked ${card.unasked}`,
+    `echoes ${card.echoes}`,
+    `invented ${card.invented}`,
+    `too quiet ${card.heard.tooQuiet}`,
+    `barge-ins ${card.bargeIns}`,
+    `answers ${card.roundTrip.rounds}`,
+    `round trip ${card.roundTrip.medianMs}ms`,
+  ];
+  console.log(`[card${window ? ` ${window}` : ""}: ${parts.join(", ")}]`);
+  // the two that mean something is wrong rather than merely busy
+  if (card.unasked > 0) console.log(`[card: ${card.unasked} utterances the room said, not Chris (18.11)]`);
+  if (card.echoes > 0) console.log(`[card: ${card.echoes} times the bridge heard its own voice (18.10)]`);
+}
+
+function report(window?: string): void {
   // the last session that heard anything, which is the drive. The empty
   // session a restart leaves behind is not one.
-  const drive = readDrive(config.recordPath);
+  const drive = readDrive(config.recordPath, since(window));
   if (!drive) {
     console.error(`nothing to score in ${config.recordPath}. Has a drive been recorded since the bridge last started?`);
     process.exit(1);
@@ -85,6 +123,8 @@ function report(): void {
   line("empty", card.heard.empty, "noise that correctly cost nothing");
   line("dropped as too quiet", card.heard.tooQuiet);
   line("invented", card.invented, card.invented ? "<-- turns nobody asked for" : "");
+  line("what the room said", card.unasked, card.unasked ? "<-- fillers and silence tokens (18.11)" : "");
+  line("heard itself", card.echoes, card.echoes ? "<-- the echo canceller is not holding (18.10)" : "");
   line("median length", `${card.heard.medianMs}ms`);
   line("median peak", card.heard.medianPeak, "the level minSpeechPeak is judged against");
   line("barge-ins", card.bargeIns);
@@ -100,6 +140,8 @@ function report(): void {
 }
 
 const what = process.argv[2] ?? "card";
+const window = process.argv[3];
 if (what === "card") card();
-else if (what === "score") report();
-else { console.error("usage: bun scripts/session-check.ts <card|score>"); process.exit(2); }
+else if (what === "score") report(window);
+else if (what === "brief") brief(window);
+else { console.error("usage: bun scripts/session-check.ts <card|score|brief> [2h]"); process.exit(2); }
