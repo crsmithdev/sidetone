@@ -684,3 +684,34 @@ Two parts:
 
 Done when Chris can send a screenshot from the phone and the agent can open it,
 and the double status is found or shown not to exist.
+
+## 39. The app sends no crash report, and nobody has checked it for stability
+
+Noted 23 September 2026. Not started.
+
+The app has no crash handler. After a crash, Chris sees a closed app and the
+agent sees nothing. The screen log shows what the app displayed, but not why
+it stopped.
+
+Two parts:
+
+1. Add a crash reporter. An uncaught-exception handler saves the stack trace,
+   the time and the app state to a file, then lets the crash go on. On the next
+   launch the app sends the file to the bridge. The bridge writes it to
+   `~/.sidetone/crashes/` and logs `crash report at`. The agent reads it from
+   there.
+2. Make one pass over the app for stability. Check each of these, and write
+   what was found:
+   - The lifecycle of the foreground service and the room: start, stop, restart
+     by the system.
+   - Work on the main thread that can freeze the screen.
+   - Coroutines that outlive their screen, and leaks of the context.
+   - Errors from LiveKit, the network and the audio device that the app does not
+     catch.
+   - Permission loss while the app runs, for the microphone and notifications.
+   - State that the app loses on a rotation or a process death.
+   - The device's own tools: StrictMode in the debug build, and the Android
+     vitals view of ANRs.
+
+Done when a forced crash on the phone gives a file in `~/.sidetone/crashes/`
+with the stack trace, and each check in part 2 has a finding or a fix.
