@@ -504,6 +504,9 @@ audio switch stay as they are, because each already has a command or a button.
 The hold music volume needs its own setting on the bridge; check first whether
 one exists. It sits beside item 1, the volume the app ignores.
 
+Decided 23 September 2026: the menu also holds the "Leave" button, moved from
+the status row (item 30). It still quits the app. It may go away after item 27.
+
 ## 29. Should a turn nobody asked for stream?
 
 Noted 22 September 2026, from the architecture review of that day (item 3,
@@ -567,6 +570,21 @@ read a word.
 
 Done when the row shows the same states in fewer marks, Chris has picked the
 design, and he has read it while driving.
+
+Decided 23 September 2026 (design not yet read in the car):
+
+- One large dot replaces the two dots. Colour carries the room state: green for
+  listening, amber for connecting or rejoining, red for disconnected. Motion
+  carries the work: a slow pulse while the agent works, a fast blink when it
+  stalls.
+- Words show only for the surprising states: "reconnecting" and "disconnected".
+  While the room listens or works, the row shows no word.
+- The quality word goes. Quality shows as the ring of the dot, thin when poor.
+- The "Leave" button leaves the row and moves to the options menu of item 28.
+  Its behaviour does not change: it still quits the app.
+- Leave may go away later. If item 27 lets the app stop using the phone call
+  audio mode, a reconnect button that cuts the connection and stays in the app
+  could replace it. Decide that after item 27.
 
 ## 32. The pre-rendered replies come out garbled
 
