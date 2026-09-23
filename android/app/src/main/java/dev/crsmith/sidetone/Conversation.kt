@@ -66,17 +66,14 @@ class Conversation(val transcript: Transcript = Transcript()) {
             is Incoming.BlockStart -> transcript.onBlock(message, at)
             is Incoming.Delta -> transcript.onDelta(message, at)
             is Incoming.BlockEnd -> Unit
-            is Incoming.Said -> when (message.line.kind) {
-                Line.Kind.BRIDGE -> {
-                    transcript.onTurn(message, at)
-                    // 14.13 the answer is whole: nothing is being said any more
-                    speaking = null
-                    // 17.17.2 a reply the voice did not play
-                    if (!inFront && !audioOn) return listOf(Effect.Alert("Reply", message.line.text))
-                }
-                Line.Kind.YOU -> transcript.onLines("heard", at, message.line)
-                Line.Kind.NOTE -> transcript.onLines("note", at, message.line)
+            is Incoming.Turn -> {
+                transcript.onTurn(message, at)
+                // 14.13 the answer is whole: nothing is being said any more
+                speaking = null
+                // 17.17.2 a reply the voice did not play
+                if (!inFront && !audioOn) return listOf(Effect.Alert("Reply", message.line.text))
             }
+            is Incoming.Said -> transcript.onLines(if (message.line.kind == Line.Kind.YOU) "heard" else "note", at, message.line)
             is Incoming.Protocol -> {
                 endTurn = message.endTurn
                 return listOf(Effect.Offer(message.apk))

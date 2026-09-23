@@ -299,6 +299,8 @@ project bridge stays in place.
 
 11.11 The bridge speaks what the agent says between turns. Background work that finishes makes the agent answer without being asked, and that answer is news, so it is spoken over a held one.
 
+11.11.1 The bridge streams that answer to the client as it streams a turn Chris asked for. Its first word opens a new answer. The `blockStart`, `delta`, `blockEnd`, `sentence`, `speaking` and `turn` messages all name that answer (14.7, 14.9, 14.13). Every `turn` names its answer.
+
 11.12 Chris can turn the audio of the bridge off and on. The client sends the `voice` message with `on` set to false or to true. The message keeps the name it had when the voice was all the audio.
 
 11.12.1 With the audio off, the bridge makes no sound. It plays no voice, no tone and no hold music. The words carry on in the transcript. The bridge counts a sentence as said when its words go out.

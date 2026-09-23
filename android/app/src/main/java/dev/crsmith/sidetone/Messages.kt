@@ -25,8 +25,11 @@ data class Line(val kind: Kind, val text: String, val at: Long? = null) {
 
 /** 4.3 a message on the control channel, from the bridge. */
 sealed interface Incoming {
-    /** `answer` is on a turn only: the answer it closes. */
-    data class Said(val line: Line, val answer: Int? = null) : Incoming
+    /** A line that no answer grows: what Chris said, a narration, an error. */
+    data class Said(val line: Line) : Incoming
+
+    /** 14.7 the whole answer, and which answer it closes. 11.11.1 every turn names one. */
+    data class Turn(val line: Line, val answer: Int) : Incoming
 
     /** 14.7 one sentence of the answer, ahead of the voice; the turn that follows carries the whole. */
     data class Sentence(val text: String, val answer: Int? = null) : Incoming
@@ -121,7 +124,11 @@ fun decode(payload: ByteArray): Incoming? {
         return Incoming.History(lines)
     }
     if (kind == "narration" && message.bool("announce") == true) return lineOf(message)?.let(Incoming::Announce)
-    return lineOf(message)?.let { Incoming.Said(it, message.int("answer")) } ?: Incoming.Unknown(kind)
+    if (kind == "turn") {
+        val answer = message.int("answer") ?: return Incoming.Unknown("turn with no answer")
+        return lineOf(message)?.let { Incoming.Turn(it, answer) } ?: Incoming.Unknown(kind)
+    }
+    return lineOf(message)?.let(Incoming::Said) ?: Incoming.Unknown(kind)
 }
 
 /** 18.9.4 the shortest time between two rejoins that the bridge asked for. */
@@ -177,7 +184,7 @@ fun write(lines: List<Line>, growing: Growing?, answer: Int, block: Int, text: S
  * the end. 14.9.5 It takes no bubble's place: the bubbles already hold the
  * answer, and a second copy of it would stand beside them.
  */
-fun answered(lines: List<Line>, growing: Growing?, turn: Incoming.Said, now: Long): List<Line> {
+fun answered(lines: List<Line>, growing: Growing?, turn: Incoming.Turn, now: Long): List<Line> {
     if (growing == null || growing.answer != turn.answer) return lines + turn.line.copy(at = now)
     if (growing.block != null) return lines
     return lines.toMutableList().also { it[growing.at] = turn.line.copy(at = it[growing.at].at ?: now) }

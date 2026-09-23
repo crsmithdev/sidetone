@@ -30,6 +30,7 @@
  * | the agreement word, at the checkpoint | resumes | runs on |
  * | nothing, until the gate times out | resumes | untouched |
  */
+import { Answer } from "./answer.ts";
 import type { Channel } from "./channel.ts";
 import { read, type CommandName, type Reading } from "./commands.ts";
 import type { Config } from "./config.ts";
@@ -39,7 +40,7 @@ import type { Ears } from "./ear.ts";
 import type { Measures } from "./measures.ts";
 import type { Mouth } from "./mouth.ts";
 import { Network } from "./network.ts";
-import { LongMarker, SentenceCollector, withoutMarker } from "./sentences.ts";
+import { withoutMarker } from "./sentences.ts";
 import { Session, type SessionHooks, type Turn } from "./session.ts";
 
 export type { CueName };
@@ -147,8 +148,8 @@ export class Conversation {
     // 6.5 the voice instruction lives in the bridge, not in the agent's identity file
     const args = [...config.claudeArgs, "--append-system-prompt", config.voiceInstruction];
     this.agent = makeAgent({
-      onDelta: (text) => this.answering?.delta(text),
-      onBlockStart: (type) => this.answering?.blockStart(type),
+      onDelta: (text) => this.streaming().delta(text),
+      onBlockStart: (type) => this.streaming().blockStart(type),
       onBlockEnd: () => this.answering?.blockEnd(),
       onNarration: (text) => this.channel.narrate(text),
       // 8.6.3 speak, say how long it has run, and report the usage with the ask (8.6.4)
@@ -179,8 +180,8 @@ export class Conversation {
   private onTurn?: (turn: Turn) => void;
   private onSetting?: (patch: Partial<Config>) => void;
   private onAudio?: () => void;
-  /** Where the agent's words and blocks go while a turn of ours runs; null between turns. */
-  private answering: { delta(text: string): void; blockStart(type: string): void; blockEnd(): void } | null = null;
+  /** Where the agent's words and blocks go: the answer of the turn that runs, or one the agent began unasked; null between them. */
+  private answering: Answer | null = null;
 
   get busy(): boolean { return this.turnRunning; }
   get waitingForAgreement(): boolean { return this.checkpointOpen; }
@@ -200,11 +201,6 @@ export class Conversation {
   /** Every cue goes through here, so one command can silence all of them (15.4). */
   cue(name: CueName): void {
     if (this.tones) this.mouth.cue(name);
-  }
-
-  /** One sentence of the answer. It is what a barge-in holds. */
-  private speak(text: string, answer?: number): void {
-    this.mouth.say(text, answer);
   }
 
   /** One sentence from the bridge itself. It jumps a hold, because you asked now. */
@@ -375,55 +371,15 @@ export class Conversation {
     const mine = () => id === this.turnId;
     this.turnRunning = true;
     this.mouth.newTurn();
-    const sentences = new SentenceCollector(this.config.sentenceMaxChars);
-    let firstDelta = true;
-    // 14.7 a sentence reaches the client as soon as it is known, which is
-    // before the voice reaches it: asked for on the drive of 18 September,
-    // when the words arrived only after the whole answer had been spoken.
-    const say = (sentence: string) => { this.channel.tell({ kind: "sentence", text: sentence, answer: id }); this.speak(sentence, id); };
-    // 14.9 the blocks of this answer that hold text, counted here: the stream's index restarts with each message
-    let block = 0;
-    let open = false;
-    // 15.7.4 the marker is taken off before the words go anywhere
-    const marker = new LongMarker();
-    const words = (text: string) => {
-      if (!text) return;
-      // 14.9 the words reach the client before the sentence that finishes with them
-      this.channel.tell({ kind: "delta", text, answer: id, block });
-      for (const sentence of sentences.push(text)) say(sentence);
-    };
-    // item 31: a block is complete, so a full stop at its end cannot become a number or an ellipsis
-    const endSentence = () => { const tail = sentences.flush(); if (tail) say(tail); };
-    this.answering = {
-      delta: (text) => {
-        if (!mine()) return;
-        // 18.4 the agent's share ends with its first word
-        if (firstDelta) { firstDelta = false; this.measures.firstDelta(); }
-        words(marker.push(text));
-      },
-      blockStart: (type) => {
-        if (!mine()) return;
-        // 15.7.5 a tool call is proof enough that the turn is long, marker or not
-        if (type === "tool_use") { words(marker.end()); endSentence(); marker.long = true; }
-        if (type !== "text") return;
-        open = true;
-        this.channel.tell({ kind: "blockStart", answer: id, block: ++block });
-      },
-      blockEnd: () => {
-        if (!mine() || !open) return;
-        open = false;
-        this.channel.tell({ kind: "blockEnd", answer: id, block });
-        endSentence();
-      },
-    };
+    const answer = new Answer(id, this.channel, this.config.sentenceMaxChars, (sentence) => this.mouth.say(sentence, id), mine, () => this.measures.firstDelta());
+    this.answering = answer;
     const stopCue = this.cueWhileWaiting();
-    const stopMusic = this.musicWhileWaiting(mine, () => marker.long);
+    const stopMusic = this.musicWhileWaiting(mine, () => answer.long);
     try {
-      const answer = await this.agent.ask(note ? `${note}\n\n${said}` : said);
+      const result = await this.agent.ask(note ? `${note}\n\n${said}` : said);
       if (!mine()) return;
-      const turn = { ...answer, text: withoutMarker(answer.text) };
-      words(marker.end());
-      endSentence();
+      const turn = { ...result, text: withoutMarker(result.text) };
+      answer.end();
       await this.mouth.drained();
       this.lastReply = this.mouth.said.join(" ") || turn.text;
       this.recent.push({ said, reply: this.lastReply });
@@ -615,18 +571,25 @@ export class Conversation {
    *
    * A background job that finishes hands Claude Code a task notification, and
    * it answers: measured 18 September, four such turns across three runs, every
-   * word of them dropped. They go through `reply`, which jumps a hold, because
-   * what they carry is news and the answer they land on is not.
+   * word of them dropped. Its first word opens an answer, which streams to the
+   * client as a turn Chris asked for does. Its sentences go through `reply`,
+   * which jumps a hold, because what they carry is news and the answer they
+   * land on is not.
    */
+  private streaming(): Answer {
+    if (this.answering) return this.answering;
+    const id = ++this.turnId;
+    this.answering = new Answer(id, this.channel, this.config.sentenceMaxChars, (sentence) => this.mouth.reply(sentence, id), () => id === this.turnId);
+    return this.answering;
+  }
+
+  /** 11.11 the result of the answer the agent began unasked. One with no words opened none, and says nothing. */
   private unprompted(turn: Turn): void {
-    if (turn.isError) return;
-    const text = withoutMarker(turn.text.trim());
-    if (!text) return;
-    const sentences = new SentenceCollector(this.config.sentenceMaxChars);
-    for (const sentence of sentences.push(text)) this.reply(sentence);
-    const last = sentences.flush();
-    if (last) this.reply(last);
-    this.channel.tell({ kind: "turn", number: turn.number, text, costUsd: this.agent.totalCostUsd() });
+    const answer = this.answering;
+    if (!answer) return;
+    this.answering = null;
+    answer.end();
+    this.channel.tell({ kind: "turn", number: turn.number, text: withoutMarker(turn.text.trim()), costUsd: this.agent.totalCostUsd(), answer: answer.id });
   }
 
   /** 9.4 the two voices Chris switches between out loud; the mouth owns which. */

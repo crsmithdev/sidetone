@@ -59,8 +59,12 @@ async function scenes(): Promise<Outgoing[]> {
     r.channel.receive({ kind: "said", text: "and again" });
     await until(() => r.told.some((m) => m.kind === "error"));
 
-    // 11.11 a turn nobody asked for names no answer
-    r.agent.hooks().onUnprompted?.({ number: 2, text: "The build is green.", costUsd: 0.01, isError: false });
+    // 11.11 a turn nobody asked for streams under an answer of its own
+    const hooks = r.agent.hooks();
+    hooks.onBlockStart?.("text");
+    hooks.onDelta?.("The build is green.");
+    hooks.onBlockEnd?.();
+    hooks.onUnprompted?.({ number: 2, text: "The build is green.", costUsd: 0.01, isError: false });
     // 17.17 a line queued by /say
     r.channel.tell({ kind: "narration", text: "Job build finished.", announce: true });
     // 18.9 a dead microphone

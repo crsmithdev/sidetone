@@ -27,11 +27,11 @@ export type Outgoing =
    * 14.7 `answer` names the answer a sentence belongs to, and the turn that
    * closes it. A client grows one line per answer: an interrupted answer
    * sends no turn, and without the name the next answer grew on its line,
-   * above the words that came between. A turn without one, the agent's own
-   * after a background task, is a line of its own.
+   * above the words that came between. The agent's own turn after a
+   * background task names one too (11.11).
    */
   | { kind: "sentence"; text: string; answer: number }
-  | { kind: "turn"; number: number; text: string; costUsd: number; answer?: number }
+  | { kind: "turn"; number: number; text: string; costUsd: number; answer: number }
   /**
    * 14.9 a block of an answer that holds text. `block` counts from 1 within the
    * answer, and the same two numbers name the block in the words that follow it.

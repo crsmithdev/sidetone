@@ -42,18 +42,18 @@ class ConversationTest {
         send("""{"kind":"blockStart","answer":1,"block":1}""")
         send("""{"kind":"delta","text":"Four.","answer":1,"block":1}""")
         send("""{"kind":"sentence","text":"Four.","answer":1}""")
-        send("""{"kind":"turn","number":1,"text":"Four.","costUsd":0.01}""")
+        send("""{"kind":"turn","number":1,"text":"Four.","costUsd":0.01,"answer":1}""")
         // 17.12 the log cannot say a kind the screen did not show
         assertEquals(listOf("heard", "block", "delta", "sentence", "turn"), logKinds())
     }
 
     @Test
     fun aReplyTheVoiceDidNotPlayIsWorthANotification() {
-        val quiet = send("""{"kind":"turn","number":1,"text":"It is four.","costUsd":0.01}""", inFront = false, audioOn = false)
+        val quiet = send("""{"kind":"turn","number":1,"text":"It is four.","costUsd":0.01,"answer":1}""", inFront = false, audioOn = false)
         assertEquals(listOf(Conversation.Effect.Alert("Reply", "It is four.")), quiet)
         // in front, or with the voice playing, the screen and the speaker are enough
-        assertTrue(send("""{"kind":"turn","number":2,"text":"Again.","costUsd":0.01}""", inFront = false, audioOn = true).isEmpty())
-        assertTrue(send("""{"kind":"turn","number":3,"text":"Again.","costUsd":0.01}""", inFront = true, audioOn = false).isEmpty())
+        assertTrue(send("""{"kind":"turn","number":2,"text":"Again.","costUsd":0.01,"answer":2}""", inFront = false, audioOn = true).isEmpty())
+        assertTrue(send("""{"kind":"turn","number":3,"text":"Again.","costUsd":0.01,"answer":3}""", inFront = true, audioOn = false).isEmpty())
     }
 
     @Test

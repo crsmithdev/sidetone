@@ -72,7 +72,7 @@ describe("one exit for the control channel (14.11)", () => {
     // the true limit is a comment, not a measurement: a transcript trimmed on
     // a guess is worse than a large message
     const r = room();
-    r.out.send({ kind: "turn", number: 1, text: "word ".repeat(20_000), costUsd: 0.01 });
+    r.out.send({ kind: "turn", number: 1, text: "word ".repeat(20_000), costUsd: 0.01, answer: 1 });
     await r.out.drained();
     expect(r.sent.length).toBe(1);
     expect(r.journal[0]).toContain(`over the ${MAX_MESSAGE_BYTES} a data message carries`);

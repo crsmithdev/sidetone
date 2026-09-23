@@ -20,7 +20,7 @@ class TranscriptTest {
         t.onSentence(Incoming.Sentence("Let me look.", 1), 2_300)
         t.onBlock(Incoming.BlockStart(1, 2), 3_000)
         t.onDelta(Incoming.Delta("Two items.", 1, 2), 3_100)
-        t.onTurn(Incoming.Said(Line(Line.Kind.BRIDGE, "Let me look. Two items."), 1), 3_200)
+        t.onTurn(Incoming.Turn(Line(Line.Kind.BRIDGE, "Let me look. Two items."), 1), 3_200)
         t.onLines("note", 3_300, Line(Line.Kind.NOTE, "audio off"))
 
         assertEquals(
@@ -51,7 +51,7 @@ class TranscriptTest {
         t.onSentence(Incoming.Sentence("One.", 4), 10)
         t.onSentence(Incoming.Sentence("Two.", 4), 20)
         // 14.9.6 the turn holds what Chris heard, and a barge-in cut the voice after the first sentence
-        t.onTurn(Incoming.Said(Line(Line.Kind.BRIDGE, "One."), 4), 30)
+        t.onTurn(Incoming.Turn(Line(Line.Kind.BRIDGE, "One."), 4), 30)
         assertEquals(
             listOf("sentence b=0 'One.' got 'One.'", "sentence b=0 'One. Two.' got 'Two.'", "turn b=0 'One.' got 'One.'"),
             t.entries().map { it.brief() },
@@ -59,7 +59,7 @@ class TranscriptTest {
         assertEquals(listOf("One."), t.lines.map { it.text })
         // a turn that says what the line already says changes no line, and the log says so
         t.onSentence(Incoming.Sentence("Three.", 5), 40)
-        t.onTurn(Incoming.Said(Line(Line.Kind.BRIDGE, "Three."), 5), 50)
+        t.onTurn(Incoming.Turn(Line(Line.Kind.BRIDGE, "Three."), 5), 50)
         assertEquals("turn b=null '' got 'Three.'", t.entries().last().brief())
     }
 

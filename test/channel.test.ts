@@ -34,7 +34,7 @@ describe("what a client is told (4.3, 14.7)", () => {
     c.tell({ kind: "blockStart", answer: 1, block: 1 });
     c.tell({ kind: "delta", text: "Four.", answer: 1, block: 1 });
     c.tell({ kind: "blockEnd", answer: 1, block: 1 });
-    c.tell({ kind: "turn", number: 1, text: "Four.", costUsd: 0.01 });
+    c.tell({ kind: "turn", number: 1, text: "Four.", costUsd: 0.01, answer: 1 });
     c.narrate("the search finished");
     c.tell({ kind: "error", text: "the agent stopped" });
     sent.length = 0;
@@ -86,12 +86,12 @@ describe("what a client missed (14.8)", () => {
   test("a drop in a tunnel is minutes, so recent turns come back", () => {
     const { c } = channel();
     const now = Date.now();
-    c.tell({ kind: "turn", number: 1, text: "recent", costUsd: 0 });
+    c.tell({ kind: "turn", number: 1, text: "recent", costUsd: 0, answer: 1 });
     expect(c.missed(now + 30_000).map((e) => e.text)).toEqual(["recent"]);
   });
   test("an exchange from hours ago is not something this client missed", () => {
     const { c } = channel();
-    c.tell({ kind: "turn", number: 1, text: "hours ago", costUsd: 0 });
+    c.tell({ kind: "turn", number: 1, text: "hours ago", costUsd: 0, answer: 1 });
     const later = Date.now() + 7_200_000;
     // replaying the old one arrives looking like the conversation in progress
     expect(c.missed(later).map((e) => e.text)).toEqual([]);

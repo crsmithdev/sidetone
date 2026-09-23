@@ -13,7 +13,6 @@ class MessagesTest {
     @Test
     fun eachKindBecomesALine() {
         assertEquals(Incoming.Said(Line(Line.Kind.YOU, "hello")), decode(bytes("""{"kind":"heard","text":"hello"}""")))
-        assertEquals(Incoming.Said(Line(Line.Kind.BRIDGE, "hi")), decode(bytes("""{"kind":"turn","text":"hi"}""")))
         assertEquals(Incoming.Said(Line(Line.Kind.NOTE, "reading a file")), decode(bytes("""{"kind":"narration","text":"reading a file"}""")))
         assertEquals(Incoming.Said(Line(Line.Kind.NOTE, "oops")), decode(bytes("""{"kind":"error","text":"oops"}""")))
         // 14.7 a sentence of the answer, ahead of the voice
@@ -23,7 +22,13 @@ class MessagesTest {
     @Test
     fun aSentenceAndATurnNameTheirAnswer() {
         assertEquals(Incoming.Sentence("Four.", 3), decode(bytes("""{"kind":"sentence","text":"Four.","answer":3}""")))
-        assertEquals(Incoming.Said(Line(Line.Kind.BRIDGE, "Four."), 3), decode(bytes("""{"kind":"turn","text":"Four.","answer":3}""")))
+        assertEquals(Incoming.Turn(Line(Line.Kind.BRIDGE, "Four."), 3), decode(bytes("""{"kind":"turn","text":"Four.","answer":3}""")))
+    }
+
+    @Test
+    fun aTurnThatNamesNoAnswerIsDrift() {
+        // 11.11.1 every turn names its answer, the agent's own after a background task too
+        assertEquals(Incoming.Unknown("turn with no answer"), decode(bytes("""{"kind":"turn","text":"hi"}""")))
     }
 
     @Test
@@ -36,7 +41,7 @@ class MessagesTest {
         // Chris cuts in; answer 1 is interrupted and never sends its turn
         lines = lines + Line(Line.Kind.YOU, "stop, what is four plus four")
         sentence("Eight.", 2)
-        lines = answered(lines, growing, Incoming.Said(Line(Line.Kind.BRIDGE, "Eight."), 2), 0)
+        lines = answered(lines, growing, Incoming.Turn(Line(Line.Kind.BRIDGE, "Eight."), 2), 0)
         assertEquals(
             listOf("count to three", "One. Two.", "stop, what is four plus four", "Eight."),
             lines.map { it.text },
@@ -44,10 +49,10 @@ class MessagesTest {
     }
 
     @Test
-    fun aTurnWithNoSentencesIsALineOfItsOwn() {
-        // the agent's own turn after a background task names no answer
+    fun aTurnWhoseAnswerGrewNothingIsALineOfItsOwn() {
+        // the client joined after the answer's words went by
         val lines = listOf(Line(Line.Kind.BRIDGE, "One."), Line(Line.Kind.YOU, "thanks"))
-        val after = answered(lines, Growing(0, 1), Incoming.Said(Line(Line.Kind.BRIDGE, "The job finished.")), 0)
+        val after = answered(lines, Growing(0, 1), Incoming.Turn(Line(Line.Kind.BRIDGE, "The job finished."), 2), 0)
         assertEquals(listOf("One.", "thanks", "The job finished."), after.map { it.text })
     }
 
@@ -141,12 +146,16 @@ class MessagesTest {
     }
 
     @Test
-    fun aTurnWithNoAnswerAfterBubblesIsALineOfItsOwn() {
-        // the agent's own turn after a background task, in a bridge that names answers
+    fun anAnswerNobodyAskedForIsABubbleOfItsOwn() {
+        // 11.11.1 the agent's own turn after a background task streams under an answer of its own
         val screen = Screen()
         screen.receive("""{"kind":"delta","text":"Started.","answer":1,"block":1}""", 1_000)
         screen.receive("""{"kind":"turn","number":1,"text":"Started.","costUsd":0.01,"answer":1}""", 1_100)
-        screen.receive("""{"kind":"turn","number":2,"text":"The job finished.","costUsd":0.01}""", 60_000)
+        screen.receive("""{"kind":"blockStart","answer":2,"block":1}""", 60_000)
+        screen.receive("""{"kind":"delta","text":"The job finished.","answer":2,"block":1}""", 60_100)
+        screen.receive("""{"kind":"blockEnd","answer":2,"block":1}""", 60_200)
+        screen.receive("""{"kind":"sentence","text":"The job finished.","answer":2}""", 60_300)
+        screen.receive("""{"kind":"turn","number":2,"text":"The job finished.","costUsd":0.01,"answer":2}""", 60_400)
         assertEquals(listOf("Started.", "The job finished."), screen.lines.map { it.text })
         assertEquals(listOf<Long?>(1_000, 60_000), screen.lines.map { it.at })
     }
@@ -204,7 +213,7 @@ class MessagesTest {
         val screen = Screen()
         for ((at, json) in fixture.withIndex()) {
             when (decode(bytes(json))) {
-                is Incoming.Said, is Incoming.Sentence, is Incoming.BlockStart, is Incoming.Delta, is Incoming.BlockEnd -> screen.receive(json, at.toLong())
+                is Incoming.Said, is Incoming.Turn, is Incoming.Sentence, is Incoming.BlockStart, is Incoming.Delta, is Incoming.BlockEnd -> screen.receive(json, at.toLong())
                 else -> Unit
             }
         }

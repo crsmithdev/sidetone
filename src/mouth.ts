@@ -187,9 +187,12 @@ export class Mouth {
     void this.pump();
   }
 
-  /** One sentence from the bridge itself. It jumps a hold, because you asked now. */
-  reply(text: string): void {
-    this.ahead.push({ text });
+  /**
+   * One sentence from the bridge itself. It jumps a hold, because you asked now.
+   * 11.11 an answer the agent began unasked jumps it too, and names its answer.
+   */
+  reply(text: string, answer?: number): void {
+    this.ahead.push({ text, answer });
     void this.pump();
   }
 

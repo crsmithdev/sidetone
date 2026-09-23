@@ -43,7 +43,7 @@ class Transcript(val log: ScreenLog = ScreenLog()) {
         log.record(now, kind, answer, block, text.ifEmpty { null }, before, next)
     }
 
-    fun onTurn(turn: Incoming.Said, now: Long) {
+    fun onTurn(turn: Incoming.Turn, now: Long) {
         val before = lines
         lines = answered(before, growing, turn, now)
         growing = null

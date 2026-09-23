@@ -524,33 +524,6 @@ one exists. It sits beside item 1, the volume the app ignores.
 Decided 23 September 2026: the menu also holds the "Leave" button, moved from
 the status row (item 30). It still quits the app. It may go away after item 27.
 
-## 29. Should a turn nobody asked for stream?
-
-Noted 22 September 2026, from the architecture review of that day (item 3,
-"An Answer module owns the agent's words on the way out"). The review rates
-it "Worth exploring" and says it pays only if unprompted turns stream.
-
-| Turn | What the client gets today |
-|---|---|
-| A turn Chris asked for (`runTurn`) | `blockStart`, `delta`, `blockEnd` and `sentence`, all with `answer`, then `turn` with `answer` |
-| A turn nobody asked for, 11.11 (`unprompted`) | One `turn` with no `answer`, after the whole reply. The voice says it sentence by sentence through `reply`. |
-
-The session already sends the deltas and blocks of an unprompted reply. The
-conversation drops them, because no turn is open. To stream it, the bridge
-opens an answer on the first delta between turns. This changes what the
-client sees for 11.11. It also reverses the test "a block start that
-arrives after the turn is over is not told" in `test/turn.test.ts`.
-
-Decide whether an unprompted reply streams. If it does, one `Answer` type
-serves both paths, and the `turn` with no `answer` goes from both clients.
-If it does not, the closures in `runTurn` stay where they are: an `Answer`
-type for one caller only moves them.
-
-Decided 23 September 2026: an unprompted reply streams. Chris can reverse this
-later. One `Answer` type serves both paths, and the `turn` with no `answer`
-goes from both clients. The test "a block start that arrives after the turn is
-over is not told" in `test/turn.test.ts` changes to match.
-
 ## 30. Compact the status row, and design it rather than grow it
 
 Noted 23 September 2026. Not started. To be designed.

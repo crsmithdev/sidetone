@@ -199,13 +199,21 @@ describe("the answer reaches the client a block at a time (14.9)", () => {
     expect(told(r).filter((line) => line.startsWith("blockStart"))).toEqual(["blockStart 1.1", "blockStart 2.1"]);
   });
 
-  test("a block start that arrives after the turn is over is not told", async () => {
+  test("a block that arrives after the turn is over opens an answer of its own (11.11)", async () => {
     const r = room({ deltas: ["Done."] });
     await r.c.turn("quick");
-    const before = r.told.length;
+    const before = told(r).length;
     r.agent.hooks().onBlockStart?.("text");
-    r.agent.hooks().onDelta?.("late");
-    expect(r.told).toHaveLength(before);
+    r.agent.hooks().onDelta?.("Late news.");
+    r.agent.hooks().onBlockEnd?.();
+    r.agent.hooks().onUnprompted?.({ number: 2, text: "Late news.", costUsd: 0.01, isError: false });
+    expect(told(r).slice(before)).toEqual([
+      "blockStart 2.1",
+      "delta 2.1 Late news.",
+      "blockEnd 2.1",
+      "sentence 2 Late news.",
+      "turn 2",
+    ]);
   });
 });
 
@@ -425,19 +433,51 @@ describe("11.9 waiting before insisting", () => {
 
 describe("11.11 a turn nobody asked for", () => {
   const turnOf = (text: string, isError = false) => ({ number: 7, text, costUsd: 0.01, isError });
+  /** The agent speaks unasked: the stream of one text block, then the result. */
+  const unasked = (r: ReturnType<typeof room>, text: string) => {
+    const hooks = r.agent.hooks();
+    hooks.onBlockStart?.("text");
+    hooks.onDelta?.(text);
+    hooks.onBlockEnd?.();
+    hooks.onUnprompted?.(turnOf(text));
+  };
 
   test("it is spoken, sentence by sentence, and reaches the client", async () => {
     const r = room();
-    r.agent.hooks().onUnprompted?.(turnOf("The search finished. It found nine files."));
+    unasked(r, "The search finished. It found nine files.");
     await tick();
     expect(r.said).toEqual(["The search finished.", "It found nine files."]);
     expect(r.told.some((value) => value.kind === "turn" && String(value.text).startsWith("The search finished"))).toBe(true);
   });
 
+  test("it streams as a turn Chris asked for does, under an answer of its own", async () => {
+    const r = room();
+    const hooks = r.agent.hooks();
+    hooks.onBlockStart?.("text");
+    hooks.onDelta?.("The build ");
+    hooks.onDelta?.("is green.");
+    hooks.onBlockEnd?.();
+    hooks.onUnprompted?.(turnOf("The build is green."));
+    await r.mouth.drained();
+    const streamed = r.told.flatMap((m) => ("answer" in m && m.kind !== "speaking" ? [[m.kind, m.answer]] : []));
+    expect(streamed).toEqual([["blockStart", 1], ["delta", 1], ["delta", 1], ["blockEnd", 1], ["sentence", 1], ["turn", 1]]);
+    expect(r.told.find((m) => m.kind === "turn")).toMatchObject({ number: 7, text: "The build is green.", answer: 1 });
+    // 14.13 the voice names the answer too, so the client can light its words
+    expect(r.told.filter((m) => m.kind === "speaking")).toEqual([{ kind: "speaking", text: "The build is green.", answer: 1 }]);
+  });
+
+  test("the next turn Chris asks for is a new answer", async () => {
+    const r = room({ deltas: ["Yes."] });
+    unasked(r, "The build is green.");
+    await r.c.turn("is it deployed");
+    const turns = r.told.flatMap((m) => (m.kind === "turn" ? [m.answer] : []));
+    expect(turns).toEqual([1, 2]);
+  });
+
   test("it jumps a hold, because news is not the answer it landed on", async () => {
     const r = room();
     r.c.ears.stopSpeaking();
-    r.agent.hooks().onUnprompted?.(turnOf("The build is green."));
+    unasked(r, "The build is green.");
     await tick();
     expect(r.said).toContain("The build is green.");
   });
@@ -446,18 +486,19 @@ describe("11.11 a turn nobody asked for", () => {
     // the drive of 18 September: one refusal, eighteen times in three seconds
     const r = room();
     r.c.ears.stopSpeaking();
-    r.agent.hooks().onUnprompted?.(turnOf("The build is green."));
+    unasked(r, "The build is green.");
     await tick();
     await tick();
     expect(r.said.filter((line) => line === "The build is green.").length).toBe(1);
   });
 
-  test("an empty one and a failed one say nothing", async () => {
+  test("one with no words says nothing and tells nothing", async () => {
     const r = room();
     r.agent.hooks().onUnprompted?.(turnOf("   "));
     r.agent.hooks().onUnprompted?.(turnOf("It broke.", true));
     await tick();
     expect(r.said).toEqual([]);
+    expect(r.told.filter((m) => m.kind === "turn")).toEqual([]);
   });
 });
 
