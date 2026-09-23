@@ -62,6 +62,17 @@ copy them. It links to them.
   timings over time and the outliers. Each point opens its turn.
 - The dashboard reads the existing files. It adds no store.
 
+## How to build the page
+
+- Use a component framework and a CSS framework. Do not write the page as
+  hand-made HTML with one large stylesheet. The build picks both and says why,
+  with the Bun and TypeScript stack of this repo in mind.
+- Before the build, make several mock-ups of the turn view, as options for
+  Chris to choose from. Build the chosen option only.
+- Use the `impeccable` skill for the design and the mock-ups. Add the skills
+  that fit: `dataviz` for every chart, `make-interfaces-feel-better` for the
+  details, and `frontend-design` for the direction.
+
 ## Unknown
 
 - How far the clocks of the phone and the bridge drift within one session. The

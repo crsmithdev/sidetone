@@ -298,6 +298,9 @@ Decided 23 September 2026:
 - Build the turn view first. Decide the aggregate views after Chris has used it.
 - What else to record, and the order to build it, is in
   [`observability-brief.md`](observability-brief.md).
+- The page uses a component framework and a CSS framework. Before the build,
+  make several mock-ups with the `impeccable` skill and the skills that fit.
+  Chris picks one.
 
 ## 22. A desktop client
 
