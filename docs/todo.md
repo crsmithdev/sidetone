@@ -283,6 +283,20 @@ to `record.jsonl`, so a historical cost view needs that added first.
 Done when Chris can open a page and see turn timing and cost over time, not
 just the live recent window `/diagnostics` gives today.
 
+Decided 23 September 2026:
+
+- The dashboard shows everything the bridge exposes for debugging: the round
+  trip, the audio timing, the transcripts, the events, the settings, and the
+  screen log and screenshots of the turn.
+- It has two views. The aggregate view shows the timings over time and the
+  outliers. The turn view shows one turn from start to end, with all its data.
+  Each aggregate point opens its turn.
+- It reads the files that exist: `record.jsonl`, the journal, `~/.sidetone/screen/`
+  and `~/.sidetone/screenshots/`. It joins them by turn number. It adds no store.
+- Langfuse keeps the traces of the agent and the model. The dashboard does not
+  copy them. The turn view links to the Langfuse trace of that turn.
+- Build the turn view first. Decide the aggregate views after Chris has used it.
+
 ## 22. A desktop client
 
 Noted 22 September 2026. Lower priority. Not started.
