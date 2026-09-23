@@ -38,9 +38,6 @@ import kotlinx.serialization.json.jsonObject
  * the process in the foreground for as long as there is a conversation.
  */
 object Bridge {
-    /** REJOINING: 18.9 the bridge asked for a new microphone track, and the app is joining again. */
-    enum class Status { IDLE, CONNECTING, LISTENING, RECONNECTING, REJOINING, UNREACHABLE }
-
     data class State(
         val paired: Boolean = false,
         val status: Status = Status.IDLE,
@@ -63,16 +60,12 @@ object Bridge {
     )
 
     private const val TAG = "Sidetone"
-    private const val RETRY_MS = 5_000L
 
     /** 14.11 how often the app sends new screen log entries. */
     private const val STREAM_MS = 1_000L
 
     /** 14.11 the most entries kept for the bridge while the room is gone. The oldest go first. */
     private const val UNSENT_MAX = 2_000
-
-    /** The reason [runRoom] gives when the bridge asked for a rejoin, which is no fault. */
-    private const val REJOINING = "rejoining"
 
     private val _state = MutableStateFlow(State())
     val state: StateFlow<State> = _state
@@ -84,7 +77,9 @@ object Bridge {
     private var session: Job? = null
     private var room: Room? = null
     private var mic: LocalAudioTrack? = null
-    private var rejoinedAt: Long? = null
+
+    /** 17.11 and 18.9 the status word, the retry and the rejoin, apart from the room. */
+    private val joining = Joining()
 
     /** 17.17 whether the app is on the screen. [MainActivity] sets it. */
     var inFront = false
@@ -124,20 +119,23 @@ object Bridge {
         app.startForegroundService(Intent(app, BridgeService::class.java))
         session = scope.launch {
             while (true) {
-                // 18.9 a rejoin keeps its own word in the status light until the room is back
-                _state.update { if (it.status == Status.REJOINING) it else it.copy(status = Status.CONNECTING) }
+                joining.opening()
+                showJoining()
                 val reason = runRoom(app, credentials)
                 Log.i(TAG, "the room ended: $reason")
-                if (reason == REJOINING) continue
-                if (refused(reason)) {
-                    store.clear()
-                    stop(app)
-                    reset()
-                    _state.value = State(error = "The bridge refused the saved pairing ($reason). Scan the code again.")
-                    return@launch
+                val next = joining.ended(reason)
+                showJoining()
+                when (next) {
+                    is Joining.Next.Open -> continue
+                    is Joining.Next.WaitThenOpen -> delay(next.ms)
+                    is Joining.Next.Forget -> {
+                        store.clear()
+                        stop(app)
+                        reset()
+                        _state.value = State(error = joining.error)
+                        return@launch
+                    }
                 }
-                _state.update { it.copy(status = Status.UNREACHABLE, error = "Cannot reach the bridge: $reason. Retrying.") }
-                delay(RETRY_MS)
             }
         }
     }
@@ -145,6 +143,7 @@ object Bridge {
     fun leave(context: Context) {
         stop(context.applicationContext)
         reset()
+        joining.left()
         _state.value = State(paired = store.load() != null)
     }
 
@@ -181,7 +180,8 @@ object Bridge {
         val stream = launch { while (true) { delay(STREAM_MS); sendScreenLog(room) } }
         try {
             room.connect(credentials.url, credentials.token)
-            _state.update { it.copy(status = Status.LISTENING, error = null) }
+            joining.open()
+            showJoining()
             // the bridge starts every process with its audio on, so an audio cut has to be
             // said again to a room this app has only just joined
             if (!_state.value.audioOn) tell(room, Outgoing.audio(false))
@@ -208,8 +208,8 @@ object Bridge {
 
     private fun on(room: Room, event: RoomEvent, ended: CompletableDeferred<String>) {
         when (event) {
-            is RoomEvent.Reconnecting -> _state.update { it.copy(status = Status.RECONNECTING) }
-            is RoomEvent.Reconnected -> _state.update { it.copy(status = Status.LISTENING) }
+            is RoomEvent.Reconnecting -> { joining.reconnecting(); showJoining() }
+            is RoomEvent.Reconnected -> { joining.reconnected(); showJoining() }
             is RoomEvent.Disconnected -> ended.complete(event.error?.message ?: reasonWord(event.reason))
             // N.1.4 the phone reads its own uplink and tells the bridge
             is RoomEvent.ConnectionQualityChanged -> {
@@ -239,16 +239,14 @@ object Bridge {
      * [REJOIN_MS] of the last rejoin is ignored, so a silent phone cannot loop.
      */
     private fun rejoin(ended: CompletableDeferred<String>) {
-        val now = SystemClock.elapsedRealtime()
-        if (!rejoinDue(rejoinedAt, now)) {
+        if (!joining.rejoinAsked(SystemClock.elapsedRealtime())) {
             Log.i(TAG, "the bridge asked for a rejoin inside ${REJOIN_MS / 1000} s of the last one; ignored")
             return
         }
-        rejoinedAt = now
         Log.i(TAG, "the bridge asked for a rejoin")
         record("rejoin", "rejoining to publish a new microphone track")
-        _state.update { it.copy(status = Status.REJOINING) }
-        ended.complete(REJOINING)
+        showJoining()
+        ended.complete(Joining.REJOINING)
     }
 
     /**
@@ -413,6 +411,11 @@ object Bridge {
 
     /** 4.3.1 an event for the screen log, with no line on the screen. */
     private fun record(kind: String, text: String) = conversation.record(kind, text, now())
+
+    /** The screen shows what the link says now. */
+    private fun showJoining() {
+        _state.update { it.copy(status = joining.status, error = joining.error) }
+    }
 
     /** The screen shows what the conversation holds now. */
     private fun shown() {

@@ -45,6 +45,10 @@ _Avoid_: the sink, the audio output.
 What a client knows about the conversation and what one message does to it: the lines, the log of them, the words of the Stop button, whether the history has been shown, and the working sign. It needs no room, and a message either changes it or asks the room for something. In the app it is one module of that name, beside the transcript.
 _Avoid_: the view model, the state, the store.
 
+**The client's joining**:
+What the app does about the room: the status word it shows, whether it waits and asks again after a room ends, and whether the bridge asked for a new microphone track. It gives up on one end only, a refused pairing; every other end it tries again. It holds no room, so it is read by a test. In the app it is one module of that name, beside the conversation.
+_Avoid_: the connection, the socket, the retry loop.
+
 **The control channel**:
 The words between the bridge and a client, apart from the audio: what was heard, the words of an answer as the agent writes them, each sentence as it is known, a turn, a note, whether the agent works, the screen log, a screenshot, and what a returning client missed. One module owns its vocabulary in both directions.
 _Avoid_: the data channel, the transcript feed, the messages.

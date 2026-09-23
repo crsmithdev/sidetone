@@ -68,7 +68,7 @@ class BridgeService : Service() {
     }
 
     /** What the notification shows, so a change elsewhere in the state does not post it again. */
-    data class Shown(val status: Bridge.Status, val micOn: Boolean, val audioOn: Boolean, val inRoom: Boolean, val sign: Sign) {
+    data class Shown(val status: Status, val micOn: Boolean, val audioOn: Boolean, val inRoom: Boolean, val sign: Sign) {
         companion object {
             fun of(state: Bridge.State) = Shown(state.status, state.micOn, state.audioOn, state.endTurn != null, state.sign)
         }

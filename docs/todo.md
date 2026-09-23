@@ -145,6 +145,13 @@ No restart since 07:35 needed a touch. The next time one does, note the time
 and the status word on the screen (`RECONNECTING`, `UNREACHABLE` or
 `LISTENING`).
 
+23 September 2026: the app side of this is now a module of its own, `Joining`,
+with the retry and the status word apart from the room, and `JoiningTest`
+asserts the rule this item rests on: a refused pairing is the one end the app
+gives up after, and every other reason waits and tries again. That is the app
+answering for itself. It does not close the item, because no restart has been
+watched since, and the case Chris hit may not be the app giving up at all.
+
 Done when the service restarts and the app is listening again with no touch.
 
 ## 13. A three-button row for mic, audio and music

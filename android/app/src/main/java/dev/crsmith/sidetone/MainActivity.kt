@@ -236,11 +236,11 @@ private fun Conversation(state: Bridge.State, onLeave: () -> Unit) {
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            val live = state.status == Bridge.Status.LISTENING
+            val live = state.status == Status.LISTENING
             // 18.9 a rejoin shows in the light, not in a note
             val light = when {
                 live -> MaterialTheme.colorScheme.primary
-                state.status == Bridge.Status.REJOINING -> MaterialTheme.colorScheme.tertiary
+                state.status == Status.REJOINING -> MaterialTheme.colorScheme.tertiary
                 else -> MaterialTheme.colorScheme.outline
             }
             Box(Modifier.size(10.dp).background(light, CircleShape))
@@ -377,15 +377,15 @@ private fun WorkingSign(sign: Sign) {
 }
 
 /** 17.11.6 the connection quality, only while the room is live. A reading from a room that is gone is old. */
-internal fun qualityWord(status: Bridge.Status, quality: String?): String? =
-    if (status == Bridge.Status.LISTENING) quality ?: "—" else null
+internal fun qualityWord(status: Status, quality: String?): String? =
+    if (status == Status.LISTENING) quality ?: "—" else null
 
-internal fun statusWord(status: Bridge.Status) = when (status) {
-    Bridge.Status.IDLE, Bridge.Status.CONNECTING -> "connecting"
-    Bridge.Status.LISTENING -> "listening"
-    Bridge.Status.RECONNECTING -> "reconnecting"
-    Bridge.Status.REJOINING -> "rejoining"
-    Bridge.Status.UNREACHABLE -> "disconnected"
+internal fun statusWord(status: Status) = when (status) {
+    Status.IDLE, Status.CONNECTING -> "connecting"
+    Status.LISTENING -> "listening"
+    Status.RECONNECTING -> "reconnecting"
+    Status.REJOINING -> "rejoining"
+    Status.UNREACHABLE -> "disconnected"
 }
 
 @Composable

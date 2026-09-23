@@ -33,5 +33,5 @@ fun signWord(sign: Sign): String = when (sign) {
  * message can come, so the status word says why and the sign shows nothing.
  * In a live room the link is up, so "stalled" can only be the bridge.
  */
-fun shownSign(status: Bridge.Status, sign: Sign): Sign =
-    if (status == Bridge.Status.LISTENING) sign else Sign.OFF
+fun shownSign(status: Status, sign: Sign): Sign =
+    if (status == Status.LISTENING) sign else Sign.OFF

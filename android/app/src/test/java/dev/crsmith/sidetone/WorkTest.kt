@@ -38,19 +38,19 @@ class WorkTest {
     @Test
     fun theSignShowsOnlyInALiveRoom() {
         // 17.11.6 "reconnecting" beside "stalled" would name two causes for one silence
-        for (sign in Sign.entries) assertEquals(sign, shownSign(Bridge.Status.LISTENING, sign))
-        for (status in Bridge.Status.entries.filter { it != Bridge.Status.LISTENING }) {
+        for (sign in Sign.entries) assertEquals(sign, shownSign(Status.LISTENING, sign))
+        for (status in Status.entries.filter { it != Status.LISTENING }) {
             for (sign in Sign.entries) assertEquals(Sign.OFF, shownSign(status, sign))
         }
     }
 
     @Test
     fun theQualityShowsOnlyInALiveRoom() {
-        assertEquals("excellent", qualityWord(Bridge.Status.LISTENING, "excellent"))
-        assertEquals("—", qualityWord(Bridge.Status.LISTENING, null))
+        assertEquals("excellent", qualityWord(Status.LISTENING, "excellent"))
+        assertEquals("—", qualityWord(Status.LISTENING, null))
         // a reading kept from before the drop would say "excellent" beside "reconnecting"
-        assertNull(qualityWord(Bridge.Status.RECONNECTING, "excellent"))
-        assertNull(qualityWord(Bridge.Status.UNREACHABLE, null))
+        assertNull(qualityWord(Status.RECONNECTING, "excellent"))
+        assertNull(qualityWord(Status.UNREACHABLE, null))
     }
 
     @Test
