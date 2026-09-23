@@ -36,6 +36,8 @@ export const INCOMING = {
   rejoin: "none",
   /** 14.10 whether the agent works; the app shows a sign, the page shows nothing */
   working: "none",
+  /** 9.4.9 the settings in force, when a client joins and whenever one changes; a client shows them where it can */
+  settings: "none",
 } as const;
 
 /**
@@ -45,8 +47,10 @@ export const INCOMING = {
  * kind kept the name it had when the voice was all the audio there was.
  * `screen` is one part of the app's screen log (14.11); the bridge writes the log to disk.
  * `screenshot` is one part of a screenshot from the phone (14.12); the bridge writes the image to disk.
+ * `setting` changes one setting, and does exactly what the spoken command does,
+ * down to the voice saying so: a client cannot do more by tapping than by talking.
  */
-export const OUTGOING = ["said", "mic", "quality", "voice", "screen", "screenshot"] as const;
+export const OUTGOING = ["said", "mic", "quality", "voice", "screen", "screenshot", "setting"] as const;
 
 /** 14.8 a line a returning client is given again: what Chris said and what was answered. */
 export type Kept =
@@ -80,6 +84,12 @@ export type Outgoing =
   | { kind: "rejoin" }
   /** 14.10 a turn runs or a detached job runs; sent when it changes, and again every few seconds while it holds */
   | { kind: "working"; on: boolean }
+  /**
+   * 9.4.9 the settings in force. A client that can show a setting has to be
+   * able to read one: before this a client could set a setting by sending the
+   * words of the command, and had no way at all to know what it was now.
+   */
+  | { kind: "settings"; settings: Record<string, unknown> }
   | { kind: "protocol"; endTurn: string; incoming: typeof INCOMING; outgoing: typeof OUTGOING; apk?: Apk };
 
 /** 17.15 the app the bridge serves: where to fetch it, and its SHA-256 in hex. */

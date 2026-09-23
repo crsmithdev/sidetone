@@ -119,6 +119,27 @@ class ConversationTest {
     }
 
     @Test
+    fun theSettingsInForceArriveAndAreKept() {
+        send("""{"kind":"settings","settings":{"holdMusic":true,"tones":false,"ttsVoice":"som_00295","holdMusicGain":0.4}}""")
+        assertEquals(mapOf("holdMusic" to true, "tones" to false), c.settingsOn)
+        assertEquals("som_00295", c.settingWords["ttsVoice"])
+        // a number is neither a switch nor a word the app shows today
+        assertEquals(null, c.settingsOn["holdMusicGain"])
+    }
+
+    @Test
+    fun aSettingMessageIsWhatTheAppSendsToChangeOne() {
+        assertEquals(
+            """{"kind":"setting","patch":{"holdMusic":false}}""",
+            Outgoing.setting("holdMusic", false).decodeToString(),
+        )
+        assertEquals(
+            """{"kind":"setting","patch":{"voice":"male"}}""",
+            Outgoing.voice("male").decodeToString(),
+        )
+    }
+
+    @Test
     fun aRoomThatEndedTakesItsProtocolAndItsWorkWithIt() {
         send("""{"kind":"heard","text":"what is two plus two"}""")
         send("""{"kind":"protocol","endTurn":"end turn"}""")

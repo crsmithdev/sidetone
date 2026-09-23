@@ -860,6 +860,19 @@ describe("a track asked for (15.12)", () => {
     expect(r.tracks[0]?.stopped).toBe(false);
   });
 
+  test("a sentence waits for it instead of cutting it", async () => {
+    const r = room({}, {}, { file: "/nowhere.wav", lasts: 120 });
+    r.mouth.play(wav);
+    await until(() => r.tracks.length > 0);
+    r.mouth.say("That was Opus number one.");
+    await wait(40);
+    // the track is still playing, and the sentence has not started over it
+    expect(r.said).toEqual([]);
+    expect(r.tracks[0]?.stopped).toBe(false);
+    await until(() => r.said.length > 0);
+    expect(r.said).toEqual(["That was Opus number one."]);
+  });
+
   test("Chris talking cuts it, as it cuts the hold music", async () => {
     const r = room({}, {}, { file: "/nowhere.wav" });
     r.mouth.play(wav);

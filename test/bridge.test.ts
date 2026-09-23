@@ -94,6 +94,28 @@ describe("the bridge, assembled as the car assembles it", () => {
     expect(r.said).toEqual(["Job research finished."]);
   });
 
+  test("a setting a client sends does what the spoken command does (9.4.9)", async () => {
+    const r = bridge();
+    r.channel.receive({ kind: "setting", patch: { holdMusic: true } });
+    await until(() => r.said.length > 0);
+    // the same reply, the same patch, the same record: tapping cannot outrun talking
+    expect(r.said).toEqual(["Music on."]);
+    expect(r.patches).toEqual([{ holdMusic: true }]);
+    expect(r.config.holdMusic).toBe(true);
+    // and every client is told what is in force now
+    const settings = r.told.filter((message) => message.kind === "settings");
+    expect(settings.length).toBeGreaterThan(0);
+    expect((settings.at(-1) as { settings: Record<string, unknown> }).settings.holdMusic).toBe(true);
+  });
+
+  test("a setting a client may not reach is ignored (9.4.9)", async () => {
+    const r = bridge();
+    r.channel.receive({ kind: "setting", patch: { sttModel: "tiny.en", recordPath: "/etc/passwd" } });
+    await Bun.sleep(10);
+    expect(r.patches).toEqual([]);
+    expect(r.said).toEqual([]);
+  });
+
   test("what Chris says arrives through the channel as a turn (14.11)", async () => {
     const r = bridge({ script: { deltas: ["Four."] } });
     r.channel.receive({ kind: "said", text: "what is two plus two" });

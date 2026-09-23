@@ -135,6 +135,7 @@ export function assemble(
     microphone: (on, release) => { if (!on) ear.reset(release); },
     voice: (on) => mouth.setAudio(on),
     quality: (side, quality) => conversation.network.saw(side, quality),
+    setting: (patch) => conversation.set(patch),
     screen: (part) => screens.receive(part),
     screenshot: (part) => screenshots.receive(part),
   }, say);
@@ -142,7 +143,13 @@ export function assemble(
   const conversation: Conversation = new Conversation(dir, config, mouth, channel, {
     // 9.4 the file is for the next run; the live copy is what /diagnostics and
     // the health line report now; the record says when it changed
-    onSetting: (patch) => { Object.assign(config, patch); keep(patch); measures.setting(patch); },
+    onSetting: (patch) => {
+      Object.assign(config, patch);
+      keep(patch);
+      measures.setting(patch);
+      // 9.4.9 every client sees what is in force now, however it was changed
+      channel.settings(settingsInForce(config));
+    },
     onTurn: (turn) => say(`[turn ${turn.number}, $${conversation.agent.totalCostUsd().toFixed(4)} this session]`),
   }, parts.makeAgent);
 

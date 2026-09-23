@@ -306,7 +306,7 @@ export class Mouth {
    * the hold made "Nothing is running." unreachable from the room.
    */
   get busy(): boolean {
-    return this.playing || this.outbox.length > 0 || this.ahead.length > 0;
+    return this.playing || this.track !== null || this.outbox.length > 0 || this.ahead.length > 0;
   }
 
   /** Resolves once nothing is queued and nothing is playing. */
@@ -322,7 +322,7 @@ export class Mouth {
    * `InvalidState - failed to capture frame`.
    */
   cue(name: CueName): void {
-    if (!this.audio || this.playing) return;
+    if (!this.audio || this.playing || this.track) return;
     const wav = this.cues.file(name);
     if (wav) this.speaker.cue(wav, this.cutOff);
   }
@@ -343,7 +343,7 @@ export class Mouth {
     const wav = await this.decoded;
     // the first decode takes seconds: a sentence may have come since
     if (!wav || !this.audio || this.occupied() || stop()) return false;
-    return this.started("music", this.speaker.track(wav, () => this.cutOff() || stop(), { when: () => this.busy, ms: music.fadeMs }), music.fadeMs);
+    return this.started("music", this.speaker.track(wav, () => this.cutOff() || stop(), { when: () => this.busy, ms: music.fadeMs }));
   }
 
   /**
@@ -359,7 +359,16 @@ export class Mouth {
     this.trackTimer ??= setInterval(() => {
       if (this.holding || this.occupied() || !this.audio) return;
       const next = this.tracks.shift();
-      if (next) this.started("file", this.speaker.track(next.wav, this.cutOff, { when: () => this.busy, ms: next.fadeMs }), next.fadeMs);
+      if (next) {
+        const playing = this.speaker.track(next.wav, this.cutOff, { when: () => false, ms: next.fadeMs });
+        if (playing) {
+          // 15.12 a sentence waits for the track rather than cutting it: an
+          // answer about a track that ends the track is the fault this fixed.
+          this.track = playing;
+          void playing.finally(() => { this.track = null; void this.pump(); });
+        }
+        this.started("file", playing);
+      }
       if (this.tracks.length > 0) return;
       clearInterval(this.trackTimer!);
       this.trackTimer = null;
@@ -367,13 +376,16 @@ export class Mouth {
   }
 
   /** 15.7 the record says when a track started and when it stopped, or it cannot be checked after a drive. */
-  private started(what: "music" | "file", playing: Promise<boolean> | null, _fadeMs: number): boolean {
+  private started(what: "music" | "file", playing: Promise<boolean> | null): boolean {
     if (!playing) return false;
     const at = Date.now();
     this.measures.trackStarted(what);
     void playing.then((whole) => this.measures.trackStopped(what, Date.now() - at, whole));
     return true;
   }
+
+  /** 15.12 the track playing now, which a sentence waits for. Null when none is. */
+  private track: Promise<boolean> | null = null;
 
   /** 15.12 the tracks asked for and not yet played. */
   private readonly tracks: Array<{ wav: Uint8Array; fadeMs: number }> = [];
@@ -390,6 +402,8 @@ export class Mouth {
     this.pumping = true;
     try {
       for (;;) {
+        // 15.12 a track asked for holds the source until it ends or Chris talks
+        if (this.track) await this.track;
         // which queue it came from, so a cut sentence goes back to that one
         const jumped = this.ahead.length > 0;
         const text = this.ahead.shift() ?? (this.holding ? undefined : this.outbox.shift());

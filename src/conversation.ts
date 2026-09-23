@@ -641,6 +641,19 @@ export class Conversation {
     return "resume";
   }
 
+  /**
+   * 9.4.9 a setting a client changed. It goes through the same paths a spoken
+   * command does, the voice's answer included, so tapping a switch and saying
+   * the words cannot end anywhere different. A key it does not know is ignored:
+   * a client may not reach the settings the car has no command for.
+   */
+  set(patch: Record<string, unknown>): void {
+    if (typeof patch.tones === "boolean") this.setTones(patch.tones);
+    if (typeof patch.holdMusic === "boolean") this.setHoldMusic(patch.holdMusic);
+    if (typeof patch.interruptOnSpeech === "boolean") this.setInterrupting(patch.interruptOnSpeech);
+    if (patch.voice === "female" || patch.voice === "male") this.switchVoice(patch.voice);
+  }
+
   /** One utterance of PCM becomes one thing Chris said. */
   start(): void { this.agent.start(); }
   stop(): void { this.agent.stop(); }

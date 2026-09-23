@@ -32,6 +32,12 @@ class Conversation(val transcript: Transcript = Transcript()) {
     var endTurn: String? = null
         private set
 
+    /** 9.4.9 the settings in force on the bridge: the switches, and the words of the rest. */
+    var settingsOn: Map<String, Boolean> = emptyMap()
+        private set
+    var settingWords: Map<String, String> = emptyMap()
+        private set
+
     /** 17.11 whether the bridge says the agent works. */
     var sign: Sign = Sign.OFF
         private set
@@ -72,6 +78,10 @@ class Conversation(val transcript: Transcript = Transcript()) {
                 if (!inFront) return listOf(Effect.Alert("Sidetone", message.line.text))
             }
             is Incoming.Rejoin -> return listOf(Effect.Rejoin)
+            is Incoming.Settings -> {
+                settingsOn = message.on
+                settingWords = message.words
+            }
             is Incoming.Working -> {
                 workingOn = message.on
                 workingAt = since
@@ -118,6 +128,8 @@ class Conversation(val transcript: Transcript = Transcript()) {
         historyShown = false
         workingOn = false
         endTurn = null
+        settingsOn = emptyMap()
+        settingWords = emptyMap()
     }
 
     /** A room that ended shows its history again when the next one opens. */

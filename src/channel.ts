@@ -13,7 +13,7 @@
  * line. It decides nothing about the conversation: what a message does is the
  * conversation's, the ear's and the mouth's, which it reaches through `Ends`.
  */
-import type { Config } from "./config.ts";
+import { settingsInForce, type Config } from "./config.ts";
 import { protocolMessage, type Apk, type Kept, type Outgoing } from "./messages.ts";
 import { qualityOf, type Quality, type Side } from "./network.ts";
 
@@ -30,6 +30,8 @@ export interface Ends {
   voice(on: boolean): void;
   /** N.1 a reading of the connection; true when it is news */
   quality(side: Side, quality: Quality): boolean;
+  /** 9.4.9 a setting a client changed, in the same words the config uses */
+  setting(patch: Record<string, unknown>): void;
   /** 14.11 one part of the phone's screen log; what to say about it, if anything */
   screen(part: Record<string, unknown>): string[];
   /** 14.12 one part of a screenshot from the phone; what to say about it, if anything */
@@ -65,6 +67,11 @@ export class Channel {
     this.send(message);
   }
 
+  /** 9.4.9 the settings in force, whenever they change and when a client joins. */
+  settings(map: Record<string, unknown>): void {
+    this.send({ kind: "settings", settings: map });
+  }
+
   /** 2.3 what the bridge says about itself, on the journal and in the client. */
   narrate(text: string): void {
     this.tell({ kind: "narration", text });
@@ -81,6 +88,7 @@ export class Channel {
    */
   joined(apk?: Apk): void {
     this.send(protocolMessage(this.config, apk));
+    this.settings(settingsInForce(this.config));
     this.send({ kind: "history", turns: this.missed() });
   }
 
@@ -109,6 +117,11 @@ export class Channel {
       this.ends.voice(on);
       // 4.3.1 the app shows its own state; the note said it a second time
       this.journal(on ? "the audio is on" : "the audio is off; the words carry on in the transcript");
+      return;
+    }
+    // 9.4.9 a setting a client changed. It does what the spoken command does.
+    if (value.kind === "setting" && value.patch && typeof value.patch === "object") {
+      this.ends.setting(value.patch as Record<string, unknown>);
       return;
     }
     if (value.kind === "screen") {

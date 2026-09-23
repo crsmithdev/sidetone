@@ -15,6 +15,7 @@ function channel(overrides: Partial<Config> = {}) {
     heard: async (text) => { did.push(`heard ${text}`); },
     microphone: (on, release) => { did.push(`microphone ${on}${release ? " release" : ""}`); },
     voice: (on) => { did.push(`voice ${on}`); },
+    setting: (patch) => { did.push(`setting ${JSON.stringify(patch)}`); },
     quality: (side, quality) => { did.push(`quality ${side} ${quality}`); return news; },
     screen: (part) => { did.push(`screen ${String(part.id)}`); return ["screen said"]; },
     screenshot: (part) => { did.push(`screenshot ${String(part.id)}`); return ["screenshot said"]; },
@@ -38,8 +39,10 @@ describe("what a client is told (4.3, 14.7)", () => {
     sent.length = 0;
     c.joined();
     expect(sent[0]).toMatchObject({ kind: "protocol", endTurn: `${config.wakeWord} end the turn` });
-    expect(sent[1]?.kind).toBe("history");
-    const turns = sent[1]?.kind === "history" ? sent[1].turns : [];
+    // 9.4.9 a client that shows a setting is told what is in force before the history
+    expect(sent[1]).toMatchObject({ kind: "settings" });
+    expect(sent[2]?.kind).toBe("history");
+    const turns = sent[2]?.kind === "history" ? sent[2].turns : [];
     expect(turns.map((t) => `${t.kind} ${t.text}`)).toEqual(["heard what is two plus two", "turn Four."]);
   });
 

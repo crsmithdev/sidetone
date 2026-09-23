@@ -3,6 +3,7 @@ package dev.crsmith.sidetone
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -60,6 +61,13 @@ sealed interface Incoming {
      * stayed hidden.
      */
     data class Unknown(val kind: String) : Incoming
+
+    /**
+     * 9.4.9 the settings in force on the bridge, sent when this client joins and
+     * whenever one changes, however it changed. The app shows what it can and
+     * sends [Outgoing.setting] to change one.
+     */
+    data class Settings(val on: Map<String, Boolean>, val words: Map<String, String>) : Incoming
 }
 
 fun decode(payload: ByteArray): Incoming? {
@@ -75,6 +83,17 @@ fun decode(payload: ByteArray): Incoming? {
         return Incoming.Protocol(endTurn, apk)
     }
     if (kind == "rejoin") return Incoming.Rejoin
+    if (kind == "settings") {
+        val settings = message["settings"] as? JsonObject ?: return Incoming.Settings(emptyMap(), emptyMap())
+        val on = mutableMapOf<String, Boolean>()
+        val words = mutableMapOf<String, String>()
+        for ((name, value) in settings) {
+            val primitive = value as? JsonPrimitive ?: continue
+            if (primitive.isString) words[name] = primitive.content
+            else primitive.content.toBooleanStrictOrNull()?.let { on[name] = it }
+        }
+        return Incoming.Settings(on, words)
+    }
     if (kind == "working") return Incoming.Working(message.bool("on") ?: return null)
     if (kind == "sentence") {
         val text = message.string("text") ?: return null
@@ -192,6 +211,22 @@ object Outgoing {
         encode(buildJsonObject { put("kind", "mic"); put("on", on); if (release) put("release", true) })
 
     fun quality(quality: String): ByteArray = encode(buildJsonObject { put("kind", "quality"); put("quality", quality) })
+
+    /**
+     * 9.4.9 change one setting. It does exactly what the spoken command does,
+     * the voice's answer included, so a switch and the words cannot disagree.
+     * The bridge ignores a name it has no command for.
+     */
+    fun setting(name: String, on: Boolean): ByteArray = encode(buildJsonObject {
+        put("kind", "setting")
+        put("patch", buildJsonObject { put(name, on) })
+    })
+
+    /** 9.4 which of the two voices speaks: "female" or "male". */
+    fun voice(which: String): ByteArray = encode(buildJsonObject {
+        put("kind", "setting")
+        put("patch", buildJsonObject { put("voice", which) })
+    })
 
     /**
      * 11.12 cut all the audio and keep the words, for somewhere the bridge must not be heard.
