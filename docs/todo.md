@@ -585,6 +585,25 @@ missing, which ones nobody uses, and which ones clash. Check each one against
 Done when there is a written list of the commands with a keep, change, add or
 drop decision for each one.
 
+Counts from `~/.sidetone/record.jsonl`, 17 to 23 September 2026. The bridge has
+22 commands. Six fired: end turn 24, carry on 5, stats 4, mute 3, unmute 3,
+interrupt on 2. The wake word came 6 times with no command after it. The other
+16 never fired.
+
+Decided 23 September 2026:
+
+- Drop `summarize`. It overlaps with `where`, and item 37 covers short replies.
+- Drop the bare `tones` and the bare `interrupt`. Each is ambiguous beside its
+  on and off forms.
+- Change `clearContext`. It needs the two words "clear context". The bare word
+  "clear" no longer clears the session.
+- Keep the other 12 unused commands: audio on and off (the safety net of 11.12),
+  music on and off, tones on and off, interrupt off, `restate`, `usage` (until
+  item 21) and the two voice commands.
+- No command needs three words. Every form in `src/commands.ts` is one or two.
+- Still to do: the clash between `carryOn` "continue" and the confirm word of
+  item 35, and the five commands item 37 adds.
+
 ## 37. A verbosity setting, as a command and in the app
 
 Noted 23 September 2026. Not started.
