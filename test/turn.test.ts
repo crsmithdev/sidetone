@@ -1,8 +1,8 @@
-import { describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
+import { describe, expect, setSystemTime, test } from "bun:test";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { encodeWav } from "../src/audio.ts";
+import { decodeWav, encodeWav } from "../src/audio.ts";
 import { DEFAULTS, type Config } from "../src/config.ts";
 import type { Outgoing } from "../src/messages.ts";
 import type { SessionHooks } from "../src/session.ts";
@@ -569,8 +569,8 @@ describe("what the bridge answers from itself (9.4.5, 9.4.6, 9.4.7)", () => {
  * milliseconds, and the margins are wider than the timers' jitter.
  */
 describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
-  const file = join(mkdtempSync(join(tmpdir(), "hold-")), "hold.wav");
-  Bun.write(file, encodeWav(new Int16Array(4_800).fill(1_000), 48_000));
+  const folder = mkdtempSync(join(tmpdir(), "hold-"));
+  writeFileSync(join(folder, "hold.wav"), encodeWav(new Int16Array(4_800).fill(1_000), 48_000));
   const AFTER = 100;
   /** 15.7.4 the marker alone, so the turn is long and no sentence has moved the silence */
   const LONG = ["[long]"];
@@ -586,7 +586,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
    */
   async function slow(overrides: Partial<Config> = {}, more: Partial<Music> = {}, opening: string[] = LONG) {
     let end = () => {};
-    const r = room({ during: (hooks) => { for (const delta of opening) hooks.onDelta?.(delta); }, hold: new Promise<void>((resolve) => { end = resolve; }) }, { holdMusicAfterMs: AFTER, ...overrides }, { file, ...more });
+    const r = room({ during: (hooks) => { for (const delta of opening) hooks.onDelta?.(delta); }, hold: new Promise<void>((resolve) => { end = resolve; }) }, { holdMusicAfterMs: AFTER, ...overrides }, { folder, ...more });
     await r.mouth.music(() => true);
     return { ...r, end, turn: r.c.turn("something slow") };
   }
@@ -771,7 +771,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
   });
 
   test("a muted bridge is left in peace", async () => {
-    const r = room({ during: (hooks) => hooks.onDelta?.("[long]"), hold: new Promise<void>(() => {}) }, { holdMusicAfterMs: AFTER }, { file });
+    const r = room({ during: (hooks) => hooks.onDelta?.("[long]"), hold: new Promise<void>(() => {}) }, { holdMusicAfterMs: AFTER }, { folder });
     await r.c.heard("sidetone mute");
     void r.c.turn("something slow");
     await wait(AFTER * 3);
@@ -808,9 +808,9 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
     await r.turn;
   });
 
-  test("a file that is missing is said once and never tried again", async () => {
+  test("a folder that is missing is said once and never tried again", async () => {
     let end = () => {};
-    const r = room({ during: (hooks) => hooks.onDelta?.("[long]"), hold: new Promise<void>((resolve) => { end = resolve; }) }, { holdMusicAfterMs: 20 }, { file: "/nowhere/hold-music.mp3" });
+    const r = room({ during: (hooks) => hooks.onDelta?.("[long]"), hold: new Promise<void>((resolve) => { end = resolve; }) }, { holdMusicAfterMs: 20 }, { folder: "/nowhere/hold" });
     const turn = r.c.turn("something slow");
     await wait(200);
     expect(r.tracks).toHaveLength(0);
@@ -859,7 +859,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
     const r = room({
       during: (hooks) => { hooks.onBlockStart?.("tool_use"); hooks.onBlockEnd?.(); hooks.onBlockStart?.("text"); hooks.onDelta?.("[long] Done. "); },
       hold: new Promise<void>((resolve) => { end = resolve; }),
-    }, { holdMusicAfterMs: AFTER }, { file });
+    }, { holdMusicAfterMs: AFTER }, { folder });
     await r.mouth.music(() => true);
     const turn = r.c.turn("something slow");
     await until(() => r.tracks.length > 0);
@@ -874,7 +874,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
     const r = room({
       during: (hooks) => { hooks.onDelta?.("Checking now. "); hooks.onBlockStart?.("tool_use"); hooks.onBlockEnd?.(); },
       hold: new Promise<void>((resolve) => { end = resolve; }),
-    }, { holdMusicAfterMs: AFTER }, { file });
+    }, { holdMusicAfterMs: AFTER }, { folder });
     await r.mouth.music(() => true);
     const turn = r.c.turn("something slow");
     await until(() => r.tracks.length > 0);
@@ -902,7 +902,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
       },
       hold: new Promise<void>((resolve) => { end = resolve; }),
       deltas: ["Yes, there are two."],
-    }, { holdMusicAfterMs: AFTER }, { file });
+    }, { holdMusicAfterMs: AFTER }, { folder });
     await r.mouth.music(() => true);
     const turn = r.c.turn("are there open worktrees");
     await until(() => r.tracks.length > 0);
@@ -920,9 +920,78 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
         hooks.onDelta?.("5 cents. Then more.");
         hooks.onBlockEnd?.();
       },
-    }, { holdMusicAfterMs: AFTER }, { file });
+    }, { holdMusicAfterMs: AFTER }, { folder });
     await r.c.turn("how much");
     expect(r.said).toEqual(["It costs 3.5 cents.", "Then more."]);
+  });
+  /**
+   * Item 20: every audio file in the folder is a track. Each sample of a test
+   * track holds its own time into the track in milliseconds, plus 10 000 for
+   * "b", so the first sample played says which track played and from where.
+   */
+  describe("more than one track (item 20)", () => {
+    const RATE = 16_000;
+    const tracks = mkdtempSync(join(tmpdir(), "tracks-"));
+    const ramp = (base: number) => encodeWav(Int16Array.from({ length: RATE * 5 }, (_, i) => base + Math.floor(i * 1_000 / RATE)), RATE);
+    // written out of order, so the order below is the names' and not the writes'
+    writeFileSync(join(tracks, "b.wav"), ramp(10_000));
+    writeFileSync(join(tracks, "a.wav"), ramp(0));
+    writeFileSync(join(tracks, "notes.txt"), "not a track");
+    const first = (track: { wav: Uint8Array } | undefined) => decodeWav(track!.wav).samples[0];
+
+    /** A room with the folder, whose tracks play until `stop` is set, one at a time. */
+    function music(more: Partial<Music> = {}) {
+      const r = room({}, { holdMusicGain: 1 }, { folder: tracks, ...more });
+      let stop = false;
+      return {
+        ...r,
+        async play(): Promise<void> {
+          stop = false;
+          expect(await r.mouth.music(() => stop)).toBe(true);
+        },
+        async cut(): Promise<void> {
+          stop = true;
+          const track = r.tracks.at(-1)!;
+          await until(() => track.stopped);
+        },
+      };
+    }
+
+    test("the tracks play in file-name order, one a stretch, and wrap around", async () => {
+      const r = music();
+      for (let i = 0; i < 3; i++) { await r.play(); await r.cut(); }
+      expect(r.tracks.map(first)).toEqual([0, 10_000, 0]);
+    });
+
+    test("a track resumes two seconds before where it stopped", async () => {
+      const r = music();
+      const now = Date.now();
+      setSystemTime(new Date(now));
+      try {
+        await r.play();
+        setSystemTime(new Date(now + 3_500));
+        await r.cut();
+        await r.play();
+        await r.cut();
+        await r.play();
+      } finally {
+        setSystemTime();
+      }
+      await r.cut();
+      expect(r.tracks.map(first)).toEqual([0, 10_000, 1_500]);
+      // the rest of the track from there, not the whole track
+      expect(decodeWav(r.tracks[2]!.wav).samples.length).toBe(RATE * 5 - RATE * 1.5);
+    });
+
+    test("a track that played to its end starts from the beginning next time", async () => {
+      const r = music({ lasts: 20 });
+      const now = Date.now();
+      await r.play();
+      await until(() => Date.now() - now > 40);
+      await r.play(); await r.cut();
+      await r.play(); await r.cut();
+      expect(r.tracks.map(first)).toEqual([0, 10_000, 0]);
+    });
   });
 });
 
@@ -979,7 +1048,7 @@ describe("a track asked for (15.12)", () => {
   }
 
   test("it waits for the sentence instead of being cut off by it", async () => {
-    const r = room({}, {}, { file: "/nowhere.wav" });
+    const r = room({}, {}, { folder: "/nowhere" });
     r.mouth.say("Playing it now.");
     r.blockSay(true);
     r.mouth.play(wav);
@@ -994,7 +1063,7 @@ describe("a track asked for (15.12)", () => {
   });
 
   test("a sentence waits for it instead of cutting it", async () => {
-    const r = room({}, {}, { file: "/nowhere.wav", lasts: 120 });
+    const r = room({}, {}, { folder: "/nowhere", lasts: 120 });
     r.mouth.play(wav);
     await until(() => r.tracks.length > 0);
     r.mouth.say("That was Opus number one.");
@@ -1007,7 +1076,7 @@ describe("a track asked for (15.12)", () => {
   });
 
   test("Chris talking cuts it, as it cuts the hold music", async () => {
-    const r = room({}, {}, { file: "/nowhere.wav" });
+    const r = room({}, {}, { folder: "/nowhere" });
     r.mouth.play(wav);
     await until(() => r.tracks.length > 0);
     r.talk();
@@ -1016,7 +1085,7 @@ describe("a track asked for (15.12)", () => {
   });
 
   test("with the audio off it plays nothing at all (11.12)", async () => {
-    const r = room({}, {}, { file: "/nowhere.wav" });
+    const r = room({}, {}, { folder: "/nowhere" });
     r.mouth.setAudio(false);
     r.mouth.play(wav);
     await wait(60);
@@ -1024,7 +1093,7 @@ describe("a track asked for (15.12)", () => {
   });
 
   test("the record says when a track started and when it stopped (15.7)", async () => {
-    const r = room({}, {}, { file: "/nowhere.wav" });
+    const r = room({}, {}, { folder: "/nowhere" });
     r.mouth.play(wav);
     await until(() => r.tracks.length > 0);
     r.talk();

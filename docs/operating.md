@@ -443,19 +443,23 @@ end of the last sentence. The value 0 turns the music off.
 plays when Chris says "music off" stops at once. `/diagnostics` and the record
 show `holdMusic` with the other settings.
 
-The track is `holdMusicFile`, `~/.sidetone/hold/hold-music.mp3` by default. The
-repository does not hold it. If the file is missing, the bridge logs one line,
-`[no hold music: ...]`, and does not try again until the next restart. The
-bridge decodes the file once, on the first play, at `holdMusicGain` (0.4).
-That first play waits for the decode, about a second.
+The tracks are every audio file in `holdMusicFolder`, `~/.sidetone/hold/` by
+default. To add a track, copy the file into the folder and restart the bridge.
+The repository does not hold them. If the folder is missing or has no tracks,
+the bridge logs one line, `[no hold music: ...]`, and does not try again until
+the next restart. The bridge decodes each track once, on its first play, at
+`holdMusicGain` (0.4). That first play waits for the decode, about a second.
 
 The music stops when Chris talks, when the bridge has a sentence, and when the
 turn ends. These are the stop conditions of `POST /play`, and the turn end. A
 sentence fades the music out over `holdMusicFadeMs`, 300 by default, and the
 sentence starts when the fade ends. The value 0 cuts the music at once. Chris
 talking, "music off", the audio off and the end of the turn cut it at once
-(spec 15.10.2). It plays once for each silent stretch and does not loop. The
-log shows each play:
+(spec 15.10.2). It plays one track for each silent stretch and does not loop.
+Each stretch plays the next track in file-name order, and the first track
+follows the last. A stopped track starts again two seconds before where it
+stopped (spec 15.10.1). A restart starts every track from the start. The log
+shows each play:
 
 ```bash
 journalctl --user -u sidetone -f | grep "hold music"

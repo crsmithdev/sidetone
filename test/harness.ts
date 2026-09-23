@@ -67,7 +67,8 @@ export function scripted(script: Script = {}) {
 
 /** What a test may do to the hold music's source and to a sentence's length. */
 export interface Music {
-  file: string;
+  /** 15.8 the folder of tracks */
+  folder: string;
   /** the track ends by itself after this long; unset, it plays until it is cut */
   lasts?: number;
   /** a sentence takes this long to play, as a real one does; unset, it is instant */
@@ -91,12 +92,12 @@ afterEach(() => { while (built.length) built.pop()?.stop(); });
  */
 export function bridge(options: Options = {}) {
   const music = options.music;
-  // 15.8 the track the mouth decodes is the one in the settings, as in the car.
-  // Without one, the music is off, so no test reaches for the file on this machine.
+  // 15.8 the tracks the mouth decodes are in the folder in the settings, as in the car.
+  // Without one, the music is off, so no test reaches for the folder on this machine.
   const config = {
     ...TEST_CONFIG,
     ...options.overrides,
-    ...(music ? { holdMusicFile: music.file } : { holdMusic: false }),
+    ...(music ? { holdMusicFolder: music.folder } : { holdMusic: false }),
   };
   const said: string[] = [];
   const cues: string[] = [];
@@ -105,7 +106,7 @@ export function bridge(options: Options = {}) {
   const journal: string[] = [];
   const lookahead: Array<string | undefined> = [];
   const switched: string[] = [];
-  const tracks: Array<{ stopped: boolean }> = [];
+  const tracks: Array<{ stopped: boolean; wav: Uint8Array }> = [];
   const source = { taken: false };
   let gate: (() => void) | null = null;
   let blocking = false;
@@ -120,9 +121,9 @@ export function bridge(options: Options = {}) {
     },
     cue(wav) { cues.push(wav); },
     // the room's speaker, in miniature: a taken source refuses, and the cut is asked as it plays
-    track(_wav: Uint8Array, cut: () => boolean, fade: Fade) {
+    track(wav: Uint8Array, cut: () => boolean, fade: Fade) {
       if (source.taken) return null;
-      const track = { stopped: false };
+      const track = { stopped: false, wav };
       tracks.push(track);
       return new Promise<boolean>((resolve) => {
         const started = Date.now();

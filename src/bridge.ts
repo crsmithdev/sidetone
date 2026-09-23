@@ -119,8 +119,8 @@ export function assemble(
   const mouth = new Mouth(speaker, ahead, cues, measures, {
     ...config,
     talking: () => ear.bargingIn,
-    // 15.8 the track is decoded at the rate the room plays at, so nothing resamples it
-    music: { file: config.holdMusicFile, gain: config.holdMusicGain, rate: sampleRate, fadeMs: config.holdMusicFadeMs },
+    // 15.8 the tracks are decoded at the rate the room plays at, so nothing resamples them
+    music: { folder: config.holdMusicFolder, gain: config.holdMusicGain, rate: sampleRate, fadeMs: config.holdMusicFadeMs },
     // 14.13 a client lights the words as the voice reaches them
     speaking: (sentence) => channel.tell({ kind: "speaking", text: sentence.text, ...(sentence.answer === undefined ? {} : { answer: sentence.answer }) }),
     say,

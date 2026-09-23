@@ -28,7 +28,7 @@ describe("config (21)", () => {
     expect(DEFAULTS.holdMusicGain).toBe(0.4);
     expect(DEFAULTS.holdMusicFadeMs).toBe(300);
     expect(DEFAULTS.holdMusic).toBe(true);
-    expect(DEFAULTS.holdMusicFile.endsWith("/.sidetone/hold/hold-music.mp3")).toBe(true);
+    expect(DEFAULTS.holdMusicFolder.endsWith("/.sidetone/hold")).toBe(true);
     // 9.6 the set is a setting, and the tones are on it: you mute because the
     // car is loud, and the tones are the next noise you want gone.
     expect(DEFAULTS.mutedCommands).toEqual(["mute", "unmute", "tones", "tonesOn", "tonesOff"]);

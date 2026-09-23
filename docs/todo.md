@@ -226,7 +226,8 @@ Decided 23 September 2026:
 
 ## 20. More hold music tracks, cycled, each resuming where it left off
 
-Noted 22 September 2026. Not started.
+Noted 22 September 2026. Built 23 September 2026 on the branch `hold-tracks`,
+not landed. It waits for review.
 
 Two parts are open. The licence part is closed by the decision below. The
 choice of a track in the app moved to item 28 on 23 September 2026.

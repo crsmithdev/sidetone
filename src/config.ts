@@ -173,8 +173,8 @@ export interface Config {
   holdMusicAfterMs: number;
   /** 15.7.3 whether the hold music plays at all, so it can be turned off by voice */
   holdMusic: boolean;
-  /** 15.8 the track, any file ffmpeg reads. Not in the repository. */
-  holdMusicFile: string;
+  /** 15.8 the folder of tracks: every audio file in it, in file-name order. Not in the repository. */
+  holdMusicFolder: string;
   /** 15.9 how loud the track is, as a factor on the file. The voice is 1. */
   holdMusicGain: number;
   /** 15.10.2 how long the track takes to fade out when a sentence stops it. Zero cuts it at once. */
@@ -325,7 +325,7 @@ export const DEFAULTS: Config = {
   audioCueEveryMs: 6_000,
   holdMusicAfterMs: 8_000,
   holdMusic: true,
-  holdMusicFile: join(homedir(), ".sidetone", "hold", "hold-music.mp3"),
+  holdMusicFolder: join(homedir(), ".sidetone", "hold"),
   holdMusicGain: 0.4,
   holdMusicFadeMs: 300,
   usageWarnFraction: 0.8,

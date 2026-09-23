@@ -435,13 +435,13 @@ project bridge stays in place.
 
 15.7.5 A reply can start with a tool call and no text, or call a tool after text with no marker in front of it. Either way the tool call itself makes the turn long, marker or not, the moment the tool call starts. This does not depend on the agent writing `[long]`.
 
-15.8 The track is an audio file. The file is a setting. The default is `~/.sidetone/hold/hold-music.mp3`. The repository does not hold the audio. If the file is missing, the bridge writes one line to the log. The bridge does not try again in that process.
+15.8 The tracks are the audio files in a folder. The folder is a setting. The default is `~/.sidetone/hold/`. A new track needs no settings edit. The repository does not hold the audio. The bridge lists the folder once, on first use. If the folder is missing or has no tracks, the bridge writes one line to the log and does not try again in that process. A track that the bridge cannot read gets one line in the log, and the next track plays in its place.
 
-15.9 The hold music is quieter than the voice. The gain is a setting. The default is 0.4. The bridge decodes the file once, on first use. The bridge applies the gain in that decode and keeps the samples in memory.
+15.9 The hold music is quieter than the voice. The gain is a setting. The default is 0.4. The bridge decodes each track once, on its first use. The bridge applies the gain in that decode and keeps the samples in memory.
 
 15.10 The hold music stops when Chris talks, when the bridge has a sentence to say, and when the turn ends. The stop for Chris talking and for a sentence is the stop of the /play route.
 
-15.10.1 The hold music plays once for each silent stretch. It does not loop. When a sentence plays and the turn still runs, a new silent stretch starts. The new stretch plays the track again from the start.
+15.10.1 The hold music plays one track once for each silent stretch. It does not loop. When a sentence plays and the turn still runs, a new silent stretch starts. The new stretch plays the next track in file-name order. After the last track, the first track plays. A track that was stopped starts again two seconds before where it stopped. A track that played to its end starts again from the start. The bridge keeps these positions in memory only, so a restart starts every track from the start.
 
 15.10.2 When a sentence stops the hold music, the track fades out. Its level falls in a straight line to zero. The sentence starts when the fade ends. The fade time is a setting. The default is 300 milliseconds. The value 0 cuts the track at once.
 
@@ -676,7 +676,7 @@ project bridge stays in place.
 | Audio cue delay | 4 seconds, then every 6 seconds | 15.5 |
 | Hold music: silence before it plays, in a long turn | 8 seconds, 0 turns it off | 15.7 |
 | Hold music: on or off | on; "music on" and "music off" change it | 15.7.3 |
-| Hold music: track | `~/.sidetone/hold/hold-music.mp3` | 15.8 |
+| Hold music: tracks | every audio file in `~/.sidetone/hold/` | 15.8 |
 | Hold music: gain | 0.4 | 15.9 |
 | Hold music: fade out | 300 milliseconds, 0 cuts at once | 15.10.2 |
 | GPU budget for the voice path | 8 gigabytes, the whole GPU | 4.10 |

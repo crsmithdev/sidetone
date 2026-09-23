@@ -13,11 +13,39 @@
  * its one loop (ADR 0010); it and a test supply only a `Speaker`, which plays
  * one wav.
  */
-import { wavFromFile } from "./audio.ts";
+import { readdirSync } from "node:fs";
+import { extname, join } from "node:path";
+import { decodeWav, encodeWav, wavFromFile } from "./audio.ts";
 import type { Config } from "./config.ts";
 import type { CueName, Cues } from "./cues.ts";
 import type { Measures } from "./measures.ts";
 import { voiceSignature, type SpokenAhead } from "./speech.ts";
+
+/** 15.10.1 how far before its stop a track picks up again, so the ear finds its place */
+const HOLD_RESUME_BACK_MS = 2_000;
+
+/** 15.8 the extensions of the files in the hold folder that are tracks */
+const AUDIO = new Set([".mp3", ".wav", ".flac", ".ogg", ".opus", ".m4a", ".aac"]);
+
+/** 15.8 one track of the hold music: decoded on first use, and where it plays from next, in samples. */
+interface HoldTrack {
+  file: string;
+  samples: Promise<Int16Array | null> | null;
+  at: number;
+}
+
+/** 15.8 the tracks in the folder, in file-name order. A folder with none is said once. */
+function listTracks(folder: string, say?: (line: string) => void): HoldTrack[] {
+  let names: string[];
+  try {
+    names = readdirSync(folder).filter((name) => AUDIO.has(extname(name).toLowerCase())).sort();
+  } catch (error) {
+    say?.(`[no hold music: ${(error as Error).message.split("\n")[0]}]`);
+    return [];
+  }
+  if (names.length === 0) say?.(`[no hold music: no tracks in ${folder}]`);
+  return names.map((name) => ({ file: join(folder, name), samples: null, at: 0 }));
+}
 
 /**
  * The sentences the bridge says in its own voice, word for word, over and
@@ -144,8 +172,10 @@ export class Mouth {
   private firstOfTurn = true;
   /** 15.7 when the last sentence ended, which is where the silence is measured from */
   private voiceEndedAt = 0;
-  /** 15.8 the decoded track, made on first use. Null when it could not be, and never made again. */
-  private decoded: Promise<Uint8Array | null> | null = null;
+  /** 15.8 the tracks in the folder, in file-name order, listed on first use and never again. */
+  private holdTracks: HoldTrack[] | null = null;
+  /** 15.10.1 the turn of the track that the next silent stretch plays */
+  private nextHoldTrack = 0;
 
   constructor(
     private readonly speaker: Speaker,
@@ -164,8 +194,8 @@ export class Mouth {
       holdBackstopMs: number;
       voiceChoices: Config["voiceChoices"];
       talking?: () => boolean;
-      /** 15.8 the hold music: the file, the gain, and the rate the room plays at. Absent means none. */
-      music?: { file: string; gain: number; rate: number; fadeMs: number };
+      /** 15.8 the hold music: the folder of tracks, the gain, and the rate the room plays at. Absent means none. */
+      music?: { folder: string; gain: number; rate: number; fadeMs: number };
       /** 14.13 the voice reached this sentence, as it starts to play */
       speaking?: (sentence: Queued) => void;
       say?: (line: string) => void;
@@ -353,22 +383,42 @@ export class Mouth {
   }
 
   /**
-   * 15.7 the hold music, once. True when it started; the caller does not wait
-   * for the end. It goes nowhere near a sentence, a cue or a barge-in. A
-   * sentence fades it out (15.10.2); Chris talking, the audio going off and
-   * `stop`, the caller's own, cut it at once.
+   * 15.7 the hold music, one track, once. True when it started; the caller
+   * does not wait for the end. It goes nowhere near a sentence, a cue or a
+   * barge-in. A sentence fades it out (15.10.2); Chris talking, the audio
+   * going off and `stop`, the caller's own, cut it at once.
+   *
+   * 15.10.1 each start plays the next track in file-name order, and the last
+   * is followed by the first. A track that was stopped plays on from
+   * `HOLD_RESUME_BACK_MS` before where it stopped; one that ended plays from
+   * the start. The positions live only in this process.
    */
   async music(stop: () => boolean): Promise<boolean> {
     const { music } = this.settings;
     if (!music || !this.audio || this.occupied()) return false;
-    this.decoded ??= wavFromFile(music.file, music.rate, music.gain).catch((error) => {
+    this.holdTracks ??= listTracks(music.folder, this.settings.say);
+    if (this.holdTracks.length === 0) return false;
+    const track = this.holdTracks[this.nextHoldTrack % this.holdTracks.length]!;
+    track.samples ??= wavFromFile(track.file, music.rate, music.gain).then((wav) => decodeWav(wav).samples, (error) => {
       this.settings.say?.(`[no hold music: ${(error as Error).message.split("\n")[0]}]`);
       return null;
     });
-    const wav = await this.decoded;
+    const samples = await track.samples;
+    // a track that cannot be read gives its turn to the next, which the caller asks for soon
+    if (!samples) { this.nextHoldTrack++; return false; }
     // the first decode takes seconds: a sentence may have come since
-    if (!wav || !this.audio || this.occupied() || stop()) return false;
-    return this.started("music", this.speaker.track(wav, () => this.cutOff() || stop(), { when: () => this.busy, ms: music.fadeMs }));
+    if (!this.audio || this.occupied() || stop()) return false;
+    const from = track.at;
+    const playing = this.speaker.track(encodeWav(samples.subarray(from), music.rate), () => this.cutOff() || stop(), { when: () => this.busy, ms: music.fadeMs });
+    if (playing) {
+      this.nextHoldTrack++;
+      const startedAt = Date.now();
+      void playing.then((whole) => {
+        const resume = from + Math.round((Date.now() - startedAt - HOLD_RESUME_BACK_MS) * music.rate / 1_000);
+        track.at = whole || resume >= samples.length ? 0 : Math.max(0, resume);
+      });
+    }
+    return this.started("music", playing);
   }
 
   /**
