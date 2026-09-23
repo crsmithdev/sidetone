@@ -343,8 +343,41 @@ export class Mouth {
     const wav = await this.decoded;
     // the first decode takes seconds: a sentence may have come since
     if (!wav || !this.audio || this.occupied() || stop()) return false;
-    return this.speaker.track(wav, () => this.cutOff() || stop(), { when: () => this.busy, ms: music.fadeMs }) !== null;
+    return this.started("music", this.speaker.track(wav, () => this.cutOff() || stop(), { when: () => this.busy, ms: music.fadeMs }), music.fadeMs);
   }
+
+  /**
+   * 15.12 a file asked for from outside the conversation, through `/play`: a
+   * preview, a recording, anything ffmpeg reads. It waits for the mouth the way
+   * an announcement does, so the agent can ask for a track and say a sentence
+   * about it in the same turn without the sentence cutting the track off one
+   * second in. Once it plays, it plays as the hold music does: a sentence fades
+   * it out, Chris talking and the audio off cut it.
+   */
+  play(wav: Uint8Array, fadeMs = 300): void {
+    this.tracks.push({ wav, fadeMs });
+    this.trackTimer ??= setInterval(() => {
+      if (this.holding || this.occupied() || !this.audio) return;
+      const next = this.tracks.shift();
+      if (next) this.started("file", this.speaker.track(next.wav, this.cutOff, { when: () => this.busy, ms: next.fadeMs }), next.fadeMs);
+      if (this.tracks.length > 0) return;
+      clearInterval(this.trackTimer!);
+      this.trackTimer = null;
+    }, ANNOUNCE_POLL_MS);
+  }
+
+  /** 15.7 the record says when a track started and when it stopped, or it cannot be checked after a drive. */
+  private started(what: "music" | "file", playing: Promise<boolean> | null, _fadeMs: number): boolean {
+    if (!playing) return false;
+    const at = Date.now();
+    this.measures.trackStarted(what);
+    void playing.then((whole) => this.measures.trackStopped(what, Date.now() - at, whole));
+    return true;
+  }
+
+  /** 15.12 the tracks asked for and not yet played. */
+  private readonly tracks: Array<{ wav: Uint8Array; fadeMs: number }> = [];
+  private trackTimer: ReturnType<typeof setInterval> | null = null;
 
   /** Chris is talking, or a sentence is queued or playing. */
   private occupied(): boolean {

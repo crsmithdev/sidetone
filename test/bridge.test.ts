@@ -85,6 +85,15 @@ describe("the bridge, assembled as the car assembles it", () => {
     expect(r.measures.recent().some((event) => event.kind === "setting")).toBe(true);
   });
 
+  test("an announcement says the line and shows it, as one thing (17.17)", async () => {
+    const r = bridge();
+    r.announce("Job research finished.");
+    // the app has the words at once; the voice waits until nothing is running
+    expect(r.told).toContainEqual({ kind: "narration", text: "Job research finished.", announce: true });
+    await until(() => r.said.length > 0, 2_000);
+    expect(r.said).toEqual(["Job research finished."]);
+  });
+
   test("what Chris says arrives through the channel as a turn (14.11)", async () => {
     const r = bridge({ script: { deltas: ["Four."] } });
     r.channel.receive({ kind: "said", text: "what is two plus two" });

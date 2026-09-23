@@ -56,7 +56,14 @@ export interface Note { kind: "note"; at: number; text: string }
  * it, so a record read a week later can say which voice the second half ran in.
  */
 export interface Setting { kind: "setting"; at: number; patch: Record<string, unknown> }
-export type Event = Heard | Matched | Barged | Answered | Cutoff | Spoke | Note | Setting;
+/**
+ * 15.7 a track on the room's speaker: the hold music, or a file asked for
+ * through `/play`. `on` opens it and the next one closes it, with how long it
+ * ran and whether it reached its end. Without these the record said nothing
+ * about when music actually started, and "it came on late" could not be checked.
+ */
+export interface Track { kind: "track"; at: number; what: "music" | "file"; on: boolean; ms?: number; whole?: boolean }
+export type Event = Heard | Matched | Barged | Answered | Cutoff | Spoke | Note | Setting | Track;
 
 /** Enough to read a drive back, not so much that it is a log of its own. */
 const KEEP = 120;
@@ -113,6 +120,16 @@ export class Diagnostics {
   /** 9.4 a setting changed by voice, so the record explains what came after it. */
   setting(patch: Record<string, unknown>, at = Date.now()): void {
     this.add({ kind: "setting", at, patch });
+  }
+
+  /** 15.7 a track started. */
+  trackStarted(what: Track["what"], at = Date.now()): void {
+    this.add({ kind: "track", at, what, on: true });
+  }
+
+  /** 15.7 and it stopped, after `ms`, whole or cut short. */
+  trackStopped(what: Track["what"], ms: number, whole: boolean, at = Date.now()): void {
+    this.add({ kind: "track", at, what, on: false, ms: Math.round(ms), whole });
   }
 
   recent(limit = KEEP): Event[] {

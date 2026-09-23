@@ -102,6 +102,16 @@ export class Measures {
     this.diagnostics.setting(patch);
   }
 
+  /** 15.7 a track began on the room's speaker: the hold music, or a file asked for. */
+  trackStarted(what: "music" | "file"): void {
+    this.diagnostics.trackStarted(what);
+  }
+
+  /** 15.7 and it ended, after `ms`, whole or cut short. */
+  trackStopped(what: "music" | "file", ms: number, whole: boolean): void {
+    this.diagnostics.trackStopped(what, ms, whole);
+  }
+
   /** 9.4 the stats command, spoken, so it has to be heard once and kept. */
   report(): string {
     return this.latency.report();

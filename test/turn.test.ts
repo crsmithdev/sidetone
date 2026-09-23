@@ -831,3 +831,61 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
     await turn;
   });
 });
+
+/**
+ * 15.12 a file asked for through `/play`, which the mouth owns like the hold
+ * music. Measured live on 22 September: the agent asked for a track, said one
+ * sentence about it in the same turn, and its own sentence stopped the track
+ * one second in.
+ */
+describe("a track asked for (15.12)", () => {
+  const wav = new Uint8Array(64);
+  const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+  async function until(done: () => boolean): Promise<void> {
+    for (let i = 0; i < 200 && !done(); i++) await wait(10);
+  }
+
+  test("it waits for the sentence instead of being cut off by it", async () => {
+    const r = room({}, {}, { file: "/nowhere.wav" });
+    r.mouth.say("Playing it now.");
+    r.blockSay(true);
+    r.mouth.play(wav);
+    await wait(30);
+    // the mouth is speaking, so nothing has taken the source
+    expect(r.tracks).toHaveLength(0);
+    r.blockSay(false);
+    r.release();
+    await until(() => r.tracks.length > 0);
+    expect(r.tracks).toHaveLength(1);
+    expect(r.tracks[0]?.stopped).toBe(false);
+  });
+
+  test("Chris talking cuts it, as it cuts the hold music", async () => {
+    const r = room({}, {}, { file: "/nowhere.wav" });
+    r.mouth.play(wav);
+    await until(() => r.tracks.length > 0);
+    r.talk();
+    await until(() => r.tracks[0]?.stopped === true);
+    expect(r.tracks[0]?.stopped).toBe(true);
+  });
+
+  test("with the audio off it plays nothing at all (11.12)", async () => {
+    const r = room({}, {}, { file: "/nowhere.wav" });
+    r.mouth.setAudio(false);
+    r.mouth.play(wav);
+    await wait(60);
+    expect(r.tracks).toHaveLength(0);
+  });
+
+  test("the record says when a track started and when it stopped (15.7)", async () => {
+    const r = room({}, {}, { file: "/nowhere.wav" });
+    r.mouth.play(wav);
+    await until(() => r.tracks.length > 0);
+    r.talk();
+    await until(() => r.measures.recent().filter((e) => e.kind === "track").length === 2);
+    const events = r.measures.recent().flatMap((e) => (e.kind === "track" ? [e] : []));
+    expect(events.map((e) => [e.what, e.on])).toEqual([["file", true], ["file", false]]);
+    expect(events[1]?.ms).toBeGreaterThanOrEqual(0);
+    expect(events[1]?.whole).toBe(false);
+  });
+});

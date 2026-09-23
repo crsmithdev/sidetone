@@ -49,6 +49,12 @@ export interface Bridge {
   readonly tts: TextToSpeech;
   /** the engines warmed and the cues built; the room can be joined meanwhile */
   readonly ready: Promise<void>;
+  /**
+   * 17.17 one line said aloud when the bridge is free, and shown at once. The
+   * voice and the words go together: a caller that remembered only one of them
+   * left the app silent or the room speaking to nobody.
+   */
+  announce(text: string): void;
   stop(): void;
 }
 
@@ -156,6 +162,11 @@ export function assemble(
 
   return {
     conversation, ear, mouth, channel, measures, stt, tts, ready,
+    announce(text: string) {
+      mouth.announce(text, () => !conversation.busy);
+      // 17.17 the words reach the app at once, which notifies them when it is not in front
+      channel.tell({ kind: "narration", text, announce: true });
+    },
     stop() { clearInterval(watch); clearInterval(work); conversation.stop(); stt.stop(); tts.stop(); },
   };
 }

@@ -171,10 +171,10 @@ export async function serve(dir: string, config: Config): Promise<void> {
         }, { status: well ? 200 : 503 });
       }
       /**
-       * Play a file to the room: the first step of hold music. It is for a
-       * shell on this machine, so the tailnet cannot reach it. The track
-       * stops when Chris talks and when the bridge has a sentence to say, so
-       * it never shares the source with a voice. It plays nothing, and stops,
+       * 15.12 play a file to the room. It is for a shell on this machine, so
+       * the tailnet cannot reach it. The mouth owns the room's one source: the
+       * track waits until nothing is being said, then plays, and a sentence
+       * fades it out rather than refusing it. It plays nothing, and stops,
        * while the audio is off (11.12).
        */
       if (url.pathname === "/play" && request.method === "POST") {
@@ -188,14 +188,13 @@ export async function serve(dir: string, config: Config): Promise<void> {
         let wav: Uint8Array;
         try { wav = await wavFromFile(file, RTC_RATE); }
         catch (error) { return Response.json({ error: (error as Error).message }, { status: 500 }); }
-        // asked after the decode, which takes a second: a sentence may have started since
         if (!mouth.audioOn) return Response.json({ error: "the audio is off" }, { status: 409 });
-        if (mouth.busy || transport.speaking) return Response.json({ error: "the bridge is speaking or playing" }, { status: 409 });
-        console.log(`[playing ${file}]`);
-        void transport.speak(wav, () => ear.bargingIn || mouth.busy || !mouth.audioOn)
-          .then((whole) => console.log(whole ? "[the track ended]" : "[the track stopped]"))
-          .catch((error) => console.log(`[the track failed: ${(error as Error).message}]`));
-        return Response.json({ playing: file }, { status: 202 });
+        // 15.12 the mouth owns the room's one source: the track waits for a
+        // sentence rather than being cut off by it, which is what made playing
+        // a file and saying a word about it in the same turn impossible.
+        console.log(`[playing ${file} when the mouth is free]`);
+        mouth.play(wav, config.holdMusicFadeMs);
+        return Response.json({ playing: file }, { status: 202 })
       }
       /**
        * Say one line when the bridge is free: `scripts/job` tells Chris here
@@ -208,9 +207,7 @@ export async function serve(dir: string, config: Config): Promise<void> {
         const text = body.text?.trim() ?? "";
         if (!text) return Response.json({ error: "text must be a line to say" }, { status: 400 });
         console.log(`[to say when free: ${text}]`);
-        mouth.announce(text, () => !conversation.busy);
-        // 17.17 the words go to the app at once, which notifies them when it is not in front
-        channel.tell({ kind: "narration", text, announce: true });
+        bridge.announce(text);
         return Response.json({ queued: text }, { status: 202 });
       }
       // 12.1 the boundary. Everything below here needs the code or a token.
