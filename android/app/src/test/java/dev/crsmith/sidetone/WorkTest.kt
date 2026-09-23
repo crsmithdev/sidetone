@@ -32,7 +32,25 @@ class WorkTest {
     fun theSignHasWordsOnlyWhenItShows() {
         assertEquals("", signWord(Sign.OFF))
         assertEquals("working", signWord(Sign.WORKING))
-        assertEquals("no signal", signWord(Sign.SILENT))
+        assertEquals("stalled", signWord(Sign.SILENT))
+    }
+
+    @Test
+    fun theSignShowsOnlyInALiveRoom() {
+        // 17.11.6 "reconnecting" beside "stalled" would name two causes for one silence
+        for (sign in Sign.entries) assertEquals(sign, shownSign(Bridge.Status.LISTENING, sign))
+        for (status in Bridge.Status.entries.filter { it != Bridge.Status.LISTENING }) {
+            for (sign in Sign.entries) assertEquals(Sign.OFF, shownSign(status, sign))
+        }
+    }
+
+    @Test
+    fun theQualityShowsOnlyInALiveRoom() {
+        assertEquals("excellent", qualityWord(Bridge.Status.LISTENING, "excellent"))
+        assertEquals("—", qualityWord(Bridge.Status.LISTENING, null))
+        // a reading kept from before the drop would say "excellent" beside "reconnecting"
+        assertNull(qualityWord(Bridge.Status.RECONNECTING, "excellent"))
+        assertNull(qualityWord(Bridge.Status.UNREACHABLE, null))
     }
 
     @Test

@@ -489,7 +489,7 @@ The app shows that the agent works, whatever the audio does (spec 14.10 and
 a detached job starts, and again every 5 seconds while the work lasts. It sends
 `on` false when the work ends. The app shows a slow pulse and the word
 "working". If the heartbeat stops for 15 seconds, the sign turns red and says
-"no signal". That means the bridge stopped sending, and it is the one sign that
+"stalled". That means the bridge stopped sending, and it is the one sign that
 the bridge is stuck.
 
 A detached job is a `scripts/job` job. The script writes `pid` in the job

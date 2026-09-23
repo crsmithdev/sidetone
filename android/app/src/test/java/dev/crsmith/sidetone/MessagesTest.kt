@@ -259,5 +259,7 @@ class MessagesTest {
             "listening · mic off · audio off · working",
             stateLine(BridgeService.Shown(Bridge.Status.LISTENING, micOn = false, audioOn = false, inRoom = true, sign = Sign.WORKING)),
         )
+        // 17.11.6 the sign of a room that is not live does not show
+        assertEquals("reconnecting", stateLine(BridgeService.Shown(Bridge.Status.RECONNECTING, micOn = true, audioOn = true, inRoom = true, sign = Sign.SILENT)))
     }
 }

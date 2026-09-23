@@ -245,8 +245,9 @@ private fun Conversation(state: Bridge.State, onLeave: () -> Unit) {
             }
             Box(Modifier.size(10.dp).background(light, CircleShape))
             Text(statusWord(state.status), style = MaterialTheme.typography.titleMedium)
-            Text(state.quality ?: "—", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            WorkingSign(state.sign)
+            // 17.11.6 the quality and the sign are readings of a live room, so they show only in one
+            qualityWord(state.status, state.quality)?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            WorkingSign(shownSign(state.status, state.sign))
             Spacer(Modifier.weight(1f))
             TextButton(onClick = onLeave) { Text("Leave") }
         }
@@ -374,6 +375,10 @@ private fun WorkingSign(sign: Sign) {
         Text(signWord(sign), style = MaterialTheme.typography.bodyMedium, color = ink)
     }
 }
+
+/** 17.11.6 the connection quality, only while the room is live. A reading from a room that is gone is old. */
+internal fun qualityWord(status: Bridge.Status, quality: String?): String? =
+    if (status == Bridge.Status.LISTENING) quality ?: "—" else null
 
 internal fun statusWord(status: Bridge.Status) = when (status) {
     Bridge.Status.IDLE, Bridge.Status.CONNECTING -> "connecting"

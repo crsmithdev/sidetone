@@ -81,7 +81,7 @@ class TranscriptTest {
         t.onSign(Sign.WORKING, 7)
         t.onSign(Sign.SILENT, 8)
         t.onSign(Sign.OFF, 9)
-        assertEquals(listOf("working b=null 'working'", "working b=null 'no signal'", "working b=null ''"), t.entries().map { it.brief() })
+        assertEquals(listOf("working b=null 'working'", "working b=null 'stalled'", "working b=null ''"), t.entries().map { it.brief() })
         assertEquals(emptyList<Line>(), t.lines)
     }
 

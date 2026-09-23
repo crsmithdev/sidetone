@@ -9,6 +9,7 @@ The working sign and the screen log (14.10, 14.11, 17.11 to 17.13) added 21 Sept
 Text selection in the transcript (17.14) added 21 September 2026.
 The screenshot (14.12, 17.18) added 22 September 2026.
 Formatted text in the bubbles (17.19) added 22 September 2026.
+The status row shows one state (17.11.6) from 22 September 2026.
 
 This document is the complete specification for Sidetone. It
 includes the background, the settled design decisions, the reasoning behind
@@ -501,11 +502,13 @@ project bridge stays in place.
 
 17.11.2 Working. The sign shows a dot that pulses slowly, and the word "working". This is the state after a message with `on` set to true, while a `working` message arrives at least every 15 seconds.
 
-17.11.3 No signal. The bridge said that the agent works, and no `working` message has arrived for 15 seconds. The sign shows a red dot that does not pulse, and the words "no signal". This is three heartbeats (14.10.2). It means that the bridge has stopped sending: the bridge is stuck, or the link is bad. The next message ends this state. The 15 seconds is a constant of the app, because the app has no settings file.
+17.11.3 Stalled. The bridge said that the agent works, and no `working` message has arrived for 15 seconds. The sign shows a red dot that does not pulse, and the word "stalled". This is three heartbeats (14.10.2). It means that the bridge has stopped sending. The room is live when the sign shows (17.11.6), so the bridge is stuck. The next message ends this state. The 15 seconds is a constant of the app, because the app has no settings file.
 
 17.11.4 The sign follows the messages of the bridge. It does not follow the sound. It shows with the audio cut (17.10), when the voice, the tones and the hold music give no sign of the work.
 
 17.11.5 The app has no setting for the sign.
+
+17.11.6 The status row shows one state, not three readings that can disagree. The connection quality and the sign show only while the status word is "listening". In any other state no message can come, so the status word says why, and the row shows no quality and no sign. The notification (17.16) follows the same rule for the sign.
 
 17.12 The app keeps a screen log: what it showed, in the order it showed it. Each change of a line on the screen is one entry. The log is in the memory of the app process. It ends when Chris leaves the room with the Leave button.
 

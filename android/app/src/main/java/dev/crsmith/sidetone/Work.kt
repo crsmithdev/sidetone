@@ -25,5 +25,13 @@ fun sign(on: Boolean, at: Long, now: Long): Sign = when {
 fun signWord(sign: Sign): String = when (sign) {
     Sign.OFF -> ""
     Sign.WORKING -> "working"
-    Sign.SILENT -> "no signal"
+    Sign.SILENT -> "stalled"
 }
+
+/**
+ * 17.11.6 the sign that shows beside the status word. Outside a live room no
+ * message can come, so the status word says why and the sign shows nothing.
+ * In a live room the link is up, so "stalled" can only be the bridge.
+ */
+fun shownSign(status: Bridge.Status, sign: Sign): Sign =
+    if (status == Bridge.Status.LISTENING) sign else Sign.OFF

@@ -118,7 +118,7 @@ The bridge makes no sound: no voice, no cue and no hold music. The words carry o
 _Avoid_: voice off, mute (mute is the bridge that listens and acts on nothing), silence.
 
 **The working sign**:
-A small sign in the app's status row that the agent works: a turn runs, or a detached job runs. It follows a message from the bridge, so it shows with the audio off. It says "no signal" when the bridge stops sending that message.
+A small sign in the app's status row that the agent works: a turn runs, or a detached job runs. It follows a message from the bridge, so it shows with the audio off. It says "stalled" when the bridge stops sending that message. It shows only while the room is live.
 _Avoid_: the spinner, the busy light, the status.
 
 **The screen log**:

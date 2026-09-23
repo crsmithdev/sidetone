@@ -127,5 +127,5 @@ fun stateLine(shown: BridgeService.Shown): String = buildList {
     add(statusWord(shown.status))
     if (!shown.micOn) add("mic off")
     if (!shown.audioOn) add("audio off")
-    if (shown.sign != Sign.OFF) add(signWord(shown.sign))
+    shownSign(shown.status, shown.sign).let { if (it != Sign.OFF) add(signWord(it)) }
 }.joinToString(" · ")

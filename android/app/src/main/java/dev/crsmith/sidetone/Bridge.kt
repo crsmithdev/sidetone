@@ -175,7 +175,7 @@ object Bridge {
         this@Bridge.room = room
         val ended = CompletableDeferred<String>()
         val events = launch { room.events.collect { on(room, it, ended) } }
-        // 17.11 the sign goes to "no signal" with no message to say so, so it is looked at on the clock
+        // 17.11 the sign goes to "stalled" with no message to say so, so it is looked at on the clock
         val watch = launch { while (true) { delay(1_000); showSign() } }
         // 14.11 the screen log goes to the bridge as it grows
         val stream = launch { while (true) { delay(STREAM_MS); sendScreenLog(room) } }

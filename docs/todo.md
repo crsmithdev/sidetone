@@ -160,29 +160,6 @@ each button keeps one label and shows its on/off state by color alone.
 Done when the row holds three buttons, one each for mic, audio and music,
 each with a fixed label and a color that shows its state.
 
-## 16. The status row can show contradictory words
-
-Noted 22 September 2026. Not started.
-
-The row at `MainActivity.kt:228` (spec 17.10, 17.11) shows three separate
-readings side by side: `statusWord(state.status)` for the room connection
-("listening", "connecting", …), `state.quality` for the network
-("Excellent"), and `signWord(state.sign)` for whether the bridge still says
-it works ("working" or "no signal", `Work.kt`). Chris has seen "listening",
-"Excellent" and "no signal" together, and it reads as a contradiction: the
-room and network look fine, but "no signal" sounds like a connection problem
-when it actually means the bridge process has stopped saying it works (spec
-17.11).
-
-Find a more compact, sensible way to show the three readings together, as one
-state the eye reads at once rather than three words that can conflict.
-Renaming "no signal" so it stops sounding like a network word may be part of
-it. Once the screenshot-to-agent feature ships, Chris may attach a screenshot
-of the confusing case here.
-
-Done when the row cannot show two readings that sound like they contradict
-each other, in no more room than it takes today.
-
 ## 17. Hold music can arm very late on a turn whose first content is one large tool call
 
 Noted 22 September 2026. Not investigated yet.
