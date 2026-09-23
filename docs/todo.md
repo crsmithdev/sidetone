@@ -204,6 +204,20 @@ not without fighting the formatting item 12 is adding.
 Done when a bubble's text visibly lights up in step with the voice, at least
 sentence by sentence, and stays correct through a barge-in and a hold.
 
+Decided 23 September 2026:
+
+- The signal exists. Spec 14.13 defines the `speaking` message, so the bridge
+  needs no change. The work is in the app.
+- Lit means full weight. Upcoming text is grey. A sentence already spoken stays
+  at full weight.
+- The unit is one sentence. Word by word waits for timing from the voice engine.
+- A barge-in cuts a sentence and the bridge says it again from its start. The
+  bubble lights that sentence again when the message repeats. A sentence Chris
+  never heard stays grey.
+- A hold changes nothing. The last spoken sentence stays lit until the next
+  `speaking` message.
+- Still open: how the partly lit bubble fits the formatting of item 12.
+
 ## 20. More hold music tracks, cycled, each resuming where it left off
 
 Noted 22 September 2026. Not started.
