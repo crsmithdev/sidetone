@@ -75,6 +75,10 @@ _Avoid_: an interruption, talk-over.
 The rest of an answer, kept back after a barge-in, until what Chris said next decides whether it resumes or is dropped.
 _Avoid_: the buffer, the queue, the pause.
 
+**The spoken sentence**:
+The sentence the voice reached last, as the `speaking` message names it. The app greys the words after it in its bubble.
+_Avoid_: the highlight, the current sentence, the lit line.
+
 **A cue**:
 A click rather than speech, which says what the bridge is doing while it does it.
 _Avoid_: a beep, a tone, a sound effect, a notification.

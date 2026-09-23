@@ -13,6 +13,7 @@ The status row shows one state (17.11.6) from 22 September 2026.
 The status row is one dot (17.11.6) from 23 September 2026.
 The pending screenshot (14.12.5 to 14.12.7, 17.18.5) added 23 September 2026.
 The crash report (14.14, 17.20) added 23 September 2026.
+The spoken sentence in the bubbles (17.21) added 23 September 2026.
 
 This document is the complete specification for Sidetone. It
 includes the background, the settled design decisions, the reasoning behind
@@ -632,6 +633,16 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 17.20.2 The app sends each report after it connects to the room, oldest first. It deletes a report when the send succeeds. A report that fails stays for the next room.
 
 17.20.3 The report catches only an error in the app's own code. A crash in native code and a freeze of the screen (an ANR) give no report.
+
+17.21 The app follows the voice in the bubbles of the agent. The unit is the spoken sentence: the sentence that the last `speaking` message (14.13) names.
+
+17.21.1 The bubble that holds the spoken sentence shows the words up to its end at full weight. The words after it are grey. The other bubbles show all their words at full weight.
+
+17.21.2 The app finds the spoken sentence in the newest bubble of the agent that holds its words. A sentence that no bubble holds, such as a reply from the bridge during a hold, does not move the spoken sentence. Before the first `speaking` message the app greys nothing.
+
+17.21.3 A `turn` does not move the spoken sentence, because the voice can still say the answer after it arrives. A barge-in cuts a sentence and the bridge says it again (14.13), so the grey stays after the cut until that message repeats.
+
+17.21.4 The formatting of 17.19 stays. The grey starts at the length of the words up to the end of the sentence, once formatted. A sentence that ends inside a bold or code span can show a slightly wrong edge.
 
 ## 18. MEASUREMENTS TO MAKE
 

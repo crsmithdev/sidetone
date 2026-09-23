@@ -33,10 +33,11 @@ class Conversation(val transcript: Transcript = Transcript()) {
         private set
 
     /**
-     * 14.13 the sentence the voice is saying now, and the answer it belongs to.
-     * Null when nothing is being said. A screen lights these words.
+     * 17.21 where the spoken sentence (14.13) is: the index of its line and where
+     * it ends in the trimmed words. A sentence that no bubble holds, such as a reply
+     * from the bridge during a hold, leaves it where it was. Null greys nothing.
      */
-    var speaking: Pair<Int?, String>? = null
+    var spoken: Pair<Int, Int>? = null
         private set
 
     /** 9.4.9 the settings in force on the bridge: the switches, and the words of the rest. */
@@ -75,9 +76,8 @@ class Conversation(val transcript: Transcript = Transcript()) {
             is Incoming.Delta -> transcript.onDelta(message, at)
             is Incoming.BlockEnd -> Unit
             is Incoming.Turn -> {
+                // 14.13 the voice can still be saying the answer, so the spoken sentence stays
                 transcript.onTurn(message, at)
-                // 14.13 the answer is whole: nothing is being said any more
-                speaking = null
                 // 17.17.2 a reply the voice did not play
                 if (!inFront && !audioOn) return listOf(Effect.Alert("Reply", message.line.text))
             }
@@ -93,7 +93,7 @@ class Conversation(val transcript: Transcript = Transcript()) {
                 if (!inFront) return listOf(Effect.Alert("Sidetone", message.line.text))
             }
             is Incoming.Rejoin -> return listOf(Effect.Rejoin)
-            is Incoming.Speaking -> speaking = message.answer to message.text
+            is Incoming.Speaking -> spokenIn(lines, message.text)?.let { spoken = it }
             is Incoming.Screenshot -> {
                 // 17.18.5 the bridge has it: the thumbnail joins the transcript once
                 if (message.id !in screenshots) transcript.onLines("screenshot", at, Line(Line.Kind.SCREENSHOT, message.id))
@@ -152,7 +152,7 @@ class Conversation(val transcript: Transcript = Transcript()) {
         endTurn = null
         settingsOn = emptyMap()
         settingWords = emptyMap()
-        speaking = null
+        spoken = null
         screenshots = emptyMap()
     }
 

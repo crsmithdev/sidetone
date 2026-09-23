@@ -55,6 +55,8 @@ object Bridge {
         /** 17.11 whether the bridge says the agent works. It is shown whatever the audio does. */
         val sign: Sign = Sign.OFF,
         val lines: List<Line> = emptyList(),
+        /** 17.21 the line of the spoken sentence and where the sentence ends in it. */
+        val spoken: Pair<Int, Int>? = null,
         val error: String? = null,
         /** 17.15 the app the bridge serves, when it is not the one installed. */
         val update: Apk? = null,
@@ -454,7 +456,7 @@ object Bridge {
 
     /** The screen shows what the conversation holds now. */
     private fun shown() {
-        _state.update { it.copy(lines = conversation.lines, endTurn = conversation.endTurn, sign = conversation.sign, screenshots = conversation.screenshots) }
+        _state.update { it.copy(lines = conversation.lines, spoken = conversation.spoken, endTurn = conversation.endTurn, sign = conversation.sign, screenshots = conversation.screenshots) }
     }
 
     /**

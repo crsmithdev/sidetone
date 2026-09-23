@@ -182,7 +182,8 @@ Decided 23 September 2026:
 
 ## 19. Highlight the chat text as it is actually spoken
 
-Noted 22 September 2026. Not investigated yet.
+Noted 22 September 2026. Built 23 September 2026 on the branch
+`highlight-speech`, not landed and not yet seen on a phone.
 
 The official Claude app shows upcoming text greyed out, then brings each
 part to full weight as the words are actually spoken, so the reading eye can
@@ -223,6 +224,37 @@ Decided 23 September 2026:
   A sentence that ends inside a bold or code span may show a slightly wrong
   edge. That is accepted. If the app cannot find the spoken sentence in the
   bubble, it greys nothing.
+
+Built 23 September 2026, spec 17.21. `spokenIn()` in `Spoken.kt` finds the
+spoken sentence in the newest bubble of the agent that holds its words.
+`Conversation.spoken` keeps the line and the end of the sentence. `greyAfter()`
+lays the grey (`colors.outline`) over the formatted words after that end, in
+`TranscriptLine`. Unit tests cover the search, the grey edge, a repeat after a
+barge-in, a `turn` that arrives while the voice still speaks, and a sentence in
+no bubble.
+
+Two points differ from the Decided block:
+
+- A `turn` no longer clears the spoken sentence. The bridge sends the `turn`
+  when the agent finishes (src/conversation.ts:388, :589), not when the voice
+  finishes. A clear there lit the rest of a long answer while the voice still
+  said it.
+- A sentence that no bubble holds, such as a reply from the bridge during a
+  hold, keeps the grey where it was. "Greys nothing" applies only before any
+  sentence is found. Otherwise a reply during a hold lit the words Chris never
+  heard.
+
+Not built:
+
+- The grey is in one bubble. An answer of two blocks shows the second block at
+  full weight while the voice still says the first.
+- A new answer shows at full weight until its first `speaking` message. The
+  gap is short: the voice reaches a sentence soon after the bubble shows it.
+- The grey follows only the newest spoken sentence. When the next answer
+  speaks, the unheard end of a cut answer goes to full weight.
+- A sentence that repeats in one bubble matches its first place.
+- Not seen on a phone or in the car. Done needs a look at a real answer, a
+  barge-in and a hold.
 
 ## 20. More hold music tracks, cycled, each resuming where it left off
 

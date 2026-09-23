@@ -272,7 +272,8 @@ private fun Conversation(state: Bridge.State, onLeave: () -> Unit) {
             LazyColumn(Modifier.fillMaxSize(), state = list, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(shown) { line ->
                     if (line.kind == Line.Kind.SCREENSHOT) ScreenshotLine(line, state.thumbnails[line.text], state.screenshots[line.text])
-                    else TranscriptLine(line)
+                    // 17.21 `shown` keeps the lines themselves, so the spoken line is found by identity
+                    else TranscriptLine(line, state.spoken?.takeIf { state.lines.getOrNull(it.first) === line }?.second)
                 }
             }
         }
@@ -447,7 +448,7 @@ private fun ScreenshotLine(line: Line, jpeg: ByteArray?, state: String?) {
 }
 
 @Composable
-private fun TranscriptLine(line: Line) {
+private fun TranscriptLine(line: Line, spokenEnd: Int? = null) {
     val colors = MaterialTheme.colorScheme
     when (line.kind) {
         // 17.14 each line of words is selectable, so Chris can copy it
@@ -474,8 +475,12 @@ private fun TranscriptLine(line: Line) {
                 ) {
                     // 17.19 the agent's markdown shows formatted; what Chris said stays as the words he said
                     val words = line.text.trim()
-                    val shown = remember(words, colors) {
-                        if (you) AnnotatedString(words) else markdown(words, code = colors.surfaceContainerHighest, link = colors.primary)
+                    val shown = remember(words, colors, spokenEnd) {
+                        if (you) AnnotatedString(words) else {
+                            val formatted = markdown(words, code = colors.surfaceContainerHighest, link = colors.primary)
+                            // 17.21 the words after the spoken sentence are grey until the voice reaches them
+                            if (spokenEnd == null) formatted else greyAfter(formatted, words, spokenEnd, colors.outline)
+                        }
                     }
                     SelectionContainer { Text(shown, color = ink) }
                     // 17.9 the time the bubble began

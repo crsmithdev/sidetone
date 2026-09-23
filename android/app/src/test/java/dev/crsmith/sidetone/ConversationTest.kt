@@ -128,18 +128,35 @@ class ConversationTest {
     }
 
     @Test
-    fun theVoiceReachingASentenceIsKeptForTheScreen() {
+    fun theVoiceReachingASentenceMarksWhereTheBubbleGoesGrey() {
+        send("""{"kind":"heard","text":"two things"}""")
+        send("""{"kind":"blockStart","answer":1,"block":1}""")
+        send("""{"kind":"delta","text":"One. Two. Three.","answer":1,"block":1}""")
+        // the words are on the screen, and the voice has not reached them yet
+        assertEquals(null, c.spoken)
+        send("""{"kind":"speaking","text":"One.","answer":1}""")
+        assertEquals(1 to 4, c.spoken)
+        send("""{"kind":"speaking","text":"Two.","answer":1}""")
+        assertEquals(1 to 9, c.spoken)
+        // the whole answer arrives while the voice still says it
+        send("""{"kind":"turn","number":1,"text":"One. Two. Three.","costUsd":0.01,"answer":1}""")
+        assertEquals(1 to 9, c.spoken)
+        // a barge-in cut "Three." and the voice says it again from its start
+        send("""{"kind":"speaking","text":"Three.","answer":1}""")
+        send("""{"kind":"speaking","text":"Three.","answer":1}""")
+        assertEquals(1 to 16, c.spoken)
+    }
+
+    @Test
+    fun aSentenceNoBubbleHoldsLeavesTheGreyWhereItWas() {
         send("""{"kind":"blockStart","answer":1,"block":1}""")
         send("""{"kind":"delta","text":"One. Two.","answer":1,"block":1}""")
-        // the words are on the screen, and the voice has not reached them yet
-        assertEquals(null, c.speaking)
         send("""{"kind":"speaking","text":"One.","answer":1}""")
-        assertEquals(1 to "One.", c.speaking)
-        send("""{"kind":"speaking","text":"Two.","answer":1}""")
-        assertEquals(1 to "Two.", c.speaking)
-        // the whole answer arriving means the voice has finished with it
-        send("""{"kind":"turn","number":1,"text":"One. Two.","costUsd":0.01,"answer":1}""")
-        assertEquals(null, c.speaking)
+        // a reply from the bridge during a hold is in no bubble of the agent
+        send("""{"kind":"speaking","text":"Holding."}""")
+        assertEquals(0 to 4, c.spoken)
+        c.clear()
+        assertEquals(null, c.spoken)
     }
 
     @Test
