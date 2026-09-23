@@ -208,6 +208,23 @@ hold-to-talk tones of item 15.
 Done when a click or quiet tone plays exactly once, at the true end of a
 turn's speech, and never between sentences of the same turn.
 
+Decided 23 September 2026:
+
+- The cue is one soft click figure, quieter and shorter than the others.
+- It plays when the last sentence has finished playing in the app, not when the
+  bridge finishes sending it.
+- It plays after every turn that spoke, including unprompted reports such as a
+  finished job. A turn with no speech gets nothing.
+- `tones off` silences it.
+- The figure is two clicks, dark to bright. It pairs with `thinking`, which is
+  two clicks, bright then dark: down when the agent starts, up when it ends.
+- Correction to check first: Chris thought the third cue, rising, plays on a
+  reconnect. In `src/cues.ts` it is `starting`, three clicks dark to bright,
+  and it plays when the Claude Code process restarts (`onRestart` in
+  `src/conversation.ts`). Chris rarely hears it. Decide whether the new
+  two-click figure is a fourth cue that leaves `starting` as it is, or
+  replaces it.
+
 ## 19. Highlight the chat text as it is actually spoken
 
 Noted 22 September 2026. Not investigated yet.
@@ -728,3 +745,9 @@ Decided 23 September 2026 (item 35):
   Chris can still make one.
 - "Continue" is a common word. The bridge must count it as the confirm word
   only as the answer to a question the agent just asked, not at any other time.
+
+Found later the same day: an agreement word already exists. `agreementWord` in
+`src/config.ts` is spoken in the checkpoint reply of `src/conversation.ts`:
+"Say <word> to let it run on." Read it before the confirm word is built, and
+build "continue" on that path instead of a second one. The default of
+`agreementWord` is already "continue".
