@@ -10,6 +10,7 @@ Text selection in the transcript (17.14) added 21 September 2026.
 The screenshot (14.12, 17.18) added 22 September 2026.
 Formatted text in the bubbles (17.19) added 22 September 2026.
 The status row shows one state (17.11.6) from 22 September 2026.
+The status row is one dot (17.11.6) from 23 September 2026.
 
 This document is the complete specification for Sidetone. It
 includes the background, the settled design decisions, the reasoning behind
@@ -506,19 +507,23 @@ project bridge stays in place.
 
 17.10.3 On the tap of "Music", the app sends the `music` message with `on` set to false or to true. The bridge sets the setting of 15.7.3 and keeps it across restarts. It gives no answer. A track that plays stops at once (15.10.3). The app starts with the music on. An app that has the music off sends the message again when it joins the room. The bridge does not tell the app the setting, so "music off" by voice does not change the button.
 
-17.11 The app shows a working sign in its status row, after the connection quality. The sign says that the agent works (14.10). It has three states.
+17.11 The app shows a working sign in its status row, as the motion of the status dot (17.11.6). The sign says that the agent works (14.10). It has three states.
 
 17.11.1 Off. The sign shows nothing. This is the state before any `working` message, after a message with `on` set to false, and after the app leaves the room.
 
-17.11.2 Working. The sign shows a dot that pulses slowly, and the word "working". This is the state after a message with `on` set to true, while a `working` message arrives at least every 15 seconds.
+17.11.2 Working. The dot pulses slowly. The row shows no word. This is the state after a message with `on` set to true, while a `working` message arrives at least every 15 seconds.
 
-17.11.3 Stalled. The bridge said that the agent works, and no `working` message has arrived for 15 seconds. The sign shows a red dot that does not pulse, and the word "stalled". This is three heartbeats (14.10.2). It means that the bridge has stopped sending. The room is live when the sign shows (17.11.6), so the bridge is stuck. The next message ends this state. The 15 seconds is a constant of the app, because the app has no settings file.
+17.11.3 Stalled. The bridge said that the agent works, and no `working` message has arrived for 15 seconds. The dot blinks fast. The row shows no word. This is three heartbeats (14.10.2). It means that the bridge has stopped sending. The room is live when the sign shows (17.11.6), so the bridge is stuck. The next message ends this state. The 15 seconds is a constant of the app, because the app has no settings file.
 
 17.11.4 The sign follows the messages of the bridge. It does not follow the sound. It shows with the audio cut (17.10), when the voice, the tones and the hold music give no sign of the work.
 
 17.11.5 The app has no setting for the sign.
 
-17.11.6 The status row shows one state, not three readings that can disagree. The connection quality and the sign show only while the status word is "listening". In any other state no message can come, so the status word says why, and the row shows no quality and no sign. The notification (17.16) follows the same rule for the sign. When the status is "listening" and LiveKit says the connection of the phone is lost, the room is not live: the status word is "signal lost", and the row shows no quality and no sign. One function in the app gives this reading, and a test tries every input.
+17.11.6 The status row shows one state, not three readings that can disagree. The row is one large dot. The colour of the dot is the room state: green while the status is "listening", amber while the app connects, rejoins or reconnects, and red when the bridge is unreachable. A ring around the dot is the connection quality: thick when excellent, thinner when good, thin when poor, and no ring when the quality is not known. The motion of the dot is the working sign (17.11). The ring and the sign show only while the status word is "listening". In any other state no message can come, and the row shows no ring and no sign. The notification (17.16) follows the same rule for the sign. When the status is "listening" and LiveKit says the connection of the phone is lost, the room is not live: the status word is "signal lost", and the row shows no ring and no sign. One function in the app gives this reading, and a test tries every input.
+
+17.11.7 The row shows a word only for a state that Chris does not expect: "reconnecting", "disconnected" and "signal lost". While the room connects, rejoins, listens or works, the row shows no word. The notification (17.16) keeps the status word in every state.
+
+17.11.8 The "Leave" button is not in the row. It is in a menu that opens from the button at the end of the row. It quits the app, as before.
 
 17.12 The app keeps a screen log: what it showed, in the order it showed it. Each change of a line on the screen is one entry. The log is in the memory of the app process. It ends when Chris leaves the room with the Leave button.
 

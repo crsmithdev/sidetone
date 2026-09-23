@@ -471,6 +471,12 @@ Decided 23 September 2026 (design not yet read in the car):
   audio mode, a reconnect button that cuts the connection and stays in the app
   could replace it. Decide that after item 27.
 
+Built 23 September 2026 on branch `status-dot`, not landed and not yet read in
+the car. `reading()` in `Reading.kt` gives the colour, the ring and the word, and
+`StatusDot` in `MainActivity.kt` draws them. Until item 28 exists, "Leave" is
+the one entry of a "⋮" menu at the end of the row. "signal lost" keeps its word
+beside "reconnecting" and "disconnected", because it is a link that is down too.
+
 ## 33. Garbled speech: first, let the agent hear the audio it sent
 
 Noted 23 September 2026. Not started. Items 32 and 34 merged into this item on

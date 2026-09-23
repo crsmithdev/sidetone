@@ -17,6 +17,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -43,6 +44,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -65,6 +68,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.ImeAction
@@ -237,17 +242,10 @@ private fun Conversation(state: Bridge.State, onLeave: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             val reading = reading(state.status, state.quality, state.sign)
-            val light = when (reading.light) {
-                Light.LIVE -> MaterialTheme.colorScheme.primary
-                Light.REJOINING -> MaterialTheme.colorScheme.tertiary
-                Light.OFF -> MaterialTheme.colorScheme.outline
-            }
-            Box(Modifier.size(10.dp).background(light, CircleShape))
-            Text(reading.word, style = MaterialTheme.typography.titleMedium)
-            reading.quality?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            WorkingSign(reading.sign)
+            StatusDot(reading)
+            reading.caption?.let { Text(it, style = MaterialTheme.typography.titleMedium) }
             Spacer(Modifier.weight(1f))
-            TextButton(onClick = onLeave) { Text("Leave") }
+            Options(onLeave)
         }
         state.error?.let { ErrorBanner(it) }
         // 17.15 only while the bridge serves an app that is not this one
@@ -353,27 +351,61 @@ private fun HoldToTalk(state: Bridge.State) {
 }
 
 /**
- * 17.11 a small sign in the status row that the agent works. It pulses slowly
- * while the bridge says so, and it shows nothing when the agent is idle. When
- * the bridge has said it works and has stopped saying so, it stands still and
- * turns red. It reads the bridge's message, not the audio, so it shows with the
- * audio cut (17.10).
+ * 17.11.6 the room in one dot. The colour is the room state, the ring is the
+ * connection quality, and the motion is the working sign (17.11): a slow pulse
+ * while the agent works, a fast blink when it stalls. The outer size does not
+ * change, so the row does not move when the ring goes.
  */
 @Composable
-private fun WorkingSign(sign: Sign) {
-    if (sign == Sign.OFF) return
-    val silent = sign == Sign.SILENT
-    val colors = MaterialTheme.colorScheme
-    val pulse by rememberInfiniteTransition(label = "working").animateFloat(
-        initialValue = 0.25f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(1_600), RepeatMode.Reverse),
-        label = "pulse",
-    )
-    val ink = if (silent) colors.error else colors.onSurfaceVariant
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        Box(Modifier.size(8.dp).alpha(if (silent) 1f else pulse).background(if (silent) colors.error else colors.primary, CircleShape))
-        Text(signWord(sign), style = MaterialTheme.typography.bodyMedium, color = ink)
+private fun StatusDot(reading: Reading) {
+    val fill = when (reading.light) {
+        Light.GREEN -> Color(0xFF34A853)
+        Light.AMBER -> Color(0xFFF9AB00)
+        Light.RED -> Color(0xFFEA4335)
+    }
+    val ring = when (reading.ring) {
+        Ring.THICK -> 4.dp
+        Ring.MEDIUM -> 2.5.dp
+        Ring.THIN -> 1.dp
+        null -> 0.dp
+    }
+    val motion = rememberInfiniteTransition(label = "working")
+    val alpha = when (reading.sign) {
+        Sign.OFF -> 1f
+        Sign.WORKING -> motion.animateFloat(
+            initialValue = 0.25f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(tween(1_600), RepeatMode.Reverse),
+            label = "pulse",
+        ).value
+        Sign.SILENT -> if (motion.animateFloat(0f, 1f, infiniteRepeatable(tween(400)), label = "blink").value < 0.5f) 1f else 0.15f
+    }
+    val said = listOf(reading.word, signWord(reading.sign)).filter { it.isNotEmpty() }.joinToString(", ")
+    Box(
+        Modifier.size(32.dp).border(ring, MaterialTheme.colorScheme.onSurface, CircleShape).semantics { contentDescription = said },
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(Modifier.size(22.dp).alpha(alpha).background(fill, CircleShape))
+    }
+}
+
+/**
+ * The options of the app, behind one button at the end of the status row. It
+ * holds only "Leave" until the options menu of item 28 exists.
+ */
+@Composable
+private fun Options(onLeave: () -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        TextButton(onClick = { open = true }, modifier = Modifier.semantics { contentDescription = "Options" }) {
+            Text("⋮", style = MaterialTheme.typography.titleLarge)
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            DropdownMenuItem(text = { Text("Leave") }, onClick = {
+                open = false
+                onLeave()
+            })
+        }
     }
 }
 
