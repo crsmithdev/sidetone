@@ -837,3 +837,31 @@ message kind that carries only `apk`. Prefer the smaller one, so a repeat of
 
 Done when a build that ends while the phone is in the room makes the button
 appear on the phone within seconds, with no leave and no restart.
+
+## 41. Voice input after the app was closed for a while
+
+Noted 23 September 2026. Not investigated.
+
+At about 13:55 on 23 September the bridge lost the voice of Chris. The journal
+showed the phone open and cut its microphone every two to four seconds, and
+Chris did not know why. The microphone was cut, and hold-to-talk presses opened
+it for a moment. After a restart of the app and the update, input worked again.
+The app had been closed or in the background for a while before.
+
+Check whether the app has a fault in its audio input after it was closed or
+in the background for a long time:
+
+- The microphone permission and the foreground service of type microphone
+  (`BridgeService.kt`): does Android stop them in the background?
+- The track after the app returns to the front: does the app publish a new
+  track, or does it keep a dead one? See 18.9 for the rejoin path.
+- The state of the microphone button after the app returns: does it keep "cut"
+  from before, without a sign that Chris can see?
+- The round of cuts and opens in the journal: what caused each one, a press, the
+  state of the app or the system?
+
+This links to item 39, part 2 (the stability pass) and to the finding in
+`~/.sidetone/findings/stability-39b.md`.
+
+Done when a test with the app in the background for an hour, then in front
+again, gives a working microphone with no touch, or a fix for the cause.
