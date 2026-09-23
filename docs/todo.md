@@ -657,3 +657,24 @@ Found later the same day: an agreement word already exists. `agreementWord` in
 "Say <word> to let it run on." Read it before the confirm word is built, and
 build "continue" on that path instead of a second one. The default of
 `agreementWord` is already "continue".
+
+## 38. A screenshot from the phone does not reach the agent, and the status shows twice
+
+Noted 23 September 2026. Not investigated.
+
+Chris saw a status message twice, and took a screenshot to show it. The
+screenshot did not reach the agent. Chris does not know which status doubled:
+the row in the app, or a spoken message from the bridge such as a job start or
+finish line.
+
+Two parts:
+
+1. Find what the screenshot showed. Until a picture can arrive, Chris says in
+   words where it doubled.
+2. Give Chris a way to send an image from the phone to the agent. The bridge
+   passes speech and text only. Decide the route: a share target in the app that
+   puts the file in `~/.sidetone/share/`, or a message kind on the control
+   channel. The agent then reads the file.
+
+Done when Chris can send a screenshot from the phone and the agent can open it,
+and the double status is found or shown not to exist.
