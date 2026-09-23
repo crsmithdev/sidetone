@@ -842,6 +842,47 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
     end();
     await turn;
   });
+
+  /**
+   * To-do item 31, as the stream sends it on 22 and 23 September: the text
+   * block ends at the full stop with no space after it, the tool runs, and the
+   * next text block starts with a capital letter and no space before it. The
+   * opening sentence waited for the tool and then went out glued to the result.
+   */
+  test("the sentence before a tool call is said before the music, and alone (item 31)", async () => {
+    let end = () => {};
+    const r = room({
+      during: (hooks) => {
+        hooks.onBlockStart?.("text");
+        hooks.onDelta?.("I'll check the worktrees.");
+        hooks.onBlockEnd?.();
+        hooks.onBlockStart?.("tool_use");
+        hooks.onBlockEnd?.();
+      },
+      hold: new Promise<void>((resolve) => { end = resolve; }),
+      deltas: ["Yes, there are two."],
+    }, { holdMusicAfterMs: AFTER }, { file });
+    await r.mouth.music(() => true);
+    const turn = r.c.turn("are there open worktrees");
+    await until(() => r.tracks.length > 0);
+    expect(r.said).toEqual(["I'll check the worktrees."]);
+    end();
+    await turn;
+    expect(r.said).toEqual(["I'll check the worktrees.", "Yes, there are two."]);
+  });
+
+  test("a number split across deltas inside one text block is not split (item 31)", async () => {
+    const r = room({
+      during: (hooks) => {
+        hooks.onBlockStart?.("text");
+        hooks.onDelta?.("It costs 3.");
+        hooks.onDelta?.("5 cents. Then more.");
+        hooks.onBlockEnd?.();
+      },
+    }, { holdMusicAfterMs: AFTER }, { file });
+    await r.c.turn("how much");
+    expect(r.said).toEqual(["It costs 3.5 cents.", "Then more."]);
+  });
 });
 
 /**

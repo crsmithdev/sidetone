@@ -394,6 +394,8 @@ export class Conversation {
       this.channel.tell({ kind: "delta", text, answer: id, block });
       for (const sentence of sentences.push(text)) say(sentence);
     };
+    // item 31: a block is complete, so a full stop at its end cannot become a number or an ellipsis
+    const endSentence = () => { const tail = sentences.flush(); if (tail) say(tail); };
     this.answering = {
       delta: (text) => {
         if (!mine()) return;
@@ -404,7 +406,7 @@ export class Conversation {
       blockStart: (type) => {
         if (!mine()) return;
         // 15.7.5 a tool call is proof enough that the turn is long, marker or not
-        if (type === "tool_use") { words(marker.end()); marker.long = true; }
+        if (type === "tool_use") { words(marker.end()); endSentence(); marker.long = true; }
         if (type !== "text") return;
         open = true;
         this.channel.tell({ kind: "blockStart", answer: id, block: ++block });
@@ -413,6 +415,7 @@ export class Conversation {
         if (!mine() || !open) return;
         open = false;
         this.channel.tell({ kind: "blockEnd", answer: id, block });
+        endSentence();
       },
     };
     const stopCue = this.cueWhileWaiting();
@@ -422,8 +425,7 @@ export class Conversation {
       if (!mine()) return;
       const turn = { ...answer, text: withoutMarker(answer.text) };
       words(marker.end());
-      const tail = sentences.flush();
-      if (tail) say(tail);
+      endSentence();
       await this.mouth.drained();
       this.lastReply = this.mouth.said.join(" ") || turn.text;
       this.recent.push({ said, reply: this.lastReply });

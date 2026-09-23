@@ -31,6 +31,19 @@ describe("sentence collector (5.6)", () => {
     expect(c.flush()).toBe("no full stop here");
     expect(c.flush()).toBeNull();
   });
+  test("a full stop at the end of the text waits, and the flush gives it back as a sentence (item 31)", () => {
+    const c = new SentenceCollector(240);
+    expect(c.push("I'll check the worktrees.")).toEqual([]);
+    expect(c.flush()).toBe("I'll check the worktrees.");
+  });
+  test("a number or an ellipsis split across pushes is not split", () => {
+    const c = new SentenceCollector(240);
+    expect(c.push("it costs 3.")).toEqual([]);
+    expect(c.push("5 cents. ")).toEqual(["it costs 3.5 cents."]);
+    expect(c.push("well.")).toEqual([]);
+    expect(c.push("..")).toEqual([]);
+    expect(c.push(" maybe. ")).toEqual(["well...", "maybe."]);
+  });
 });
 
 describe("the long marker (15.7.4)", () => {
