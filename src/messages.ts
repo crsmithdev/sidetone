@@ -60,7 +60,9 @@ export type Outgoing =
    * sentence a barge-in cut is said again from the start, so this can repeat.
    */
   | { kind: "speaking"; text: string; answer?: number }
-  | { kind: "protocol"; endTurn: string; apk?: Apk };
+  | { kind: "protocol"; endTurn: string; apk?: Apk }
+  /** 17.15.5 a new build while the client is in the room; `protocol` would reset more than the offer */
+  | { kind: "apk"; apk: Apk };
 
 /** 17.15 the app the bridge serves: where to fetch it, and its SHA-256 in hex. */
 export interface Apk {

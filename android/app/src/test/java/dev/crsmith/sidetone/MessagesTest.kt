@@ -202,6 +202,7 @@ class MessagesTest {
         assertEquals(Incoming.Protocol("sidetone end the turn"), decoded.first())
         assertTrue(Incoming.Protocol("sidetone end the turn", Apk("https://bridge:3100/sidetone.apk", "ab12")) in decoded)
         assertTrue(Incoming.Announce(Line(Line.Kind.NOTE, "Job build finished.")) in decoded)
+        assertTrue(Incoming.Offer(Apk("https://bridge:3100/sidetone.apk", "cd34")) in decoded)
         assertTrue(Incoming.Rejoin in decoded)
         assertTrue(Incoming.Working(true) in decoded)
         val history = decoded.filterIsInstance<Incoming.History>().last()

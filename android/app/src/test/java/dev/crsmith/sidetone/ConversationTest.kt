@@ -73,6 +73,15 @@ class ConversationTest {
     }
 
     @Test
+    fun aNewBuildIsOfferedAtAnyTimeAndChangesNothingElse() {
+        send("""{"kind":"protocol","endTurn":"end turn"}""")
+        val effects = send("""{"kind":"apk","apk":{"url":"https://b/sidetone.apk","sha256":"cd"}}""")
+        assertEquals(listOf(Conversation.Effect.Offer(Apk("https://b/sidetone.apk", "cd"))), effects)
+        assertEquals("end turn", c.endTurn)
+        assertTrue(c.lines.isEmpty())
+    }
+
+    @Test
     fun aRejoinIsAskedOfTheRoomAndNothingElse() {
         assertEquals(listOf(Conversation.Effect.Rejoin), send("""{"kind":"rejoin"}"""))
         assertTrue(c.lines.isEmpty())

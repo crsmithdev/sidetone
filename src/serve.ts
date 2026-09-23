@@ -8,7 +8,7 @@
  * what makes barge-in possible at all (11.1 to 11.3), and it is why 11.4 says
  * not to hand-build a canceller.
  */
-import { ApkHash } from "./apk.ts";
+import { ApkHash, watchApk } from "./apk.ts";
 import { assemble } from "./bridge.ts";
 import { Outbound } from "./outbound.ts";
 import type { Config } from "./config.ts";
@@ -138,6 +138,8 @@ export async function serve(dir: string, config: Config): Promise<void> {
   }
   // the frames need the engines; nothing is heard before they are warm
   transport.onAudio((frame) => ear.frame(frame));
+  // 17.15.5 a build that ends while a client is in the room; the process exit stops it
+  watchApk(apkHash, (sha256) => channel.tell({ kind: "apk", apk: { url: `${origin}/sidetone.apk`, sha256 } }));
 
   console.log(`bridge on ${origin}, room ${config.room}, Claude Code in ${dir}`);
   console.log(`the phone reaches LiveKit at ${clientUrl}`);

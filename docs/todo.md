@@ -783,7 +783,18 @@ with the stack trace, and each check in part 2 has a finding or a fix.
 
 ## 40. The app learns of a new build only when it joins the room
 
-Noted 23 September 2026. Not started.
+Noted 23 September 2026. Built 23 September 2026 on branch `apk-push`, not
+landed. Not yet tried on the phone.
+
+What is built (spec 17.15.5 and 17.15.6): `watchApk` in `src/apk.ts` looks at
+the file every 2 seconds through `ApkHash`. When the hash changes, and two
+looks in a row agree, `src/serve.ts` sends `{"kind":"apk","apk":{url,sha256}}`
+to the room. The app decodes it as `Incoming.Offer` and gives the existing
+`Effect.Offer`, so `Bridge.offer` shows or clears the button. The `protocol`
+message is unchanged. The page ignores the new kind.
+
+Still to do: build the app while the phone is in the room, and see the
+button within about 4 seconds of the end of the build.
 
 The bridge offers the app in the `protocol` message (spec 17.15.1). It sends
 that message when a client joins: `transport.onParticipant` in `src/serve.ts`.

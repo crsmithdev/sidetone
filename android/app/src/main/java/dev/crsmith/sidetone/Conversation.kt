@@ -78,6 +78,7 @@ class Conversation(val transcript: Transcript = Transcript()) {
                 endTurn = message.endTurn
                 return listOf(Effect.Offer(message.apk))
             }
+            is Incoming.Offer -> return listOf(Effect.Offer(message.apk))
             is Incoming.Announce -> {
                 transcript.onLines("note", at, message.line)
                 // 17.17.1 the voice says it too, but not to a phone in a pocket with the audio cut

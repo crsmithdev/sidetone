@@ -52,6 +52,9 @@ sealed interface Incoming {
     /** What only the bridge knows: the words this client has to say back to it, and 17.15 the app it serves. */
     data class Protocol(val endTurn: String, val apk: Apk? = null) : Incoming
 
+    /** 17.15.5 a new build of the app, served while this client is in the room. */
+    data class Offer(val apk: Apk) : Incoming
+
     /** 18.9 the microphone track carries no sound: leave the room and join it again. */
     data object Rejoin : Incoming
 
@@ -83,15 +86,13 @@ sealed interface Incoming {
 fun decode(payload: ByteArray): Incoming? {
     val message = runCatching { Json.parseToJsonElement(payload.decodeToString()) as? JsonObject }.getOrNull() ?: return null
     val kind = message.string("kind") ?: return null
-    if (kind == "protocol") {
-        val endTurn = message.string("endTurn") ?: return null
-        val apk = (message["apk"] as? JsonObject)?.let { offered ->
-            val url = offered.string("url")
-            val sha256 = offered.string("sha256")
-            if (url != null && sha256 != null) Apk(url, sha256) else null
-        }
-        return Incoming.Protocol(endTurn, apk)
+    val apk = (message["apk"] as? JsonObject)?.let { offered ->
+        val url = offered.string("url")
+        val sha256 = offered.string("sha256")
+        if (url != null && sha256 != null) Apk(url, sha256) else null
     }
+    if (kind == "protocol") return Incoming.Protocol(message.string("endTurn") ?: return null, apk)
+    if (kind == "apk") return Incoming.Offer(apk ?: return null)
     if (kind == "rejoin") return Incoming.Rejoin
     if (kind == "speaking") return Incoming.Speaking(message.string("text") ?: return null, message.int("answer"))
     if (kind == "settings") {

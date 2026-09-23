@@ -37,6 +37,8 @@ export function decode(message) {
     case "rejoin":
     // 14.10 the app shows a sign that the agent works. The page shows nothing.
     case "working":
+    // 17.15.5 a new build of the app. The page is not the app.
+    case "apk":
     // 14.9 the app shows a bubble for each block of an answer. The page keeps its
     // one line for each answer, grown by sentences, so it ignores the blocks.
     case "blockStart":

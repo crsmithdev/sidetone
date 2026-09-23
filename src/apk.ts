@@ -23,3 +23,23 @@ export class ApkHash {
     return sha256;
   }
 }
+
+/**
+ * 17.15.5 calls `changed` with each new hash of the file, so a client already
+ * in the room hears of a new build. A build writes the file for some seconds,
+ * so a hash counts only when two looks in a row agree.
+ */
+export function watchApk(hash: ApkHash, changed: (sha256: string) => void, everyMs = 2_000): () => void {
+  let seen: string | undefined;
+  let offered: string | undefined;
+  const timer = setInterval(async () => {
+    // a file that goes away during the read is a build in progress, not a crash
+    const sha256 = await hash.get().catch(() => undefined);
+    if (sha256 && sha256 === seen && sha256 !== offered) {
+      offered = sha256;
+      changed(sha256);
+    }
+    seen = sha256;
+  }, everyMs);
+  return () => clearInterval(timer);
+}

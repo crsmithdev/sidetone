@@ -540,7 +540,7 @@ project bridge stays in place.
 | `text` | The exact text of that line on the screen after the change, trimmed as the screen trims it. It is empty while the bubble is hidden (17.8). For `working`, it is the words of the sign. |
 | `from` | Only when `text` was cut: the number of characters cut from its front. |
 
-17.12.2 A message that changes more than one line, such as the history, gives one entry for each line. A message that changes no line gives one entry with no bubble. A sentence that a bubble already holds (14.9.5) is such a message. The app writes no entry for the end of a block, for the `protocol` message, or for a `working` message that does not change the sign.
+17.12.2 A message that changes more than one line, such as the history, gives one entry for each line. A message that changes no line gives one entry with no bubble. A sentence that a bubble already holds (14.9.5) is such a message. The app writes no entry for the end of a block, for the `protocol` or `apk` message, or for a `working` message that does not change the sign.
 
 17.12.3 The log has a cap. It holds at most 500 entries and 200,000 characters of text. When it is over the cap, the app drops the oldest entries first. It always keeps the newest entry. One entry keeps at most 4,000 characters of `text`. A longer text keeps its last 4,000 characters.
 
@@ -557,6 +557,10 @@ project bridge stays in place.
 17.15.3 On the tap, the button reads "Downloading the update…". The app downloads the file into a system install session. Android then asks Chris to confirm. The first time, Android also asks Chris to allow installs from the app. Google Play Protect can ask for a scan of an app it has not seen. "Install without scanning" continues the update.
 
 17.15.4 A cancel or a failure adds a note to the transcript, and the button is available again. A success replaces the app and ends its process. Chris opens the app again.
+
+17.15.5 A build can end while the app is in the room. The bridge looks at the file every 2 seconds. When the hash changes, and two looks in a row agree, the bridge sends the `apk` message to every client in the room. The message holds only the `apk` field of 17.15.1. The two looks keep the bridge from offering a file that a build still writes.
+
+17.15.6 The app accepts the `apk` message at any time and compares the hashes as 17.15.2 says. A new hash shows the button, and a hash equal to its own removes an old button. The message changes nothing else in the app, and the page ignores it.
 
 17.16 The notification of the foreground service (17.2) shows the state of the conversation and three buttons. It shows on the lock screen.
 
