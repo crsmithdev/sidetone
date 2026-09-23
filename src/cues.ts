@@ -8,68 +8,80 @@
  *
  * | cue | when | figure |
  * |---|---|---|
- * | `heard` | your turn ended and the bridge took the recording | one note |
- * | `thinking` | the turn is running and has said nothing yet | a falling fourth |
- * | `starting` | the Claude Code process is coming back up | a rising third |
+ * | `heard` | your turn ended and the bridge took the recording | one click |
+ * | `thinking` | the turn is running and has said nothing yet | two clicks, bright then dark |
+ * | `starting` | the Claude Code process is coming back up | three clicks, dark to bright |
  *
- * The design is "warm-low-short", chosen by ear from twenty-six candidates
- * on 13 September 2026. Three things about it are not taste:
+ * A click is a burst of noise cut to a band, not a note. Chris asked on 22
+ * September 2026 for cues closer to a click than a tone, more atonal and
+ * quieter than the detuned-sine notes of 13 September. Four things about the
+ * design are not taste:
  *
+ * - **The noise.** Noise has no pitch, so a click cannot sound like a musical
+ *   note. The band gives each click a brightness in place of a pitch. The
+ *   figures differ by the count first and the brightness second, because a
+ *   count survives road noise better than a small change in colour.
  * - **The register.** In-vehicle auditory signals want components between 500
- *   and 1500 Hz. The cue this replaced sat at 196 to 330, in with the engine,
- *   and measured below the road noise rather than above it. C5 is the bottom
- *   of the useful band and this sits on it.
- * - **The detuning.** Two sines six cents apart beat gently against each
- *   other. That is the whole difference between a note and a test signal.
+ *   and 1500 Hz. The bands sit in 500 to 2000, the band that decides
+ *   audibility against the road, and nothing is below 500, in with the engine.
+ * - **The shape.** A 40 ms click with a half-sine fall keeps about 7 dB more
+ *   energy in that band than an exponential fall of the same length. The
+ *   2 ms rise keeps the onset sharp but stops a digital pop.
  * - **The length.** A routine cue wants to be under about 300 ms. These run
- *   160 to 300.
+ *   90 to 270, with the reverb tail.
  *
- * Measured against a road-noise bed, filtered to the band that decides
- * audibility, this stands about 12 dB above it. The reading asks for 15, and
- * the shortfall is the price of being low and short, which is what Chris
- * wanted. `cueVolume` is the setting that closes the gap.
+ * Measured as the loudest 100 ms, filtered to 500-2000 Hz, the clicks stand
+ * 4 to 6 dB below the notes they replace at the new default level. The notes
+ * stood about 12 dB above a road-noise bed filtered the same way, so the
+ * clicks stand about 6 to 8 above it. That is what quieter costs, and a
+ * short sound is also heard as quieter than a long one at the same peak.
+ * `cueVolume` is the setting that buys the margin back. The reading was
+ * done on a bench; a human ear in the car has not confirmed it yet.
  */
 import { join } from "node:path";
 
 export type CueName = "heard" | "thinking" | "starting";
 
-/** Six cents. The ratio is 2^(6/1200). */
-const DETUNE = 1.00347;
+/** A click is 40 ms of noise: long enough to carry, short enough to stay a click. */
+const CLICK = 0.04;
 
-/** A note is a detuned pair with a little octave for body: ratio, then gain. */
-const PARTIALS: Array<[number, number]> = [[1, 0.46], [DETUNE, 0.46], [2, 0.08]];
+/** A 2 ms rise: sharp enough for a click, soft enough to stop a digital pop. */
+const ATTACK = 0.002;
 
-/** Half-sine fades at both ends, scaled short with the notes. */
-const FADE_IN = 0.02;
-const FADE_OUT = 0.13;
+/** From the start of one click to the start of the next, so each stays separate. */
+const STEP = 0.09;
+
+/** Room for the reverb to ring out after the last click. */
+const TAIL = 0.05;
 
 /** How much room the reverb is in: 0 to 100. */
 const REVERB = 18;
 
-/** Each cue is a run of notes: hertz, then seconds. C5, G4 and E5. */
+/** Each cue is a run of clicks, each a band of noise: low hertz, then high. */
 const CUES: Record<CueName, Array<[number, number]>> = {
-  heard: [[523, 0.16]],
-  thinking: [[523, 0.12], [392, 0.18]],
-  starting: [[523, 0.12], [659, 0.18]],
+  heard: [[700, 1500]],
+  thinking: [[1100, 2000], [500, 900]],
+  starting: [[500, 900], [700, 1500], [1100, 2000]],
 };
 
 export class Cues {
   private files = new Map<CueName, string>();
 
-  constructor(private readonly dir: string, private readonly volume = 0.12) {}
+  constructor(private readonly dir: string, private readonly volume = 0.1) {}
 
-  /** 15.6 pleasant and calm: quiet, short, and faded at both ends so it never clicks. */
+  /** 15.6 calm: quiet and short, with a soft rise so the onset does not pop. */
   async build(): Promise<void> {
-    for (const [name, notes] of Object.entries(CUES) as Array<[CueName, Array<[number, number]>]>) {
+    for (const [name, clicks] of Object.entries(CUES) as Array<[CueName, Array<[number, number]>]>) {
       const parts: string[] = [];
-      for (const [index, [hertz, seconds]] of notes.entries()) {
-        const note = join(this.dir, `cue-${name}-${index}.wav`);
-        if (!await this.note(note, hertz, seconds)) return;
-        parts.push(note);
+      for (const [index, band] of clicks.entries()) {
+        const click = join(this.dir, `cue-${name}-${index}.wav`);
+        const after = index === clicks.length - 1 ? TAIL : STEP - CLICK;
+        if (!await this.click(click, band, after)) return;
+        parts.push(click);
       }
       const wav = join(this.dir, `cue-${name}.wav`);
       // The reverb runs before the level is set, and the level is set by
-      // normalising the peak rather than by scaling each note. Scaling each
+      // normalising the peak rather than by scaling each click. Scaling each
       // note is how the old cue ended up with one note six times louder than
       // the other: an effect in sox belongs to the chain it is written in.
       const done = await this.sox([...parts, wav,
@@ -80,23 +92,19 @@ export class Cues {
     }
   }
 
-  /** One note: a detuned pair mixed together, then shaped. */
-  private async note(path: string, hertz: number, seconds: number): Promise<boolean> {
-    const partials: string[] = [];
-    for (const [index, [ratio, gain]] of PARTIALS.entries()) {
-      const partial = join(this.dir, `partial-${index}.wav`);
-      if (!await this.sox(["-n", ...FORMAT, partial,
-        "synth", seconds.toFixed(3), "sine", (hertz * ratio).toFixed(2), "vol", gain.toFixed(3),
-      ])) return false;
-      partials.push(partial);
-    }
-    const mixed = join(this.dir, "mixed.wav");
-    if (!await this.sox(["-m", ...partials, mixed])) return false;
-    return this.sox([mixed, path, "fade", "h", FADE_IN.toFixed(3), "0", FADE_OUT.toFixed(3)]);
+  /** One click: white noise cut to a band, with a half-sine fall, then silence. */
+  private async click(path: string, [low, high]: [number, number], after: number): Promise<boolean> {
+    return this.sox(["-n", ...FORMAT, path,
+      "synth", CLICK.toFixed(3), "whitenoise",
+      "sinc", `${low}-${high}`,
+      "fade", "h", ATTACK.toFixed(3), "0", (CLICK - ATTACK).toFixed(3),
+      "pad", "0", after.toFixed(3),
+    ]);
   }
 
+  /** -R seeds the noise and the dither the same way each time, so a cue is the same on each start. */
   private async sox(args: string[]): Promise<boolean> {
-    return await Bun.spawn(["sox", ...args], { stdout: "ignore", stderr: "ignore" }).exited === 0;
+    return await Bun.spawn(["sox", "-R", ...args], { stdout: "ignore", stderr: "ignore" }).exited === 0;
   }
 
   /** The file. The speaker plays it, or sends its bytes. */

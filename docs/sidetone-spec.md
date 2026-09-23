@@ -411,13 +411,13 @@ project bridge stays in place.
 
 15.2 The bridge plays a gentle audio cue when it is busy, for example when it does a cold start, when it restarts, or when it connects again.
 
-15.3 The audio cue is like a telephone hold sound. The cue tells Chris that the bridge is still connected.
+15.3 The audio cue tells Chris that the bridge is still connected, as a telephone hold sound does.
 
 15.4 Different states can have different cues. Chris can then tell the states apart without words.
 
 15.5 The bridge does not play a cue every time Chris waits. The bridge plays a cue only after a set delay. The delay is a setting.
 
-15.6 The audio cue is pleasant and calm.
+15.6 The audio cue is pleasant and calm. It is a short click, not a musical note.
 
 15.7 The bridge plays hold music when a long turn is running and the room has heard no bridge voice for a set time. A turn is running when Chris has finished speaking and the agent has not returned its result. A turn is long when the agent says so (15.7.4) or when it calls a tool (15.7.5). The time is a setting. The default is 8 seconds. The value 0 turns the hold music off.
 

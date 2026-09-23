@@ -24,11 +24,12 @@ describe("the cues (15)", () => {
     }
   });
 
+  // A click is short, so the floor only checks that there is a sound at all.
   test("15.5 a routine cue stays short", async () => {
     for (const name of ["heard", "thinking", "starting"] as const) {
       const wav = await samples(name);
       const seconds = wav.samples.length / wav.sampleRate;
-      expect(seconds).toBeGreaterThan(0.1);
+      expect(seconds).toBeGreaterThan(0.05);
       expect(seconds).toBeLessThan(0.35);
     }
   });

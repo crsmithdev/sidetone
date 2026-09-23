@@ -320,7 +320,7 @@ export const DEFAULTS: Config = {
     "When work you started in the background finishes, say so in one short sentence, and say what came of it.",
   ].join(" "),
   tones: true,
-  cueVolume: 0.12,
+  cueVolume: 0.1,
   audioCueDelayMs: 4_000,
   audioCueEveryMs: 6_000,
   holdMusicAfterMs: 8_000,
