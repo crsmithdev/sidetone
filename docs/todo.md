@@ -910,3 +910,21 @@ This links to item 39, part 2 (the stability pass) and to the finding in
 
 Done when a test with the app in the background for an hour, then in front
 again, gives a working microphone with no touch, or a fix for the cause.
+
+## 42. The bridge cannot tell which build of the app is running
+
+Noted 23 September 2026. Not started.
+
+On 23 September Chris tried three builds of the app in one hour: the media
+build with the hardware canceller, the same with the software canceller, and the
+build on `main`. The bridge could not say which one was in the room. The record
+has only the build the bridge serves (`ApkHash`), not the build the phone runs.
+Chris also had to guess whether an update had taken.
+
+The app should say its build hash to the bridge when it joins the room, in a
+message the bridge journals and puts in the record. The hash is the sha256 of
+the APK that the bridge serves, so the two compare directly. The app can also
+show it in its menu.
+
+Done when the journal line for a joining client names its build, and "sidetone,
+stats" or the record says whether it is the build the bridge serves now.
