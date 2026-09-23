@@ -4,10 +4,14 @@
  *
  * The room and the desk each built this by hand, in the same order, and the
  * copies drifted: the desk built a bookkeeper with no record behind it, and
- * three commits in a week touched both. There is one caller now, the room,
- * and one hand-built copy in the tests; either supplies the two ends that
- * differ, a `Speaker` that plays one sentence and a sink that reaches the
- * client, and takes the rest joined.
+ * three commits in a week touched both.
+ *
+ * The tests then drifted the same way, for the same reason: the engines were
+ * made in here, so no test could call this, and three harnesses built the
+ * wiring again by hand. One of them wired the mouth's `talking` to a flag on
+ * its fake source, where the room wires it to the ear. So `Parts` names
+ * everything that differs between the car and a test: the engines, the record
+ * and the agent. The room passes none of them and gets the real ones.
  */
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -15,8 +19,9 @@ import { join } from "node:path";
 import { encodeWav } from "./audio.ts";
 import { Channel } from "./channel.ts";
 import { saveSettings, settingsInForce, type Config } from "./config.ts";
-import { Conversation } from "./conversation.ts";
+import { Conversation, type MakeAgent } from "./conversation.ts";
 import { Cues } from "./cues.ts";
+import type { Event } from "./diagnostics.ts";
 import { Ear, SILENCE_MS } from "./ear.ts";
 import { Measures } from "./measures.ts";
 import type { Outgoing } from "./messages.ts";
@@ -24,8 +29,15 @@ import { Mouth, keptLines, type Speaker } from "./mouth.ts";
 import { Recorder } from "./record.ts";
 import { Screens } from "./screen.ts";
 import { Screenshots } from "./screenshot.ts";
-import { LocalWhisper, SpokenAhead, textToSpeech, type TextToSpeech } from "./speech.ts";
+import { LocalWhisper, SpokenAhead, textToSpeech, type SpeechToText, type TextToSpeech } from "./speech.ts";
 import { Working, jobsRunning } from "./working.ts";
+
+/** 18 the session's own line, then every event after it, appended as it happens. */
+function recorder(config: Config): (event: Event) => void {
+  const record = new Recorder(config.recordPath);
+  record.session(settingsInForce(config));
+  return (event) => record.write(event);
+}
 
 export interface Bridge {
   readonly conversation: Conversation;
@@ -33,11 +45,36 @@ export interface Bridge {
   readonly mouth: Mouth;
   readonly channel: Channel;
   readonly measures: Measures;
-  readonly stt: LocalWhisper;
+  readonly stt: SpeechToText;
   readonly tts: TextToSpeech;
   /** the engines warmed and the cues built; the room can be joined meanwhile */
   readonly ready: Promise<void>;
   stop(): void;
+}
+
+/**
+ * What differs between the car and a test. Each part left out is made here, as
+ * the car's own: a whisper that costs seven seconds to warm, a voice that holds
+ * a graphics card, a record on disk, and a Claude Code process. A test passes
+ * fakes and gets the same wiring around them.
+ */
+export interface Parts {
+  /** 4.8 the recording becomes words */
+  stt?: SpeechToText;
+  /** 4.8 the sentence becomes sound */
+  tts?: TextToSpeech;
+  /** 11.6 the sentence made ahead of the one being spoken. It is made from `tts` when it is left out */
+  made?: Pick<SpokenAhead, "take" | "start" | "use">;
+  /** 15 the cue files, built once */
+  cues?: Pick<Cues, "file"> & { build(): Promise<void> };
+  /** 18 where every event of the session goes. A test that keeps none passes a sink that drops them */
+  record?: (event: Event) => void;
+  /** 5.1 the agent behind the turn */
+  makeAgent?: MakeAgent;
+  /** 14.10 how many detached jobs run, which is work with no turn behind it */
+  jobs?: () => number;
+  /** where the wavs of this run are written */
+  scratch?: string;
 }
 
 /**
@@ -51,21 +88,21 @@ export function assemble(
   speaker: Speaker,
   send: (message: Outgoing) => void,
   say: (line: string) => void = console.log,
+  parts: Parts = {},
 ): Bridge {
-  const scratch = mkdtempSync(join(tmpdir(), "sidetone-"));
+  const scratch = parts.scratch ?? mkdtempSync(join(tmpdir(), "sidetone-"));
   const speechDir = new URL("../speech", import.meta.url).pathname;
-  const stt = new LocalWhisper(config, speechDir);
-  const tts = textToSpeech(config, speechDir);
-  const ahead = new SpokenAhead(tts, scratch, keptLines(config));
-  const cues = new Cues(scratch, config.cueVolume);
+  const stt = parts.stt ?? new LocalWhisper(config, speechDir);
+  const tts = parts.tts ?? textToSpeech(config, speechDir);
+  const ahead = parts.made ?? new SpokenAhead(tts, scratch, keptLines(config));
+  const cues = parts.cues ?? new Cues(scratch, config.cueVolume);
   const ready = Promise.all([stt.start(), tts.start(), cues.build()]).then(() => undefined);
 
   // 18 the record outlives the process: the scorecard is read after a drive,
   // and a restart in between used to leave nothing to read.
-  const record = new Recorder(config.recordPath);
-  record.session(settingsInForce(config));
+  const write = parts.record ?? recorder(config);
   // 18 one bookkeeper: the spoken report and the record are the same facts
-  const measures = new Measures((event) => record.write(event));
+  const measures = new Measures(write);
   // 11.3 whether Chris is talking is the ear's word; it stops the frames
   const mouth = new Mouth(speaker, ahead, cues, measures, {
     ...config,
@@ -95,7 +132,7 @@ export function assemble(
     // the health line report now; the record says when it changed
     onSetting: (patch) => { Object.assign(config, patch); saveSettings(patch); measures.setting(patch); },
     onTurn: (turn) => say(`[turn ${turn.number}, $${conversation.agent.totalCostUsd().toFixed(4)} this session]`),
-  });
+  }, parts.makeAgent);
 
   let counter = 0;
   /** 11.5 and 18.4 entire: the listening policy, one module, driven by frames. */
@@ -108,7 +145,7 @@ export function assemble(
   conversation.start();
   const watch = setInterval(() => channel.silence(ear.silence()), SILENCE_MS / 3);
   // 14.10 whether the agent works, said to the client whatever the audio does
-  const working = new Working(() => conversation.busy, () => jobsRunning(), (on) => channel.tell({ kind: "working", on }));
+  const working = new Working(() => conversation.busy, parts.jobs ?? (() => jobsRunning()), (on) => channel.tell({ kind: "working", on }));
   const work = setInterval(() => working.tick(), 1_000);
 
   return {

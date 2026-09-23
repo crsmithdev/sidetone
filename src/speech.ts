@@ -20,6 +20,8 @@ import { linesOf } from "./protocol.ts";
 /** 4.8 the seam. A local engine only: there is no cloud engine to put here. */
 export interface SpeechToText {
   start(): Promise<void>;
+  /** Non-zero once the engine has warmed, which is how the health check knows. */
+  readonly warmupSeconds: number;
   transcribe(wavPath: string): Promise<string>;
   stop(): void;
 }
