@@ -21,7 +21,7 @@ describe("what the health probe calls well (11.13)", () => {
   });
 
   test("an engine that never loads is a fault, so a stuck bridge is still recovered", () => {
-    expect(wellEnough(true, true, false, 6 * MINUTE)).toBe(false);
+    expect(wellEnough(true, true, false, 11 * MINUTE)).toBe(false);
   });
 
   test("no room and no agent are faults whatever the engines are doing", () => {
@@ -33,7 +33,10 @@ describe("what the health probe calls well (11.13)", () => {
 
   /** The allowance has to clear the real load time, or it buys nothing. */
   test("the allowance is longer than the load it covers", () => {
-    // chatterbox loaded in 146 s on this machine, measured 23 September 2026
+    // chatterbox loaded in 146 s on a quiet machine and 240 s on a busy one,
+    // both measured 23 September 2026
     expect(wellEnough(true, true, false, 146 * SECOND)).toBe(true);
+    expect(wellEnough(true, true, false, 240 * SECOND)).toBe(true);
+    expect(wellEnough(true, true, false, 6 * MINUTE)).toBe(true);
   });
 });

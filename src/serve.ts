@@ -31,11 +31,16 @@ function pairingCode(): string {
  */
 /**
  * How long an engine may take to warm before a health probe calls it a fault.
- * Chatterbox loads in about 160 seconds on this machine, and whisper in about
- * seven. The recover timer probes every 120 seconds, so anything under the
- * real load time makes the bridge restart itself forever.
+ * The recover timer probes every 120 seconds, so anything under the real load
+ * time makes the bridge restart itself forever.
+ *
+ * Chatterbox took 146 seconds to load on a quiet machine on 23 September 2026
+ * and 240 on a busy one, so the spread matters more than the figure. Ten
+ * minutes is deliberately far above both: a bridge that restarts itself
+ * forever is unusable, and a stuck engine that waits ten minutes instead of
+ * five is a bridge Chris is already listening to and can hear is silent.
  */
-const WARMUP_MS = 5 * 60_000;
+const WARMUP_MS = 10 * 60_000;
 
 /**
  * Whether the bridge is well enough to leave alone. The recover timer restarts
