@@ -550,3 +550,21 @@ read a word.
 
 Done when the row shows the same states in fewer marks, Chris has picked the
 design, and he has read it while driving.
+
+## 31. The opening sentence may play after the hold music
+
+Noted 23 September 2026. Not investigated yet.
+
+Chris asked the agent to check something. He heard the clicks, then the hold
+music. At the end of the hold music he heard "I'll go ahead and check", and the
+results came at once. Chris thinks the opening sentence was out of order. It
+should have played before the hold music. He says it is probably not new.
+
+Find out when the opening sentence is queued, when it reaches the mouth, and
+when the hold music starts. The record has `track` events and the sentence
+events with times. Compare the order they show with the order Chris heard.
+One cause to test: the hold music holds the mouth, and the first sentence
+waits behind it until the turn is nearly over.
+
+Done when the opening sentence plays before the hold music, or a written reason
+says why it cannot.
