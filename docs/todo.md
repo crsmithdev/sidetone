@@ -715,3 +715,24 @@ Two parts:
 
 Done when a forced crash on the phone gives a file in `~/.sidetone/crashes/`
 with the stack trace, and each check in part 2 has a finding or a fix.
+
+## 40. The app learns of a new build only when it joins the room
+
+Noted 23 September 2026. Not started.
+
+The bridge offers the app in the `protocol` message (spec 17.15.1). It sends
+that message when a client joins: `transport.onParticipant` in `src/serve.ts`.
+A phone that is already in the room when a build ends hears nothing. Chris
+must swipe the app away and open it again before "Update the app" appears.
+
+The fix: when the hash of the file changes, the bridge sends the offer to every
+client in the room. `ApkHash` already computes the hash again when the file
+changes. The app must accept the offer at any time and show the button, and
+must clear an old offer when the new hash equals its own.
+
+Open point: choose the message. Either send `protocol` again, or add a smaller
+message kind that carries only `apk`. Prefer the smaller one, so a repeat of
+`protocol` does not reset other state in the app.
+
+Done when a build that ends while the phone is in the room makes the button
+appear on the phone within seconds, with no leave and no restart.
