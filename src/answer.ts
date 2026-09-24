@@ -13,6 +13,8 @@ export class Answer {
   private readonly marker = new LongMarker();
   // 14.9 the blocks of this answer that hold text, counted here: the stream's index restarts with each message
   private block = 0;
+  // 14.9.2 the deltas of the current block, counted so the app can put them in order
+  private seq = 0;
   private open = false;
   private firstWord = true;
 
@@ -45,6 +47,7 @@ export class Answer {
     if (type === "tool_use") { this.words(this.marker.end()); this.endSentence(); this.marker.long = true; }
     if (type !== "text") return;
     this.open = true;
+    this.seq = 0;
     this.channel.tell({ kind: "blockStart", answer: this.id, block: ++this.block });
   }
 
@@ -65,7 +68,7 @@ export class Answer {
   private words(text: string): void {
     if (!text) return;
     // 14.9 the words reach the client before the sentence that finishes with them
-    this.channel.tell({ kind: "delta", text, answer: this.id, block: this.block });
+    this.channel.tell({ kind: "delta", text, answer: this.id, block: this.block, seq: ++this.seq });
     for (const sentence of this.sentences.push(text)) this.say(sentence);
   }
 

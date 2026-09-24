@@ -39,7 +39,7 @@ describe("one exit for the control channel (14.11)", () => {
       if (JSON.parse(new TextDecoder().decode(payload)).text === "half a ") await Bun.sleep(20);
       r.sent.push(JSON.parse(new TextDecoder().decode(payload)) as Record<string, unknown>);
     });
-    slow.send({ kind: "delta", answer: 1, block: 1, text: "half a " });
+    slow.send({ kind: "delta", answer: 1, block: 1, seq: 1, text: "half a " });
     slow.send({ kind: "sentence", answer: 1, text: "half a sentence." });
     await slow.drained();
     expect(r.sent.map((message) => message.kind)).toEqual(["delta", "sentence"]);

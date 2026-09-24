@@ -35,10 +35,11 @@ export type Outgoing =
   /**
    * 14.9 a block of an answer that holds text. `block` counts from 1 within the
    * answer, and the same two numbers name the block in the words that follow it.
-   * A delta comes before the sentence that finishes with it.
+   * A delta comes before the sentence that finishes with it. `seq` counts the
+   * deltas of a block from 1, because the app can get two of them in the wrong order.
    */
   | { kind: "blockStart"; answer: number; block: number }
-  | { kind: "delta"; text: string; answer: number; block: number }
+  | { kind: "delta"; text: string; answer: number; block: number; seq: number }
   | { kind: "blockEnd"; answer: number; block: number }
   /** 17.17 `announce` marks a line that `/say` queued, such as the end of a job; the app notifies it */
   | { kind: "narration"; text: string; announce?: true }

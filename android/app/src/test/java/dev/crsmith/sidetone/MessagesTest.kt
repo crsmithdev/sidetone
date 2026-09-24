@@ -60,6 +60,8 @@ class MessagesTest {
     fun takesTheBlocksOfAnAnswer() {
         // src/messages.ts: a block start, the words of the block, the block end
         assertEquals(Incoming.BlockStart(3, 1), decode(bytes("""{"kind":"blockStart","answer":3,"block":1}""")))
+        assertEquals(Incoming.Delta("Let me ", 3, 1, 2), decode(bytes("""{"kind":"delta","text":"Let me ","answer":3,"block":1,"seq":2}""")))
+        // a bridge from before item 43 numbers no delta
         assertEquals(Incoming.Delta("Let me ", 3, 1), decode(bytes("""{"kind":"delta","text":"Let me ","answer":3,"block":1}""")))
         assertEquals(Incoming.BlockEnd(3, 1), decode(bytes("""{"kind":"blockEnd","answer":3,"block":1}""")))
         // without the two numbers there is no bubble to put the words in
@@ -123,6 +125,28 @@ class MessagesTest {
         screen.receive("""{"kind":"sentence","text":"Two.","answer":1}""", 2_000)
         screen.receive("""{"kind":"turn","number":1,"text":"One. Two.","costUsd":0.01,"answer":1}""", 3_000)
         assertEquals(listOf("One. Two."), screen.lines.map { it.text })
+        assertEquals(listOf<Long?>(1_000), screen.lines.map { it.at })
+    }
+
+    @Test
+    fun deltasThatArriveOutOfOrderShowInTheOrderTheBridgeSentThem() {
+        // item 43, 23 September: the SDK swapped two deltas, and the bubble read "but it Dropping such only logs it."
+        val screen = Screen()
+        screen.receive("""{"kind":"blockStart","answer":20,"block":2}""", 1_000)
+        screen.receive("""{"kind":"delta","text":"speech, but it","answer":20,"block":2,"seq":1}""", 1_001)
+        screen.receive("""{"kind":"delta","text":" Dropping such","answer":20,"block":2,"seq":3}""", 1_002)
+        screen.receive("""{"kind":"delta","text":" only logs it.","answer":20,"block":2,"seq":2}""", 1_003)
+        screen.receive("""{"kind":"delta","text":" a turn.","answer":20,"block":2,"seq":4}""", 1_004)
+        assertEquals(listOf("speech, but it only logs it. Dropping such a turn."), screen.lines.map { it.text })
+    }
+
+    @Test
+    fun aDeltaThatArrivesBeforeItsBlockStartKeepsItsPlace() {
+        val screen = Screen()
+        screen.receive("""{"kind":"delta","text":"Log which can","answer":20,"block":2,"seq":1}""", 1_000)
+        screen.receive("""{"kind":"blockStart","answer":20,"block":2}""", 1_001)
+        screen.receive("""{"kind":"delta","text":"celler ran.","answer":20,"block":2,"seq":2}""", 1_002)
+        assertEquals(listOf("Log which canceller ran."), screen.lines.map { it.text })
         assertEquals(listOf<Long?>(1_000), screen.lines.map { it.at })
     }
 

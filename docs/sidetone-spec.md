@@ -373,6 +373,8 @@ project bridge stays in place.
 
 14.9.2 The bridge sends the words of a block as `delta`, as the agent writes them. It sends each `delta` before it collects the words into a sentence (5.6). The words reach the client before the sentence and before the voice.
 
+14.9.2.1 Each `delta` has `seq`, which counts the deltas of its block from 1. The client can get two messages in the wrong order: the LiveKit Android SDK gives each message to the app from a coroutine of its own, on a pool of threads. On 23 September a bubble read "but it Dropping such only logs it." The app puts the words of a bubble in the order of `seq`, not in the order they arrive. A `delta` with no `seq` goes at the end.
+
 14.9.3 The three messages name the answer (14.7) and the block. The bridge counts the blocks of an answer from 1. The stream restarts its own block index at each message of the agent. That index cannot name a block across a tool call.
 
 14.9.4 The `sentence` and `turn` messages do not change. Each still names its answer. A client that ignores the blocks still grows one line for each answer.

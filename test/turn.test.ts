@@ -186,6 +186,24 @@ describe("the answer reaches the client a block at a time (14.9)", () => {
     ]);
   });
 
+  test("each delta carries its number in the block, from 1, so the app can put the words in order", async () => {
+    let hooks: SessionHooks = {};
+    const r = room({ during: (given) => { hooks = given; }, hold: Promise.resolve() });
+    const turn = r.c.turn("look and tell me");
+    hooks.onBlockStart?.("text");
+    hooks.onDelta?.("Let me ");
+    hooks.onDelta?.("look. ");
+    hooks.onBlockEnd?.();
+    hooks.onBlockStart?.("tool_use");
+    hooks.onBlockEnd?.();
+    hooks.onBlockStart?.("text");
+    hooks.onDelta?.("Found it.");
+    hooks.onBlockEnd?.();
+    await turn;
+    const deltas = r.told.flatMap((m) => (m.kind === "delta" ? [`${m.block}.${m.seq} ${m.text}`] : []));
+    expect(deltas).toEqual(["1.1 Let me ", "1.2 look. ", "2.1 Found it."]);
+  });
+
   test("the next answer counts its blocks from 1 again", async () => {
     let hooks: SessionHooks = {};
     const r = room({ during: (given) => { hooks = given; }, hold: Promise.resolve() });

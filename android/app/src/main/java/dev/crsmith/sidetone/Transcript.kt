@@ -31,13 +31,13 @@ class Transcript(val log: ScreenLog = ScreenLog()) {
     }
 
     /** 14.9 a block of an answer begins. It opens the bubble, which stays hidden until its first word. */
-    fun onBlock(start: Incoming.BlockStart, now: Long) = words("block", start.answer, start.block, "", now)
+    fun onBlock(start: Incoming.BlockStart, now: Long) = words("block", start.answer, start.block, "", null, now)
 
-    fun onDelta(delta: Incoming.Delta, now: Long) = words("delta", delta.answer, delta.block, delta.text, now)
+    fun onDelta(delta: Incoming.Delta, now: Long) = words("delta", delta.answer, delta.block, delta.text, delta.seq, now)
 
-    private fun words(kind: String, answer: Int, block: Int, text: String, now: Long) {
+    private fun words(kind: String, answer: Int, block: Int, text: String, seq: Int?, now: Long) {
         val before = lines
-        val (next, at) = write(before, growing, answer, block, text, now)
+        val (next, at) = write(before, growing, answer, block, text, seq, now)
         lines = next
         growing = at
         log.record(now, kind, answer, block, text.ifEmpty { null }, before, next)

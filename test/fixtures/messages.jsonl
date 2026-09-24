@@ -9,13 +9,13 @@
 {"kind":"heard","text":"look and tell me"}
 {"kind":"screenshot","id":"1789999559000","state":"sent"}
 {"kind":"blockStart","answer":1,"block":1}
-{"kind":"delta","text":"Let me look. ","answer":1,"block":1}
+{"kind":"delta","text":"Let me look. ","answer":1,"block":1,"seq":1}
 {"kind":"sentence","text":"Let me look.","answer":1}
 {"kind":"speaking","text":"Let me look.","answer":1}
 {"kind":"blockEnd","answer":1,"block":1}
 {"kind":"narration","text":"running Bash"}
 {"kind":"blockStart","answer":1,"block":2}
-{"kind":"delta","text":"Found it.","answer":1,"block":2}
+{"kind":"delta","text":"Found it.","answer":1,"block":2,"seq":1}
 {"kind":"blockEnd","answer":1,"block":2}
 {"kind":"sentence","text":"Found it.","answer":1}
 {"kind":"speaking","text":"Found it.","answer":1}
@@ -24,7 +24,7 @@
 {"kind":"speaking","text":"That turn did not finish."}
 {"kind":"error","text":"the agent died"}
 {"kind":"blockStart","answer":3,"block":1}
-{"kind":"delta","text":"The build is green.","answer":3,"block":1}
+{"kind":"delta","text":"The build is green.","answer":3,"block":1,"seq":1}
 {"kind":"blockEnd","answer":3,"block":1}
 {"kind":"sentence","text":"The build is green.","answer":3}
 {"kind":"speaking","text":"The build is green.","answer":3}

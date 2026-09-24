@@ -39,8 +39,11 @@ sealed interface Incoming {
     /** 14.9 a block of the answer that holds text begins: one bubble. */
     data class BlockStart(val answer: Int, val block: Int) : Incoming
 
-    /** 14.9 words of the block, as the agent writes them. */
-    data class Delta(val text: String, val answer: Int, val block: Int) : Incoming
+    /**
+     * 14.9 words of the block, as the agent writes them. `seq` counts the deltas
+     * of the block from 1. It is null from a bridge that numbers none.
+     */
+    data class Delta(val text: String, val answer: Int, val block: Int, val seq: Int? = null) : Incoming
 
     /** 14.9 the block is complete. The app has nothing to do: the next block names itself. */
     data class BlockEnd(val answer: Int, val block: Int) : Incoming
@@ -127,7 +130,7 @@ fun decode(payload: ByteArray): Incoming? {
         if (kind == "blockStart") return Incoming.BlockStart(answer, block)
         if (kind == "blockEnd") return Incoming.BlockEnd(answer, block)
         val text = message.string("text") ?: return null
-        return Incoming.Delta(text, answer, block)
+        return Incoming.Delta(text, answer, block, message.int("seq"))
     }
     if (kind == "history") {
         val turns = message["turns"] as? JsonArray ?: return Incoming.History(emptyList())
@@ -152,9 +155,12 @@ fun rejoinDue(lastAt: Long?, now: Long): Boolean = lastAt == null || now - lastA
  * 14.7 the line an answer grows on: where it is, and which answer it is. A
  * bridge from before 21 September names no answer, and null matches null.
  * `block` is set when the line is the bubble of a block (14.9); a line grown by
- * sentences has none.
+ * sentences has none. `parts` are the deltas of the bubble, in the order of their `seq`.
  */
-data class Growing(val at: Int, val answer: Int?, val block: Int? = null)
+data class Growing(val at: Int, val answer: Int?, val block: Int? = null, val parts: List<Part> = emptyList())
+
+/** 14.9.2 one delta in its bubble: its number in the block, and its words. */
+data class Part(val seq: Int, val text: String)
 
 /**
  * A sentence joins the line of its own answer, or starts a line at the end.
@@ -180,14 +186,21 @@ fun grow(lines: List<Line>, growing: Growing?, sentence: Incoming.Sentence, now:
  * A block start is these words with none, so it opens the bubble at once and a
  * delta that arrives with no start, from a block that began before this client
  * joined, opens it as well.
+ *
+ * Item 43: the LiveKit SDK hands each message to the app from a coroutine of
+ * its own, on a pool of threads, so two deltas can arrive in the wrong order.
+ * The words go into the bubble in the order of `seq`, not of arrival. A delta
+ * with no `seq` goes at the end.
  */
-fun write(lines: List<Line>, growing: Growing?, answer: Int, block: Int, text: String, now: Long): Pair<List<Line>, Growing> {
-    if (growing == null || growing.answer != answer || growing.block != block) {
-        return lines + Line(Line.Kind.BRIDGE, text, now) to Growing(lines.size, answer, block)
-    }
+fun write(lines: List<Line>, growing: Growing?, answer: Int, block: Int, text: String, seq: Int?, now: Long): Pair<List<Line>, Growing> {
+    val same = growing != null && growing.answer == answer && growing.block == block
+    val before = if (same) growing!!.parts else emptyList()
+    val parts = if (text.isEmpty()) before else (before + Part(seq ?: ((before.lastOrNull()?.seq ?: 0) + 1), text)).sortedBy { it.seq }
+    val words = parts.joinToString("") { it.text }
+    if (!same) return lines + Line(Line.Kind.BRIDGE, words, now) to Growing(lines.size, answer, block, parts)
     val grown = lines.toMutableList()
-    grown[growing.at] = grown[growing.at].let { it.copy(text = it.text + text) }
-    return grown to growing
+    grown[growing!!.at] = grown[growing.at].copy(text = words)
+    return grown to growing.copy(parts = parts)
 }
 
 /**
