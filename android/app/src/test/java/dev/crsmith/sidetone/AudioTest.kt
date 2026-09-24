@@ -72,6 +72,29 @@ class AudioTest {
         assertEquals("device type 9999 (x)", Audio.routeName(9999, "x"))
     }
 
+    @Test
+    fun `a setup with no focus picks the car, then a headset, then the speaker, never the earpiece`() {
+        // 4.2.2.1 the handler routes only in the call that asks for focus, so with none the app picks
+        val sco = AudioDeviceInfo.TYPE_BLUETOOTH_SCO
+        val ble = AudioDeviceInfo.TYPE_BLE_HEADSET
+        val wired = AudioDeviceInfo.TYPE_WIRED_HEADSET
+        val usb = AudioDeviceInfo.TYPE_USB_HEADSET
+        val headphones = AudioDeviceInfo.TYPE_WIRED_HEADPHONES
+        val speaker = AudioDeviceInfo.TYPE_BUILTIN_SPEAKER
+        val earpiece = AudioDeviceInfo.TYPE_BUILTIN_EARPIECE
+        assertEquals(sco, Audio.communicationDevice(listOf(earpiece, speaker, wired, ble, sco)))
+        assertEquals(ble, Audio.communicationDevice(listOf(earpiece, speaker, wired, ble)))
+        assertEquals(wired, Audio.communicationDevice(listOf(earpiece, speaker, headphones, usb, wired)))
+        assertEquals(usb, Audio.communicationDevice(listOf(earpiece, speaker, headphones, usb)))
+        assertEquals(headphones, Audio.communicationDevice(listOf(earpiece, speaker, headphones)))
+        assertEquals(speaker, Audio.communicationDevice(listOf(earpiece, speaker)))
+        // the app is used in a car and on a desk, never against an ear
+        assertNull(Audio.communicationDevice(listOf(earpiece)))
+        assertNull(Audio.communicationDevice(emptyList()))
+        // A2DP is not a communication device, and a type this app does not know is not taken on trust
+        assertNull(Audio.communicationDevice(listOf(earpiece, AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, 9999)))
+    }
+
     /** 18.15 the setup in the code, as the bridge names it: the words the `setup` and `device` messages carry. */
     private val codeNames = SetupNames(mode = "call", output = "voice", focus = "gain", canceller = "hardware", noiseSuppression = true, autoGainControl = true)
 

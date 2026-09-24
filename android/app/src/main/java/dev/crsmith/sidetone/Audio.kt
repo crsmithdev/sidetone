@@ -206,6 +206,47 @@ object Audio {
         else -> "device type $type ($product)"
     }
 
+    /**
+     * 4.2.2.1 the output devices a setup with no focus may take, first choice
+     * first: the car, a headset, then the loudspeaker. The earpiece is not
+     * here: the app is used in a car and on a desk, never against an ear.
+     */
+    private val ROUTES = listOf(
+        AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
+        AudioDeviceInfo.TYPE_BLE_HEADSET,
+        AudioDeviceInfo.TYPE_WIRED_HEADSET,
+        AudioDeviceInfo.TYPE_USB_HEADSET,
+        AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
+        AudioDeviceInfo.TYPE_BUILTIN_SPEAKER,
+    )
+
+    /** 4.2.2.1 the device type to take from the phone's communication devices, or null when none of them is acceptable. */
+    fun communicationDevice(types: List<Int>): Int? = ROUTES.firstOrNull { it in types }
+
+    /**
+     * 4.2.2.1 the route a setup with no focus takes, once the room is up. The
+     * handler selects the device in the same call that asks for focus, so with
+     * no focus the app selects it here, or the phone falls to the earpiece as
+     * it did in the car on 24 September. Returns what happened, for the log,
+     * or null when the setup has focus and the handler did the routing.
+     */
+    fun pickRoute(context: Context, setup: AudioSetup): String? {
+        if (setup.focus != null) return null
+        val manager = context.getSystemService(AudioManager::class.java)
+        val devices = manager.availableCommunicationDevices
+        val type = communicationDevice(devices.map { it.type })
+            ?: return "no acceptable route among ${devices.map { routeName(it.type, it.productName.toString()) }}, left as found"
+        val device = devices.first { it.type == type }
+        val name = routeName(device.type, device.productName.toString())
+        return if (manager.setCommunicationDevice(device)) name else "the phone refused $name, left as found"
+    }
+
+    /** 4.2.2.1 the phone is left as it was found when a setup with no focus leaves the room. */
+    fun clearRoute(context: Context, setup: AudioSetup) {
+        if (setup.focus != null) return
+        context.getSystemService(AudioManager::class.java).clearCommunicationDevice()
+    }
+
     /** The capture half of [setup], for the room's microphone track. */
     fun capture(setup: AudioSetup) = LocalAudioTrackOptions(
         echoCancellation = setup.echoCancellation,

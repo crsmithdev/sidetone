@@ -206,6 +206,8 @@ object Bridge {
         val stream = launch { while (true) { delay(STREAM_MS); sendScreenLog(room) } }
         try {
             room.connect(credentials.url, credentials.token)
+            // 4.2.2.1 a setup with no focus picks its output device itself, once the room's audio is up
+            Audio.pickRoute(app, setup)?.let { Log.i(TAG, "route picked: $it") }
             link(Joining.Event.Connected)
             // the bridge starts every process with its audio on, so an audio cut has to be
             // said again to a room this app has only just joined
@@ -230,6 +232,7 @@ object Bridge {
             mic = null
             // release disposes every published track, the microphone included
             room.release()
+            Audio.clearRoute(app, setup)
         }
     }
 
