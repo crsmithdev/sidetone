@@ -240,7 +240,7 @@ synthesis alarm, and each has a test or a written reason none is practical.
 
 Noted 22 September 2026. Built and landed 23 September 2026 (010a92d, spec
 17.22). Item 46 put a gear on it. Not yet used on the phone. What is left is
-the choice of hold music track.
+one use of the menu on the phone.
 
 What was built. The gear at the end of the status row opens a menu with a
 three-way verbosity selector (item 37), a tones switch, a hold music volume
@@ -254,17 +254,15 @@ command or a button.
 
 Still to do:
 
-- The choice of hold music track, moved here from item 20 on 23 September.
-  Item 20 now plays every file in `~/.sidetone/hold/` in turn, so Chris has to
-  say what a choice means first: one track only, or where the cycle starts.
-  Then the setting needs a key on the path that exists, `Conversation.set` in
-  `src/conversation.ts`, which takes six keys today.
+- The choice of hold music track: dropped. Chris decided on 24 September 2026
+  that the folder is the setting. Item 20 plays every file in
+  `~/.sidetone/hold/` in turn, and he changes what plays by adding or deleting
+  files. On 24 September the folder holds nine tracks.
 - Not checked on the phone: the look of the menu, the slider inside a dropdown,
   and the volume heard in the car.
 - Item 49 renames "Leave" to "Quit" in this menu and gives "Leave" a new job.
 
-Done when Chris has said what a track choice means and the menu offers it, and
-the menu has been used on the phone once.
+Done when the menu has been used on the phone once.
 
 ## 35. Permissions stop the agent, and the spoken confirm word may not exist
 
