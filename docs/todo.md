@@ -328,15 +328,20 @@ Still to do:
    block: it still describes `imagegen`. Both are outside the repo.
 2. Test: from a bridge-run agent, start three jobs, and check the transcripts
    for a classifier refusal.
-3. The decision above needs a path that does not exist. The bridge must
-   receive the agent's permission requests, with `--permission-prompt-tool` or
-   the stream-json `can_use_tool` control request, and answer them from
-   `askFirst`. That is a build, not a setting. Chris decides whether the
-   classifier plus a spoken question from the agent is enough: it was on 23
-   September, with no new code.
+3. Built 24 September 2026 (f388a42, spec 10.7-10.11). The bridge passes
+   `--permission-prompt-tool stdio` and `permissions.ask` rules in `--settings`,
+   because auto mode let 3 of 3 force pushes through with no request when the
+   prompt tool was alone. `src/gated.ts` picks the four out; each waits for
+   "continue", and every other asked command is allowed. Not yet used live.
+4. The agreement word matches anywhere in an utterance (`plain.includes` in
+   `src/commands.ts`), so "do not continue" agrees. The decision above says
+   "continue" counts only as the answer to the question. Now that it gates a
+   force push, this matters more.
+5. The matcher does not see `bash -c`, `$(…)`, `xargs rm -rf` or
+   `find -delete`. Auto mode still judges those.
 
 Done when a job started by `scripts/job` does not stop on a permission, and
-Chris has decided whether the gate reaches the agent's actions.
+a gated action has been agreed and refused once by voice in the room.
 
 ## 36. Review every wake-word command
 
