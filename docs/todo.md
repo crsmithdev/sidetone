@@ -434,17 +434,15 @@ Part 2, what was built:
 
 Still to do:
 
-1. `scripts/job` refuses a name that already runs in `~/.sidetone/jobs/` (a
-   `pid` and no `exit`). One check in one script, with a test. It stops a
-   double run from any cause.
+1. Done (aa328c2, `test/job.test.ts`). `scripts/job` refuses a name that
+   already runs in `~/.sidetone/jobs/`.
 2. On the phone: the thumbnail, the mark and the tap, and one turn where the
    agent opens a file the turn named.
 3. A known limit: the bridge forgets the pending screenshots when it restarts,
    and nothing tells the app. The mark then stays, but no turn takes the
    screenshot.
 
-Done when a second `scripts/job` with a running name is refused, and the agent
-has opened one screenshot that Chris sent from the phone.
+Done when the agent has opened one screenshot that Chris sent from the phone.
 
 ## 39. The app sends no crash report, and nobody has checked it for stability
 
@@ -472,15 +470,16 @@ Part 2, the findings:
 | Rotation and process death | The draft and the pairing state go on a rotation. The transcript's notes and the unsent screen log go on a death | low |
 | StrictMode and vitals | Neither exists. Play vitals do not apply to a side-loaded app; `getHistoricalProcessExitReasons` does | gap |
 
-Checked 24 September: none of the fixes is in the code.
+Items 1 and 2 below built and landed 24 September 2026 (9c1e5a3). The three
+follow-ups are a job on 24 September.
 
 Still to do, in this item:
 
-1. On each launch, read `getHistoricalProcessExitReasons` and send those
+1. Done (9c1e5a3). On each launch, read `getHistoricalProcessExitReasons` and send those
    records too. It gives ANRs with a thread dump, native crashes, low-memory
    kills and permission kills, which the handler of part 1 misses. That record
    is the only vitals this app can have.
-2. The one high finding: catch the throw in `switchMic`, set `micOn` only after
+2. Done (9c1e5a3). The one high finding: catch the throw in `switchMic`, set `micOn` only after
    `openMic` succeeds, add a `CoroutineExceptionHandler` to `Bridge.scope` that
    writes the crash file, and put a `try` around each message in `on`, so one
    bad message is dropped and the room goes on.
@@ -533,7 +532,10 @@ again, gives a working microphone with no touch, or a fix for the cause.
 ## 44. Change more settings without a rebuild or a restart
 
 Noted 23 September 2026. The phone half built and landed 24 September 2026
-(c051f12, spec 18.15). The bridge half is not started.
+(c051f12, spec 18.15). The bridge half built and landed 24 September 2026
+(60d137f, spec 9.4.9): `bargeInLevel`, `minSpeechPeak` and `endOfTurnPauseMs`
+change from the options screen and reach the live ear. What is left is one
+change from the phone and a turn that uses it.
 
 Chris tries a setting such as the hardware or software echo canceller by
 building a new app, installing it and restarting the bridge. Each try cost
@@ -549,7 +551,7 @@ scripts/audio-setup.ts --canceller software` is the whole cost of an echo
 experiment now. `AudioTest` still guards the setup written in the code, which
 is what ships.
 
-Bridge half, still to do. A client can set six keys today, through
+Bridge half, as it was before 60d137f. A client could set six keys, through
 `Conversation.set` in `src/conversation.ts`: `tones`, `holdMusic`,
 `interruptOnSpeech`, `voice`, `verbosity` and `holdMusicGain`. The thresholds
 are not among them: `minSpeechPeak`, `bargeInLevel`, the pause length, the echo
