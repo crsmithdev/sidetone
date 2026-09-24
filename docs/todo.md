@@ -40,10 +40,17 @@ Each time Chris speaks over a running turn, `~/.sidetone/record.jsonl` gets a
 `kind: "cutoff"` line with `waitedMs` and `interrupted`. The count on 24
 September: 31 `interrupted: true` against 79 `false`.
 
-Two bridge changes are open, and Chris chooses: queue Chris's speech without an
-interrupt, or raise `interruptAfterMs`. A high count of `true` argues for a
-longer wait. Done when Chris has chosen, and the choice is built or the item is
-closed as "the workaround is enough".
+Decided and built 24 September 2026 (ec187aa, spec 11.9): speech mid-turn goes
+into the running turn as a stream-json user message, with no interrupt. "Stop"
+and "end the turn" still interrupt. Measured first, 3 of 3 each: a message sent
+during a tool call joins the turn at the next tool boundary (one result); one
+sent during the last text runs as a second turn (two results). The bridge
+speaks only text from a message that started after the injection. Not yet used
+in the car. Open: the race between a request and its `message_start`, two
+injections in the text shape, and removing the unread `interruptAfterMs`.
+
+Done when it has been used in the car and a correction mid-turn reached the
+agent with no re-run of a job.
 
 ## 5. Faster speech from the good voices
 
@@ -578,7 +585,8 @@ screen, and one tap brings the conversation back with the history.
 
 ## 50. The settings screen fills the window
 
-Noted 24 September 2026, from using the app. Not started.
+Noted 24 September 2026, from using the app. Built 24 September 2026 (9df5cc8,
+spec 17.22), in APK `0877275ff197`. Not yet used on the phone.
 
 The options behind the gear are a dropdown menu (`Options.kt`, spec 17.22). It
 is small, its controls sit in a narrow column, and a slider in a dropdown is a
@@ -596,7 +604,11 @@ the conversation.
 
 ## 51. A design pass on the status light and its legend
 
-Noted 24 September 2026, from reading the legend on the phone. Not started.
+Noted 24 September 2026, from reading the legend on the phone. Designed with
+Chris and built 24 September 2026 (9df5cc8, spec 17.11): the colour says whether
+the bridge hears him, a slow pulse says work is in progress, "stalled" is solid
+red, the ring is gone, and the legend draws each dot with its pulse. Not yet
+seen on the phone.
 
 Four of the seven states are amber: connecting, signal lost, reconnecting and
 rejoining (`Reading.kt`). The colour therefore says almost nothing, and the
