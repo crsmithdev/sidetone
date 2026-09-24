@@ -42,14 +42,12 @@ const COMMANDS: Array<{ name: CommandName; any: string[][]; phrases: string[] }>
   { name: "clearContext", any: [["clear", "context"]], phrases: ["clear the context"] },
   { name: "usage", any: [["usage"], ["cost"], ["spent"]], phrases: ["report the usage"] },
   { name: "restate", any: [["restate"], ["say", "again"], ["repeat"]], phrases: ["say again"] },
-  { name: "where", any: [["where"], ["catch", "up"], ["recap"]], phrases: ["recap"] },
-  // 9.3 "end the" elides, and every engine tried writes it as "in the turn"
-  // "nevermind" is one word to the engine, and "end the" elides far enough
-  // that "in the turn" and "and the turn" both come back
-  // "sharp" is the one-word form, asked for in a car where the whole phrase is
-  // too much to say. A five letter word forgives one character, so "share" and
-  // "shard" end the turn as well; neither follows the wake word in practice.
-  { name: "endTurn", any: [["end", "turn"], ["in", "turn"], ["stop"], ["cancel"], ["never", "mind"], ["nevermind"], ["sharp"]], phrases: ["end turn", "never mind"] },
+  // item 36 no bare "where": "there", "here" and "were" are one character
+  // from it, and this command drops a held answer. "where are" is the phrase
+  // of 9.4.7 with the middle forgiven, which is how it ever worked.
+  { name: "where", any: [["where", "are"], ["catch", "up"], ["recap"]], phrases: ["recap"] },
+  // item 36 the on and off pairs come before endTurn: "on" is one character
+  // from "in", so "turn the audio on" is "in turn" to that row.
   // item 36 no bare "tones": a toggle said blind leaves the tones in a state
   // nobody knows, and "tones off" beside it is the one that is meant.
   { name: "tonesOff", any: [["tones", "off"], ["tone", "off"], ["no", "tones"], ["sounds", "off"]], phrases: ["tones off"] },
@@ -64,21 +62,24 @@ const COMMANDS: Array<{ name: CommandName; any: string[][]; phrases: string[] }>
   // 15.7.3 the hold music. "stop" is deliberately not a form: it ends the turn.
   { name: "musicOff", any: [["music", "off"]], phrases: ["music off"] },
   { name: "musicOn", any: [["music", "on"]], phrases: ["music on"] },
-  // "stets" is already within tolerance of "stats"; "steph" is not, and the
-  // engine wrote it on a real run. "that's" is deliberately not accepted: it
-  // is a word Chris says, and a wake word in front of it is no protection.
-  { name: "stats", any: [["stats"], ["steph"], ["status"], ["latency"], ["diagnostics"], ["how", "fast"]], phrases: ["stats", "latency"] },
-  // 9.3 the forms the engine produces, not the spelling. small.en writes
-  // "male voice" as "Mail Voice", and sometimes drops the second word, so
-  // "mail" is one of the accepted forms and one word is enough. Requiring
-  // "voice" was the first attempt and it matched nothing on a real run.
-  // 11.10 the rest of an answer a barge-in took off the queue. Not
-  // "continue": that is the agreement word of 10.3, and it has one job (item 36).
-  { name: "carryOn", any: [["carry", "on"], ["go", "on"], ["the", "rest"]], phrases: ["carry on"] },
   // 11.9 the two ways to treat a question that lands mid-answer. No bare
   // "interrupt", for the same reason as the tones (item 36).
   { name: "interruptOff", any: [["interrupt", "off"], ["interrupting", "off"]], phrases: ["interrupt off"] },
   { name: "interruptOn", any: [["interrupt", "on"], ["interrupting", "on"]], phrases: ["interrupt on"] },
+  // 9.3 "end the" elides, and every engine tried writes it as "in the turn"
+  // "nevermind" is one word to the engine, and "end the" elides far enough
+  // that "in the turn" and "and the turn" both come back
+  // "sharp" is the one-word form, asked for in a car where the whole phrase is
+  // too much to say. A five letter word forgives one character, so "share" and
+  // "shard" end the turn as well; neither follows the wake word in practice.
+  { name: "endTurn", any: [["end", "turn"], ["in", "turn"], ["stop"], ["cancel"], ["never", "mind"], ["nevermind"], ["sharp"]], phrases: ["end turn", "never mind"] },
+  // "stets" is already within tolerance of "stats"; "steph" is not, and the
+  // engine wrote it on a real run. "that's" is deliberately not accepted: it
+  // is a word Chris says, and a wake word in front of it is no protection.
+  { name: "stats", any: [["stats"], ["steph"], ["status"], ["latency"], ["diagnostics"], ["how", "fast"]], phrases: ["stats", "latency"] },
+  // 11.10 the rest of an answer a barge-in took off the queue. Not
+  // "continue": that is the agreement word of 10.3, and it has one job (item 36).
+  { name: "carryOn", any: [["carry", "on"], ["go", "on"], ["the", "rest"]], phrases: ["carry on"] },
   // item 37 how much the agent says: a level by name, or one level either way
   { name: "verbosityBrief", any: [["verbosity", "brief"]], phrases: ["verbosity brief"] },
   { name: "verbosityNormal", any: [["verbosity", "normal"]], phrases: ["verbosity normal"] },
@@ -86,7 +87,12 @@ const COMMANDS: Array<{ name: CommandName; any: string[][]; phrases: string[] }>
   { name: "shorter", any: [["shorter"]], phrases: ["shorter"] },
   { name: "longer", any: [["longer"]], phrases: ["longer"] },
   { name: "femaleVoice", any: [["female"], ["woman"]], phrases: ["female voice"] },
-  { name: "maleVoice", any: [["male"], ["mail"], ["man"]], phrases: ["male voice"] },
+  // 9.3 the forms the engine produces, not the spelling. small.en writes
+  // "male voice" as "Mail Voice", and sometimes drops the second word, so
+  // "mail" is one of the accepted forms and one word is enough. Requiring
+  // "voice" was the first attempt and it matched nothing on a real run. No
+  // "man": "can", "mean" and "an" are one character from it (item 36).
+  { name: "maleVoice", any: [["male"], ["mail"]], phrases: ["male voice"] },
 ];
 
 /** Letters and spaces only, collapsed: what the sound was, not how it was written. */
@@ -161,12 +167,22 @@ export function spokenForms(wakeWord: string): Array<{ said: string; want: Comma
   return COMMANDS.flatMap(({ name, phrases }) => phrases.map((phrase) => ({ said: `${wakeWord}, ${phrase}`, want: name })));
 }
 
+/**
+ * Whether every word of a form is there, each in a spoken word of its own.
+ * "one" is within tolerance of both "tone" and "on", so before the words were
+ * kept apart "one more" turned the tones on (item 36).
+ */
+function found(targets: string[], words: string[], taken: number[] = []): boolean {
+  if (targets.length === 0) return true;
+  const [want, ...rest] = targets as [string, ...string[]];
+  return words.some((word, i) => !taken.includes(i) && editDistance(word, want) <= tolerance(want) && found(rest, words, [...taken, i]));
+}
+
 /** 9.4 which command the words after the wake word name, if any. */
 export function commandIn(rest: string): CommandName | null {
   const words = rest.split(" ").filter(Boolean);
-  const near = (want: string) => words.some((word) => editDistance(word, want) <= tolerance(want));
   for (const { name, any } of COMMANDS) {
-    if (any.some((all) => all.every(near))) return name;
+    if (any.some((all) => found(all, words))) return name;
   }
   return null;
 }
@@ -193,7 +209,7 @@ export function match(said: string, wakeWord: string, muted: boolean, mutedComma
  *
  * Inside the wake-word hold an utterance is matched with no wake word in front
  * of it, and the command table holds bare single words: `stop`, `mute`,
- * `where`, `man`. So "how do I stop the server" ended the turn and the question
+ * `mail`, `cost`. So "how do I stop the server" ended the turn and the question
  * never reached the agent. Measured 14 September, a command after the wake word
  * is one or two words -- the longest the card asks for is "tones off".
  */

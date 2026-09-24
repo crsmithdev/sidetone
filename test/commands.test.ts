@@ -160,7 +160,6 @@ describe("the two voices (9.4)", () => {
     // the second word about as often as it keeps it
     expect(commandIn("mail voice")).toBe("maleVoice");
     expect(commandIn("mail")).toBe("maleVoice");
-    expect(commandIn("use the man voice")).toBe("maleVoice");
   });
   test("it does not steal mute, which is the neighbour that would hurt", () => {
     expect(commandIn("mute")).toBe("mute");
@@ -260,5 +259,43 @@ describe("the wake-word review (item 36)", () => {
   });
   test("the muted set names no command that is gone", () => {
     expect(MUTED).toEqual(["mute", "unmute", "tonesOn", "tonesOff"]);
+  });
+});
+
+describe("the clashes the review found (item 36)", () => {
+  test("\"turn the audio on\" turns the audio on: \"on\" is one character from \"in\", and \"in turn\" ends the turn", () => {
+    expect(commandIn("turn the audio on")).toBe("audioOn");
+    expect(commandIn("turn the music on")).toBe("musicOn");
+    expect(commandIn("turn interrupt on")).toBe("interruptOn");
+    expect(commandIn("turn the tones on")).toBe("tonesOn");
+    expect(match("sidetone, turn the audio on", WAKE, false, MUTED)).toEqual({ kind: "command", name: "audioOn" });
+    // and the turn still ends on the forms the engine writes
+    expect(commandIn("in turn")).toBe("endTurn");
+    expect(commandIn("and turn")).toBe("endTurn");
+  });
+  test("one spoken word stands for one word of a command: \"one\" is not \"tone\" and \"on\" at once", () => {
+    expect(commandIn("one more")).toBe(null);
+    expect(read("one more", DEFAULTS, false, true)).toEqual({ kind: "speech", agreed: false });
+    expect(commandIn("tones on")).toBe("tonesOn");
+    expect(commandIn("tone on")).toBe("tonesOn");
+  });
+  test("\"where\" alone reaches nothing: \"there\" and \"here\" are one character away, and it drops a held answer", () => {
+    for (const said of ["there", "here", "were", "where"]) expect(commandIn(said)).toBe(null);
+    expect(match("sidetone there", WAKE, false, MUTED)).toEqual({ kind: "unclear" });
+    for (const said of ["over there", "is it there", "we were"]) {
+      expect(read(said, DEFAULTS, false, true)).toEqual({ kind: "speech", agreed: false });
+    }
+    // the phrase of 9.4.7 and the two short forms still reach it
+    for (const said of ["where are we", "report where we are", "recap", "catch up"]) expect(commandIn(said)).toBe("where");
+  });
+  test("\"man\" is gone from the male voice: \"can\" and \"mean\" are one character away", () => {
+    expect(commandIn("what can I say")).toBe(null);
+    expect(commandIn("use the man voice")).toBe(null);
+    for (const said of ["yes I can", "I mean", "the man"]) {
+      expect(read(said, DEFAULTS, false, true)).toEqual({ kind: "speech", agreed: false });
+    }
+    // the forms the engine writes stay
+    expect(commandIn("male voice")).toBe("maleVoice");
+    expect(commandIn("mail")).toBe("maleVoice");
   });
 });

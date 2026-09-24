@@ -240,6 +240,8 @@ project bridge stays in place.
 
 9.3 The bridge matches the sound of the wake word, not the exact spelling. A speech-to-text engine can split or spell the wake word in more than one way. The bridge accepts these forms.
 
+9.3.1 The same tolerance applies to the command after the wake word. Each word of the command takes one spoken word of its own. One spoken word does not stand for two words of the command: "one more" is not "tones on".
+
 9.4 The bridge does the commands that follow:
 
 9.4.1 Mute. The bridge stops acting on speech. The bridge continues to listen for wake commands.
@@ -254,7 +256,7 @@ project bridge stays in place.
 
 9.4.6 The summarize command is removed. It overlaps with 9.4.7, and 9.4.10 gives short replies. The step numbers do not change, because other sections point to them.
 
-9.4.7 Report where we are. The bridge gives a short summary of the last three request and reply pairs. Chris uses this to reorient if something feels wrong.
+9.4.7 Report where we are. The bridge gives a short summary of the last three request and reply pairs. Chris uses this to reorient if something feels wrong. The command is "where are we", "recap" or "catch up". The word "where" alone does not reach it, because "there" and "here" sound the same to the engine, and this command drops a held answer.
 
 9.4.8 End the turn. Chris uses this command if the automatic detection is wrong.
 
@@ -262,7 +264,7 @@ project bridge stays in place.
 
 9.4.10 Set the verbosity: how much the agent says. The levels are brief, normal and full. Brief is one or two sentences and only the result. Normal is the behaviour from before the setting. Full gives the reasoning and more detail. The commands are "verbosity brief", "verbosity normal" and "verbosity full", and "shorter" and "longer" move one level. At either end, the level stays where it is. The bridge adds one line that names the level to the prompt of each turn. The level is kept in the settings file, so it survives a restart and a new session.
 
-9.4.11 A setting that goes on and off has two commands, one for on and one for off. There is no bare command that flips it. The bare "tones" and the bare "interrupt" are removed, because a flip said blind leaves the setting in a state that Chris does not know.
+9.4.11 A setting that goes on and off has two commands, one for on and one for off. There is no bare command that flips it. The bare "tones" and the bare "interrupt" are removed, because a flip said blind leaves the setting in a state that Chris does not know. The bridge reads the on and off commands before the end turn command, so "turn the audio on" turns the audio on and does not end the turn.
 
 9.4.12 "Continue" is the agreement word of 10.2 and nothing else. The command that says the rest of an answer (11.10) is "carry on", "go on" or "the rest".
 
