@@ -270,7 +270,36 @@ project bridge stays in place.
 
 9.4.12 "Continue" is the agreement word of 10.2 and nothing else. The command that says the rest of an answer (11.10) is "carry on", "go on" or "the rest".
 
-9.5 Two commands work when the bridge is muted. The two commands are mute and unmute. All other commands do not work when the bridge is muted.
+9.4.13 The table lists every command, in the order that the bridge reads them. The first command whose words are all there wins. After the wake word, each word can be one spelling step off, or more for a long word. The wake-word hold is the short time after the wake word alone. In it, a command of three words or fewer needs no wake word. There the words must be exactly as the table spells them, because no wake word guards them: "make it so" is not "male". The muted column gives the default of 9.6.
+
+| Command | Words | What it does | Muted | Section |
+|---|---|---|---|---|
+| `unmute` | "unmute", "un mute", "listen again" | Acts on speech again. Says "Listening." | yes | 9.4.2 |
+| `musicOff` | "music off", "mute music" | Turns the hold music off, and stops a track that plays | no | 15.7.3 |
+| `musicOn` | "music on" | Turns the hold music on | no | 15.7.3 |
+| `mute` | "mute", "stop listening" | Stops acting on speech. Says "Muted." | yes | 9.4.1 |
+| `clearContext` | "clear context" | Starts a new agent process, after the agreement word | no | 9.4.3 |
+| `usage` | "usage", "cost", "spent" | Says the cost, the rate limit use and the context | no | 9.4.4 |
+| `restate` | "restate", "say again", "repeat" | Says the last sentence again, or the last answer | no | 9.4.5 |
+| `where` | "where are", "catch up", "recap" | Says the last three requests and replies. Drops a held answer | no | 9.4.7 |
+| `tonesOff` | "tones off", "tone off", "no tones", "sounds off" | Turns the cues off | yes | 15.4 |
+| `tonesOn` | "tones on", "tone on", "sounds on" | Turns the cues on | yes | 15.4 |
+| `audioOff` | "audio off", "voice off", "no audio" | Turns all the audio of the bridge off | no | 11.12 |
+| `audioOn` | "audio on", "voice on" | Turns the audio on again | no | 11.12 |
+| `interruptOff` | "interrupt off", "interrupting off" | Holds the answer and refuses a question mid-turn | no | 11.9 |
+| `interruptOn` | "interrupt on", "interrupting on" | Gives a question mid-turn to the agent | no | 11.9 |
+| `endTurn` | "end turn", "in turn", "stop", "cancel", "never mind", "nevermind", "sharp" | Stops the turn, or a replay of "carry on". Drops a held answer | no | 9.4.8 |
+| `stats` | "stats", "steph", "status", "latency", "diagnostics", "how fast" | Says the round-trip times and the state of the network | no | none |
+| `carryOn` | "carry on", "go on", "the rest" | Says the rest of an answer that a barge-in cut | no | 11.10 |
+| `verbosityBrief` | "verbosity brief" | Sets the verbosity to brief | no | 9.4.10 |
+| `verbosityNormal` | "verbosity normal" | Sets the verbosity to normal | no | 9.4.10 |
+| `verbosityFull` | "verbosity full" | Sets the verbosity to full | no | 9.4.10 |
+| `shorter` | "shorter" | Moves the verbosity one level down | no | 9.4.10 |
+| `longer` | "longer" | Moves the verbosity one level up | no | 9.4.10 |
+| `femaleVoice` | "female", "woman" | Speaks in the female voice | no | 4.9 |
+| `maleVoice` | "male", "mail" | Speaks in the male voice | no | 4.9 |
+
+9.5 By default, four commands work when the bridge is muted: mute, unmute, tones on and tones off. All other commands do not work when the bridge is muted, unless the setting of 9.6 adds them.
 
 9.5.1 The app has a hold to talk button. A press and a release each play a cue (15.14). The button sits beside the button that cuts the microphone. The microphone is open only while Chris holds the hold to talk button. The hold to talk button is disabled while the microphone is open and Chris does not hold it. While Chris holds it, the button that cuts the microphone is disabled. The mute and unmute commands stay.
 

@@ -37,6 +37,10 @@ export type Match =
  */
 const COMMANDS: Array<{ name: CommandName; any: string[][]; phrases: string[] }> = [
   { name: "unmute", any: [["unmute"], ["un", "mute"], ["listen", "again"]], phrases: ["unmute"] },
+  // 15.7.3 the hold music. "stop" is deliberately not a form: it ends the turn.
+  // Above mute, so "mute the music" mutes the music and not the bridge (item 36).
+  { name: "musicOff", any: [["music", "off"], ["mute", "music"]], phrases: ["music off"] },
+  { name: "musicOn", any: [["music", "on"]], phrases: ["music on"] },
   { name: "mute", any: [["mute"], ["stop", "listening"]], phrases: ["mute", "stop listening"] },
   // item 36 two words: "clear" alone is a word Chris says, and it cost the session
   { name: "clearContext", any: [["clear", "context"]], phrases: ["clear the context"] },
@@ -59,9 +63,6 @@ const COMMANDS: Array<{ name: CommandName; any: string[][]; phrases: string[] }>
    */
   { name: "audioOff", any: [["audio", "off"], ["voice", "off"], ["no", "audio"]], phrases: ["audio off"] },
   { name: "audioOn", any: [["audio", "on"], ["voice", "on"]], phrases: ["audio on"] },
-  // 15.7.3 the hold music. "stop" is deliberately not a form: it ends the turn.
-  { name: "musicOff", any: [["music", "off"]], phrases: ["music off"] },
-  { name: "musicOn", any: [["music", "on"]], phrases: ["music on"] },
   // 11.9 the two ways to treat a question that lands mid-answer. No bare
   // "interrupt", for the same reason as the tones (item 36).
   { name: "interruptOff", any: [["interrupt", "off"], ["interrupting", "off"]], phrases: ["interrupt off"] },
@@ -172,17 +173,22 @@ export function spokenForms(wakeWord: string): Array<{ said: string; want: Comma
  * "one" is within tolerance of both "tone" and "on", so before the words were
  * kept apart "one more" turned the tones on (item 36).
  */
-function found(targets: string[], words: string[], taken: number[] = []): boolean {
+function found(targets: string[], words: string[], exact: boolean, taken: number[] = []): boolean {
   if (targets.length === 0) return true;
   const [want, ...rest] = targets as [string, ...string[]];
-  return words.some((word, i) => !taken.includes(i) && editDistance(word, want) <= tolerance(want) && found(rest, words, [...taken, i]));
+  const allowed = exact ? 0 : tolerance(want);
+  return words.some((word, i) => !taken.includes(i) && editDistance(word, want) <= allowed && found(rest, words, exact, [...taken, i]));
 }
 
-/** 9.4 which command the words after the wake word name, if any. */
-export function commandIn(rest: string): CommandName | null {
+/**
+ * 9.4 which command the words after the wake word name, if any. `exact` asks
+ * for each word as the table spells it, with no tolerance: the wake-word hold
+ * has no wake word in front, and "make it so" is one character from "male".
+ */
+export function commandIn(rest: string, exact = false): CommandName | null {
   const words = rest.split(" ").filter(Boolean);
   for (const { name, any } of COMMANDS) {
-    if (any.some((all) => found(all, words))) return name;
+    if (any.some((all) => found(all, words, exact))) return name;
   }
   return null;
 }
@@ -260,7 +266,7 @@ export function read(said: string, words: Words, muted: boolean, awaiting: boole
   const agreed = agrees(plain, words);
   const matched = match(said, words.wakeWord, muted, words.mutedCommands, words.wakeWordVariants);
   if (matched.kind === "speech" && awaiting && plain.split(" ").length <= HOLD_WORDS) {
-    const name = commandIn(plain);
+    const name = commandIn(plain, true);
     if (name && allowed(name, muted, words.mutedCommands)) return { kind: "command", name, agreed };
   }
   return { ...matched, agreed };

@@ -315,3 +315,23 @@ describe("the clashes the review found (item 36)", () => {
     expect(commandIn("mail")).toBe("maleVoice");
   });
 });
+
+describe("the clashes the review found, the rest of the table (item 36)", () => {
+  test("\"mute the music\" turns the music off, and \"mute\" alone still mutes", () => {
+    expect(commandIn("mute the music")).toBe("musicOff");
+    expect(match("sidetone, mute the music", WAKE, false, MUTED)).toEqual({ kind: "command", name: "musicOff" });
+    expect(commandIn("mute")).toBe("mute");
+    expect(commandIn("unmute")).toBe("unmute");
+    expect(match("sidetone, mute the music", WAKE, true, MUTED)).toEqual({ kind: "unclear" });
+  });
+  test("in the wake-word hold, a word near a command word is speech: no wake word guards it", () => {
+    for (const said of ["make it so", "the best", "go in", "turn it on"]) {
+      expect(read(said, DEFAULTS, false, true)).toEqual({ kind: "speech", agreed: false });
+    }
+    // the exact forms still work in the hold, the forms the engine writes among them
+    for (const [said, name] of [["male voice", "maleVoice"], ["mail", "maleVoice"], ["the rest", "carryOn"], ["go on", "carryOn"],
+      ["in the turn", "endTurn"], ["steph", "stats"], ["tones off", "tonesOff"]] as const) {
+      expect(read(said, DEFAULTS, false, true)).toEqual({ kind: "command", name, agreed: false });
+    }
+  });
+});
