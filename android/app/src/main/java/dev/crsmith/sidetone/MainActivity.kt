@@ -7,7 +7,9 @@ import android.content.pm.PackageInstaller
 import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -19,7 +21,6 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -65,6 +66,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -76,8 +78,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.mlkit.vision.barcode.common.Barcode
@@ -230,6 +236,9 @@ private fun Pairing(error: String?) {
 @Composable
 private fun Conversation(state: Bridge.State, onQuit: () -> Unit) {
     var draft by remember { mutableStateOf("") }
+    // 17.22 the options screen takes the window under the status row; the gear or a back gesture closes it
+    var options by rememberSaveable { mutableStateOf(false) }
+    BackHandler(enabled = options) { options = false }
     val list = rememberLazyListState()
     // 14.9 a bubble with no words yet is not shown: the block has begun and the first word has not come.
     // 17.18.5 nor is a screenshot that Chris dropped.
@@ -252,7 +261,19 @@ private fun Conversation(state: Bridge.State, onQuit: () -> Unit) {
             // 17.11.7 the word says the state that the colour shows
             Text(reading.word, style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.weight(1f))
-            Options(state.settings, state.settingsCount, state.build, inRoom = state.status != Status.LEFT, onQuit = onQuit)
+            OptionsGear(open = options, onToggle = { options = !options })
+        }
+        if (options) {
+            OptionsScreen(
+                state.settings,
+                state.settingsCount,
+                state.build,
+                inRoom = state.status != Status.LEFT,
+                onClose = { options = false },
+                onQuit = onQuit,
+                modifier = Modifier.weight(1f),
+            )
+            return@Column
         }
         state.error?.let { ErrorBanner(it) }
         // 17.15 only while the bridge serves an app that is not this one
@@ -384,40 +405,45 @@ private fun fill(light: Light) = when (light) {
 }
 
 /**
- * 17.11.6 the room in one dot. The colour is the room state, the ring is the
- * connection quality, and the motion is the working sign (17.11): a slow pulse
- * while the agent works, a fast blink when it stalls. The outer size does not
- * change, so the row does not move when the ring goes. A tap opens the legend
- * (17.11.9).
+ * 17.11.6 the dot as the row and the legend draw it: the colour, and a slow
+ * pulse while work is in progress. The pulse does not show when the system
+ * removes animations, because the animator duration scale is then 0.
  */
 @Composable
-private fun StatusDot(reading: Reading) {
-    var legend by remember { mutableStateOf(false) }
-    val ring = when (reading.ring) {
-        Ring.THICK -> 3.5.dp
-        Ring.MEDIUM -> 2.dp
-        Ring.THIN -> 1.dp
-        null -> 0.dp
+private fun Dot(light: Light, pulse: Boolean, size: Dp) {
+    val context = LocalContext.current
+    val still = remember(context) {
+        Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
     }
-    val motion = rememberInfiniteTransition(label = "working")
-    val alpha = when (reading.sign) {
-        Sign.OFF -> 1f
-        Sign.WORKING -> motion.animateFloat(
+    val alpha = if (pulse && !still) {
+        rememberInfiniteTransition(label = "pulse").animateFloat(
             initialValue = 0.25f,
             targetValue = 1f,
             animationSpec = infiniteRepeatable(tween(1_600), RepeatMode.Reverse),
             label = "pulse",
         ).value
-        Sign.SILENT -> if (motion.animateFloat(0f, 1f, infiniteRepeatable(tween(400)), label = "blink").value < 0.5f) 1f else 0.15f
+    } else {
+        1f
     }
-    val said = listOf(reading.word, signWord(reading.sign)).filter { it.isNotEmpty() }.joinToString(", ")
+    Box(Modifier.size(size).alpha(alpha).background(fill(light), CircleShape))
+}
+
+/**
+ * 17.11.6 the room in one dot. The colour says whether the bridge hears
+ * Chris, and a slow pulse says work is in progress. A tap opens the legend
+ * (17.11.9).
+ */
+@Composable
+private fun StatusDot(reading: Reading) {
+    var legend by remember { mutableStateOf(false) }
+    val said = listOfNotNull(reading.word, signWord(Sign.WORKING).takeIf { reading.working }).joinToString(", ")
     Box {
         Box(
             Modifier.size(26.dp).clip(CircleShape).clickable(onClickLabel = "Explain the light") { legend = true }
-                .border(ring, MaterialTheme.colorScheme.onSurface, CircleShape).semantics { contentDescription = said },
+                .semantics { contentDescription = said },
             contentAlignment = Alignment.Center,
         ) {
-            Box(Modifier.size(18.dp).alpha(alpha).background(fill(reading.light), CircleShape))
+            Dot(reading.light, reading.pulse, 18.dp)
         }
         DropdownMenu(expanded = legend, onDismissRequest = { legend = false }, modifier = Modifier.width(300.dp)) {
             Legend()
@@ -426,24 +452,48 @@ private fun StatusDot(reading: Reading) {
 }
 
 /**
- * 17.11.9 what the light means: each colour with its word and state, then the
- * ring and the motion. It explains and does nothing, so a tap anywhere closes it.
+ * 17.11.9 what the light means: one row for each colour, with its dots as the
+ * row draws them, what the colour means, and the words it can show. Then what
+ * the pulse means. It explains and does nothing, so a tap anywhere closes it.
  */
 @Composable
 private fun Legend() {
-    Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        for ((reading, means) in LEGEND) {
+    val soft = MaterialTheme.colorScheme.onSurfaceVariant
+    val words = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace)
+    Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        for (row in LEGEND) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Box(Modifier.padding(top = 3.dp).size(14.dp).background(fill(reading.light), CircleShape))
-                Column {
-                    Text(reading.word, style = MaterialTheme.typography.labelLarge)
-                    Text(means, style = MaterialTheme.typography.bodySmall)
+                Column(Modifier.padding(top = 3.dp).width(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    for (pulse in row.pulses) Dot(row.light, pulse, 14.dp)
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(row.means, style = MaterialTheme.typography.labelLarge)
+                    row.detail?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = soft) }
+                    if (row.readings.all { it.second == null }) {
+                        Text(row.words.joinToString(" · "), style = words, color = soft)
+                    } else {
+                        for ((reading, line) in row.readings) {
+                            Text(
+                                buildAnnotatedString {
+                                    withStyle(words.toSpanStyle()) { append(reading.word) }
+                                    append(": $line")
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = soft,
+                            )
+                        }
+                    }
                 }
             }
         }
         HorizontalDivider()
-        Text("The ring is the signal: thick when it is excellent, thin when it is poor.", style = MaterialTheme.typography.bodySmall)
-        Text("A slow pulse: the agent works. A fast blink: the agent has stalled.", style = MaterialTheme.typography.bodySmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Box(Modifier.padding(top = 3.dp)) { Dot(Light.GREEN, pulse = true, 14.dp) }
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("A slow pulse: work is in progress.", style = MaterialTheme.typography.labelLarge)
+                Text("By the agent when green, by the app when amber or red.", style = MaterialTheme.typography.bodySmall, color = soft)
+            }
+        }
     }
 }
 

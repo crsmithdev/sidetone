@@ -781,7 +781,7 @@ export class Conversation {
   }
 
   /**
-   * Item 44 a threshold of the ear, from the app's options menu. Like the
+   * Item 44 a threshold of the ear, from the app's options screen. Like the
    * volume it has no spoken command and no answer. It is checked by the rule
    * the file is checked by: a value the bridge took live is written to the
    * file, and a start that refused it would look like the bridge is broken. A
@@ -824,7 +824,7 @@ export class Conversation {
   stop(): void { this.agent.stop(); }
 }
 
-/** Item 44 the settings of the ear that the options menu changes, and no command does. */
+/** Item 44 the settings of the ear that the options screen changes, and no command does. */
 const THRESHOLDS = ["bargeInLevel", "minSpeechPeak", "endOfTurnPauseMs"] as const;
 type Threshold = typeof THRESHOLDS[number];
 

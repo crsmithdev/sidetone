@@ -35,6 +35,18 @@ class WorkTest {
         assertEquals("stalled", signWord(Sign.SILENT))
     }
 
+    /**
+     * 17.11.3 and 17.16.1 a stalled sign is the status word, not a sign beside
+     * it: the row and the notification say "stalled", and "working" goes.
+     */
+    @Test
+    fun aStalledSignIsTheWordOfTheRowAndOfTheNotification() {
+        val stalled = reading(Status.LISTENING, "good", Sign.SILENT)
+        assertEquals(signWord(Sign.SILENT), stalled.word)
+        assertEquals("stalled", stateLine(BridgeService.Shown(stalled, micOn = true, audioOn = true, inRoom = true)))
+        assertEquals("stalled · mic off", stateLine(BridgeService.Shown(stalled, micOn = false, audioOn = true, inRoom = true)))
+    }
+
     @Test
     fun takesTheWorkingMessage() {
         // src/messages.ts: { kind: "working"; on: boolean }

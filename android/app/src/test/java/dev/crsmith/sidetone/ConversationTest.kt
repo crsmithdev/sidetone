@@ -201,7 +201,7 @@ class ConversationTest {
             """{"kind":"setting","patch":{"voice":"male"}}""",
             Outgoing.voice("male").decodeToString(),
         )
-        // item 28 the options menu sends the verbosity and the volume by the same message
+        // item 28 the options screen sends the verbosity and the volume by the same message
         assertEquals(
             """{"kind":"setting","patch":{"verbosity":"brief"}}""",
             Outgoing.setting("verbosity", "brief").decodeToString(),

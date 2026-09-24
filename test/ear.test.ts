@@ -272,7 +272,7 @@ describe("18 a microphone that stopped", () => {
 });
 
 /**
- * Item 44 a threshold changed from the options menu reaches the detector
+ * Item 44 a threshold changed from the options screen reaches the detector
  * without a restart: the next frame reads it.
  */
 describe("a threshold set while the ear runs (item 44)", () => {

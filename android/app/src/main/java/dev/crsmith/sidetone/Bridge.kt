@@ -70,7 +70,7 @@ object Bridge {
         val screenshots: Map<String, String> = emptyMap(),
         /** 14.15 the SHA-256 of this app, for the menu. Null until it is read, or when it cannot be. */
         val build: String? = null,
-        /** 9.4.9 the settings in force on the bridge, which the options menu shows (item 28). */
+        /** 9.4.9 the settings in force on the bridge, which the options screen shows (item 28). */
         val settings: Incoming.Settings = Incoming.Settings(emptyMap(), emptyMap(), emptyMap()),
         /** Item 44 how many settings messages came; each puts the sliders back to what the bridge holds. */
         val settingsCount: Int = 0,
@@ -453,7 +453,7 @@ object Bridge {
     }
 
     /**
-     * Item 28 a setting from the options menu (9.4.9). The screen does not
+     * Item 28 a setting from the options screen (9.4.9). The screen does not
      * change it here: it waits for the settings the bridge sends back, so
      * the menu shows only what the bridge holds.
      */

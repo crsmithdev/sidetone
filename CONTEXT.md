@@ -130,27 +130,27 @@ The bridge makes no sound: no voice, no cue and no hold music. The words carry o
 _Avoid_: voice off, mute (mute is the bridge that listens and acts on nothing), silence.
 
 **The working sign**:
-A small sign in the app's status row that the agent works: a turn runs, or a detached job runs. It follows a message from the bridge, so it shows with the audio off. It says "stalled" when the bridge stops sending that message. It shows only while the room is live.
+A slow pulse of the green dot in the app's status row that the agent works: a turn runs, or a detached job runs. It follows a message from the bridge, so it shows with the audio off. When the bridge stops sending that message, the dot is red and the status word is "stalled". It shows only while the room is live.
 _Avoid_: the spinner, the busy light, the status.
 
 **The reading**:
-What the app's status row says about the room: the dot, the status word, the connection quality and the working sign. One function gives it from the status, the quality and the sign, so no two parts can disagree. The quality and the sign show only while the room is live.
+What the app's status row says about the room: the colour of the dot, the status word, and whether the dot pulses. The colour says whether the bridge hears Chris; a slow pulse says work is in progress. One function gives it from the status, the quality and the sign, so no two parts can disagree. The sign shows only while the room is live.
 _Avoid_: the status (the status is one input), the indicator.
 
-**The options menu**:
-The menu behind the "⋮" button at the end of the app's status row. It holds the verbosity, the tones, the hold music volume, the three thresholds of the ear, "Leave" and "Quit". Each control changes a setting by the path of the spoken command, and shows what the bridge sends back (spec 17.22).
-_Avoid_: the settings screen, the preferences, the overflow menu.
+**The options screen**:
+The screen behind the gear at the end of the app's status row. It fills the window under the row, and the gear or a back gesture closes it. It holds the verbosity, the tones, the hold music volume, the three thresholds of the ear, "Leave" and "Quit". Each control changes a setting by the path of the spoken command, and shows what the bridge sends back (spec 17.22).
+_Avoid_: the options menu (it was a menu until 24 September), the settings screen (the settings are what the bridge sends back), the preferences.
 
 **Leave, Rejoin, Quit**:
 Leave: the app goes out of the room and stays open, with the transcript as history and the word "left" in the status row; the phone's audio is released, so the car's music comes back (spec 17.11.10). Rejoin: the button that takes the app back into the room with the pairing it has. Quit: leave and close the app.
 _Avoid_: exit, disconnect (the status word for a bridge the app cannot reach), sign out, log out.
 
 **The hold music volume**:
-How loud the hold music is, as a factor on the file from 0 to 1: the `holdMusicGain` setting. Only the options menu changes it. No spoken command does.
+How loud the hold music is, as a factor on the file from 0 to 1: the `holdMusicGain` setting. Only the options screen changes it. No spoken command does.
 _Avoid_: the music gain (the name of the setting, not of the thing), the music level.
 
 **The thresholds of the ear**:
-The three settings of the ear that the options menu changes and no spoken command does: the barge-in level (`bargeInLevel`), the quietest speech peak (`minSpeechPeak`) and the end-of-turn pause (`endOfTurnPauseMs`). The bridge checks each by the rule it checks the settings file by, and the ear reads a taken value on the next frame (spec 17.22.5, 17.22.6).
+The three settings of the ear that the options screen changes and no spoken command does: the barge-in level (`bargeInLevel`), the quietest speech peak (`minSpeechPeak`) and the end-of-turn pause (`endOfTurnPauseMs`). The bridge checks each by the rule it checks the settings file by, and the ear reads a taken value on the next frame (spec 17.22.5, 17.22.6).
 _Avoid_: the knobs, the tuning, the detector settings.
 
 **The screen log**:

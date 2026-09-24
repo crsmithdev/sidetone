@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The gear of the options menu (17.22): Material's "settings" icon, 24dp.
+<!-- The gear of the options screen (17.22): Material's "settings" icon, 24dp.
      The app has no icon library, so the one icon it needs is a drawable. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"

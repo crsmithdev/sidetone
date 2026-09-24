@@ -123,10 +123,13 @@ class BridgeService : Service() {
     }
 }
 
-/** 17.16 the status, and what is cut or running, in one line: "listening · mic off · working". */
+/**
+ * 17.16 the status, and what is cut or running, in one line: "listening · mic off · working".
+ * 17.11.3 a stalled bridge is the status word itself, so it comes first.
+ */
 fun stateLine(shown: BridgeService.Shown): String = buildList {
     add(shown.reading.word)
     if (!shown.micOn) add("mic off")
     if (!shown.audioOn) add("audio off")
-    if (shown.reading.sign != Sign.OFF) add(signWord(shown.reading.sign))
+    if (shown.reading.working) add(signWord(Sign.WORKING))
 }.joinToString(" · ")

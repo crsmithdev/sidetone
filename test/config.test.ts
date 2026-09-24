@@ -147,7 +147,7 @@ describe("settings that arrive already checked", () => {
 });
 
 /**
- * Item 44 a threshold from the options menu is checked by the rule the file is
+ * Item 44 a threshold from the options screen is checked by the rule the file is
  * checked by. A value the bridge took live and wrote to the file must load at
  * the next start, or the change that worked all afternoon stops the bridge.
  */

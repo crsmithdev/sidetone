@@ -15,25 +15,51 @@ class ReadingTest {
     }
 
     /**
-     * Each part of the row says whether the room is live. The dot, the ring,
-     * the motion and the word have to say the same, for every input: two parts
-     * that disagree are two readings, such as a stalled blink and a thick ring
-     * on a room that is gone.
+     * 17.11.6 each word has one colour and one motion, for every input. The
+     * colour says whether the bridge hears Chris; the pulse says work is in
+     * progress. Only "listening" has both a solid and a pulsing dot: the
+     * pulse there is the agent that works.
      */
     @Test
-    fun noInputGivesTwoReadingsThatContradict() {
+    fun eachWordHasItsColourAndItsMotion() {
+        val expected = mapOf(
+            "listening" to Light.GREEN,
+            "connecting" to Light.AMBER,
+            "rejoining" to Light.AMBER,
+            "reconnecting" to Light.AMBER,
+            "disconnected" to Light.RED,
+            "signal lost" to Light.RED,
+            "stalled" to Light.RED,
+            "left" to Light.GREY,
+        )
         for ((status, quality, sign) in everyReading()) {
             val r = reading(status, quality, sign)
             val at = "$status $quality $sign -> $r"
-            val live = r.light == Light.GREEN
-            assertEquals(at, live, r.word == "listening")
-            assertTrue(at, live || r.ring == null)
-            assertTrue(at, live || r.sign == Sign.OFF)
-            // the row says "listening" only when the transport has the room
-            assertTrue(at, !live || status == Status.LISTENING)
-            assertEquals(at, r.light == Light.RED, status == Status.UNREACHABLE)
+            assertEquals(at, expected[r.word], r.light)
+            val pulse = when (r.light) {
+                Light.GREEN -> sign == Sign.WORKING
+                Light.AMBER -> true
+                // the app retries every Joining.RETRY_MS, so that is work in progress
+                Light.RED -> r.word == "disconnected"
+                Light.GREY -> false
+            }
+            assertEquals(at, pulse, r.pulse)
+            assertEquals(at, r.light == Light.GREEN && r.pulse, r.working)
+        }
+    }
+
+    /**
+     * The row is green only when the bridge hears Chris: the transport holds
+     * the room, the phone's media reaches it, and the heartbeat comes.
+     */
+    @Test
+    fun greenIsOnlyARoomThatHearsYou() {
+        for ((status, quality, sign) in everyReading()) {
+            val r = reading(status, quality, sign)
+            val hears = status == Status.LISTENING && quality != "lost" && sign != Sign.SILENT
+            assertEquals("$status $quality $sign -> $r", hears, r.light == Light.GREEN)
             // 17.11.10 grey is the one colour that says nothing is wrong and nothing is being tried
-            assertEquals(at, r.light == Light.GREY, status == Status.LEFT)
+            assertEquals("$status $quality $sign -> $r", status == Status.LEFT, r.light == Light.GREY)
         }
     }
 
@@ -59,40 +85,78 @@ class ReadingTest {
         )
     }
 
-    /** 17.11.9 the legend names each word the row can show, once, with the colour the light has for it. */
+    /** 17.11.3 a heartbeat that stopped in a live room is its own reading: red and still. */
     @Test
-    fun theLegendHasEveryState() {
-        val shown = everyReading().map { (status, quality, sign) -> reading(status, quality, sign) }
-        val legend = LEGEND.map { it.first }
-        assertEquals(shown.map { it.word to it.light }.toSet(), legend.map { it.word to it.light }.toSet())
-        assertEquals(legend.size, legend.map { it.word }.toSet().size)
-    }
-
-    /** A live room hides nothing: the quality shows as the ring and the sign as the motion. */
-    @Test
-    fun aLiveRoomShowsItsQualityAndItsSign() {
-        for (sign in Sign.entries) {
-            assertEquals(Reading(Light.GREEN, "listening", Ring.THICK, sign), reading(Status.LISTENING, "excellent", sign))
+    fun aStalledBridgeIsRedAndStill() {
+        for (quality in listOf("excellent", "good", "poor", null)) {
+            assertEquals(Reading(Light.RED, "stalled", pulse = false), reading(Status.LISTENING, quality, Sign.SILENT))
         }
-        assertEquals(Ring.MEDIUM, reading(Status.LISTENING, "good", Sign.OFF).ring)
-        assertEquals(Ring.THIN, reading(Status.LISTENING, "poor", Sign.OFF).ring)
-        // a quality not known yet draws no ring
-        assertEquals(Reading(Light.GREEN, "listening", null, Sign.OFF), reading(Status.LISTENING, null, Sign.OFF))
     }
 
-    /** The row the brief names: a quality and a sign kept from before the drop. */
+    /** A live room shows the sign as the pulse; the quality no longer shows. */
+    @Test
+    fun aLiveRoomPulsesWhileTheAgentWorks() {
+        for (quality in listOf("excellent", "good", "poor", null)) {
+            assertEquals(Reading(Light.GREEN, "listening", pulse = false), reading(Status.LISTENING, quality, Sign.OFF))
+            assertEquals(Reading(Light.GREEN, "listening", pulse = true), reading(Status.LISTENING, quality, Sign.WORKING))
+        }
+    }
+
+    /** The row the brief names: a sign kept from before the drop does not show. */
     @Test
     fun aRoomThatIsGoneSaysOnlyWhy() {
-        assertEquals(Reading(Light.AMBER, "reconnecting", null, Sign.OFF), reading(Status.RECONNECTING, "excellent", Sign.SILENT))
-        assertEquals(Reading(Light.RED, "disconnected", null, Sign.OFF), reading(Status.UNREACHABLE, "excellent", Sign.WORKING))
-        assertEquals(Reading(Light.AMBER, "rejoining", null, Sign.OFF), reading(Status.REJOINING, "good", Sign.WORKING))
+        assertEquals(Reading(Light.AMBER, "reconnecting", pulse = true), reading(Status.RECONNECTING, "excellent", Sign.SILENT))
+        assertEquals(Reading(Light.RED, "disconnected", pulse = true), reading(Status.UNREACHABLE, "excellent", Sign.WORKING))
+        assertEquals(Reading(Light.AMBER, "rejoining", pulse = true), reading(Status.REJOINING, "good", Sign.WORKING))
         // 17.11.10 a room Chris left by hand is not a room that is being got back
-        assertEquals(Reading(Light.GREY, "left", null, Sign.OFF), reading(Status.LEFT, "excellent", Sign.WORKING))
+        assertEquals(Reading(Light.GREY, "left", pulse = false), reading(Status.LEFT, "excellent", Sign.WORKING))
     }
 
     /** The transport holds the room and LiveKit says the phone's media is lost. "stalled" would blame the bridge. */
     @Test
     fun aLostQualityIsNotALiveRoom() {
-        assertEquals(Reading(Light.AMBER, "signal lost", null, Sign.OFF), reading(Status.LISTENING, "lost", Sign.SILENT))
+        for (sign in Sign.entries) {
+            assertEquals(Reading(Light.RED, "signal lost", pulse = false), reading(Status.LISTENING, "lost", sign))
+        }
+    }
+
+    /** 17.11.9 the legend has one row for each colour, in the order green, amber, red, grey. */
+    @Test
+    fun theLegendHasOneRowForEachColour() {
+        assertEquals(listOf(Light.GREEN, Light.AMBER, Light.RED, Light.GREY), LEGEND.map { it.light })
+        for (row in LEGEND) {
+            assertTrue("$row", row.readings.all { (r, _) -> r.light == row.light })
+        }
+    }
+
+    /**
+     * 17.11.9 the legend names each word the row can show, with its colour and
+     * its motion, so each dot it draws is a dot the row can show.
+     */
+    @Test
+    fun theLegendHasEveryState() {
+        val shown = everyReading().map { (status, quality, sign) -> reading(status, quality, sign) }.toSet()
+        assertEquals(shown, LEGEND.flatMap { row -> row.readings.map { it.first } }.toSet())
+        // each word is in one row, once
+        val words = LEGEND.flatMap { it.words }
+        assertEquals(words.size, words.toSet().size)
+    }
+
+    /** 17.11.9 where a colour has a solid and a pulsing dot, the legend draws both, solid first. */
+    @Test
+    fun theLegendDrawsEachMotionOfAColour() {
+        assertEquals(
+            listOf(listOf(false, true), listOf(true), listOf(false, true), listOf(false)),
+            LEGEND.map { it.pulses },
+        )
+    }
+
+    /** 17.11.9 red lists each of its words with one line, because each asks something else of Chris. */
+    @Test
+    fun eachRedWordHasItsLine() {
+        val red = LEGEND.single { it.light == Light.RED }
+        assertEquals(listOf("disconnected", "signal lost", "stalled"), red.words)
+        assertTrue(red.readings.all { (_, line) -> !line.isNullOrBlank() })
+        assertTrue(red.readings.first().second!!.contains("${Joining.RETRY_MS / 1000} seconds"))
     }
 }

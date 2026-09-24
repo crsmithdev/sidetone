@@ -331,6 +331,8 @@ class MessagesTest {
         assertEquals("listening · mic off · audio off · working", line(Status.LISTENING, Sign.WORKING, micOn = false, audioOn = false))
         // 17.11.6 the sign of a room that is not live does not show
         assertEquals("reconnecting", line(Status.RECONNECTING, Sign.SILENT))
+        // 17.11.3 a stalled bridge is the word itself
+        assertEquals("stalled · audio off", line(Status.LISTENING, Sign.SILENT, audioOn = false))
     }
 
     @Test
