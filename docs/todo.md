@@ -182,8 +182,8 @@ Decided 23 September 2026:
 
 ## 19. Highlight the chat text as it is actually spoken
 
-Noted 22 September 2026. Built 23 September 2026 on the branch
-`highlight-speech`, not landed and not yet seen on a phone.
+Noted 22 September 2026. Built and landed 23 September 2026 (cdab5b1, spec
+17.21). Not yet seen on a phone.
 
 The official Claude app shows upcoming text greyed out, then brings each
 part to full weight as the words are actually spoken, so the reading eye can
@@ -258,7 +258,7 @@ Not built:
 
 ## 20. More hold music tracks, cycled, each resuming where it left off
 
-Noted 22 September 2026. Built 23 September 2026 on the branch `hold-tracks`,
+Noted 22 September 2026. Built and landed 23 September 2026 (ca27825).
 not landed. It waits for review.
 
 Two parts are open. The licence part is closed by the decision below. The
@@ -771,7 +771,7 @@ Decided 23 September 2026:
 
 ## 37. A verbosity setting, as a command and in the app
 
-Noted 23 September 2026. The bridge side is built on the `verbosity` branch:
+Noted 23 September 2026. The bridge side is built and landed (c621b40):
 the setting, the line in each turn's prompt, the five commands, and the
 `verbosity` key a client may set (9.4.9, 9.4.10). The app selector is built
 with item 28, on branch `options-menu`.
@@ -823,7 +823,7 @@ build "continue" on that path instead of a second one. The default of
 
 ## 38. A screenshot from the phone does not reach the agent, and the status shows twice
 
-Noted 23 September 2026. Part 2 built, not landed. Part 1 not investigated.
+Noted 23 September 2026. Part 2 built and landed (ad48d25). Part 1 not investigated.
 
 Chris saw a status message twice, and took a screenshot to show it. The
 screenshot did not reach the agent. Chris does not know which status doubled:
@@ -883,7 +883,7 @@ and the double status is found or shown not to exist.
 
 ## 39. The app sends no crash report, and nobody has checked it for stability
 
-Noted 23 September 2026. Part 1 built on branch `crash-report`, not landed and
+Noted 23 September 2026. Part 1 built and landed (dbd43d7), and
 not tried on the phone. Part 2 investigated in
 `~/.sidetone/findings/stability-39b.md`; no fix made.
 
@@ -927,8 +927,8 @@ with the stack trace, and each check in part 2 has a finding or a fix.
 
 ## 40. The app learns of a new build only when it joins the room
 
-Noted 23 September 2026. Built 23 September 2026 on branch `apk-push`, not
-landed. Not yet tried on the phone.
+Noted 23 September 2026. Built and landed 23 September 2026 (3b35cbe). Not yet
+tried on the phone.
 
 What is built (spec 17.15.5 and 17.15.6): `watchApk` in `src/apk.ts` looks at
 the file every 2 seconds through `ApkHash`. When the hash changes, and two
