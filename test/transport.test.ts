@@ -205,6 +205,7 @@ describe("the fade of the hold music (15.10.2)", () => {
     const levels: number[] = [];
     (transport as unknown as { source: unknown }).source = {
       captureFrame: async (frame: { data: Int16Array }) => { levels.push(frame.data.at(-1) as number); },
+      clearQueue: () => {},
     };
     const whole = await transport.speak(encodeWav(new Int16Array(RTC_RATE).fill(10_000), RTC_RATE), until, fade);
     return { whole, levels };
@@ -241,5 +242,23 @@ describe("the fade of the hold music (15.10.2)", () => {
     const { whole, levels } = await written({ when: () => false, ms: 300 });
     expect(whole).toBe(true);
     expect(levels).toHaveLength(50);
+  });
+});
+
+/**
+ * 11.3 and 11.12.2 the voice stops at once. The source is LiveKit's own, which
+ * takes a second of frames ahead of what it has sent. The loop that writes the
+ * frames stops within one frame of a cut; what the source already holds does
+ * not stop with it, unless the cut clears it.
+ */
+describe("a cut stops the voice at once (11.3, 11.12.2)", () => {
+  test("what the source holds after the cut is under half a second", async () => {
+    const transport = new Transport();
+    const source = (transport as unknown as { source: { queuedDuration: number } }).source;
+    let frames = 0;
+    // three seconds of a sentence, cut 800 ms in
+    const whole = await transport.speak(encodeWav(new Int16Array(RTC_RATE * 3).fill(10_000), RTC_RATE), () => ++frames > 40);
+    expect(whole).toBe(false);
+    expect(source.queuedDuration).toBeLessThan(500);
   });
 });

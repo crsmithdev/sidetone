@@ -206,7 +206,13 @@ export class Transport {
     let fadedAt = -1;
     for (let at = 0; at < samples.length; at += size) {
       if (this.stopped) return false;
-      if (until?.()) return false;
+      if (until?.()) {
+        // 11.3 and 11.12.2 the source takes a second of frames ahead of what it
+        // has sent, so a loop that only stops writing leaves a second of voice
+        // to play out: the end of a short sentence. The frames it holds go too.
+        this.source.clearQueue();
+        return false;
+      }
       const data = frameAt(samples, at, size);
       if (fade) {
         if (fadedAt < 0 && fade.when()) fadedAt = at;

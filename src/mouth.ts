@@ -117,6 +117,8 @@ const LATELY = 4;
 export interface Queued {
   text: string;
   answer?: number;
+  /** what happens once the sentence has been said, and not put back */
+  then?: () => void;
 }
 
 export interface Fade {
@@ -225,6 +227,17 @@ export class Mouth {
    */
   reply(text: string, answer?: number): void {
     this.ahead.push({ text, answer });
+    void this.pump();
+  }
+
+  /**
+   * 11.12.2 the audio off, said out loud. The line that says so is the last
+   * thing heard, so it says why the voice went quiet. The audio goes off the
+   * moment the line ends: it used to wait for the queue to drain, and a held
+   * answer resumed behind the line, so the voice said the whole rest of it.
+   */
+  quietAfter(line: string): void {
+    this.ahead.push({ text: line, then: () => this.setAudio(false) });
     void this.pump();
   }
 
@@ -530,6 +543,7 @@ export class Mouth {
           // `resume`, `discard` -- starts the pump again.
           if (this.holding) { (jumped ? this.ahead : this.outbox).unshift(queued); break; }
         } else this.heard.push(text);
+        queued.then?.();
       }
     } finally {
       this.pumping = false;

@@ -103,6 +103,8 @@ export function bridge(options: Options = {}) {
     ...(music ? { holdMusicFolder: music.folder } : { holdMusic: false }),
   };
   const said: string[] = [];
+  /** 11.12 the sentences played with a sound, which the phone hears; `said` has the words either way */
+  const voiced: string[] = [];
   const cues: string[] = [];
   const told: Outgoing[] = [];
   const patches: Array<Partial<Config>> = [];
@@ -116,8 +118,9 @@ export function bridge(options: Options = {}) {
   let whole = true;
 
   const speaker: Speaker = {
-    async play(text) {
+    async play(text, wav) {
       said.push(text);
+      if (wav) voiced.push(text);
       if (music?.sentenceMs) await new Promise((resolve) => setTimeout(resolve, music.sentenceMs));
       if (blocking) await new Promise<void>((resolve) => { gate = resolve; });
       return whole;
@@ -164,7 +167,7 @@ export function bridge(options: Options = {}) {
   return {
     ...assembled,
     c: assembled.conversation,
-    said, cues, told, journal, lookahead, switched, tracks, source, agent, patches,
+    said, voiced, cues, told, journal, lookahead, switched, tracks, source, agent, patches,
     /** 14.7 the turns the client was told about, read when a test asks, not when it starts */
     get turns() { return told.filter((message): message is Extract<Outgoing, { kind: "turn" }> => message.kind === "turn"); },
     config,

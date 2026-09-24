@@ -129,6 +129,18 @@ describe("the bridge, assembled as the car assembles it", () => {
     expect(r.agent.calls.some((call) => call.endsWith("\n\nthe service restarted about nine minutes ago"))).toBe(true);
   });
 
+  test("audio off said over an answer goes quiet after its acknowledgement (11.12.2)", async () => {
+    const r = bridge();
+    r.c.ears.stopSpeaking();
+    r.mouth.say("One."); r.mouth.say("Two."); r.mouth.say("Three.");
+    await r.c.heard("sidetone audio off");
+    await until(() => r.said.length === 4);
+    // the rest of the answer goes on as words, and none of it as a voice
+    expect(r.said).toEqual(["Audio off.", "One.", "Two.", "Three."]);
+    expect(r.voiced).toEqual(["Audio off."]);
+    expect(r.mouth.audioOn).toBe(false);
+  });
+
   test("what Chris actually says is not taken for an echo (18.10)", async () => {
     const r = bridge({ script: { deltas: ["The service restarted about nine minutes ago. "] } });
     await r.c.turn("when did it restart");

@@ -636,9 +636,8 @@ export class Conversation {
       this.reply("Audio on.");
     } else {
       // the last thing heard should say why it went quiet, so the line is said
-      // first and the audio goes off behind it
-      this.reply("Audio off.");
-      void this.mouth.drained().then(() => this.mouth.setAudio(false));
+      // first and the audio goes off the moment it ends (11.12.2)
+      this.mouth.quietAfter("Audio off.");
       this.channel.journal("the audio is off; the words carry on in the transcript");
     }
     this.onAudio?.();
