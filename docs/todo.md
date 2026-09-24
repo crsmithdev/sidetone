@@ -481,10 +481,23 @@ The check itself was wrong in two ways, both fixed with tests (18.10.3,
 18.13.2, 18.13.3): it took a cut or dead microphone for a quiet room, and
 `verdict` compared a whole-passage utterance against one sentence at a time.
 
+Call mode passed the same check in the car on 24 September 2026, over
+Bluetooth SCO to an Audi MMI at full volume, so the setup that ships is now
+checked where it matters (`Audio.CHECKED_ON`).
+
 What is left of this item: release the audio focus without leaving call mode.
 Call mode is what the canceller holds through, and focus is what takes the
 car's audio from other apps. `AudioSwitchHandler` sets the mode in the same
 call that asks for focus, so a setup with no focus has to set the mode itself.
+
+The research of 23 September (`~/.sidetone/findings/echo-cancellation-23-september.md`)
+says two things about this. `AudioService.setMode` checks activity and not
+focus, so the mode without the focus is allowed, and the bridge stays active
+because it plays voice-call audio and records from the voice source. But call
+mode reaches the car over HFP, and a car parks its own media for the length of
+a call, so the thing this item wants may not be the app's to give. The
+experiment is one command now:
+`bun scripts/audio-setup.ts --focus none`, then play music from another app.
 
 Item 1's decision on 21 September was to keep call mode
 (`AudioManager.MODE_IN_COMMUNICATION`) rather than switch to a

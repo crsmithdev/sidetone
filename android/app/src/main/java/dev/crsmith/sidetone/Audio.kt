@@ -106,6 +106,12 @@ object Audio {
      * 18.13 the setup that last passed the echo check on the phone, and when.
      * It is a copy, not a reference to [setup], so that a change to one fails
      * `AudioTest` until the check passes and the other follows it.
+     *
+     * It passed in the car on 24 September 2026, over Bluetooth SCO to an Audi
+     * MMI at full volume, with the microphone open and the capture live: the
+     * check brought nothing back. Call mode routes the voice as a call, and the
+     * car's own canceller does the work. The media setup of item 27 failed the
+     * same check the day before, on the same phone, at peak 0.54.
      */
     val checked = AudioSetup(
         mode = AudioManager.MODE_IN_COMMUNICATION,
@@ -119,7 +125,7 @@ object Audio {
         noiseSuppression = true,
         autoGainControl = true,
     )
-    const val CHECKED_ON = "23 September 2026"
+    const val CHECKED_ON = "24 September 2026, in the car"
 
     /**
      * 18.15 the setup a pushed message names, or null when a name is not one

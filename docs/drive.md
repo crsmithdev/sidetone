@@ -192,11 +192,16 @@ bridge is in the room, and a barge-in still stops the answer.
 **Evidence.** The check's output; `echo` lines in the record
 (`jq -c 'select(.kind=="echo")' ~/.sidetone/record.jsonl`).
 
-**Answered, 23 September 2026: no.** In the car the microphone brought the
-whole passage back, 14.9 s of it at peak 0.54. The app is back in call mode,
-and this test now asks the opposite question: whether call mode still holds.
-Run `bun scripts/echo-check.ts` once on the loudspeaker and once in the car
-before anything about the audio setup changes again.
+**Answered, 23 and 24 September 2026.** Media mode: no. In the car the
+microphone brought the whole passage back, 14.9 s of it at peak 0.54. Call
+mode: yes. The next morning the same check over Bluetooth SCO to the car, at
+full volume, with the microphone open and the capture live, brought nothing
+back, and Chris heard the passage. Call mode routes the voice as a call and the
+car's own canceller does the work.
+
+Run `bun scripts/echo-check.ts` in the car again before anything about the
+audio setup changes. `bun scripts/audio-setup.ts` changes it without a build
+now, and the record names which setup each reading was taken with.
 
 **If it fails.** Tap "Update the app" in the app: the bridge serves the build
 from `main`, which is still in call mode.
