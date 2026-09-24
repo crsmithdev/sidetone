@@ -110,6 +110,11 @@ export class Ear {
     return null;
   }
 
+  /** 9.5.2 whether the hold to talk button is down, which keeps the utterance open through a pause. */
+  hold(on: boolean): void {
+    this.utterances.held = on;
+  }
+
   /** One frame from the room. Dispatches when the frame ends an utterance. */
   frame(frame: Int16Array, now = Date.now()): void {
     // the first frame starts both clocks: a capture that was dead from the

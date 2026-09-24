@@ -164,6 +164,11 @@ export class Utterances {
   /** whether this quiet stretch is long enough that a resume makes it a false end */
   private longQuiet = false;
   private falseEnds = 0;
+  /**
+   * 9.5.2 the hold to talk button is down, so only its release ends the
+   * utterance. A pause is Chris thinking, not the end of what he says.
+   */
+  held = false;
 
   constructor(private readonly options: UtteranceOptions) {}
 
@@ -231,7 +236,7 @@ export class Utterances {
     this.peak = Math.max(this.peak, heard);
     this.quietMs = loud ? 0 : this.quietMs + ms;
     if (earlyTranscribeMs && this.quietMs >= earlyTranscribeMs) this.longQuiet = true;
-    if (this.quietMs < endOfTurnPauseMs) return null;
+    if (this.held || this.quietMs < endOfTurnPauseMs) return null;
     return this.finish("pause");
   }
 

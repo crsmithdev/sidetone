@@ -7,6 +7,7 @@
  * no test reached, because the wiring they need was made inside `assemble`.
  */
 import { describe, expect, test } from "bun:test";
+import { decodeWav } from "../src/audio.ts";
 import { bridge } from "./harness.ts";
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -58,6 +59,31 @@ describe("the bridge, assembled as the car assembles it", () => {
     // the cut dropped the half recording, so nothing is being said any more
     expect(r.ear.bargingIn).toBe(false);
     expect(r.journal.some((line) => line.includes("cut its microphone"))).toBe(true);
+  });
+
+  test("a pause while the hold to talk button is down does not end the turn; the release does (9.5.2)", async () => {
+    const r = bridge();
+    // the engine names what it hears by its level, so the words say which side of the pause they came from
+    r.stt.transcribe = async (wav) => {
+      const { samples } = decodeWav(new Uint8Array(await Bun.file(wav).arrayBuffer()));
+      const words: string[] = [];
+      for (let at = 0; at < samples.length; at += 320) {
+        const word = samples[at]! > 12_000 ? "open" : samples[at]! > 8_000 ? "the garage" : null;
+        if (word && words.at(-1) !== word) words.push(word);
+      }
+      return words.join(" ");
+    };
+    const say = (level: number, ms: number) => { for (let i = 0; i < ms / 20; i++) r.ear.frame(new Int16Array(320).fill(Math.round(level * 32768))); };
+    r.channel.receive({ kind: "mic", on: true, hold: true });
+    say(0.4, 500);
+    // longer than the end-of-turn pause, with the button still down
+    say(0.001, r.config.endOfTurnPauseMs + 500);
+    say(0.3, 500);
+    r.channel.receive({ kind: "mic", on: false, release: true });
+    await until(() => r.agent.calls.some((call) => call.startsWith("ask")));
+    const asked = r.agent.calls.filter((call) => call.startsWith("ask"));
+    expect(asked).toHaveLength(1);
+    expect(asked[0]).toEndWith("\n\nopen the garage");
   });
 
   test("the audio off reaches the mouth, and the words carry on (11.12)", () => {

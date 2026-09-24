@@ -143,7 +143,10 @@ export function assemble(
     // 9.5.2 a release is a hold to talk button let go: the words end now.
     // 15.14 a hold and a release each have a cue. The release cue goes first,
     // so the `heard` that the reset plays comes after it.
+    // 9.5.2 while the button is down, a pause does not end the turn. Any other
+    // open, and every cut, lets the pause end it again.
     microphone: (on, hold) => {
+      ear.hold(on && hold);
       if (hold) conversation.cue(on ? "hold" : "release");
       if (!on) ear.reset(hold);
     },
