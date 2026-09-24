@@ -1023,7 +1023,12 @@ stats" or the record says whether it is the build the bridge serves now.
 
 ## 43. Words in a chat bubble arrive scrambled on a bad connection
 
-Noted 23 September 2026. Not started.
+Noted 23 September 2026. Built and landed 23 September 2026 (spec 14.9.2.1).
+The cause was not the connection: the LiveKit Android SDK posts each data
+message on `Dispatchers.Default`, so two messages sent a millisecond apart
+arrive in either order. The screen log of answer 20 shows four chunks reversed
+inside a 1 ms burst, with every character present. Each delta now carries
+`seq`, and the app joins the parts of a bubble in that order.
 
 At 16:33 on a weak link, the phone showed a bubble with words out of order and
 words cut in half. One example: "but it Dropping such only logs it. a turn".
@@ -1072,7 +1077,10 @@ restart.
 
 ## 45. The status light: smaller, a legend on tap, and the state word never shows
 
-Noted 23 September 2026. Not started.
+Noted 23 September 2026. Built and landed 23 September 2026. The word never
+showed because 17.11.7 withheld it for any state Chris expects, which is every
+state that lasts. The row now says the word in every state, the dot is 26 dp,
+and a tap opens the legend. Only the phone can judge the size and the popup.
 
 Chris likes how the status light looks. Three changes:
 
@@ -1089,7 +1097,9 @@ next to the light in at least two different states.
 
 ## 46. Replace the three-dot menu with a gear that opens settings
 
-Noted 23 September 2026. Not started.
+Noted 23 September 2026. Built and landed 23 September 2026. A gear drawable
+replaces the "⋮", with the same name for a screen reader, and it opens the
+options menu of item 28.
 
 Chris cannot find a settings menu in the app. The top right holds a three-dot
 menu with "Leave" and the build line (MainActivity.kt, the `DropdownMenu`).
