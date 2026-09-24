@@ -57,6 +57,12 @@ describe("config (21)", () => {
     expect(() => loadConfig(withFile('{"silenceMs":0}'))).toThrow(/positive number/);
     expect(() => loadConfig(withFile('{"ceilingMs":"ten"}'))).toThrow(/positive number/);
   });
+  test("a key that is no setting loads, and nothing reads it", () => {
+    // interruptAfterMs is unread since item 4: an old file that sets it is not refused
+    const config = loadConfig(withFile('{"interruptAfterMs":5000}'));
+    expect("interruptAfterMs" in DEFAULTS).toBe(false);
+    expect(Object.keys(settingsInForce(config))).not.toContain("interruptAfterMs");
+  });
   test("a broken file is an error, not a silent fallback", () => {
     expect(() => loadConfig(withFile("{oops"))).toThrow(/not valid JSON/);
     expect(() => loadConfig(withFile("[]"))).toThrow(/must hold an object/);

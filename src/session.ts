@@ -136,11 +136,12 @@ export class Session {
   private costUsd = 0;
   private timer: ReturnType<typeof setInterval> | null = null;
   /**
-   * Item 4 what Chris said mid-turn was written into the turn, and whether a
-   * message has begun since. A result that comes before one is the end of
-   * the answer he spoke over, not of the turn.
+   * Item 4 what Chris said mid-turn was written into the turn, whether the
+   * process has put it into the conversation (`heard`), and whether a message
+   * has begun since. A result that comes before one is the end of the answer
+   * he spoke over, not of the turn.
    */
-  private injection: { replied: boolean } | null = null;
+  private injection: { text: string; heard: boolean; replied: boolean } | null = null;
   /** 10.7 the requests the current process waits on, by id, with the input an allow hands back */
   private asked = new Map<string, Record<string, unknown>>();
   /** 8.9 the window and the compaction threshold, once claude reports them */
@@ -201,8 +202,14 @@ export class Session {
       case "delta": this.hooks.onDelta?.(event.text); break;
       case "blockStart": this.hooks.onBlockStart?.(event.type); break;
       case "blockEnd": this.hooks.onBlockEnd?.(); break;
+      // Item 4 measured 24 September: a request can leave before the process
+      // takes words written 10 ms earlier, so a message that begins after the
+      // write may not have seen them. The echo says that they went in.
+      case "echo":
+        if (this.injection && event.text.includes(this.injection.text)) this.injection.heard = true;
+        break;
       case "messageStart":
-        if (this.injection && !this.injection.replied) { this.injection.replied = true; this.hooks.onInjectedReply?.(); }
+        if (this.injection?.heard && !this.injection.replied) { this.injection.replied = true; this.hooks.onInjectedReply?.(); }
         break;
       // 8.6.5 the receipt says the process took the interrupt. It does not say the
       // process is ready, so 8.6.7 still measures readiness by the grace time.
@@ -327,7 +334,7 @@ export class Session {
    */
   inject(text: string): boolean {
     if (!this.pending) return false;
-    this.injection = { replied: false };
+    this.injection = { text, heard: false, replied: false };
     this.write({ type: "user", message: { role: "user", content: text } });
     return true;
   }

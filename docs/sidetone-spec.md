@@ -369,11 +369,11 @@ project bridge stays in place.
 
 11.9.2 A note from the bridge goes in front of what Chris said. It says what Chris heard last, that the voice stopped, and that he said this while the agent worked. The pending screenshots go with it (14.12.6).
 
-11.9.3 From that moment, the bridge speaks only a message that the agent started after the injection. The stream's `message_start` event marks the start of a message. The rest of a message that was in progress when Chris spoke goes to the client and not to the voice. The message that follows is a new answer (14.7).
+11.9.3 From that moment, the bridge speaks only a message that the agent started after the process took in what Chris said. The process runs with `--replay-user-messages`. It prints the message again at the moment it puts the message into the conversation, and this echo is the mark. The first `message_start` event after the echo starts the reply. The rest of a message that was in progress when Chris spoke goes to the client and not to the voice, and so does a message that starts before the echo. The reply is a new answer (14.7). At first, the first `message_start` after the injection started the reply. A request that had already left then gave a message that did not see Chris's words, and the bridge spoke it as the reply.
 
 11.9.4 The turn ends at the first result that comes after the start of such a message. A result that comes before one ends only the message Chris spoke over. The turn goes on, and the bridge does not speak that result as an answer that nobody asked for (11.11).
 
-11.9.5 A second question while the turn runs goes into the turn in the same way. The rule of 11.9.3 counts from the latest injection.
+11.9.5 A second question while the turn runs goes into the turn in the same way. The rule of 11.9.3 counts from the latest injection: the reply starts after an echo that holds the latest words. Two questions that wait in the process together go in as one message, and the echo holds both, joined by a new line.
 
 11.9.6 The result can be back while the voice still says the answer. Then there is no turn to go into. The bridge waits for that turn to end, and the question starts a new turn, with the note of 11.10.
 
@@ -383,10 +383,13 @@ project bridge stays in place.
 
 11.9.9 These facts were measured on 24 September, on claude 2.1.282 with Sonnet:
 
-- A message sent while a tool call runs goes into the same turn. The process reads it when the tool returns, about 1.5 seconds later. There is one result, with `num_turns` 2. The process does not echo the message on its output.
+- A message sent while a tool call runs goes into the same turn. The process reads it when the tool returns, about 1.5 seconds later. There is one result, with `num_turns` 2. Without `--replay-user-messages`, the process does not echo the message on its output.
 - Claude Code gives that message to the agent as a system reminder beside the tool result: "The user sent a new message while you were working". In 4 runs of 6, the agent acted on it. In 2 runs of 6, the agent took it for text inside the tool output, ignored it, and did the rest of the work. Since then the voice instruction tells the agent that these words are from Chris (6.5). With that line, the agent acted on the message in 3 runs of 3 through the whole bridge.
 - A message sent while the agent writes its last text, with no tool call left, does not cut in. The answer finishes in full, with its own result. Then the message runs as a second turn, with a second result. This happened in 4 runs of 4.
 - So after an injection the bridge gets one result or two, and it cannot know which before they come.
+- The `requesting` status that the process prints before each model request is not the mark. A message written after it did not reach that request, in 5 runs of 5. A message written 10 to 40 milliseconds before it did not reach that request either, in 4 runs of 4. The process puts a waiting message into the conversation only when a tool returns, or at the start of a new turn.
+- With `--replay-user-messages`, the echo of a message written mid-turn came just before the `requesting` status of the request that carried it, in 8 runs of 8. The message that the request gave named the words or acted on them, in the same 8 runs. The echo of a message that started a new turn came just before the `message_start` of its answer, in 5 runs of 5. The echo has `isReplay`: true, and a tool result has no echo.
+- Two messages written while the agent wrote its last text went in as one second turn, with one result, in 6 runs of 6. The echo held the two texts joined by a new line, and the one answer answered both.
 
 11.10 What the bridge did not say is kept for one turn. The client already shows it, because the words reach the client ahead of the voice (14.7, 14.9), so the bridge adds no note (4.3.1). A command says it, and the agent is told where Chris stopped hearing, because the agent's own context holds the whole answer either way.
 

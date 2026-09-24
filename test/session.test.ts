@@ -396,10 +396,14 @@ describe("a permission request taken back (10.5)", () => {
 
 /**
  * Item 4 what Chris says mid-turn goes into the turn that runs. Captured 24
- * September from claude 2.1.282 with the stream events kept, and trimmed as
- * the pong run was. The tool run is the message sent while `sleep 5` ran; the
- * text run is the message sent after the fifth word of a story with no tools.
- * The replay stops where the message went in, and goes on once it is written.
+ * September from claude 2.1.282 with Sonnet, `--replay-user-messages` and the
+ * stream events kept. The hook lines, the lists of the init line and the
+ * paths are cut. The tool run is the message sent while `sleep 5` ran. The
+ * race run is the message sent 10 ms before the request after the first
+ * tool: that request did not carry it. The text run is the message sent
+ * after the fifth word of a story with no tools, and the two run adds a
+ * second message after the fortieth word. The replay stops where each message
+ * went in, and goes on once it is written.
  */
 describe("speech written into a running turn (item 4)", () => {
   function replayed(name: string, before: (line: string, index: number) => boolean) {
@@ -408,18 +412,26 @@ describe("speech written into a running turn (item 4)", () => {
     /** the hooks in the order they fired: "reply" for a message begun after the injection, else the words */
     const events: string[] = [];
     const unprompted: Turn[] = [];
-    let release = () => {};
-    const injected = new Promise<void>((resolve) => { release = resolve; });
-    let seen = () => {};
-    const reached = new Promise<void>((resolve) => { seen = resolve; });
+    /** one place for each injection: the replay waits there until the test writes it */
+    const stops: Array<{ reached: Promise<void>; seen(): void; go: Promise<void>; release(): void }> = [];
+    const stop = (n: number) => {
+      while (stops.length <= n) {
+        let seen = () => {};
+        let release = () => {};
+        const reached = new Promise<void>((resolve) => { seen = resolve; });
+        const go = new Promise<void>((resolve) => { release = resolve; });
+        stops.push({ reached, seen, go, release });
+      }
+      return stops[n] as (typeof stops)[number];
+    };
     const spawn: Spawn = () => ({
       pid: undefined,
       lines: (async function* () {
         const lines = (await Bun.file(path).text()).split("\n").filter((line) => line.trim());
-        let stopped = false;
+        let n = 0;
         for (const [index, line] of lines.entries()) {
           yield line;
-          if (!stopped && before(line, index)) { stopped = true; seen(); await injected; }
+          if (before(line, index)) { const at = stop(n++); at.seen(); await at.go; }
         }
       })(),
       write: (line) => { written.push(line); },
@@ -433,16 +445,40 @@ describe("speech written into a running turn (item 4)", () => {
     }, spawn);
     /** the words the hooks were given after the reply began */
     const reply = () => events.slice(events.indexOf("reply") + 1).join("");
-    return { s, written, events, unprompted, reached, reply, inject: (text: string) => { const ok = s.inject(text); release(); return ok; } };
+    let injections = 0;
+    return {
+      s, written, events, unprompted, reply,
+      reached: (n = 0) => stop(n).reached,
+      inject: (text: string) => { const ok = s.inject(text); stop(injections++).release(); return ok; },
+    };
   }
 
   test("during a tool call: the one result ends the turn, and the reply is the message after the tool", async () => {
     const r = replayed("stream-inject-tool.ndjson", (line) => line.includes('"task_started"'));
     const turn = r.s.ask("run three sleeps");
-    await r.reached;
-    expect(r.inject("reply only with PELICAN")).toBe(true);
+    await r.reached();
+    const said = "Change of plan: skip anything you have not done yet, and reply only with the word PELICAN.";
+    expect(r.inject(said)).toBe(true);
     const done = await turn;
-    expect(JSON.parse(r.written[1] as string)).toEqual({ type: "user", message: { role: "user", content: "reply only with PELICAN" } });
+    expect(JSON.parse(r.written[1] as string)).toEqual({ type: "user", message: { role: "user", content: said } });
+    expect(r.events.filter((event) => event === "reply")).toHaveLength(1);
+    expect(r.reply()).toBe("PELICAN");
+    expect(done.text).toBe("PELICAN");
+    expect(r.unprompted).toEqual([]);
+    r.s.stop();
+  });
+
+  test("the race: a request already made when the words went in does not answer them", async () => {
+    // written as the first tool returned, before the request that follows it;
+    // that request did not carry the words, and the one after the second tool did
+    let results = 0;
+    const r = replayed("stream-inject-race.ndjson", (line) => line.includes('"tool_result"') && ++results === 1);
+    const turn = r.s.ask("run three sleeps");
+    await r.reached();
+    expect(r.inject("Change of plan: skip anything you have not done yet, and reply only with the word PELICAN.")).toBe(true);
+    const done = await turn;
+    const before = r.events.slice(0, r.events.indexOf("reply")).join("");
+    expect(before).toContain("Output: one.");
     expect(r.events.filter((event) => event === "reply")).toHaveLength(1);
     expect(r.reply()).toBe("PELICAN");
     expect(done.text).toBe("PELICAN");
@@ -454,8 +490,8 @@ describe("speech written into a running turn (item 4)", () => {
     let words = 0;
     const r = replayed("stream-inject-text.ndjson", (line) => line.includes('"text_delta"') && ++words === 5);
     const turn = r.s.ask("a story");
-    await r.reached;
-    expect(r.inject("reply only with PELICAN")).toBe(true);
+    await r.reached();
+    expect(r.inject("Change of plan: reply only with the word PELICAN.")).toBe(true);
     const done = await turn;
     // the story went on after the injection, to its end, before the reply began
     const story = r.events.slice(0, r.events.indexOf("reply")).join("");
@@ -470,7 +506,48 @@ describe("speech written into a running turn (item 4)", () => {
     r.s.stop();
   });
 
+  test("two messages during the last text become one turn, and its answer is spoken once", async () => {
+    let words = 0;
+    const r = replayed("stream-inject-two.ndjson", (line) => line.includes('"text_delta"') && [5, 40].includes(++words));
+    const turn = r.s.ask("a story");
+    await r.reached(0);
+    expect(r.inject("Change of plan: reply only with the word PELICAN.")).toBe(true);
+    await r.reached(1);
+    expect(r.inject("And also say the word HERON after it.")).toBe(true);
+    const done = await turn;
+    expect(r.events.filter((event) => event === "reply")).toHaveLength(1);
+    expect(r.reply()).toBe("PELICAN HERON");
+    expect(r.events.join("").split("PELICAN")).toHaveLength(2);
+    expect(done.text).toBe("PELICAN HERON");
+    expect(r.unprompted).toEqual([]);
+    r.s.stop();
+  });
+
   const START = '{"type":"stream_event","event":{"type":"message_start","message":{}}}';
+  const ECHO = (text: string) => JSON.stringify({ type: "user", message: { role: "user", content: text }, isReplay: true });
+
+  test("a message that begins before the echo of the words is not the reply", async () => {
+    const replies: string[] = [];
+    const made: Array<ReturnType<typeof scripted>> = [];
+    const s = new Session("/tmp", config, { onInjectedReply: () => replies.push("reply") }, () => { const p = scripted(); made.push(p); return p.process; });
+    const turn = s.ask("one");
+    const p = made[0] as ReturnType<typeof scripted>;
+    s.inject("two");
+    p.prints(START);
+    await tick();
+    expect(replies).toEqual([]);
+    // an echo of other words does not count either
+    p.prints(ECHO("one"));
+    p.prints(START);
+    await tick();
+    expect(replies).toEqual([]);
+    p.prints(ECHO("two"));
+    p.prints(START);
+    p.prints(RESULT("answer to two"));
+    expect((await turn).text).toBe("answer to two");
+    expect(replies).toHaveLength(1);
+    s.stop();
+  });
 
   test("with no turn running there is nothing to write into", () => {
     const r = session();
@@ -488,12 +565,15 @@ describe("speech written into a running turn (item 4)", () => {
     const p = made[0] as ReturnType<typeof scripted>;
     s.inject("two");
     s.inject("three");
+    // two messages queued together go in as one, joined by a newline
+    p.prints(ECHO("two\nthree"));
     p.prints(START);
     await tick();
     expect(replies).toHaveLength(1);
     s.inject("four");
     // the reply to two and three ends with a result; four has not been answered, so it ends nothing
     p.prints(RESULT("answer to two and three"));
+    p.prints(ECHO("four"));
     p.prints(START);
     p.prints(RESULT("answer to four"));
     expect((await turn).text).toBe("answer to four");

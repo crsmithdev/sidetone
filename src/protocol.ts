@@ -31,6 +31,12 @@ export type Event =
   | { kind: "blockEnd" }
   /** item 4 a message of the agent begins; the bridge speaks only a message that began after an injection */
   | { kind: "messageStart" }
+  /**
+   * Item 4 `--replay-user-messages` prints a user message again when the
+   * process puts it into the conversation, not when it reads it. Queued
+   * messages that go in together come back as one, joined by a newline.
+   */
+  | { kind: "echo"; text: string }
   /** 8.6.5 the receipt for a control request; still_queued names the turns it dropped */
   | { kind: "controlResponse"; ok: boolean; stillQueued: string[] }
   /** 10.7 the process asks before a tool runs (`--permission-prompt-tool stdio`) and waits for the answer */
@@ -129,6 +135,10 @@ export function parseLine(line: string): Event[] {
     const inner = (response.response ?? {}) as Record<string, unknown>;
     const queued = Array.isArray(inner.still_queued) ? inner.still_queued.map(String) : [];
     return [{ kind: "controlResponse", ok: response.subtype === "success", stillQueued: queued }];
+  }
+  if (type === "user" && raw.isReplay === true) {
+    const message = (raw.message ?? {}) as Record<string, unknown>;
+    return [{ kind: "echo", text: typeof message.content === "string" ? message.content : "" }];
   }
   if (type === "assistant" || type === "user") {
     const message = (raw.message ?? {}) as Record<string, unknown>;

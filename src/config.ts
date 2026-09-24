@@ -49,19 +49,6 @@ export interface Config {
    */
   interruptOnSpeech: boolean;
   /**
-   * 11.9 how long to let an interrupted turn end by itself before insisting.
-   * Unread since item 4 (24 September): speech mid-turn goes into the turn,
-   * and the bridge does not interrupt. It stays in the settings message until
-   * `test/fixtures/messages.jsonl` is made again.
-   *
-   * Insisting is not free: the interrupt reaches an async subagent as a user
-   * interruption and stops it, along with anything it started -- measured
-   * 18 September, `"stoppedByUser": true` in the subagent's own record, three
-   * runs out of three. A turn that is nearly done costs a few seconds to wait
-   * for and loses nothing, and the voice is silent either way.
-   */
-  interruptAfterMs: number;
-  /**
    * The quietest an utterance may peak and still be treated as speech. Whisper
    * writes words for near-silence even with the voice detector on: "Thank you."
    * came out of a recording that peaked at 0.12 and cost a turn. Real speech in
@@ -270,7 +257,6 @@ export const DEFAULTS: Config = {
   wakeWordVariants: ["side tone", "sigh tone", "sight tone", "cytone", "sitone", "site on", "side don't"],
   wakeHoldMs: 6_000,
   interruptOnSpeech: false,
-  interruptAfterMs: 5_000,
   minSpeechPeak: 0.15,
   mutedCommands: ["mute", "unmute", "tonesOn", "tonesOff"],
   agreementWord: "continue",
@@ -384,8 +370,9 @@ export const DEFAULTS: Config = {
   historyMaxAgeMs: 900_000,
   recordPath: join(homedir(), ".sidetone", "record.jsonl"),
   claudeBin: "claude",
-  // --verbose is not optional: claude refuses stream-json output without it
-  claudeArgs: ["-p", "--verbose", "--input-format", "stream-json", "--output-format", "stream-json", "--include-partial-messages"],
+  // --verbose is not optional: claude refuses stream-json output without it.
+  // --replay-user-messages says when a message written mid-turn goes in (11.9.3).
+  claudeArgs: ["-p", "--verbose", "--input-format", "stream-json", "--output-format", "stream-json", "--include-partial-messages", "--replay-user-messages"],
 };
 
 /**
@@ -398,7 +385,7 @@ export const DEFAULTS: Config = {
 export const IN_FORCE = [
   "speechLevel", "speechOnsetMs", "endOfTurnPauseMs", "earlyTranscribeMs",
   "bargeInLevel", "bargeInMs", "bargeInGapMs",
-  "minSpeechPeak", "wakeHoldMs", "interruptOnSpeech", "interruptAfterMs",
+  "minSpeechPeak", "wakeHoldMs", "interruptOnSpeech",
   "holdBackstopMs",
   "sentenceMaxChars", "audioCueDelayMs", "audioCueEveryMs",
   "holdMusic", "holdMusicAfterMs", "holdMusicGain", "holdMusicFadeMs",

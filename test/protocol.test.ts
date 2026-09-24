@@ -44,6 +44,10 @@ describe("protocol", () => {
     // the deltas repeat in the assistant message that follows, so the reply is not counted twice
     expect(parseLine(ASSISTANT)).toEqual([{ kind: "text", text: "pong" }]);
   });
+  test("item 4 a replayed user message is an echo, and a tool result is not", () => {
+    expect(parseLine('{"type":"user","message":{"role":"user","content":"two\\nthree"},"isReplay":true}')).toEqual([{ kind: "echo", text: "two\nthree" }]);
+    expect(parseLine(TOOL_RESULT)).toEqual([{ kind: "toolEnd", id: "t1", parentId: null }]);
+  });
   test("a thinking delta is not the reply", () => {
     expect(parseLine(THINKING)).toEqual([{ kind: "other", type: "stream_event.content_block_delta" }]);
   });

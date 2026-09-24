@@ -27,7 +27,7 @@ describe("the bridge, assembled as the car assembles it", () => {
   });
 
   test("Chris speaking over the answer holds the rest of it (11.3, 11.9)", async () => {
-    const r = bridge({ script: { deltas: ["One. ", "Two. ", "Three. "] }, overrides: { interruptAfterMs: 20, graceMs: 20 } });
+    const r = bridge({ script: { deltas: ["One. ", "Two. ", "Three. "] }, overrides: { graceMs: 20 } });
     const turn = r.c.turn("say three sentences");
     await tick();
     // the mouth reads the ear, not a flag of this test's own
@@ -39,7 +39,7 @@ describe("the bridge, assembled as the car assembles it", () => {
   });
 
   test("road noise that carried no words lets the answer go on (11.7)", async () => {
-    const r = bridge({ script: { deltas: ["One. ", "Two. "] }, overrides: { interruptAfterMs: 20 } });
+    const r = bridge({ script: { deltas: ["One. ", "Two. "] } });
     const turn = r.c.turn("say two sentences");
     await tick();
     r.talk();
