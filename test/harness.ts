@@ -145,7 +145,7 @@ export function bridge(options: Options = {}) {
 
   const agent = scripted(options.script);
   const parts: Parts = {
-    stt: { start: async () => {}, warmupSeconds: 1, transcribe: async () => "", stop: () => {} },
+    stt: { start: async () => {}, warmupSeconds: 1, transcribe: async () => "", transcribeWords: async () => ({ text: "", words: [] }), stop: () => {} },
     tts: { start: async () => {}, sampleRate: RATE, synthesize: async (_text, wav) => wav, switchable: true, use: () => {}, voice: "test", stop: () => {} },
     made: {
       take: async (text: string) => text,

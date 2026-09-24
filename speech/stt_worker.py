@@ -7,6 +7,8 @@ second. The bridge pays that once at startup, never in the middle of a
 conversation.
 
 {"wav": path} -> {"text": str, "seconds": float}
+{"wav": path, "words": true} -> the same, with "words": [{"word", "start", "end"}]
+    the time of each word in seconds (spec 11.6.3), from the model's alignment
 """
 import sys
 import time
@@ -31,8 +33,16 @@ def main() -> None:
         # vad_filter drops the parts with no voice in them. Without it whisper
         # writes something for silence anyway -- "you", "Thank you." -- and the
         # bridge sends that phantom to the agent and pays for a turn.
-        segments, _ = model.transcribe(request["wav"], beam_size=1, vad_filter=True)
-        return {"text": "".join(segment.text for segment in segments).strip()}
+        timed = bool(request.get("words"))
+        segments, _ = model.transcribe(request["wav"], beam_size=1, vad_filter=True, word_timestamps=timed)
+        segments = list(segments)
+        result = {"text": "".join(segment.text for segment in segments).strip()}
+        if timed:
+            result["words"] = [
+                {"word": word.word.strip(), "start": round(word.start, 3), "end": round(word.end, 3)}
+                for segment in segments for word in (segment.words or [])
+            ]
+        return result
 
     worker.serve(handle)
 

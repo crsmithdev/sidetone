@@ -18,6 +18,7 @@ import { Session, recorded, spawnClaude } from "./session.ts";
 import { keptLines } from "./mouth.ts";
 import { fetchCert } from "./keys.ts";
 import { endpoints, livekitConfig, serve } from "./serve.ts";
+import { clipCutter } from "./carrier.ts";
 import { clipChecker } from "./sent.ts";
 import { LocalWhisper, SpokenAhead, textToSpeech } from "./speech.ts";
 
@@ -80,11 +81,14 @@ async function warm(config: Config): Promise<void> {
   // 11.6.1 the speech worker checks each line, kept or new, before it is kept
   const stt = new LocalWhisper(config, speechDir);
   const startedAt = Date.now();
-  await Promise.all([tts.start(), stt.start()]);
+  // one at a time: the GPU is shared with a bridge that may be running
+  await tts.start();
+  await stt.start();
   console.log(`${config.ttsEngine} ${config.ttsVoice} ready in ${((Date.now() - startedAt) / 1000).toFixed(1)}s`);
-  const ahead = new SpokenAhead(tts, scratch, { ...keptLines(config), check: clipChecker(stt) });
+  // 11.6.3 a line no take says cleanly alone is cut out of its carrier
+  const ahead = new SpokenAhead(tts, scratch, { ...keptLines(config), check: clipChecker(stt), cut: clipCutter(stt) });
   const at = Date.now();
-  const made = await ahead.warm((text, outcome) => console.log(`  ${outcome.padEnd(7)}  ${text}`));
+  const made = await ahead.warm((text, outcome, takes) => console.log(`  ${outcome.padEnd(7)}  ${String(takes).padStart(3)}  ${text}`));
   console.log(`${made} made in ${((Date.now() - at) / 1000).toFixed(1)}s, under ${config.spokenDir}`);
   tts.stop();
   stt.stop();

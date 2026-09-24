@@ -18,12 +18,24 @@ import type { Config } from "./config.ts";
 import { linesOf } from "./protocol.ts";
 import type { SentClips, Source } from "./sent.ts";
 
+/** One word the engine heard, and when: seconds from the start of the wav. */
+export interface HeardWord {
+  word: string;
+  start: number;
+  end: number;
+}
+
 /** 4.8 the seam. A local engine only: there is no cloud engine to put here. */
 export interface SpeechToText {
   start(): Promise<void>;
   /** Non-zero once the engine has warmed, which is how the health check knows. */
   readonly warmupSeconds: number;
   transcribe(wavPath: string): Promise<string>;
+  /**
+   * The same, with the time of each word (11.6.3). It costs the engine an
+   * alignment pass on top of the transcription, so the ear does not ask for it.
+   */
+  transcribeWords(wavPath: string): Promise<{ text: string; words: HeardWord[] }>;
   stop(): void;
 }
 
@@ -138,6 +150,12 @@ export class LocalWhisper implements SpeechToText {
   async transcribe(wavPath: string): Promise<string> {
     const reply = await this.worker.request({ wav: wavPath });
     return typeof reply.text === "string" ? reply.text : "";
+  }
+
+  async transcribeWords(wavPath: string): Promise<{ text: string; words: HeardWord[] }> {
+    const reply = await this.worker.request({ wav: wavPath, words: true });
+    const words = Array.isArray(reply.words) ? reply.words as HeardWord[] : [];
+    return { text: typeof reply.text === "string" ? reply.text : "", words };
   }
 
   stop(): void { this.worker.stop(); }
@@ -256,23 +274,34 @@ export function voiceSignature(config: Config): string {
 }
 
 /**
- * 11.6.1 how many takes `warm` makes of a kept line before it gives up. The
- * cloning voice garbles a line of one word most of the time: on 23 September
- * "Muted." came out clean in 2 takes of 12, and "Stopped." in none of 3.
- */
-export const WARM_TRIES = 20;
-
-/**
  * The sentences worth keeping between runs, and where to keep them.
  * `check` says whether a wav says its text (11.6.1). Without it every take
  * is kept.
+ *
+ * `tries` is how many takes `warm` makes of a line the check refuses before
+ * it gives up on saying the line alone; one when it is not given. The cloning
+ * voice garbles a line of one word most of the time: on 24 September "Muted."
+ * came out clean in 1 take of 5, and "Stopped." in none of 5.
+ *
+ * `carrier` names a sentence the voice does say cleanly that ends with the
+ * line's own words, or null for a line that has none (11.6.3). `cut` takes
+ * the line's words out of a take of the carrier and writes them as their own
+ * wav, or says false when the take did not hold them. A line no take says
+ * alone is made this way, with `tries` takes of the carrier, and the cut goes
+ * through `check` like any take.
  */
 export interface Kept {
   dir: string;
   signature: string;
   lines: readonly string[];
   check?: (wav: string, text: string) => Promise<boolean>;
+  tries?: number;
+  carrier?: (text: string) => string | null;
+  cut?: (carrierWav: string, text: string, out: string) => Promise<boolean>;
 }
+
+/** What `warm` says became of a line: on disk from before, made alone, cut out of its carrier, or not made. */
+export type WarmOutcome = "kept" | "made" | "carried" | "garbled";
 
 /**
  * One sentence of lookahead (5.7, 11.6).
@@ -360,25 +389,58 @@ export class SpokenAhead {
    * it is needed, which is the moment it is least welcome.
    *
    * 11.6.1 with a check, a line already kept is checked too, and one the check
-   * refuses is made again, up to `WARM_TRIES` times. `onEach` says what became
-   * of each line: kept from before, made now, or garbled on every try.
+   * refuses is made again, up to `tries` times. 11.6.3 a line still refused
+   * is cut out of its carrier, when it has one, with `tries` more takes.
+   * `onEach` says what became of each line, and how many takes the voice
+   * made for it, alone and in the carrier together.
    */
-  async warm(onEach?: (text: string, outcome: "kept" | "made" | "garbled") => void): Promise<number> {
+  async warm(onEach?: (text: string, outcome: WarmOutcome, takes: number) => void): Promise<number> {
     let made = 0;
+    const tries = this.kept?.tries ?? 1;
     for (const text of this.kept?.lines ?? []) {
       const path = this.keptPath(text);
       if (!path) continue;
-      if (existsSync(path) && (await this.kept?.check?.(path, text) ?? true)) { onEach?.(text, "kept"); continue; }
+      if (existsSync(path) && (await this.kept?.check?.(path, text) ?? true)) { onEach?.(text, "kept", 0); continue; }
       await unlink(path).catch(() => {});
-      for (let tries = 0; tries < WARM_TRIES && !existsSync(path); tries++) {
+      let takes = 0;
+      for (; takes < tries && !existsSync(path); takes++) {
         const wav = await this.make(text);
         if (wav !== path) await unlink(wav).catch(() => {});
       }
-      const kept = existsSync(path);
-      if (kept) made += 1;
-      onEach?.(text, kept ? "made" : "garbled");
+      let outcome: WarmOutcome = existsSync(path) ? "made" : "garbled";
+      const carrier = outcome === "garbled" ? this.kept?.carrier?.(text) : null;
+      if (carrier && this.kept?.cut) {
+        for (let take = 0; take < tries && !existsSync(path); take++, takes++) {
+          if (await this.carry(text, carrier, path)) outcome = "carried";
+        }
+      }
+      if (outcome !== "garbled") made += 1;
+      onEach?.(text, outcome, takes);
     }
     return made;
+  }
+
+  /**
+   * 11.6.3 one take of the carrier: the voice says the carrier, the line's
+   * words are cut out of it, and the cut is checked as any take is and kept
+   * when it passes. The carrier take and a refused cut go at once.
+   */
+  private async carry(text: string, carrier: string, keeping: string): Promise<boolean> {
+    const { cut, check } = this.kept ?? {};
+    if (!cut) return false;
+    const said = join(this.scratch, `say-${++this.counter}.wav`);
+    const out = join(this.scratch, `say-${++this.counter}.wav`);
+    try {
+      await this.tts.synthesize(carrier, said);
+      if (!(await cut(said, text, out))) return false;
+      if (check && !(await check(out, text))) return false;
+      await mkdir(dirname(keeping), { recursive: true });
+      await rename(out, keeping);
+      return true;
+    } finally {
+      await unlink(said).catch(() => {});
+      await unlink(out).catch(() => {});
+    }
   }
 
   /**

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DEFAULTS } from "../src/config.ts";
 import { KEPT_LINES, keptLines } from "../src/mouth.ts";
-import { SpokenAhead, WARM_TRIES, type TextToSpeech } from "../src/speech.ts";
+import { SpokenAhead, type TextToSpeech } from "../src/speech.ts";
 
 /** A voice that writes a file and counts how often it was asked to (11.6). */
 function engine(voice = "male", switchable = true) {
@@ -169,27 +169,132 @@ describe("a kept line is checked before it is kept (11.6.1)", () => {
 
   test("warm checks a line already kept, and makes it again when the check refuses it", async () => {
     const dir = scratchDir();
-    const kept = { dir, signature: "test", lines: ["Muted.", "Listening."] };
+    const kept = { dir, signature: "test", lines: ["Muted.", "Listening."], tries: 3 };
     await new SpokenAhead(engine().tts, scratchDir(), kept).warm();
     const { tts, asked } = engine();
     // the kept "Muted." is garbled; the first new take of it is too, the second is clean
     const { check } = checker(false, false, true, true);
     const said: string[] = [];
-    const made = await new SpokenAhead(tts, scratchDir(), { ...kept, check }).warm((text, outcome) => said.push(`${outcome} ${text}`));
+    const made = await new SpokenAhead(tts, scratchDir(), { ...kept, check }).warm((text, outcome, takes) => said.push(`${outcome} ${text} in ${takes}`));
     expect(asked).toEqual(["Muted.", "Muted."]);
     expect(made).toBe(1);
-    expect(said).toEqual(["made Muted.", "kept Listening."]);
+    expect(said).toEqual(["made Muted. in 2", "kept Listening. in 0"]);
   });
 
-  test("warm gives up on a line after a number of tries, and says so", async () => {
+  test("warm gives up on a line after the set number of tries, and says so", async () => {
     const dir = scratchDir();
     const { tts, asked } = engine();
     const { check } = checker(...new Array<boolean>(100).fill(false));
     const said: string[] = [];
-    const ahead = new SpokenAhead(tts, scratchDir(), { dir, signature: "test", lines: ["Muted."], check });
+    const ahead = new SpokenAhead(tts, scratchDir(), { dir, signature: "test", lines: ["Muted."], check, tries: 7 });
     expect(await ahead.warm((text, outcome) => said.push(`${outcome} ${text}`))).toBe(0);
-    expect(asked.length).toBe(WARM_TRIES);
+    expect(asked.length).toBe(7);
     expect(said).toEqual(["garbled Muted."]);
     expect(existsSync(join(dir, "test-male", "muted.wav"))).toBe(false);
+  });
+
+  test("the number of tries is a setting, and the default is what the bridge warms with", () => {
+    expect(DEFAULTS.warmTries).toBe(100);
+    expect(keptLines(DEFAULTS).tries).toBe(DEFAULTS.warmTries);
+  });
+
+  test("with no number of tries a line is made once", async () => {
+    const { tts, asked } = engine();
+    const { check } = checker(false, false);
+    await new SpokenAhead(tts, scratchDir(), { dir: scratchDir(), signature: "test", lines: ["Muted."], check }).warm();
+    expect(asked).toEqual(["Muted."]);
+  });
+});
+
+/**
+ * A cutter that writes the cut as the line's text, and says whether the
+ * carrier take held the line. It stands in for the speech worker's timed
+ * transcription and the cut made from it.
+ */
+function cutter(...found: boolean[]) {
+  const cuts: string[] = [];
+  const cut = async (carrierWav: string, text: string, out: string) => {
+    cuts.push(`${await Bun.file(carrierWav).text()} -> ${text}`);
+    const ok = found.shift() ?? true;
+    if (ok) await Bun.write(out, text);
+    return ok;
+  };
+  return { cut, cuts };
+}
+
+describe("a line the voice never says alone is cut out of a carrier (11.6.3)", () => {
+  const carrier = (text: string) => text === "Stopped." ? "The answer has stopped." : null;
+
+  test("after the tries the line is made inside its carrier, cut out, checked, and kept", async () => {
+    const dir = scratchDir();
+    const { tts, asked } = engine();
+    // three takes alone, all garbled; the cut is clean
+    const { check, checked } = checker(false, false, false, true);
+    const { cut, cuts } = cutter();
+    const said: string[] = [];
+    const kept = { dir, signature: "test", lines: ["Stopped."], check, tries: 3, carrier, cut };
+    expect(await new SpokenAhead(tts, scratchDir(), kept).warm((text, outcome) => said.push(`${outcome} ${text}`))).toBe(1);
+    expect(asked).toEqual(["Stopped.", "Stopped.", "Stopped.", "The answer has stopped."]);
+    expect(cuts).toEqual(["The answer has stopped. -> Stopped."]);
+    // the cut clip passes the same check as any take, against the line's own text
+    expect(checked).toEqual(["Stopped.", "Stopped.", "Stopped.", "Stopped."]);
+    expect(said).toEqual(["carried Stopped."]);
+    const path = join(dir, "test-male", "stopped.wav");
+    expect(await Bun.file(path).text()).toBe("Stopped.");
+    // the next run finds it and asks for nothing
+    const next = engine();
+    await new SpokenAhead(next.tts, scratchDir(), kept).warm();
+    expect(next.asked).toEqual([]);
+  });
+
+  test("a cut the check refuses is not kept, and the carrier is tried again", async () => {
+    const dir = scratchDir();
+    const { tts, asked } = engine();
+    const { check } = checker(false, false, false, false, true);
+    const { cut } = cutter(false, true, true);
+    const kept = { dir, signature: "test", lines: ["Stopped."], check, tries: 3, carrier, cut };
+    const said: string[] = [];
+    expect(await new SpokenAhead(tts, scratchDir(), kept).warm((text, outcome, takes) => said.push(`${outcome} ${text} in ${takes}`))).toBe(1);
+    // three takes alone, then a carrier the line was not heard in, then a cut the check refused, then a clean one
+    expect(asked).toEqual(["Stopped.", "Stopped.", "Stopped.", "The answer has stopped.", "The answer has stopped.", "The answer has stopped."]);
+    expect(said).toEqual(["carried Stopped. in 6"]);
+  });
+
+  test("the carrier gets the same number of tries, and then the line is garbled", async () => {
+    const dir = scratchDir();
+    const { tts, asked } = engine();
+    const { check } = checker(...new Array<boolean>(100).fill(false));
+    const { cut } = cutter();
+    const kept = { dir, signature: "test", lines: ["Stopped."], check, tries: 4, carrier, cut };
+    const said: string[] = [];
+    expect(await new SpokenAhead(tts, scratchDir(), kept).warm((text, outcome) => said.push(`${outcome} ${text}`))).toBe(0);
+    expect(asked.length).toBe(8);
+    expect(said).toEqual(["garbled Stopped."]);
+    expect(existsSync(join(dir, "test-male", "stopped.wav"))).toBe(false);
+    // nothing of the carrier takes or the cuts is left in the scratch
+    const { readdirSync } = await import("node:fs");
+    expect(readdirSync(dir + "/..").filter((name) => name.startsWith("say-"))).toEqual([]);
+  });
+
+  test("a line with no carrier is garbled as before", async () => {
+    const { tts, asked } = engine();
+    const { check } = checker(false, false);
+    const { cut, cuts } = cutter();
+    const kept = { dir: scratchDir(), signature: "test", lines: ["Muted."], check, tries: 2, carrier, cut };
+    const said: string[] = [];
+    await new SpokenAhead(tts, scratchDir(), kept).warm((text, outcome) => said.push(`${outcome} ${text}`));
+    expect(asked).toEqual(["Muted.", "Muted."]);
+    expect(cuts).toEqual([]);
+    expect(said).toEqual(["garbled Muted."]);
+  });
+
+  test("a carrier take that is clean is never kept as the line: only its cut is", async () => {
+    const dir = scratchDir();
+    const { tts } = engine();
+    const { check } = checker(false, true);
+    const { cut } = cutter(true);
+    const kept = { dir, signature: "test", lines: ["Stopped."], check, tries: 1, carrier, cut };
+    await new SpokenAhead(tts, scratchDir(), kept).warm();
+    expect(await Bun.file(join(dir, "test-male", "stopped.wav")).text()).toBe("Stopped.");
   });
 });

@@ -306,7 +306,9 @@ project bridge stays in place.
 
 11.6 The target feel is the Claude app voice mode. The bridge waits a short time. The bridge does not cut in. The bridge does not feel slow.
 
-11.6.1 The bridge keeps its own fixed replies, such as "Muted.", on disk after it makes them once, so a reply to a command plays at once. The speech worker transcribes each reply before the bridge keeps it. A reply whose words do not match its text (18.14.2) plays that one time and is not kept. The warm command also checks each reply that is already kept, and makes a refused reply again, up to 20 times. The cloning voice garbles a reply of one word most of the time: on 23 September "Muted." came out clean in 2 takes of 12. Before this check the bridge kept the first take, and a garbled "Muted." and "Listening." played on every mute from 18 September.
+11.6.1 The bridge keeps its own fixed replies, such as "Muted.", on disk after it makes them once, so a reply to a command plays at once. The speech worker transcribes each reply before the bridge keeps it. A reply whose words do not match its text (18.14.2) plays that one time and is not kept. The warm command also checks each reply that is already kept, and makes a refused reply again, up to a set number of times (21.2), 100 by default. A take of a short reply costs about a second of the GPU, once, offline. The cloning voice garbles a reply of one word most of the time: on 23 September "Muted." came out clean in 2 takes of 12, and on 24 September in 1 of 5. Before this check the bridge kept the first take, and a garbled "Muted." and "Listening." played on every mute from 18 September.
+
+11.6.3 A reply that no take says cleanly alone is cut out of a carrier. A carrier is a sentence the voice says cleanly that ends with the reply's own words in the reply's own sense, so the words close a statement in the falling tone of an acknowledgement: "The answer has stopped." carries "Stopped.". The warm command makes a take of the carrier, the speech worker gives the time of each word it heard, and the bridge cuts the reply's words out by those times. The cut passes the same check as any take (11.6.1), or it is not kept. The carrier gets the same number of takes as the reply alone. Every reply of one or two words has a carrier; a reply of three words or more came out clean in every take measured on 24 September. The wording of a reply does not change for the voice: on 24 September "Stopped." came out clean in no take of 5 alone, and it is the answer to a barge-in, so it is the reply least able to wait for a synthesis.
 
 11.7 A cue marks the end of the bridge's speaking (15.15). Until 24 September it was an option for later.
 
@@ -837,6 +839,7 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 | Longest run of text spoken as one piece | 240 characters | 5.6 |
 | Narration delay | 5 seconds | 2.3 |
 | Keep a copy of each clip sent | on, the last 100, in `~/.sidetone/sent/` | 18.14 |
+| Takes of a fixed reply before warm gives up | 100, alone and again in the carrier | 11.6.1 |
 
 21.3 A setting with the value "to set at" gets its first value at the build step named. The builder does not wait for this value before that step. The three such settings got their first values at 7.3.
 

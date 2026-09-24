@@ -61,6 +61,31 @@ export function encodeWav(samples: Int16Array, sampleRate: number, channels = 1)
   return out;
 }
 
+/** How long each end of a cut fades, so a cut inside a sound does not click. */
+const CUT_FADE_S = 0.005;
+
+/**
+ * The part of a wav between two times, in seconds from its start (11.6.3). A
+ * time past the end is the end. Each end of the cut fades over a few
+ * milliseconds, because a sample cut mid-wave is a click.
+ */
+export function cutWav(wav: Wav, fromSec: number, toSec: number): Wav {
+  const frames = wav.samples.length / wav.channels;
+  const first = Math.min(frames, Math.max(0, Math.round(fromSec * wav.sampleRate)));
+  const last = Math.min(frames, Math.max(first, Math.round(toSec * wav.sampleRate)));
+  const samples = wav.samples.slice(first * wav.channels, last * wav.channels);
+  const fade = Math.min(Math.round(CUT_FADE_S * wav.sampleRate), Math.floor((last - first) / 2));
+  for (let i = 0; i < fade; i++) {
+    const gain = i / fade;
+    for (let channel = 0; channel < wav.channels; channel++) {
+      samples[i * wav.channels + channel] = Math.round(samples[i * wav.channels + channel]! * gain);
+      const tail = (last - first - 1 - i) * wav.channels + channel;
+      samples[tail] = Math.round(samples[tail]! * gain);
+    }
+  }
+  return { sampleRate: wav.sampleRate, channels: wav.channels, samples };
+}
+
 /**
  * Any audio file ffmpeg reads, as the mono wav the transport plays. The whole
  * file is decoded at once: a track of a few minutes is under twenty megabytes.

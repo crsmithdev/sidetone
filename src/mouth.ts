@@ -20,7 +20,7 @@ import type { Config } from "./config.ts";
 import type { CueName, Cues } from "./cues.ts";
 import type { Measures } from "./measures.ts";
 import { speakable } from "./sentences.ts";
-import { voiceSignature, type SpokenAhead } from "./speech.ts";
+import { voiceSignature, type Kept, type SpokenAhead } from "./speech.ts";
 
 /** 15.10.1 how far before its stop a track picks up again, so the ear finds its place */
 const HOLD_RESUME_BACK_MS = 2_000;
@@ -95,12 +95,54 @@ export const KEPT_LINES = [
 ] as const;
 
 /**
+ * 11.6.3 for each line the voice may never say cleanly alone, a sentence it
+ * does say cleanly that ends with the line's own words, in the same sense.
+ * The line is cut out of a take of the carrier and kept, when no take of the
+ * line alone passes the check.
+ *
+ * The words end the carrier so they close a statement, which is the falling
+ * tone of an acknowledgement, and the same tone the line has alone. Each
+ * carrier means what its line means, so the voice does not perform the words
+ * as a quote or a list item. Where the findings of 24 September measured a
+ * sentence of this shape, it is that sentence: "The microphone is muted." and
+ * "The answer has stopped." came out clean in 10 takes of 10, and "I am
+ * listening." in 5 of 5. Every line of one or two words has one, because
+ * those are the lines the voice garbles; a longer line came out clean in
+ * every take measured.
+ */
+export const CARRIERS: Partial<Record<typeof KEPT_LINES[number], string>> = {
+  "Muted.": "The microphone is muted.",
+  "Listening.": "I am listening.",
+  "Tones on.": "I turned the tones on.",
+  "Tones off.": "I turned the tones off.",
+  "Music on.": "I turned the music on.",
+  "Music off.": "I turned the music off.",
+  "Audio on.": "I turned the audio on.",
+  "Audio off.": "I turned the audio off.",
+  "Interrupting on.": "I turned interrupting on.",
+  "Interrupting off.": "I turned interrupting off.",
+  "Verbosity brief.": "I made the verbosity brief.",
+  "Verbosity normal.": "I made the verbosity normal.",
+  "Verbosity full.": "I made the verbosity full.",
+  "Carrying on.": "I am carrying on.",
+  "Stopped.": "The answer has stopped.",
+  "Context cleared.": "I have the context cleared.",
+};
+
+/**
  * What a run keeps between runs, and under which key. The signature is the
  * engine's own: every setting that changes how its voice sounds, so a sentence
- * made at one setting is never played back at another.
+ * made at one setting is never played back at another. The check and the cut
+ * want the speech worker, so the warm command adds them.
  */
-export function keptLines(config: Config): { dir: string; signature: string; lines: readonly string[] } {
-  return { dir: config.spokenDir, signature: voiceSignature(config), lines: KEPT_LINES };
+export function keptLines(config: Config): Kept {
+  return {
+    dir: config.spokenDir,
+    signature: voiceSignature(config),
+    lines: KEPT_LINES,
+    tries: config.warmTries,
+    carrier: (text) => (CARRIERS as Record<string, string | undefined>)[text] ?? null,
+  };
 }
 
 /** How often an announcement asks whether the mouth is free. */

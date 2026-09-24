@@ -34,6 +34,13 @@ describe("config (21)", () => {
     // 9.6 the set is a setting, and the tones are on it: you mute because the
     // car is loud, and the tones are the next noise you want gone.
     expect(DEFAULTS.mutedCommands).toEqual(["mute", "unmute", "tonesOn", "tonesOff"]);
+    // 11.6.1 the takes of a fixed reply before warm gives up on saying it alone
+    expect(DEFAULTS.warmTries).toBe(100);
+  });
+  test("the number of warm tries is a whole number of at least one", () => {
+    expect(() => loadConfig(withFile('{"warmTries":0}'))).toThrow(/warmTries/);
+    expect(() => loadConfig(withFile('{"warmTries":2.5}'))).toThrow(/warmTries/);
+    expect(loadConfig(withFile('{"warmTries":3}')).warmTries).toBe(3);
   });
   test("a file overrides field by field", () => {
     const config = loadConfig(withFile('{"model":"opus","ceilingMs":60000}'));

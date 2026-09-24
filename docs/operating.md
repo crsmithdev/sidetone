@@ -82,6 +82,12 @@ bun src/main.ts warm
 Nothing has to be warmed: a line that is missing is made the slow way and then
 kept. Emptying the directory costs one slow sentence each.
 
+The speech worker checks each line before it is kept, and `warm` makes a line
+the check refuses again, `warmTries` times. A line no take says cleanly alone
+is cut out of a carrier sentence that ends with its words, "The answer has
+stopped." for "Stopped.", and the cut is checked the same way. `warm` says
+`carried` for such a line.
+
 The text loop is useful on its own, and it is where the process management gets
 exercised before any audio exists. The reply streams word by word, through the
 same hook that will feed the sentence collector when voice arrives.

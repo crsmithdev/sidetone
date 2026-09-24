@@ -123,6 +123,16 @@ export interface Config {
    */
   spokenDir: string;
   /**
+   * 11.6.1 how many takes `warm` makes of a fixed reply before it gives up on
+   * saying it alone. The cloning voice garbles a reply of one word most of the
+   * time: "Stopped." came out clean in 1 take of 10 on 24 September. A take of
+   * a short reply costs about a second of the GPU, once, offline, so 100 takes
+   * is under two minutes, and finds a reply that comes out clean once in fifty
+   * takes seven times in eight. A reply it still has not found is made inside
+   * a carrier (11.6.3), with the same number of tries.
+   */
+  warmTries: number;
+  /**
    * 18.14 whether the bridge keeps a copy of each clip it sends, and where.
    * It stores speech, so it is a setting. It is on while the garbled speech
    * of 23 September is open (todo item 33).
@@ -276,6 +286,7 @@ export const DEFAULTS: Config = {
   chatterboxExaggeration: 0.5,
   chatterboxCfg: 0.5,
   spokenDir: join(homedir(), ".sidetone", "spoken"),
+  warmTries: 100,
   keepSentClips: true,
   sentDir: join(homedir(), ".sidetone", "sent"),
   sentenceMaxChars: 240,
@@ -446,6 +457,9 @@ export function loadConfig(path = configPath()): Config {
   // throw away every utterance the detector just accepted
   if (merged.minSpeechPeak <= merged.speechLevel) {
     throw new Error(`minSpeechPeak (${merged.minSpeechPeak}) must be louder than speechLevel (${merged.speechLevel})`);
+  }
+  if (!Number.isInteger(merged.warmTries) || merged.warmTries < 1) {
+    throw new Error(`warmTries (${String(merged.warmTries)}) must be a whole number of at least one`);
   }
   if (!VERBOSITIES.includes(merged.verbosity)) {
     throw new Error(`verbosity must be one of ${VERBOSITIES.join(", ")}, not ${String(merged.verbosity)}`);
