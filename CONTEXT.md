@@ -166,7 +166,7 @@ A screenshot that the bridge wrote and that no turn has taken. The next turn tha
 _Avoid_: an attachment, a queued image.
 
 **A crash report**:
-What the app writes when an error that nothing catches ends it: the time, the thread, the stack trace and the app state. The app sends it to the bridge in the next room, and the bridge writes it to `~/.sidetone/crashes/` for the agent to read.
+What the app writes when an error that nothing catches ends it: the time, the thread, the stack trace and the app state. It also writes one for an error it catches and lives through, and one for each exit record that Android keeps of an earlier death, such as a native crash or an ANR. The app sends it to the bridge in the next room, and the bridge writes it to `~/.sidetone/crashes/` for the agent to read.
 _Avoid_: a crash log, a tombstone (a tombstone is Android's record of a native crash), the screen log (the screen log is what the app showed).
 
 **The microphone cut**:

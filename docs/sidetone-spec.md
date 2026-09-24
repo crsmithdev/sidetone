@@ -15,6 +15,7 @@ The status word in every state, the legend of the light (17.11.7, 17.11.9) and t
 The pending screenshot (14.12.5 to 14.12.7, 17.18.5) added 23 September 2026.
 The crash report (14.14, 17.20) added 23 September 2026.
 The spoken sentence in the bubbles (17.21) added 23 September 2026.
+The failed microphone open (17.10.4), and the caught errors and the exit records in the crash report (17.20.3 to 17.20.5), from 24 September 2026.
 
 This document is the complete specification for Sidetone. It
 includes the background, the settled design decisions, the reasoning behind
@@ -451,7 +452,7 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 
 14.14 The client sends a crash report (17.20) to the bridge, and the bridge writes it to disk. The agent cannot see the phone, and the file lets it read why the app stopped.
 
-14.14.1 The `crash` message carries one whole report. It has `id`, which is the time of the crash in milliseconds, and `text`, which is the report. The app sends a message smaller than 12,000 bytes, as in 14.11.1. A longer report loses its end, and the text then ends with `[cut]`.
+14.14.1 The `crash` message carries one whole report. It has `id`, which is the time of the crash in milliseconds, with `-exit` after it for an exit record (17.20.5), and `text`, which is the report. The app sends a message smaller than 12,000 bytes, as in 14.11.1. A longer report loses its end, and the text then ends with `[cut]`.
 
 14.14.2 The bridge writes the report to `~/.sidetone/crashes/<id>.txt`. A report that comes again writes the same file again.
 
@@ -564,6 +565,8 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 
 17.10.3 On the tap of "Music", the app sends the `music` message with `on` set to false or to true. The bridge sets the setting of 15.7.3 and keeps it across restarts. It gives no answer. A track that plays stops at once (15.10.3). The app starts with the music on. An app that has the music off sends the message again when it joins the room. The bridge does not tell the app the setting, so "music off" by voice does not change the button.
 
+17.10.4 The "Mic" button and the hold to talk button change the state only after the microphone track opens or closes. A publish can fail, for example while the room reconnects. The button then stays as it was, and the app adds the note "the microphone did not open" with the reason. Out of the room, the button sets the state that the next room opens.
+
 17.11 The app shows a working sign in its status row, as the motion of the status dot (17.11.6). The sign says that the agent works (14.10). It has three states.
 
 17.11.1 Off. The sign shows nothing. This is the state before any `working` message, after a message with `on` set to false, and after the app leaves the room.
@@ -675,7 +678,11 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 
 17.20.2 The app sends each report after it connects to the room, oldest first. It deletes a report when the send succeeds. A report that fails stays for the next room.
 
-17.20.3 The report catches only an error in the app's own code. A crash in native code and a freeze of the screen (an ANR) give no report.
+17.20.3 The handler of 17.20.1 catches only an error in the app's own code. A crash in native code and a freeze of the screen (an ANR) reach the bridge as exit records (17.20.5).
+
+17.20.4 The app also writes a report for an error that it catches and lives through: an error in a task that the app started, an error while it handles one event of the room, and an error that ends a room. The thread line says where the app caught the error and that the app went on. The event is dropped, and the room goes on. A room that ends with an error ends as any room ends, and the app joins again (17.11). The report goes to the bridge as in 17.20.2.
+
+17.20.5 At each launch, the app reads the system's record of each earlier death of its process (`ApplicationExitInfo`). It writes one report for each record that is newer than the newest record it wrote before, so no record goes twice. The report holds the time, the reason, the description of the system, the status, the importance and the memory, in that order, and then the trace. An ANR gives the thread dump as text. A native crash gives a tombstone in protobuf, and the report keeps only its readable runs, as `strings` does. The app reads the first 256,000 bytes of a trace. The records include deaths that are not faults, such as a kill for low memory, a force stop and an update of the app.
 
 17.21 The app follows the voice in the bubbles of the agent. The unit is the spoken sentence: the sentence that the last `speaking` message (14.13) names.
 

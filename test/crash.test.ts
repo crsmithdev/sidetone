@@ -17,6 +17,14 @@ describe("the crash report on disk (14.14)", () => {
     expect(readFileSync(file, "utf8")).toBe(text);
   });
 
+  test("an exit record from Android is a report like any other (17.20.5)", () => {
+    const dir = crashes();
+    const text = "time: 2026-09-24T08:00:00Z\nexit: crash native\ndescription: none\nstatus: 6\nimportance: 100\nmemory: pss 81000 kB, rss 190000 kB\n\nthe readable runs of the tombstone:\nlibwebrtc.so\n";
+    const file = join(dir, "1758700800000-exit.txt");
+    expect(receiveCrash({ kind: "crash", id: "1758700800000-exit", text }, dir)).toBe(`crash report at ${file}`);
+    expect(readFileSync(file, "utf8")).toBe(text);
+  });
+
   test("a message that is not readable writes nothing and says so", () => {
     const dir = crashes();
     for (const bad of [

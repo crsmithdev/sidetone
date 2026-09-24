@@ -1,6 +1,7 @@
 package dev.crsmith.sidetone
 
 import android.Manifest
+import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -16,6 +17,7 @@ import io.livekit.android.room.Room
 import io.livekit.android.room.track.LocalAudioTrack
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -85,7 +87,8 @@ object Bridge {
     private val _state = MutableStateFlow(State())
     val state: StateFlow<State> = _state
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    /** 17.20.4 an error in a launched coroutine is written down, and the app goes on. */
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate + CoroutineExceptionHandler { _, e -> caught("a coroutine", e) })
     private val micLock = Mutex()
     private lateinit var app: Context
     private lateinit var store: CredentialStore
@@ -129,6 +132,8 @@ object Bridge {
         // 17.20 a crash writes a report, and the next room sends it
         crashes = Crashes(File(app.filesDir, "crashes"))
         crashes.catchAll { crashState(_state.value) }
+        // 17.20.5 the deaths the handler cannot see: a native crash, an ANR, a kill
+        scope.launch(Dispatchers.IO) { crashes.saveExits(exits(app)) }
         _state.update { it.copy(paired = store.load() != null) }
         scope.launch { Updater.installedHash(app)?.let { build -> _state.update { it.copy(build = build) } } }
     }
@@ -167,7 +172,15 @@ object Bridge {
         session = scope.launch {
             while (true) {
                 link(Joining.Event.Opening)
-                val reason = runRoom(app, credentials)
+                // 17.20.4 a room that throws ends as any room ends, so the loop opens the next one
+                val reason = try {
+                    runRoom(app, credentials)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    caught("the room", e)
+                    e.message ?: e.toString()
+                }
                 Log.i(TAG, "the room ended: $reason")
                 for (effect in link(Joining.Event.Ended(reason))) when (effect) {
                     is Joining.Effect.Open -> delay(effect.at - SystemClock.elapsedRealtime())
@@ -272,7 +285,16 @@ object Bridge {
         }
     }
 
+    /** 17.20.4 an event that fails is dropped and written down, and the room goes on. */
     private fun on(room: Room, event: RoomEvent, ended: CompletableDeferred<String>) {
+        try {
+            handle(room, event, ended)
+        } catch (e: Exception) {
+            caught("a room event", e)
+        }
+    }
+
+    private fun handle(room: Room, event: RoomEvent, ended: CompletableDeferred<String>) {
         when (event) {
             is RoomEvent.Reconnecting -> link(Joining.Event.Reconnecting)
             is RoomEvent.Reconnected -> link(Joining.Event.Reconnected)
@@ -383,9 +405,22 @@ object Bridge {
         scope.launch {
             micLock.withLock {
                 if (_state.value.micOn == on) return@launch
+                val room = room
+                // with no room the state is what the next room opens; with one it follows the track
+                if (room != null) {
+                    try {
+                        if (on) openMic(room) else closeMic(room)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        // a publish fails while the room reconnects: the button stays as it was
+                        Log.w(TAG, "the microphone did not switch", e)
+                        append("note", Line(Line.Kind.NOTE, "the microphone did not ${if (on) "open" else "close"}: ${e.message ?: e}"))
+                        return@launch
+                    }
+                }
                 _state.update { it.copy(micOn = on) }
-                val room = room ?: return@launch
-                if (on) openMic(room) else closeMic(room)
+                room ?: return@launch
                 tell(room, Outgoing.mic(on, release = byHold && !on, hold = byHold && on))
                 if (!byHold) record("microphone", if (on) "microphone on" else "microphone off")
             }
@@ -582,6 +617,19 @@ object Bridge {
             room.localParticipant.publishData(message).onFailure { Log.w(TAG, "the device message did not go", it) }
         }
     }
+
+    /** 17.20.4 an error the app lived through goes to the log and to a crash report. */
+    private fun caught(what: String, error: Throwable) {
+        Log.e(TAG, "$what failed", error)
+        if (::crashes.isInitialized) crashes.caught(what, crashState(_state.value), error)
+    }
+
+    /** 17.20.5 the system's record of each death of this app that it still keeps, with the start of its trace. */
+    private fun exits(app: Context): List<Exit> =
+        app.getSystemService(ActivityManager::class.java).getHistoricalProcessExitReasons(null, 0, 0).map { info ->
+            val trace = runCatching { info.traceInputStream?.use { it.readNBytes(TRACE_BYTES) } }.getOrNull()
+            Exit(info.timestamp, info.reason, info.description, info.status, info.importance, info.pss, info.rss, trace)
+        }
 
     /** 17.20.2 each report goes once, oldest first. A report that fails goes with the next room. */
     private fun sendCrashes(room: Room) {
