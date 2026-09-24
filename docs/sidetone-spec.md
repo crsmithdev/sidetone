@@ -404,7 +404,7 @@ project bridge stays in place.
 
 14.10.3 The audio has no effect on the message. The bridge sends it with the audio on and with the audio off (11.12).
 
-14.10.4 A detached job is a job that `scripts/job` started. For each job, the script writes a directory in `~/.sidetone/jobs/`. The directory holds a `pid` file while the job runs, and an `exit` file when it ends. The bridge reads the directories every 2 seconds. A job runs when its directory has a `pid` file and no `exit` file, and the process with that pid has the directory in its command line. A job that was killed and left no `exit` file does not run. The bridge does not see other background work, such as a background tool call of the agent.
+14.10.4 A detached job is a job that `scripts/job` started. For each job, the script writes a directory in `~/.sidetone/jobs/`. The directory holds a `pid` file while the job runs, and an `exit` file when it ends. The bridge reads the directories every 2 seconds. A job runs when its directory has a `pid` file and no `exit` file, and the process with that pid has the directory in its command line. A job that was killed and left no `exit` file does not run. The script refuses a name whose job runs by this same test, with exit 1, so one job cannot start two times. The bridge does not see other background work, such as a background tool call of the agent.
 
 14.10.5 The bridge does not keep the message for the history (14.8). A client that joins while the agent works gets the state at the next heartbeat. The web client ignores the message.
 

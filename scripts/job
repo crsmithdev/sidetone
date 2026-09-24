@@ -17,7 +17,15 @@
 # gets the service's own environment file and the caller's PATH, and no other
 # variable of the caller.
 #
+# A name that still runs is refused, with exit 1. On 23 September a barge-in
+# made a tool call read as rejected after it had run, and the agent started
+# each job a second time (~/.sidetone/findings/double-status-38.md). The check
+# is the bridge's own (spec 14.10.4): a pid file, no exit file, and a process
+# at that pid whose command line names the directory. So a job that died with
+# the machine and never wrote exit does not hold its name.
+#
 # SIDETONE_SAY_URL points at another bridge, such as a scratch one.
+# SIDETONE_JOBS_DIR points at another jobs root, such as a temporary one.
 set -euo pipefail
 
 if [ $# -lt 2 ]; then
@@ -32,9 +40,23 @@ if [[ ! $name =~ ^[A-Za-z0-9-]+$ ]]; then
   echo "the name must be letters, digits and hyphens" >&2
   exit 2
 fi
-id="$(date +%m%d-%H%M%S)-$name"
-dir="$HOME/.sidetone/jobs/$id"
+jobs_dir=${SIDETONE_JOBS_DIR:-$HOME/.sidetone/jobs}
 say_url=${SIDETONE_SAY_URL:-https://127.0.0.1:3100/say}
+
+# refuse a name that still runs; a name is the whole word after the timestamp
+for other in "$jobs_dir"/*; do
+  [[ ${other##*/} == [0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9]-"$name" ]] || continue
+  [ -e "$other/pid" ] && [ ! -e "$other/exit" ] || continue
+  pid=$(< "$other/pid")
+  [[ $pid =~ ^[0-9]+$ ]] || continue
+  if tr '\0' ' ' 2>/dev/null < "/proc/$pid/cmdline" | grep -qF "$other"; then
+    echo "Job $name is already running, as ${other##*/}. Wait for it, or give this run another name." >&2
+    exit 1
+  fi
+done
+
+id="$(date +%m%d-%H%M%S)-$name"
+dir="$jobs_dir/$id"
 mkdir -p "$dir"
 printf '%q ' "$@" > "$dir/command.txt"
 echo >> "$dir/command.txt"
@@ -45,8 +67,9 @@ systemd-run --user --collect --quiet --unit="sidetone-job-$id" --same-dir \
   bash -c '
   dir=$1 name=$2 say_url=$3
   shift 3
-  # the bridge reads this to show that a job runs: the pid, and the dir in this command line
-  echo $$ > "$dir/pid"
+  # the bridge reads this to show that a job runs: the pid, and the dir in this command line.
+  # BASHPID, not $$: systemd turns $$ into one $ before bash sees the line.
+  echo "$BASHPID" > "$dir/pid"
   status=0
   "$@" > "$dir/output.log" 2>&1 < /dev/null || status=$?
   echo "$status" > "$dir/exit"

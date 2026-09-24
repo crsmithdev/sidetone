@@ -24,4 +24,7 @@ scripts/job <name> env -u CLAUDECODE claude -p "<task>" --allowedTools "..."
 The name is letters, digits and hyphens. The job writes to
 `~/.sidetone/jobs/<id>/` and the bridge says "Job <name> finished." by voice.
 Have the task write its result to a file, and read that file when the job ends.
+A name that still runs is refused with exit 1. Do not start it again: the first
+run is live. Check `~/.sidetone/jobs/` if a tool result says the call was
+rejected, because a barge-in can say that after the command ran.
 For a plain command, use `scripts/job <name> <command>` or a background Bash.
