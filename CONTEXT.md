@@ -138,7 +138,7 @@ What the app's status row says about the room: the dot, the status word, the con
 _Avoid_: the status (the status is one input), the indicator.
 
 **The options menu**:
-The menu behind the "⋮" button at the end of the app's status row. It holds the verbosity, the tones, the hold music volume, "Leave" and "Quit". Each control changes a setting by the path of the spoken command, and shows what the bridge sends back (spec 17.22).
+The menu behind the "⋮" button at the end of the app's status row. It holds the verbosity, the tones, the hold music volume, the three thresholds of the ear, "Leave" and "Quit". Each control changes a setting by the path of the spoken command, and shows what the bridge sends back (spec 17.22).
 _Avoid_: the settings screen, the preferences, the overflow menu.
 
 **Leave, Rejoin, Quit**:
@@ -148,6 +148,10 @@ _Avoid_: exit, disconnect (the status word for a bridge the app cannot reach), s
 **The hold music volume**:
 How loud the hold music is, as a factor on the file from 0 to 1: the `holdMusicGain` setting. Only the options menu changes it. No spoken command does.
 _Avoid_: the music gain (the name of the setting, not of the thing), the music level.
+
+**The thresholds of the ear**:
+The three settings of the ear that the options menu changes and no spoken command does: the barge-in level (`bargeInLevel`), the quietest speech peak (`minSpeechPeak`) and the end-of-turn pause (`endOfTurnPauseMs`). The bridge checks each by the rule it checks the settings file by, and the ear reads a taken value on the next frame (spec 17.22.5, 17.22.6).
+_Avoid_: the knobs, the tuning, the detector settings.
 
 **The screen log**:
 What the app showed, one entry for each change of a line on the screen, with the time and the exact text. A button in the app sends it to the bridge, which writes it to `~/.sidetone/screen/` for the agent to read.

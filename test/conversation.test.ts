@@ -55,6 +55,52 @@ describe("the tones from the app (item 28)", () => {
   });
 });
 
+/**
+ * Item 44 the three thresholds the echo work changed by restart. They follow
+ * the hold music volume: a number from a client, no spoken answer, kept in the
+ * file, and read back from the next settings message.
+ */
+describe("the thresholds from the app (item 44)", () => {
+  const settings = (r: ReturnType<typeof room>) => r.told.filter((message) => message.kind === "settings").at(-1);
+
+  test("a number is kept, read back, and not answered out loud", async () => {
+    const r = room();
+    r.c.set({ endOfTurnPauseMs: 1_800 });
+    r.c.set({ bargeInLevel: 0.08 });
+    r.c.set({ minSpeechPeak: 0.2 });
+    await settled();
+    expect(r.said).toEqual([]);
+    expect(r.patches).toEqual([{ endOfTurnPauseMs: 1_800 }, { bargeInLevel: 0.08 }, { minSpeechPeak: 0.2 }]);
+    expect(settings(r)).toMatchObject({ settings: { endOfTurnPauseMs: 1_800, bargeInLevel: 0.08, minSpeechPeak: 0.2 } });
+  });
+
+  test("a value the file would refuse is refused here, and the client is told what is in force", async () => {
+    const r = room();
+    const before = r.told.length;
+    // 11.3 a barge-in no louder than speech, 4.6 a peak no louder than speech, 18.4 a pause the early guess outruns
+    r.c.set({ bargeInLevel: r.config.speechLevel });
+    r.c.set({ minSpeechPeak: 0.01 });
+    r.c.set({ endOfTurnPauseMs: r.config.earlyTranscribeMs });
+    await settled();
+    expect(r.patches).toEqual([]);
+    expect(r.said).toEqual([]);
+    expect(r.config.bargeInLevel).toBe(config.bargeInLevel);
+    // a slider that moved under the finger has to go back to what the bridge holds
+    expect(r.told.slice(before).filter((message) => message.kind === "settings")).toHaveLength(3);
+    expect(settings(r)).toMatchObject({ settings: { bargeInLevel: config.bargeInLevel, minSpeechPeak: config.minSpeechPeak, endOfTurnPauseMs: config.endOfTurnPauseMs } });
+    expect(r.journal.some((line) => /bargeInLevel/.test(line))).toBe(true);
+  });
+
+  test("a value that is not a number is ignored, as an unknown key is", async () => {
+    const r = room();
+    const before = r.told.length;
+    r.c.set({ endOfTurnPauseMs: "longer", bargeInLevel: true });
+    await settled();
+    expect(r.patches).toEqual([]);
+    expect(r.told.length).toBe(before);
+  });
+});
+
 describe("the hold music switch (15.7.3)", () => {
   test("each form is answered out loud, and the answer is a kept line", async () => {
     const { c, said } = watched();

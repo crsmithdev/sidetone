@@ -210,6 +210,23 @@ class ConversationTest {
             """{"kind":"setting","patch":{"holdMusicGain":0.25}}""",
             Outgoing.setting("holdMusicGain", 0.25).decodeToString(),
         )
+        // item 44 the end-of-turn pause is milliseconds, so it goes as a whole number
+        assertEquals(
+            """{"kind":"setting","patch":{"endOfTurnPauseMs":1600}}""",
+            Outgoing.setting("endOfTurnPauseMs", 1600).decodeToString(),
+        )
+    }
+
+    @Test
+    fun everySettingsMessageIsCountedSoASliderCanGoBackToWhatTheBridgeHolds() {
+        // item 44 a refused value comes back as the same settings again: equal
+        // maps say nothing changed, and the count is what says a message came
+        send("""{"kind":"settings","settings":{"bargeInLevel":0.05,"minSpeechPeak":0.15,"endOfTurnPauseMs":1500}}""")
+        send("""{"kind":"settings","settings":{"bargeInLevel":0.05,"minSpeechPeak":0.15,"endOfTurnPauseMs":1500}}""")
+        assertEquals(2, c.settingsCount)
+        assertEquals(1500.0, c.settingNumbers["endOfTurnPauseMs"])
+        c.clear()
+        assertEquals(0, c.settingsCount)
     }
 
     @Test

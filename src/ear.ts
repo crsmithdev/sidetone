@@ -67,7 +67,18 @@ export class Ear {
     private readonly measures: Measures,
     private readonly say: (line: string) => void = console.log,
   ) {
+    // the detector reads the same object on every frame, so `set` reaches it
     this.utterances = new Utterances(options);
+  }
+
+  /**
+   * Item 44 a threshold changed while the bridge runs. The detector and the
+   * invention guard read their settings on every frame, so the next frame
+   * uses the new value and nothing restarts. A key the ear does not read is
+   * left alone.
+   */
+  set(patch: Partial<EarOptions>): void {
+    Object.assign(this.options, Object.fromEntries(Object.entries(patch).filter(([key]) => key in this.options)));
   }
 
   /**

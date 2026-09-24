@@ -31,7 +31,7 @@
 import { Answer } from "./answer.ts";
 import type { Channel } from "./channel.ts";
 import { read, type CommandName, type Reading } from "./commands.ts";
-import { VERBOSITIES, type Config, type Verbosity } from "./config.ts";
+import { VERBOSITIES, checkConfig, type Config, type Verbosity } from "./config.ts";
 import type { CueName } from "./cues.ts";
 import { ECHO_AFTER_MS, echoOf } from "./echo.ts";
 import type { Ears } from "./ear.ts";
@@ -718,11 +718,31 @@ export class Conversation {
   }
 
   /**
+   * Item 44 a threshold of the ear, from the app's options menu. Like the
+   * volume it has no spoken command and no answer. It is checked by the rule
+   * the file is checked by: a value the bridge took live is written to the
+   * file, and a start that refused it would look like the bridge is broken. A
+   * refused value is not kept, and every client is sent the settings in force
+   * again, so a control that moved under the finger goes back.
+   */
+  private setThreshold(key: Threshold, value: number): void {
+    try {
+      checkConfig({ ...this.config, [key]: value });
+    } catch (error) {
+      this.channel.journal(`refused ${key} ${value}: ${(error as Error).message}`);
+      this.channel.settings();
+      return;
+    }
+    this.onSetting?.({ [key]: value });
+  }
+
+  /**
    * 9.4.9 a setting a client changed. It goes through the same paths a spoken
    * command does, the voice's answer included, so tapping a switch and saying
    * the words cannot end anywhere different. A key it does not know is ignored:
    * a client may not reach the settings the car has no command for. The hold
-   * music volume is the one exception (item 28), from 0 to 1.
+   * music volume (item 28), from 0 to 1, and the three thresholds of the ear
+   * (item 44) are the exceptions: each has a control and no command.
    */
   set(patch: Record<string, unknown>): void {
     if (typeof patch.tones === "boolean") this.setTones(patch.tones);
@@ -731,12 +751,19 @@ export class Conversation {
     if (patch.voice === "female" || patch.voice === "male") this.switchVoice(patch.voice);
     if (VERBOSITIES.includes(patch.verbosity as Verbosity)) this.setVerbosity(patch.verbosity as Verbosity);
     if (typeof patch.holdMusicGain === "number" && patch.holdMusicGain >= 0 && patch.holdMusicGain <= 1) this.setMusicGain(patch.holdMusicGain);
+    for (const key of THRESHOLDS) {
+      if (typeof patch[key] === "number") this.setThreshold(key, patch[key]);
+    }
   }
 
   /** One utterance of PCM becomes one thing Chris said. */
   start(): void { this.agent.start(); }
   stop(): void { this.agent.stop(); }
 }
+
+/** Item 44 the settings of the ear that the options menu changes, and no command does. */
+const THRESHOLDS = ["bargeInLevel", "minSpeechPeak", "endOfTurnPauseMs"] as const;
+type Threshold = typeof THRESHOLDS[number];
 
 /**
  * Item 37 the one line at the head of every turn's prompt. It names the level

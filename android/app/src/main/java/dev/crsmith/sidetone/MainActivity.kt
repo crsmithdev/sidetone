@@ -252,7 +252,7 @@ private fun Conversation(state: Bridge.State, onQuit: () -> Unit) {
             // 17.11.7 the word says the state that the colour shows
             Text(reading.word, style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.weight(1f))
-            Options(state.settings, state.build, inRoom = state.status != Status.LEFT, onQuit = onQuit)
+            Options(state.settings, state.settingsCount, state.build, inRoom = state.status != Status.LEFT, onQuit = onQuit)
         }
         state.error?.let { ErrorBanner(it) }
         // 17.15 only while the bridge serves an app that is not this one

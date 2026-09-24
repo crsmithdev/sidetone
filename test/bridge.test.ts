@@ -142,6 +142,19 @@ describe("the bridge, assembled as the car assembles it", () => {
     expect(r.said).toEqual([]);
   });
 
+  test("a threshold a client sends is what the ear judges the next utterance by (item 44)", async () => {
+    const r = bridge();
+    const loud = new Int16Array(320).fill(Math.round(0.4 * 32768));
+    const quiet = new Int16Array(320);
+    // a peak of 0.4 is speech at the default of 0.15, and too quiet at 0.5
+    r.channel.receive({ kind: "setting", patch: { minSpeechPeak: 0.5 } });
+    for (let i = 0; i < 20; i++) r.ear.frame(loud);
+    for (let i = 0; i < 100; i++) r.ear.frame(quiet);
+    await until(() => r.journal.some((line) => line.includes("too quiet")));
+    expect(r.journal.some((line) => line.includes("too quiet: peak 0.40, under 0.5"))).toBe(true);
+    expect(r.config.minSpeechPeak).toBe(0.5);
+  });
+
   test("the bridge hearing its own voice goes in the record (18.10)", async () => {
     const r = bridge({ script: { deltas: ["The service restarted about nine minutes ago. "] } });
     await r.c.turn("when did it restart");

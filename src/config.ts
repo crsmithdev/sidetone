@@ -429,7 +429,15 @@ export function loadConfig(path = configPath()): Config {
   const voices = ENGINES[engine]?.voices;
   if (!voices) throw new Error(`ttsEngine must be one of ${Object.keys(ENGINES).join(", ")}, not ${String(engine)}`);
   // 4.9 a voice the file did not name is the named engine's own, not the default engine's
-  const merged: Config = { ...DEFAULTS, ...voices, ...given };
+  return checkConfig({ ...DEFAULTS, ...voices, ...given });
+}
+
+/**
+ * The rules a config has to meet, whether it was read from the file or changed
+ * while the bridge runs (item 44). One function for both, because a value the
+ * bridge takes live goes into the file, and the next start reads it back.
+ */
+export function checkConfig(merged: Config): Config {
   for (const key of ["silenceMs", "ceilingMs", "checkpointWindowMs", "graceMs", "compactionWindowMs", "narrationDelayMs"] as const) {
     if (typeof merged[key] !== "number" || !(merged[key] > 0)) throw new Error(`${key} must be a positive number of milliseconds`);
   }

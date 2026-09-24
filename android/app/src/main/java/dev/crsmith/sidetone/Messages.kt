@@ -310,6 +310,12 @@ object Outgoing {
         put("patch", buildJsonObject { put(name, number) })
     })
 
+    /** Item 44 the end-of-turn pause, in milliseconds, so it goes as a whole number. */
+    fun setting(name: String, number: Int): ByteArray = encode(buildJsonObject {
+        put("kind", "setting")
+        put("patch", buildJsonObject { put(name, number) })
+    })
+
     /** 9.4 which of the two voices speaks: "female" or "male". */
     fun voice(which: String): ByteArray = encode(buildJsonObject {
         put("kind", "setting")

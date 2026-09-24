@@ -181,6 +181,8 @@ export function assemble(
     // the health line report now; the record says when it changed
     onSetting: (patch) => {
       Object.assign(config, patch);
+      // item 44 the ear was built from a copy, so a threshold goes to it by hand
+      ear.set(patch);
       keep(patch);
       measures.setting(patch);
       // 9.4.9 every client sees what is in force now, however it was changed

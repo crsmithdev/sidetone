@@ -19,7 +19,8 @@ const OPTIONS: EarOptions = {
 function room(transcribe: () => Promise<string>, muted = false) {
   const to = listener(muted);
   const measures = new Measures();
-  return { to, measures, ear: new Ear(to, transcribe, OPTIONS, measures, () => {}) };
+  // item 44 a threshold can be set on a running ear, so each gets its own copy
+  return { to, measures, ear: new Ear(to, transcribe, { ...OPTIONS }, measures, () => {}) };
 }
 
 const kinds = (measures: Measures) => measures.recent().map((event) => event.kind);
@@ -267,5 +268,32 @@ describe("18 a microphone that stopped", () => {
     ear.frame(frame(0.3));
     ear.reset();
     expect(ear.silence(Date.now() + 10 * SILENCE_MS)).toBe(null);
+  });
+});
+
+/**
+ * Item 44 a threshold changed from the options menu reaches the detector
+ * without a restart: the next frame reads it.
+ */
+describe("a threshold set while the ear runs (item 44)", () => {
+  const speech = (frames: number) => Array.from({ length: frames }, () => frame(0.4));
+  const quiet = (frames: number) => Array.from({ length: frames }, () => frame(0.001));
+
+  test("the next frame reads the new pause", async () => {
+    const { to, ear } = room(async () => "what is two plus two");
+    ear.set({ endOfTurnPauseMs: 300 });
+    // 400 ms of speech and 300 ms of quiet: the pause of 900 the ear was built with is still waiting
+    for (const f of [...speech(20), ...quiet(15)]) ear.frame(f);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(to.told.at(-1)).toBe("heard what is two plus two");
+  });
+
+  test("the next utterance is judged against the new peak", async () => {
+    let asked = 0;
+    const { to, ear } = room(async () => { asked++; return "Thank you."; });
+    ear.set({ minSpeechPeak: 0.5 });
+    await ear.said(utterance(0.43));
+    expect(asked).toBe(0);
+    expect(to.told).toEqual(["nothing"]);
   });
 });

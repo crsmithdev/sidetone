@@ -70,6 +70,8 @@ object Bridge {
         val build: String? = null,
         /** 9.4.9 the settings in force on the bridge, which the options menu shows (item 28). */
         val settings: Incoming.Settings = Incoming.Settings(emptyMap(), emptyMap(), emptyMap()),
+        /** Item 44 how many settings messages came; each puts the sliders back to what the bridge holds. */
+        val settingsCount: Int = 0,
     )
 
     private const val TAG = "Sidetone"
@@ -555,7 +557,7 @@ object Bridge {
     /** The screen shows what the conversation holds now. */
     private fun shown() {
         _state.update { it.copy(lines = conversation.lines, spoken = conversation.spoken, endTurn = conversation.endTurn, sign = conversation.sign, screenshots = conversation.screenshots,
-            settings = Incoming.Settings(conversation.settingsOn, conversation.settingWords, conversation.settingNumbers)) }
+            settings = Incoming.Settings(conversation.settingsOn, conversation.settingWords, conversation.settingNumbers), settingsCount = conversation.settingsCount) }
     }
 
     /**

@@ -51,6 +51,13 @@ class Conversation(val transcript: Transcript = Transcript()) {
         private set
     var settingNumbers: Map<String, Double> = emptyMap()
         private set
+    /**
+     * Item 44 how many settings messages came. A refused value comes back as
+     * the same settings again, and equal maps say nothing changed: the count
+     * is what puts a slider back to what the bridge holds (17.22.5).
+     */
+    var settingsCount = 0
+        private set
 
     /**
      * 14.12.7 what became of each screenshot, by id, as the bridge last said:
@@ -111,6 +118,7 @@ class Conversation(val transcript: Transcript = Transcript()) {
                 settingsOn = message.on
                 settingWords = message.words
                 settingNumbers = message.numbers
+                settingsCount += 1
             }
             is Incoming.Working -> {
                 workingOn = message.on
@@ -161,6 +169,7 @@ class Conversation(val transcript: Transcript = Transcript()) {
         settingsOn = emptyMap()
         settingWords = emptyMap()
         settingNumbers = emptyMap()
+        settingsCount = 0
         spoken = null
         screenshots = emptyMap()
     }

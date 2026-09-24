@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DEFAULTS, loadConfig, saveSettings, settingsInForce } from "../src/config.ts";
+import { DEFAULTS, checkConfig, loadConfig, saveSettings, settingsInForce } from "../src/config.ts";
 
 const dir = mkdtempSync(join(tmpdir(), "vb-config-"));
 function withFile(body: string): string {
@@ -143,5 +143,19 @@ describe("settings that arrive already checked", () => {
     }
     // the list names real settings, and the defaults answer for each of them
     for (const key of kept) expect(DEFAULTS[key as keyof typeof DEFAULTS]).toBeDefined();
+  });
+});
+
+/**
+ * Item 44 a threshold from the options menu is checked by the rule the file is
+ * checked by. A value the bridge took live and wrote to the file must load at
+ * the next start, or the change that worked all afternoon stops the bridge.
+ */
+describe("a setting that arrives while the bridge runs (item 44)", () => {
+  test("the live check is the load check", () => {
+    expect(() => checkConfig({ ...DEFAULTS, bargeInLevel: DEFAULTS.speechLevel })).toThrow(/bargeInLevel/);
+    expect(() => checkConfig({ ...DEFAULTS, minSpeechPeak: 0.01 })).toThrow(/minSpeechPeak/);
+    expect(() => checkConfig({ ...DEFAULTS, endOfTurnPauseMs: DEFAULTS.earlyTranscribeMs })).toThrow(/earlyTranscribeMs/);
+    expect(checkConfig({ ...DEFAULTS, endOfTurnPauseMs: 1_800 }).endOfTurnPauseMs).toBe(1_800);
   });
 });
