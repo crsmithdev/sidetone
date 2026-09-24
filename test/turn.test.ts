@@ -969,6 +969,18 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
       expect(decodeWav(r.tracks[2]!.wav).samples.length).toBe(RATE * 5 - RATE * 1.5);
     });
 
+    test("the app's volume changes the gain of the next track, and is kept (item 28)", async () => {
+      const r = music();
+      await r.play(); await r.cut();
+      r.c.set({ holdMusicGain: 0.5 });
+      // out of range: not a volume the slider can send
+      r.c.set({ holdMusicGain: 2 });
+      await r.play(); await r.cut();
+      expect(r.tracks.map(first)).toEqual([0, 5_000]);
+      expect(r.patches).toEqual([{ holdMusicGain: 0.5 }]);
+      expect(r.said).toEqual([]);
+    });
+
     test("a track that played to its end starts from the beginning next time", async () => {
       const r = music({ lasts: 20 });
       const now = Date.now();

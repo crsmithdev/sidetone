@@ -137,6 +137,14 @@ _Avoid_: the spinner, the busy light, the status.
 What the app's status row says about the room: the dot, the status word, the connection quality and the working sign. One function gives it from the status, the quality and the sign, so no two parts can disagree. The quality and the sign show only while the room is live.
 _Avoid_: the status (the status is one input), the indicator.
 
+**The options menu**:
+The menu behind the "⋮" button at the end of the app's status row. It holds the verbosity, the tones, the hold music volume and "Leave". Each control changes a setting by the path of the spoken command, and shows what the bridge sends back (spec 17.22).
+_Avoid_: the settings screen, the preferences, the overflow menu.
+
+**The hold music volume**:
+How loud the hold music is, as a factor on the file from 0 to 1: the `holdMusicGain` setting. Only the options menu changes it. No spoken command does.
+_Avoid_: the music gain (the name of the setting, not of the thing), the music level.
+
 **The screen log**:
 What the app showed, one entry for each change of a line on the screen, with the time and the exact text. A button in the app sends it to the bridge, which writes it to `~/.sidetone/screen/` for the agent to read.
 _Avoid_: the transcript (the transcript is the lines themselves), the log file, the record (the record is the bridge's own).

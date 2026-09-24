@@ -688,10 +688,20 @@ export class Conversation {
   }
 
   /**
+   * Item 28 the hold music volume, from the app's slider. It has no spoken
+   * command and no answer: the slider shows where it landed.
+   */
+  private setMusicGain(gain: number): void {
+    this.mouth.setMusicGain(gain);
+    this.onSetting?.({ holdMusicGain: gain });
+  }
+
+  /**
    * 9.4.9 a setting a client changed. It goes through the same paths a spoken
    * command does, the voice's answer included, so tapping a switch and saying
    * the words cannot end anywhere different. A key it does not know is ignored:
-   * a client may not reach the settings the car has no command for.
+   * a client may not reach the settings the car has no command for. The hold
+   * music volume is the one exception (item 28), from 0 to 1.
    */
   set(patch: Record<string, unknown>): void {
     if (typeof patch.tones === "boolean") this.setTones(patch.tones);
@@ -699,6 +709,7 @@ export class Conversation {
     if (typeof patch.interruptOnSpeech === "boolean") this.setInterrupting(patch.interruptOnSpeech);
     if (patch.voice === "female" || patch.voice === "male") this.switchVoice(patch.voice);
     if (VERBOSITIES.includes(patch.verbosity as Verbosity)) this.setVerbosity(patch.verbosity as Verbosity);
+    if (typeof patch.holdMusicGain === "number" && patch.holdMusicGain >= 0 && patch.holdMusicGain <= 1) this.setMusicGain(patch.holdMusicGain);
   }
 
   /** One utterance of PCM becomes one thing Chris said. */

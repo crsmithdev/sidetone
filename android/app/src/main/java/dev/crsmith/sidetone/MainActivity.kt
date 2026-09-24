@@ -47,15 +47,12 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
@@ -251,7 +248,7 @@ private fun Conversation(state: Bridge.State, onLeave: () -> Unit) {
             StatusDot(reading)
             reading.caption?.let { Text(it, style = MaterialTheme.typography.titleMedium) }
             Spacer(Modifier.weight(1f))
-            Options(state.build, onLeave)
+            Options(state.settings, state.build, onLeave)
         }
         state.error?.let { ErrorBanner(it) }
         // 17.15 only while the bridge serves an app that is not this one
@@ -396,28 +393,6 @@ private fun StatusDot(reading: Reading) {
         contentAlignment = Alignment.Center,
     ) {
         Box(Modifier.size(22.dp).alpha(alpha).background(fill, CircleShape))
-    }
-}
-
-/**
- * The options of the app, behind one button at the end of the status row. It
- * holds "Leave" and the build until the options menu of item 28 exists.
- */
-@Composable
-private fun Options(build: String?, onLeave: () -> Unit) {
-    var open by remember { mutableStateOf(false) }
-    Box {
-        TextButton(onClick = { open = true }, modifier = Modifier.semantics { contentDescription = "Options" }) {
-            Text("⋮", style = MaterialTheme.typography.titleLarge)
-        }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            DropdownMenuItem(text = { Text("Leave") }, onClick = {
-                open = false
-                onLeave()
-            })
-            // 14.15 the first 12 characters of the SHA-256, as the bridge's journal gives them
-            DropdownMenuItem(text = { Text("Build ${build?.take(12) ?: "unknown"}") }, onClick = {}, enabled = false)
-        }
     }
 }
 

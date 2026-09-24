@@ -45,6 +45,8 @@ class Conversation(val transcript: Transcript = Transcript()) {
         private set
     var settingWords: Map<String, String> = emptyMap()
         private set
+    var settingNumbers: Map<String, Double> = emptyMap()
+        private set
 
     /**
      * 14.12.7 what became of each screenshot, by id, as the bridge last said:
@@ -103,6 +105,7 @@ class Conversation(val transcript: Transcript = Transcript()) {
             is Incoming.Settings -> {
                 settingsOn = message.on
                 settingWords = message.words
+                settingNumbers = message.numbers
             }
             is Incoming.Working -> {
                 workingOn = message.on
@@ -152,6 +155,7 @@ class Conversation(val transcript: Transcript = Transcript()) {
         endTurn = null
         settingsOn = emptyMap()
         settingWords = emptyMap()
+        settingNumbers = emptyMap()
         spoken = null
         screenshots = emptyMap()
     }

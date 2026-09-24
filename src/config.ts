@@ -375,7 +375,7 @@ export const IN_FORCE = [
   "sentenceMaxChars", "audioCueDelayMs", "audioCueEveryMs",
   "holdMusic", "holdMusicAfterMs", "holdMusicGain", "holdMusicFadeMs",
   "cueVolume", "ttsEngine", "ttsVoice", "sttModel", "wakeWord",
-  "chatterboxExaggeration", "chatterboxCfg", "verbosity",
+  "chatterboxExaggeration", "chatterboxCfg", "verbosity", "tones",
 ] as const satisfies ReadonlyArray<keyof Config>;
 
 export function settingsInForce(config: Config): Record<string, unknown> {

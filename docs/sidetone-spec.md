@@ -253,7 +253,7 @@ project bridge stays in place.
 
 9.4.8 End the turn. Chris uses this command if the automatic detection is wrong.
 
-9.4.9 A client can read the settings in force and change one. The bridge sends a settings message when a client joins and again whenever a setting changes, however it changed. A client changes a setting by sending one, and the bridge does exactly what the spoken command does, the voice's answer included: a switch on a screen and the words spoken aloud cannot end anywhere different. The bridge acts only on the settings it has a spoken command for — the tones, the hold music, interrupting, which of the two voices speaks, and the verbosity — and ignores any other name. Before this a client could change a setting only by sending the words of the command, and had no way at all to read one back, so a settings screen would have shown values it could not verify.
+9.4.9 A client can read the settings in force and change one. The bridge sends a settings message when a client joins and again whenever a setting changes, however it changed. A client changes a setting by sending one, and the bridge does exactly what the spoken command does, the voice's answer included: a switch on a screen and the words spoken aloud cannot end anywhere different. The bridge acts only on the settings it has a spoken command for — the tones, the hold music, interrupting, which of the two voices speaks, and the verbosity — and on the hold music volume (17.22.3). It ignores any other name. Before this a client could change a setting only by sending the words of the command, and had no way at all to read one back, so a settings screen would have shown values it could not verify.
 
 9.4.10 Set the verbosity: how much the agent says. The levels are brief, normal and full. Brief is one or two sentences and only the result. Normal is the behaviour from before the setting. Full gives the reasoning and more detail. The commands are "verbosity brief", "verbosity normal" and "verbosity full", and "shorter" and "longer" move one level. At either end, the level stays where it is. The bridge adds one line that names the level to the prompt of each turn. The level is kept in the settings file, so it survives a restart and a new session.
 
@@ -561,7 +561,7 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 
 17.11.7 The row shows a word only for a state that Chris does not expect: "reconnecting", "disconnected" and "signal lost". While the room connects, rejoins, listens or works, the row shows no word. The notification (17.16) keeps the status word in every state.
 
-17.11.8 The "Leave" button is not in the row. It is in a menu that opens from the button at the end of the row. It quits the app, as before.
+17.11.8 The "Leave" button is not in the row. It is in the options menu (17.22), which opens from the button at the end of the row. It quits the app, as before.
 
 17.12 The app keeps a screen log: what it showed, in the order it showed it. Each change of a line on the screen is one entry. The log is in the memory of the app process. It ends when Chris leaves the room with the Leave button.
 
@@ -653,6 +653,13 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 17.21.3 A `turn` does not move the spoken sentence, because the voice can still say the answer after it arrives. A barge-in cuts a sentence and the bridge says it again (14.13), so the grey stays after the cut until that message repeats.
 
 17.21.4 The formatting of 17.19 stays. The grey starts at the length of the words up to the end of the sentence, once formatted. A sentence that ends inside a bold or code span can show a slightly wrong edge.
+17.22 The options menu opens from the "⋮" button at the end of the status row. It holds the verbosity, the tones, the hold music volume and "Leave", in that order. The voice choice and the audio switch are not in it, because each already has a command or a button.
+
+17.22.1 Each control sends the `setting` message (9.4.9). The bridge does what the spoken command does, the voice's answer included. The control does not change when it is tapped. It shows the value in the next `settings` message, so the menu shows only what the bridge holds. Until the bridge sends its settings, each control is disabled.
+
+17.22.2 The verbosity is a selector of three: brief, normal and full (9.4.10). The tones are a switch (15.4).
+
+17.22.3 The hold music volume is a slider from 0 to 1. It sets `holdMusicGain` (15.9), and no spoken command sets it. The slider sends one message when the finger lifts. The bridge gives no answer and keeps the value across restarts. The next track plays at the new volume. A track that plays keeps the old volume until it stops. The bridge ignores a value outside 0 to 1.
 
 ## 18. MEASUREMENTS TO MAKE
 

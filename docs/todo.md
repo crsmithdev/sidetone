@@ -522,7 +522,8 @@ verified by whatever item 26 puts in place plus a real drive test.
 
 ## 28. A proper options menu in the Android app
 
-Noted 22 September 2026. Not started.
+Noted 22 September 2026. Built 23 September 2026 on branch `options-menu`, not
+landed and not yet used on the phone.
 
 Today the only way to change a setting is a voice command (spec 9, e.g.
 "music on"/"music off") or editing the config file on the bridge machine by
@@ -562,6 +563,18 @@ the app ignores.
 
 Decided 23 September 2026: the menu also holds the "Leave" button, moved from
 the status row (item 30). It still quits the app. It may go away after item 27.
+
+Built and landed 23 September 2026 (spec 17.22). The
+"⋮" menu holds a three-way verbosity selector, a tones switch, a hold music
+volume slider and "Leave". `Options.kt` draws it. Each control sends the
+`setting` message, so the bridge takes the path of the spoken command, and the
+control shows only what the next `settings` message says. The bridge now takes
+`holdMusicGain` from a client (0 to 1, no answer) and decodes the next track at
+it. `tones` joins `IN_FORCE`, so the app can read the switch back. Not yet
+checked on the phone: the look of the menu, the slider inside a dropdown, and
+the volume heard in the car. The choice of hold music track is not built. The
+Decided block leaves it out, and item 20 now plays every track in turn, so Chris
+has to say what a choice means first: one track only, or where the cycle starts.
 
 ## 30. Compact the status row, and design it rather than grow it
 
@@ -760,8 +773,8 @@ Decided 23 September 2026:
 
 Noted 23 September 2026. The bridge side is built on the `verbosity` branch:
 the setting, the line in each turn's prompt, the five commands, and the
-`verbosity` key a client may set (9.4.9, 9.4.10). The app selector waits on
-item 28.
+`verbosity` key a client may set (9.4.9, 9.4.10). The app selector is built
+with item 28, on branch `options-menu`.
 
 Chris wants to set how much the agent says: a voice command after the wake
 word, and a control in the app. This is the same idea as the tone commands

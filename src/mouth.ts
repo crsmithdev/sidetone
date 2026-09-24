@@ -424,6 +424,18 @@ export class Mouth {
   }
 
   /**
+   * Item 28 a new hold music gain, from the app's slider. Each track decodes
+   * again at the new gain the next time it plays. A track that plays now keeps
+   * the old gain until it stops.
+   */
+  setMusicGain(gain: number): void {
+    const { music } = this.settings;
+    if (!music) return;
+    music.gain = gain;
+    for (const track of this.holdTracks ?? []) track.samples = null;
+  }
+
+  /**
    * 15.12 a file asked for from outside the conversation, through `/play`: a
    * preview, a recording, anything ffmpeg reads. It waits for the mouth the way
    * an announcement does, so the agent can ask for a track and say a sentence

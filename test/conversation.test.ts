@@ -43,6 +43,18 @@ describe("the tones (15.4)", () => {
   });
 });
 
+describe("the tones from the app (item 28)", () => {
+  test("the app's switch goes the spoken path, and a client reads it back", async () => {
+    const r = room();
+    r.c.set({ tones: false });
+    await settled();
+    expect(r.c.tonesOn).toBe(false);
+    expect(r.said).toEqual(["Tones off."]);
+    const settings = r.told.filter((message) => message.kind === "settings").at(-1);
+    expect(settings).toMatchObject({ settings: { tones: false } });
+  });
+});
+
 describe("the hold music switch (15.7.3)", () => {
   test("each form is answered out loud, and the answer is a kept line", async () => {
     const { c, said } = watched();

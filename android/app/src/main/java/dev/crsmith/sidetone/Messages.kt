@@ -7,6 +7,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
@@ -74,7 +75,7 @@ sealed interface Incoming {
      * whenever one changes, however it changed. The app shows what it can and
      * sends [Outgoing.setting] to change one.
      */
-    data class Settings(val on: Map<String, Boolean>, val words: Map<String, String>) : Incoming
+    data class Settings(val on: Map<String, Boolean>, val words: Map<String, String>, val numbers: Map<String, Double> = emptyMap()) : Incoming
 
     /**
      * 14.13 the voice started saying this sentence. A [Sentence] says the words
@@ -107,12 +108,13 @@ fun decode(payload: ByteArray): Incoming? {
         val settings = message["settings"] as? JsonObject ?: return Incoming.Settings(emptyMap(), emptyMap())
         val on = mutableMapOf<String, Boolean>()
         val words = mutableMapOf<String, String>()
+        val numbers = mutableMapOf<String, Double>()
         for ((name, value) in settings) {
             val primitive = value as? JsonPrimitive ?: continue
             if (primitive.isString) words[name] = primitive.content
-            else primitive.content.toBooleanStrictOrNull()?.let { on[name] = it }
+            else primitive.content.toBooleanStrictOrNull()?.let { on[name] = it } ?: primitive.doubleOrNull?.let { numbers[name] = it }
         }
-        return Incoming.Settings(on, words)
+        return Incoming.Settings(on, words, numbers)
     }
     if (kind == "working") return Incoming.Working(message.bool("on") ?: return null)
     if (kind == "sentence") {
@@ -250,6 +252,18 @@ object Outgoing {
     fun setting(name: String, on: Boolean): ByteArray = encode(buildJsonObject {
         put("kind", "setting")
         put("patch", buildJsonObject { put(name, on) })
+    })
+
+    /** Item 28 the verbosity (9.4.10), as "verbosity brief" and the rest do. */
+    fun setting(name: String, word: String): ByteArray = encode(buildJsonObject {
+        put("kind", "setting")
+        put("patch", buildJsonObject { put(name, word) })
+    })
+
+    /** Item 28 the hold music volume, from 0 to 1. It has no spoken command. */
+    fun setting(name: String, number: Double): ByteArray = encode(buildJsonObject {
+        put("kind", "setting")
+        put("patch", buildJsonObject { put(name, number) })
     })
 
     /** 9.4 which of the two voices speaks: "female" or "male". */

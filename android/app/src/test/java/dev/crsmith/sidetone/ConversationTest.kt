@@ -164,8 +164,9 @@ class ConversationTest {
         send("""{"kind":"settings","settings":{"holdMusic":true,"tones":false,"ttsVoice":"som_00295","holdMusicGain":0.4}}""")
         assertEquals(mapOf("holdMusic" to true, "tones" to false), c.settingsOn)
         assertEquals("som_00295", c.settingWords["ttsVoice"])
-        // a number is neither a switch nor a word the app shows today
+        // item 28 a number is neither a switch nor a word: the volume slider reads it
         assertEquals(null, c.settingsOn["holdMusicGain"])
+        assertEquals(0.4, c.settingNumbers["holdMusicGain"])
     }
 
     @Test
@@ -177,6 +178,15 @@ class ConversationTest {
         assertEquals(
             """{"kind":"setting","patch":{"voice":"male"}}""",
             Outgoing.voice("male").decodeToString(),
+        )
+        // item 28 the options menu sends the verbosity and the volume by the same message
+        assertEquals(
+            """{"kind":"setting","patch":{"verbosity":"brief"}}""",
+            Outgoing.setting("verbosity", "brief").decodeToString(),
+        )
+        assertEquals(
+            """{"kind":"setting","patch":{"holdMusicGain":0.25}}""",
+            Outgoing.setting("holdMusicGain", 0.25).decodeToString(),
         )
     }
 
