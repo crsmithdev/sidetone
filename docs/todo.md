@@ -1056,3 +1056,35 @@ the settings message and the config file that exist now; add no new channel.
 Done when Chris switches the echo canceller and one bridge threshold from a
 menu or a command, and the next turn uses the new value with no build and no
 restart.
+
+## 45. The status light: smaller, a legend on tap, and the state word never shows
+
+Noted 23 September 2026. Not started.
+
+Chris likes how the status light looks. Three changes:
+
+- Make the light a little smaller.
+- A tap on the light opens a small popup that explains it: each colour and what
+  state it means. The legend lists every state the app has, including
+  "rejoining" (spec 18.9.2).
+- The spec says a word appears next to the light for each state. Chris has
+  never seen one. Find out why: the word may never be drawn, or the state may
+  not reach it. Fix it so the word shows.
+
+Done when the light is smaller, a tap shows the legend, and Chris sees a word
+next to the light in at least two different states.
+
+## 46. Replace the three-dot menu with a gear that opens settings
+
+Noted 23 September 2026. Not started.
+
+Chris cannot find a settings menu in the app. The top right holds a three-dot
+menu with "Leave" and the build line (MainActivity.kt, the `DropdownMenu`).
+Replace the three dots with a gear icon. The gear opens the settings screen of
+item 28. "Leave" and the build line move into that screen.
+
+Until item 28 fills the screen, it holds at least "Leave" and the build line,
+so the gear opens something real.
+
+Done when Chris taps the gear on the phone and reaches a settings screen from
+which "Leave" works.
