@@ -481,11 +481,34 @@ The check itself was wrong in two ways, both fixed with tests (18.10.3,
 18.13.2, 18.13.3): it took a cut or dead microphone for a quiet room, and
 `verdict` compared a whole-passage utterance against one sentence at a time.
 
-Call mode passed the same check in the car on 24 September 2026, over
-Bluetooth SCO to an Audi MMI at full volume, so the setup that ships is now
-checked where it matters (`Audio.CHECKED_ON`).
+Closed 24 September 2026: the app cannot give this, and the reason is the car.
 
-What is left of this item: release the audio focus without leaving call mode.
+Call mode passed the echo check in the car that morning, over Bluetooth SCO to
+an Audi MMI at full volume, so the setup that ships is checked where it matters
+(`Audio.CHECKED_ON`). Then Chris found the real shape of the problem: while the
+app is in a room he cannot play music at all. Call mode reaches the car as an
+HFP call, and the car parks its own media for the whole length of a call. Not
+while the bridge speaks: the whole time.
+
+So the fork is measured on both sides, on one phone in one car:
+
+| | The echo canceller | Other audio in the car |
+|---|---|---|
+| call mode, SCO | works: nothing came back | silenced while the app is in the room |
+| media mode, A2DP | fails: the passage came back at peak 0.54 | plays |
+
+Releasing the audio focus does not change it, and a push of `--focus none` in
+the car showed why the focus is not even free to release: in LiveKit 2.28.2 the
+routing and the focus are one flag, so no focus meant no route and the voice
+fell to the earpiece. That is fixed (`Audio.communicationDevice`), but the mode
+still decides the music.
+
+Per-turn mode switching was considered and rejected by Chris: a second of SCO
+setup and a connect tone at every turn. The answer is to leave the room while
+music plays and rejoin to talk, which is item 49.
+
+What was left of this item, for the record: release the audio focus without
+leaving call mode.
 Call mode is what the canceller holds through, and focus is what takes the
 car's audio from other apps. `AudioSwitchHandler` sets the mode in the same
 call that asks for focus, so a setup with no focus has to set the mode itself.
@@ -1175,3 +1198,24 @@ the playback queue stops. Both must cut the voice at once.
 
 Done when a barge-in and an audio off each stop the voice in under half a
 second, and the run that shows it is on record.
+
+## 49. Leaving the room keeps the app open, and one tap rejoins
+
+Noted 24 September 2026. Built on the branch `leave-stay`, not landed.
+
+Item 27 closed with a workaround: while the app is in a room the car sees a
+call and parks its media, so Chris leaves the room to play music and rejoins to
+talk. Today "Leave" quits the app, which is a heavy thing to do at the wheel.
+
+"Leave" now ends the room and the app stays open and in front, showing the
+conversation it had, with a control large enough for a thumb to rejoin. The
+pairing is kept, so there is no code to scan. Leaving releases the phone's
+audio: the microphone track goes, the room connection ends, and the
+communication device is cleared, so the car stops treating the phone as being
+in a call. "Quit" moves into the gear menu.
+
+The bridge needs no change: a phone out of the room is the case of a phone in a
+tunnel (14.8), and the history arrives when it comes back.
+
+Done when Chris taps Leave in the car, the music plays, the app is still on the
+screen, and one tap brings the conversation back with the history.
