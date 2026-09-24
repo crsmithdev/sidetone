@@ -30,9 +30,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
+import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
@@ -95,6 +93,9 @@ object Bridge {
 
     /** 18.15 the setup the bridge pushed, kept across a restart. Empty, the app runs with the one in its code. */
     private lateinit var setups: SetupStore
+
+    /** 17.10.5 the cuts, kept across a process death. */
+    private lateinit var cuts: CutStore
     private lateinit var crashes: Crashes
     private var session: Job? = null
     private var room: Room? = null
@@ -129,12 +130,14 @@ object Bridge {
         setups = SetupStore(read = { audio.getString("setup", null) }, write = { kept ->
             audio.edit().apply { if (kept == null) remove("setup") else putString("setup", kept) }.apply()
         })
+        val cut = app.getSharedPreferences("sidetone-cuts", Context.MODE_PRIVATE)
+        cuts = CutStore(read = { key -> if (cut.contains(key)) cut.getBoolean(key, true) else null }, write = { key, on -> cut.edit().putBoolean(key, on).apply() })
         // 17.20 a crash writes a report, and the next room sends it
         crashes = Crashes(File(app.filesDir, "crashes"))
         crashes.catchAll { crashState(_state.value) }
         // 17.20.5 the deaths the handler cannot see: a native crash, an ANR, a kill
         scope.launch(Dispatchers.IO) { crashes.saveExits(exits(app)) }
-        _state.update { it.copy(paired = store.load() != null) }
+        _state.update { cuts.load().applyTo(it.copy(paired = store.load() != null)) }
         scope.launch { Updater.installedHash(app)?.let { build -> _state.update { it.copy(build = build) } } }
     }
 
@@ -188,7 +191,7 @@ object Bridge {
                         store.clear()
                         stop(app)
                         reset()
-                        _state.value = State(error = joining.error)
+                        _state.value = cuts.load().applyTo(State(error = joining.error))
                         return@launch
                     }
                     // no room is open to end
@@ -216,7 +219,8 @@ object Bridge {
         stop(context.applicationContext)
         reset()
         link(Joining.Event.Quit)
-        _state.value = State(paired = store.load() != null)
+        // 17.10.5 the cuts are the phone's, not the conversation's, so they stay
+        _state.value = cuts.load().applyTo(State(paired = store.load() != null))
     }
 
     /** A conversation that ended has no lines, no log and no work to show. */
@@ -420,6 +424,8 @@ object Bridge {
                     }
                 }
                 _state.update { it.copy(micOn = on) }
+                // a hold is not a cut: a death while the button is down must not leave the microphone open
+                if (!byHold) keepCuts()
                 room ?: return@launch
                 tell(room, Outgoing.mic(on, release = byHold && !on, hold = byHold && on))
                 if (!byHold) record("microphone", if (on) "microphone on" else "microphone off")
@@ -435,6 +441,7 @@ object Bridge {
     fun setAudio(on: Boolean) {
         if (_state.value.audioOn == on) return
         _state.update { it.copy(audioOn = on) }
+        keepCuts()
         val room = room ?: return
         tell(room, Outgoing.audio(on))
         record("audio", if (on) "audio on" else "audio off")
@@ -447,6 +454,7 @@ object Bridge {
     fun setMusic(on: Boolean) {
         if (_state.value.musicOn == on) return
         _state.update { it.copy(musicOn = on) }
+        keepCuts()
         val room = room ?: return
         tell(room, Outgoing.music(on))
         record("music", if (on) "music on" else "music off")
@@ -579,6 +587,9 @@ object Bridge {
         shown()
     }
 
+    /** 17.10.5 write the cuts down as they are now. */
+    private fun keepCuts() = cuts.save(Cuts.of(_state.value))
+
     /** 4.3.1 an event for the screen log, with no line on the screen. */
     private fun record(kind: String, text: String) = conversation.record(kind, text, now())
 
@@ -647,19 +658,21 @@ object Bridge {
     /**
      * 14.11 send the entries the bridge has not had, in parts that fit one
      * message. A part that fails goes back, with those after it, for the next try.
+     * The parts are built off the main thread: after a long time out of the
+     * room the backlog is up to 2,000 entries of JSON.
      */
     private suspend fun sendScreenLog(room: Room) {
         if (unsent.isEmpty()) return
         val batch = unsent.toList()
         unsent.clear()
+        val id = logId
         var sent = 0
-        for (part in screenParts(batch, logId)) {
-            val count = Json.parseToJsonElement(part.decodeToString()).jsonObject["entries"]!!.jsonArray.size
-            if (room.localParticipant.publishData(part).isFailure) {
+        for (part in withContext(Dispatchers.Default) { screenParts(batch, id) }) {
+            if (room.localParticipant.publishData(part.message).isFailure) {
                 batch.drop(sent).asReversed().forEach(unsent::addFirst)
                 return
             }
-            sent += count
+            sent += part.count
         }
     }
 }

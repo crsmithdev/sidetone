@@ -67,8 +67,8 @@ class ScreenLogTest {
         val entries = (1..300).map { shown("word $it " + "y".repeat(200), at = it.toLong()) }
         val parts = screenParts(entries, "1758472812345", zone = ZoneOffset.UTC)
         assertTrue(parts.size > 1)
-        for (part in parts) assertTrue("a part of ${part.size} bytes", part.size <= SCREEN_PART_BYTES)
-        val messages = parts.map(::parse)
+        for (part in parts) assertTrue("a part of ${part.message.size} bytes", part.message.size <= SCREEN_PART_BYTES)
+        val messages = parts.map { parse(it.message) }
         assertEquals(parts.indices.map { it + 1 }, messages.map { it["part"]!!.jsonPrimitive.int })
         for (message in messages) {
             assertEquals("screen", message["kind"]!!.jsonPrimitive.content)
@@ -84,7 +84,7 @@ class ScreenLogTest {
     fun aLogWithNothingInItIsOnePartWithNoEntries() {
         val parts = screenParts(emptyList(), "1")
         assertEquals(1, parts.size)
-        val message = parse(parts.single())
+        val message = parse(parts.single().message)
         assertEquals(1, message["part"]!!.jsonPrimitive.int)
         assertEquals(1, message["of"]!!.jsonPrimitive.int)
         assertEquals(0, message["entries"]!!.jsonArray.size)
@@ -108,14 +108,24 @@ class ScreenLogTest {
         val log = ScreenLog()
         val long = (1..20_000).joinToString("") { (it % 10).toString() }
         log.record(0, "turn", 1, null, long, listOf(Line(Line.Kind.BRIDGE, "")), listOf(Line(Line.Kind.BRIDGE, long)))
-        for (part in screenParts(log.entries, "1")) assertTrue("a part of ${part.size} bytes", part.size <= SCREEN_PART_BYTES)
+        for (part in screenParts(log.entries, "1")) assertTrue("a part of ${part.message.size} bytes", part.message.size <= SCREEN_PART_BYTES)
     }
 
     @Test
     fun aPartCountsBytesAndNotCharacters() {
         // each of these characters is three bytes in UTF-8
         val entries = (1..100).map { shown("é".repeat(300) + "語".repeat(300), at = it.toLong()) }
-        for (part in screenParts(entries, "1")) assertTrue("a part of ${part.size} bytes", part.size <= SCREEN_PART_BYTES)
+        for (part in screenParts(entries, "1")) assertTrue("a part of ${part.message.size} bytes", part.message.size <= SCREEN_PART_BYTES)
+    }
+
+    @Test
+    fun eachPartSaysHowManyEntriesItCarries() {
+        // 14.11 a part that fails goes back with those after it, so the sender counts what went without a second parse
+        val entries = (1..300).map { shown("word $it " + "y".repeat(200), at = it.toLong()) }
+        val parts = screenParts(entries, "1")
+        for (part in parts) assertEquals(parse(part.message)["entries"]!!.jsonArray.size, part.count)
+        assertEquals(300, parts.sumOf { it.count })
+        assertEquals(0, screenParts(emptyList(), "1").single().count)
     }
 
     @Test

@@ -131,11 +131,14 @@ private fun Shown.bounded(): Shown {
     )
 }
 
+/** 14.11 one `screen` message and the number of entries in it. */
+class ScreenPart(val message: ByteArray, val count: Int)
+
 /**
  * 14.11 entries as messages for the bridge, each of at most `limit` bytes,
  * because one data message is small. The bridge appends each to the file of `id`.
  */
-fun screenParts(entries: List<Shown>, id: String, limit: Int = SCREEN_PART_BYTES, zone: ZoneId = ZoneId.systemDefault()): List<ByteArray> {
+fun screenParts(entries: List<Shown>, id: String, limit: Int = SCREEN_PART_BYTES, zone: ZoneId = ZoneId.systemDefault()): List<ScreenPart> {
     val groups = mutableListOf(mutableListOf<JsonObject>())
     var size = 0
     for (entry in entries) {
@@ -148,5 +151,5 @@ fun screenParts(entries: List<Shown>, id: String, limit: Int = SCREEN_PART_BYTES
         groups.last().add(json)
         size += bytes
     }
-    return groups.mapIndexed { index, group -> Outgoing.screen(id, index + 1, groups.size, group) }
+    return groups.mapIndexed { index, group -> ScreenPart(Outgoing.screen(id, index + 1, groups.size, group), group.size) }
 }

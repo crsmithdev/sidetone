@@ -635,9 +635,11 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 
 17.10.2 The app records each change as an event in the screen log, "audio off" or "audio on", "music off" or "music on", and adds no note (4.3.1).
 
-17.10.3 On the tap of "Music", the app sends the `music` message with `on` set to false or to true. The bridge sets the setting of 15.7.3 and keeps it across restarts. It gives no answer. A track that plays stops at once (15.10.3). The app starts with the music on. An app that has the music off sends the message again when it joins the room. The bridge does not tell the app the setting, so "music off" by voice does not change the button.
+17.10.3 On the tap of "Music", the app sends the `music` message with `on` set to false or to true. The bridge sets the setting of 15.7.3 and keeps it across restarts. It gives no answer. A track that plays stops at once (15.10.3). The app has the music on at its first launch (17.10.5). An app that has the music off sends the message again when it joins the room. The bridge does not tell the app the setting, so "music off" by voice does not change the button.
 
 17.10.4 The "Mic" button and the hold to talk button change the state only after the microphone track opens or closes. A publish can fail, for example while the room reconnects. The button then stays as it was, and the app adds the note "the microphone did not open" with the reason. Out of the room, the button sets the state that the next room opens.
+
+17.10.5 The app keeps the three cuts on the phone. A new process of the app, after a death, a kill or an update, starts with the cuts as Chris left them. So a room opens the microphone only when Chris left it open. A quit (17.22.4) ends the conversation and keeps the cuts. A hold to talk press is not a cut: the app keeps the state from before the press.
 
 17.11 The app shows a working sign in its status row, as a slow pulse of the green status dot (17.11.6). The sign says that the agent works (14.10). It has three states.
 
