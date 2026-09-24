@@ -636,8 +636,20 @@ beside "reconnecting" and "disconnected", because it is a link that is down too.
 
 ## 33. Garbled speech: first, let the agent hear the audio it sent
 
-Noted 23 September 2026. Not started. Items 32 and 34 merged into this item on
+Noted 23 September 2026. Parts a and b built and landed 23 September 2026
+(spec 11.6.1, 18.14). Part c is open. Items 32 and 34 merged into this item on
 23 September 2026.
+
+Part b is answered: the format was never the cause, and chatterbox garbles
+one-word text. The stored "Muted." of 18 September says "I'm gonna kill
+Tevrazigan!", "Stopped." is 120 ms of silence, and fresh takes of "Muted." came
+out clean twice in twelve. A kept line is now kept only when the speech worker
+hears its text, and `warm` rechecks the store. Chris must run
+`bun src/main.ts warm` once to remake the garbled clips already on disk.
+
+Part a is built: `SentClips` keeps the last 100 wavs the mouth handed out, and
+`bun scripts/sent-check.ts` transcribes one back and compares it. The next
+report of garbled speech, part c included, is settled from that folder.
 
 Three reports of bad speech are open: the garbled pre-rendered replies (part b),
 the repeated ".ts" (part c), and regular speech that comes out garbled now and
@@ -998,14 +1010,17 @@ in the car later that day gave the answer: media mode fails there. See item 27.
 ## 42. The bridge cannot tell which build of the app is running
 
 Noted 23 September 2026. Built and landed 23 September 2026 (spec 14.15). The
-app sends `device` as it joins: the model, whether the phone has a hardware
-canceller, which canceller runs, the audio route with the Bluetooth name and
-car mode, and the SHA-256 of its own APK. The bridge writes one journal line
-and a `device` event, and says whether that build is the one it serves. The
+app sends `device` for each `protocol` message: the model, whether the phone has
+a hardware canceller, which canceller runs, the audio route with the Bluetooth
+name and car mode, and the SHA-256 of its own APK. The bridge writes one journal
+line and a `device` event, and says whether that build is the one it serves. The
 app menu shows the first 12 characters.
 
-What is left: the app sends it on join only, so the bridge is blind again after
-its own restart, which does not end the phone's room.
+The leftover was worse than it looked and is fixed: `onParticipant` listens for
+`ParticipantConnected`, and rtc-node adds the participants already in the room
+at `connect` without that event, so a restarted bridge sent a phone that was
+already there no `protocol`, no `settings` and no `history` at all. `connect`
+now calls the handler for each participant it finds.
 
 On 23 September Chris tried three builds of the app in one hour: the media
 build with the hardware canceller, the same with the software canceller, and the
