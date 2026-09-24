@@ -172,6 +172,35 @@ with it unless it is already written down.
 next thing Chris says is heard. Passed on the last drive in five seconds; this
 time also check test 2.
 
+## 15. Does the canceller hold with the app as media? (branch `focus`)
+
+The branch plays the bridge as media and takes no audio focus (to-do item
+27). Barge-in depends on the echo canceller, and the car is the doubtful case.
+
+**Do.** At the desk, with the branch installed and the phone on its
+loudspeaker at full media volume, say "sidetone, mute" and run the check.
+Then do the same in the car, on Bluetooth. Then play music from another app
+and talk over an answer.
+
+```
+bun scripts/echo-check.ts
+```
+
+**Pass.** `PASS` both times, the other app's music keeps playing while the
+bridge is in the room, and a barge-in still stops the answer.
+
+**Evidence.** The check's output; `echo` lines in the record
+(`jq -c 'select(.kind=="echo")' ~/.sidetone/record.jsonl`).
+
+**Answered, 23 September 2026: no.** In the car the microphone brought the
+whole passage back, 14.9 s of it at peak 0.54. The app is back in call mode,
+and this test now asks the opposite question: whether call mode still holds.
+Run `bun scripts/echo-check.ts` once on the loudspeaker and once in the car
+before anything about the audio setup changes again.
+
+**If it fails.** Tap "Update the app" in the app: the bridge serves the build
+from `main`, which is still in call mode.
+
 **Fail.** If the app needs a touch, note the time and the status word on the
 screen: `RECONNECTING`, `UNREACHABLE` or `LISTENING`. That tells which restart
 case the app misses: the service comes back on the same address, or the

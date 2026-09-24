@@ -520,3 +520,51 @@ describe("what an utterance does to the hold: the table (11.3)", () => {
     expect(r.said).toEqual(["I am about to clear the context and start again. Say continue to let it happen.", "Nothing was cleared.", "the rest."]);
   });
 });
+
+describe("the bridge's own echo (18.10)", () => {
+  const sentence = "Ilse carried the logbook up the tower, because she had decided that if the sea took the cottage, it would not take the record.";
+  const echo = "ilse carried the log book up the tower because she had decided";
+
+  /** The voice says the sentence, then a barge-in holds the rest of the passage. */
+  async function played() {
+    const r = room();
+    r.mouth.say(sentence);
+    await tick();
+    r.c.ears.stopSpeaking();
+    r.mouth.say("the rest.");
+    return r;
+  }
+
+  test("an echo that began while the voice played is dropped, and the passage resumes", async () => {
+    const r = await played();
+    await r.c.heard(echo, Date.now() - 3_000);
+    await tick();
+    expect(r.said).toEqual([sentence, "the rest."]);
+    expect(r.told.some((message) => message.kind === "heard")).toBe(false);
+    expect(r.journal).toContain(`[the bridge dropped "${echo}" as its own echo of "${sentence}"]`);
+  });
+
+  test("an echo that began more than a second after the voice stopped is heard", async () => {
+    const r = await played();
+    await r.c.heard(echo, Date.now() + 1_500);
+    await tick();
+    expect(r.said).not.toContain("the rest.");
+    expect(r.told.some((message) => message.kind === "heard")).toBe(true);
+  });
+
+  test("words with no start, typed rather than spoken, are heard", async () => {
+    const r = await played();
+    await r.c.heard(echo);
+    await tick();
+    expect(r.told.some((message) => message.kind === "heard")).toBe(true);
+  });
+
+  test("a command the voice just told Chris to say is not dropped", async () => {
+    const r = room();
+    r.mouth.say("Say sidetone, music off, to stop it.");
+    await tick();
+    await r.c.heard("sidetone music off", Date.now() - 1_000);
+    await settled();
+    expect(r.c.musicOn).toBe(false);
+  });
+});

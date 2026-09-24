@@ -68,8 +68,17 @@ export interface Setting { kind: "setting"; at: number; patch: Record<string, un
  * drive noticed. `said` is what the engine wrote, `spoke` the sentence it echoes.
  */
 export interface Echo { kind: "echo"; at: number; said: string; spoke: string }
+/**
+ * 14.15 what the phone said about itself as it joined: the model, whether it
+ * has a hardware echo canceller, which canceller runs, the audio route, and
+ * the SHA-256 of the app. `same` says whether that is the app the bridge
+ * serves; null when either hash is missing.
+ */
+export interface Device {
+  kind: "device"; at: number; model: string; aec: boolean; canceller: "hardware" | "software"; route: string; apk?: string; same: boolean | null;
+}
 export interface Track { kind: "track"; at: number; what: "music" | "file"; on: boolean; ms?: number; whole?: boolean }
-export type Event = Heard | Matched | Barged | Answered | Cutoff | Spoke | Note | Setting | Track | Echo;
+export type Event = Heard | Matched | Barged | Answered | Cutoff | Spoke | Note | Setting | Track | Echo | Device;
 
 /** Enough to read a drive back, not so much that it is a log of its own. */
 const KEEP = 120;
@@ -131,6 +140,11 @@ export class Diagnostics {
   /** 18.10 an utterance that repeats what the voice just said. */
   echo(said: string, spoke: string, at = Date.now()): void {
     this.add({ kind: "echo", at, said, spoke });
+  }
+
+  /** 14.15 what the phone said about itself as it joined. */
+  device(event: Device): void {
+    this.add(event);
   }
 
   /** 15.7 a track started. */

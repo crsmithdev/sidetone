@@ -18,7 +18,8 @@ export interface Ears {
   readonly isMuted: boolean;
   cue(name: CueName): void;
   stopSpeaking(): void;
-  heard(text: string): Promise<void>;
+  /** `startedAt` is when the utterance began, in milliseconds since the epoch. */
+  heard(text: string, startedAt?: number): Promise<void>;
   heardNothing(): void;
 }
 
@@ -76,6 +77,16 @@ export class Ear {
    */
   get bargingIn(): boolean {
     return this.utterances.bargingIn && !this.to.isMuted;
+  }
+
+  /**
+   * 18.13.3 how long since the microphone carried any sound at all, or null
+   * before the first frame. A dead capture is quiet in a way no room is, and
+   * the echo check needs to know: a microphone that carries nothing brings
+   * nothing back, so the check reads as a pass.
+   */
+  get sinceSound(): number | null {
+    return this.frameAt === 0 ? null : Date.now() - this.soundAt;
   }
 
   /** When the barge-in was noticed, for saying how late the speech stopped. */
@@ -158,6 +169,8 @@ export class Ear {
 
   /** One whole utterance, however it arrived. */
   async said(utterance: Utterance): Promise<void> {
+    // it ended now, so it began its length ago
+    const startedAt = Date.now() - utterance.ms;
     const early = this.early;
     this.early = null;
     // 4.6 whisper writes words for near-silence even with its voice detector
@@ -184,7 +197,7 @@ export class Ear {
       this.say(this.shape(utterance, text, transcribeMs, guessed !== null));
       // 11.3 road noise that carried no words must give the passage back
       if (!text) { this.to.heardNothing(); return; }
-      await this.to.heard(text);
+      await this.to.heard(text, startedAt);
     } catch (error) {
       this.to.heardNothing();
       const message = `could not read that: ${(error as Error).message}`;

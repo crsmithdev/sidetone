@@ -16,7 +16,7 @@ const HERE = "127.0.0.1";
 const TAILNET = "100.68.96.43";
 const PASS: Pass = { token: "t", url: "wss://bridge:7880", room: "sidetone" };
 
-function site(options: { slept?: number[] } = {}) {
+function site(options: { slept?: number[]; microphone?: boolean; sinceSound?: number | null } = {}) {
   const r = bridge();
   const pairing = new Pairing("kelp-cedar-jetty", async () => PASS, async (ms) => { options.slept?.push(ms); });
   const handle = routes({
@@ -25,7 +25,13 @@ function site(options: { slept?: number[] } = {}) {
     pairing,
     page: "<html>the page</html>",
     files: { sdk: "/nowhere/sdk.mjs", decoder: "/nowhere/decode.js", apk: "/nowhere/app.apk" },
-    health: () => ({ room: true, speech: true, transcription: true }),
+    health: () => ({
+      room: true,
+      speech: true,
+      transcription: true,
+      microphone: options.microphone ?? true,
+      sinceSound: options.sinceSound === undefined ? 120 : options.sinceSound,
+    }),
     startedAt: Date.now(),
   });
   const post = (path: string, body: unknown, ip = HERE) =>
@@ -79,6 +85,18 @@ describe("the routes for this machine only (12.1)", () => {
     const response = await s.get("/health", TAILNET);
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ ok: true, room: "connected", agent: "running", engines: { speech: true, transcription: true } });
+  });
+
+  test("health says whether there is a microphone in the room (18.13.2)", async () => {
+    expect(await (await site().get("/health", TAILNET)).json()).toMatchObject({ microphone: "open" });
+    // a bridge with nothing to hear looks well, and the echo check passes when nothing can come back
+    expect(await (await site({ microphone: false }).get("/health", TAILNET)).json()).toMatchObject({ microphone: "cut" });
+  });
+
+  test("health says how long since the microphone carried sound (18.13.3)", async () => {
+    expect(await (await site({ sinceSound: 400 }).get("/health", TAILNET)).json()).toMatchObject({ soundMs: 400 });
+    // a track can be open and carry nothing, which is the dead capture of 18.9
+    expect(await (await site({ sinceSound: null }).get("/health", TAILNET)).json()).toMatchObject({ soundMs: null });
   });
 });
 

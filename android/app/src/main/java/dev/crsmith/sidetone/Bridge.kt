@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.SystemClock
 import android.util.Log
 import io.livekit.android.LiveKit
@@ -13,7 +14,6 @@ import io.livekit.android.events.RoomEvent
 import io.livekit.android.events.collect
 import io.livekit.android.room.Room
 import io.livekit.android.room.track.LocalAudioTrack
-import io.livekit.android.room.track.LocalAudioTrackOptions
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -66,6 +66,8 @@ object Bridge {
         val thumbnails: Map<String, ByteArray> = emptyMap(),
         /** 14.12.7 what became of each screenshot, by id, as the bridge last said. */
         val screenshots: Map<String, String> = emptyMap(),
+        /** 14.15 the SHA-256 of this app, for the menu. Null until it is read, or when it cannot be. */
+        val build: String? = null,
     )
 
     private const val TAG = "Sidetone"
@@ -117,6 +119,7 @@ object Bridge {
         crashes = Crashes(File(app.filesDir, "crashes"))
         crashes.catchAll { crashState(_state.value) }
         _state.update { it.copy(paired = store.load() != null) }
+        scope.launch { Updater.installedHash(app)?.let { build -> _state.update { it.copy(build = build) } } }
     }
 
     suspend fun pairWith(link: Link) {
@@ -179,8 +182,9 @@ object Bridge {
             RoomOptions(
                 adaptiveStream = true,
                 // 4.2 the framework's echo cancellation, which keeps the microphone open while the bridge speaks
-                audioTrackCaptureDefaults = LocalAudioTrackOptions(echoCancellation = true, noiseSuppression = true, autoGainControl = true),
+                audioTrackCaptureDefaults = Audio.capture(Audio.setup),
             ),
+            Audio.overrides(app, Audio.setup),
         )
         this@Bridge.room = room
         val ended = CompletableDeferred<String>()
@@ -197,6 +201,7 @@ object Bridge {
             if (!_state.value.audioOn) tell(room, Outgoing.audio(false))
             if (!_state.value.musicOn) tell(room, Outgoing.music(false))
             if (_state.value.micOn) micLock.withLock { openMic(room) }
+            sendDevice(room)
             sendCrashes(room)
             ended.await()
         } catch (e: CancellationException) {
@@ -465,6 +470,16 @@ object Bridge {
      */
     private fun showSign() {
         if (conversation.tick(SystemClock.elapsedRealtime(), now())) shown()
+    }
+
+    /** 14.15 the phone says what it is, which canceller runs, where the audio plays, and its build. */
+    private fun sendDevice(room: Room) {
+        scope.launch {
+            val aec = Audio.hardwareCanceller()
+            val route = runCatching { Audio.route(app, Audio.setup) }.getOrElse { "unknown: ${it.message}" }
+            val message = Outgoing.device(Build.MODEL, aec, Audio.canceller(Audio.setup, aec), route, Updater.installedHash(app))
+            room.localParticipant.publishData(message).onFailure { Log.w(TAG, "the device message did not go", it) }
+        }
     }
 
     /** 17.20.2 each report goes once, oldest first. A report that fails goes with the next room. */

@@ -251,7 +251,7 @@ private fun Conversation(state: Bridge.State, onLeave: () -> Unit) {
             StatusDot(reading)
             reading.caption?.let { Text(it, style = MaterialTheme.typography.titleMedium) }
             Spacer(Modifier.weight(1f))
-            Options(onLeave)
+            Options(state.build, onLeave)
         }
         state.error?.let { ErrorBanner(it) }
         // 17.15 only while the bridge serves an app that is not this one
@@ -401,10 +401,10 @@ private fun StatusDot(reading: Reading) {
 
 /**
  * The options of the app, behind one button at the end of the status row. It
- * holds only "Leave" until the options menu of item 28 exists.
+ * holds "Leave" and the build until the options menu of item 28 exists.
  */
 @Composable
-private fun Options(onLeave: () -> Unit) {
+private fun Options(build: String?, onLeave: () -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
         TextButton(onClick = { open = true }, modifier = Modifier.semantics { contentDescription = "Options" }) {
@@ -415,6 +415,8 @@ private fun Options(onLeave: () -> Unit) {
                 open = false
                 onLeave()
             })
+            // 14.15 the first 12 characters of the SHA-256, as the bridge's journal gives them
+            DropdownMenuItem(text = { Text("Build ${build?.take(12) ?: "unknown"}") }, onClick = {}, enabled = false)
         }
     }
 }

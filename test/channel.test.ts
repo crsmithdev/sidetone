@@ -21,6 +21,7 @@ function channel(overrides: Partial<Config> = {}) {
     screen: (part) => { did.push(`screen ${String(part.id)}`); return ["screen said"]; },
     screenshot: (part) => { did.push(`screenshot ${String(part.id)}`); return ["screenshot said"]; },
     crash: (report) => { did.push(`crash ${String(report.id)}`); return "crash said"; },
+    device: async (value) => { did.push(`device ${String(value.model)}`); return "device said"; },
   };
   const c = new Channel({ ...config, ...overrides }, (message) => sent.push(message), ends, (line) => journal.push(line));
   return { c, sent, journal, did, sameQuality: () => { news = false; } };
@@ -79,6 +80,15 @@ describe("what a client says about its screen (14.11)", () => {
     expect(did).toEqual(["crash a1"]);
     expect(sent).toEqual([]);
     expect(journal).toEqual(["[crash said]"]);
+  });
+
+  test("14.15 what the phone says about itself goes to the device end, and what it says reaches the journal only", async () => {
+    const { c, did, sent, journal } = channel();
+    c.receive({ kind: "device", model: "Pixel 8", aec: true, canceller: "software", route: "speaker" });
+    await Promise.resolve();
+    expect(did).toEqual(["device Pixel 8"]);
+    expect(sent).toEqual([]);
+    expect(journal).toEqual(["[device said]"]);
   });
 
   test("14.10 the working message is sent, and is not kept for a client that joins later", () => {

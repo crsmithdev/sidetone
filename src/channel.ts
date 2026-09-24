@@ -41,6 +41,8 @@ export interface Ends {
   screenshot(part: Record<string, unknown>): string[];
   /** 14.14 a crash report from the phone; what to say about it */
   crash(report: Record<string, unknown>): string;
+  /** 14.15 what the phone says about itself as it joins; what to say about it */
+  device(value: Record<string, unknown>): Promise<string>;
 }
 
 /** The ear's reading of a dead microphone, as `Ear.silence` gives it. */
@@ -157,6 +159,11 @@ export class Channel {
     if (value.kind === "crash") {
       // 14.14 the same as the screenshot: the journal, not a note
       this.journal(this.ends.crash(value));
+      return;
+    }
+    if (value.kind === "device") {
+      // 14.15 the same as the crash report: the journal, not a note
+      void this.ends.device(value).then((line) => this.journal(line));
       return;
     }
     // N.1.4 the phone's own reading of its uplink. It is the same signal this

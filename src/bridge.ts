@@ -21,6 +21,7 @@ import { Channel } from "./channel.ts";
 import { saveSettings, settingsInForce, type Config } from "./config.ts";
 import { Conversation, type MakeAgent } from "./conversation.ts";
 import { receiveCrash } from "./crash.ts";
+import { readDevice } from "./device.ts";
 import { Cues } from "./cues.ts";
 import type { Event } from "./diagnostics.ts";
 import { Ear, SILENCE_MS } from "./ear.ts";
@@ -89,6 +90,8 @@ export interface Parts {
   scratch?: string;
   /** 14.12 where the screenshots from the phone are written */
   screenshots?: string;
+  /** 14.15 the SHA-256 of the app the bridge serves now, or undefined when none is built */
+  served?: () => Promise<string | undefined>;
 }
 
 /**
@@ -152,6 +155,11 @@ export function assemble(
     screen: (part) => screens.receive(part),
     screenshot: (part) => screenshots.receive(part),
     crash: (report) => receiveCrash(report),
+    device: async (value) => {
+      const { event, line } = readDevice(value, await parts.served?.());
+      if (event) measures.device(event);
+      return line;
+    },
   }, say, () => ({ audio: mouth.audioOn }));
 
   const conversation: Conversation = new Conversation(dir, config, mouth, channel, {

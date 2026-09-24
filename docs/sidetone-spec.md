@@ -79,6 +79,8 @@ project bridge stays in place.
 
 4.2 LiveKit gives the echo cancellation at the framework level, across the browser and the native app. The bridge does not build its own echo cancellation.
 
+4.2.2 The app sets up the phone's audio in one place: the audio mode, how the bridge's audio plays, the audio focus, the microphone's capture source and the echo canceller. The echo canceller depends on each of these. A change to any of them is a change to barge-in, and 18.13 decides whether it ships.
+
 4.3 LiveKit separates the control channel from the audio channel. Control events do not compete with audio frames.
 
 4.3.1 A note in the transcript is for something Chris must know and cannot see elsewhere. A change that a control or the status light already shows gets no note. The bridge writes it to the journal, and the app writes it to the screen log (17.12) as an event with no bubble. These are events: the audio cut and resumed (11.12), the microphone cut and opened by the button, the words that an interrupt left unspoken (11.10), a silent microphone and the rejoin (18.9), and where the screen log goes (14.11).
@@ -444,6 +446,14 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 
 14.14.4 The bridge does not read the report or act on it. The agent reads the file. The web client does not send the message.
 
+14.15 The app says what it is each time it joins a room. On 23 September the bridge heard its own voice, and the record could not say which echo canceller ran, over which audio route, or which of three builds of the app was in the room.
+
+14.15.1 The `device` message carries `model`, the phone's `Build.MODEL`; `aec`, whether the phone has a hardware echo canceller (`AcousticEchoCanceler.isAvailable()`); `canceller`, `hardware` or `software`, which canceller runs (WebRTC's own runs when the phone's is off or missing); `route`, where the bridge's audio plays, with the name of a Bluetooth device and a note of car mode; and `apk`, the SHA-256 of the app's own file in hex. The app leaves out `apk` when it cannot read the file. The app sends the message once after it connects, and again with each room.
+
+14.15.2 The bridge writes one line to the journal: the model, the canceller, the route, the first 12 characters of the build, and whether the build is the one the bridge serves now (17.15.1). It writes a `device` event to the record with the same fields and `same`: true, false, or null when either hash is missing. It sends no note (4.3.1). The web client does not send the message.
+
+14.15.3 The app's menu shows the first 12 characters of its build, so Chris can compare it with the journal.
+
 ## 15. AUDIBLE STATE
 
 15.1 The bridge does not leave silence when it cannot answer. Silence is ambiguous.
@@ -676,9 +686,11 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 
 18.9.6 The web client ignores the message. The page has no rule to renew its own track.
 
-18.10 The bridge writes down when it hears its own voice. An utterance that repeats what the voice has just said is almost always the room rather than Chris: the phone's echo canceller let the speaker through. The bridge compares each utterance against the last few sentences it started, whole or cut. An utterance of fewer than four words is never an echo, because the bridge and Chris say the same short words. An utterance that shares at least seven words in ten with a recent sentence is one.
+18.10 The bridge writes down when it hears its own voice. An utterance that repeats what the voice has just said is almost always the room rather than Chris: the phone's echo canceller let the speaker through. The bridge compares each utterance against the last few sentences it started, whole or cut. An utterance of fewer than four words is never an echo, because the bridge and Chris say the same short words. An utterance that shares at least seven words in ten with a recent sentence is one. So is an utterance whose letters come at least 0.8 close to some stretch of a recent sentence, because a garbled transcription splits and joins words.
 
-18.10.1 The bridge records the echo and writes it to the journal. It does nothing else: it does not drop the utterance and it does not hold the answer, because Chris may read a sentence back and being wrong about that costs more than a line in the record. The scorecard counts the echoes of a drive.
+18.10.1 The bridge records the echo and writes it to the journal. It drops the utterance only when the utterance began while the voice played or within 1 s after it stopped, and the utterance is not a command. A dropped echo takes the path of an utterance with no words, so a held passage resumes, and the journal names the utterance and the sentence it matched. An echo at another time is only recorded, because Chris may read a sentence back. The scorecard counts the echoes of a drive.
+
+18.10.3 One utterance may cover a run of sentences. The ear ends an utterance on a pause, and a passage played into a room has none the microphone hears, so a run of sentences comes back as one line and no single sentence holds seven words in ten of it. The bridge therefore compares the utterance with the run of recent sentences joined, as well as with each one. The car of 23 September brought back four sentences at once, and the echo check called it somebody talking.
 
 18.10.2 This exists because of the volume slider of 21 September, which was never wrong in the barge-in logic: it made the phone play loudly enough to defeat its own echo cancellation, and the bridge barged in on itself. Nothing in the code could see it, and a drive is what found it. An echo in the record is the first minute of a device run finding it instead.
 
@@ -689,6 +701,14 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 18.12 The scorecard says how hold music actually behaved: of the turns whose agent time passed `holdMusicAfterMs`, how many played a track. Hold music shipped on 21 September and was dead for a day while 25 tests passed over it, because the tests encoded the rule about which turns are long and the rule was wrong about real turns. No unit test finds that; this does, from the record.
 
 18.12.1 The count starts at the first track the window recorded, because a track has only been written down since 22 September and an older record cannot tell "no music played" from "this build did not say". A window with no track at all reads as not recorded rather than as a fault. The cost is a blind spot, and it is the right way round: a card that raises a false alarm every hour is a card nobody reads.
+
+18.13 The echo check tells whether the phone's echo canceller holds, on the phone. The bridge says a passage into the room at its full level while nobody talks, and the record shows whether the microphone brought any of it back: an utterance that echoes the passage (18.10), a sentence that a barge-in cut short, or a barge-in with nobody talking. Each one fails the check. Somebody who talks makes the check unable to tell. `bun scripts/echo-check.ts` runs it.
+
+18.13.1 The app keeps the audio setup that last passed the echo check beside the one it runs with. A unit test fails when the two differ, and when any file but the one that holds the setup changes the audio path: a gain on a track, the audio mode, focus, routing or a player of its own. So a change like the volume slider of 21 September fails a test before it ships, and passes only after the check has run on the phone with it installed.
+
+18.13.2 The check refuses to run without a microphone in the room, and fails to tell when the phone cuts its microphone while the passage plays. A cut microphone brings nothing back, so every other reading of the record says the room stayed quiet. On 23 September a check passed that way, fourteen seconds after the phone cut its microphone. `/health` therefore says `microphone`, `open` or `cut`, from the room's tracks.
+
+18.13.3 The check reads how long since the microphone carried any sound, and cannot tell when that is longer than the passage. An open track that carries nothing brings nothing back, exactly like a room that stayed quiet. On 23 September a check passed while the capture had been dead for 39 seconds (18.9). `/health` therefore says `soundMs`, from the ear.
 
 ## 19. POINT STATUS
 

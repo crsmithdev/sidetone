@@ -64,12 +64,12 @@ export async function serve(dir: string, config: Config): Promise<void> {
   // out as an unhandled rejection: that exits the process and takes the agent
   // session with it.
   const outbound = new Outbound((payload) => transport.publish(payload));
-  const bridge = assemble(dir, config, RTC_RATE, roomSpeaker(transport), (message) => outbound.send(message));
-  const { channel, ear, stt, tts } = bridge;
-
   // 17 the Android app, as the last `assembleDebug` in this checkout left it
   const apk = new URL("../android/app/build/outputs/apk/debug/app-debug.apk", import.meta.url).pathname;
   const apkHash = new ApkHash(apk);
+  // 14.15 the phone's build is compared with the one served now
+  const bridge = assemble(dir, config, RTC_RATE, roomSpeaker(transport), (message) => outbound.send(message), console.log, { served: () => apkHash.get() });
+  const { channel, ear, stt, tts } = bridge;
   /** 17.15 the app a joining client is offered; none while nothing is built */
   const offer = async (): Promise<Apk | undefined> => {
     const sha256 = await apkHash.get();
@@ -84,7 +84,13 @@ export async function serve(dir: string, config: Config): Promise<void> {
   // 18 what the drive of 18 September had no way to see: whether a microphone
   // track was there at all. The phone cut its own and reopened it, and every
   // line after that was about something else.
-  transport.onMicrophone((on, sid) => console.log(`[the room ${on ? "has" : "lost"} a microphone track, ${sid}]`));
+  // 18.13.2 the state is kept as well as said: /health carries it, and the
+  // echo check refuses to run without a microphone in the room
+  let microphone = false;
+  transport.onMicrophone((on, sid) => {
+    microphone = on;
+    console.log(`[the room ${on ? "has" : "lost"} a microphone track, ${sid}]`);
+  });
   transport.onMessage((value) => channel.receive(value));
   // N.1 this end's own reading. Both are kept: this one says whether the
   // machine is reaching the room, the phone's says whether the car is.
@@ -107,7 +113,13 @@ export async function serve(dir: string, config: Config): Promise<void> {
       decoder: new URL("../client/decode.js", import.meta.url).pathname,
       apk,
     },
-    health: () => ({ room: transport.connected, speech: tts.sampleRate > 0, transcription: stt.warmupSeconds > 0 }),
+    health: () => ({
+      room: transport.connected,
+      speech: tts.sampleRate > 0,
+      transcription: stt.warmupSeconds > 0,
+      microphone,
+      sinceSound: ear.sinceSound,
+    }),
     startedAt,
   });
 

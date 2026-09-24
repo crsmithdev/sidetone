@@ -306,4 +306,18 @@ class MessagesTest {
         // 17.11.6 the sign of a room that is not live does not show
         assertEquals("reconnecting", line(Status.RECONNECTING, Sign.SILENT))
     }
+
+    @Test
+    fun theDeviceMessageSaysWhatThePhoneIs() {
+        // 14.15 the bridge's src/device.ts reads these names
+        assertEquals(
+            """{"kind":"device","model":"Pixel 8","aec":true,"canceller":"software","route":"speaker","apk":"ab12"}""",
+            Outgoing.device("Pixel 8", true, "software", "speaker", "ab12").decodeToString(),
+        )
+        // a hash the app could not read is left out, not sent empty
+        assertEquals(
+            """{"kind":"device","model":"Pixel 8","aec":false,"canceller":"software","route":"none"}""",
+            Outgoing.device("Pixel 8", false, "software", "none", null).decodeToString(),
+        )
+    }
 }

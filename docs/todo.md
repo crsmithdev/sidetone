@@ -380,7 +380,33 @@ that are not yet done.
 
 ## 26. Automated coverage for a barge-in / echo-cancellation regression, before item 27
 
-Noted 22 September 2026. Not started. Must land before item 27.
+Noted 22 September 2026. Built 23 September 2026 on the branch `focus`, not
+landed yet.
+
+What was built. A unit test cannot hear the phone, so there are two parts:
+
+| Part | What it catches | Runs |
+|---|---|---|
+| `android/.../Audio.kt` and `AudioTest` (spec 4.2.2, 18.13.1) | any change to the audio setup that has not passed the echo check, and any audio-path call outside `Audio.kt`: a track gain, a mode, focus, routing, a player of its own | `./gradlew testDebugUnitTest`, no phone |
+| `bun scripts/echo-check.ts` (spec 18.13) | the canceller that does not hold: the bridge says a passage into the room and the record shows whether the microphone brought it back | on the bridge machine, with the phone in the room and nobody talking |
+
+The volume slider fails `AudioTest`: its line
+`(event.track as? RemoteAudioTrack)?.setVolume(...)` in `Bridge.kt` is named
+by the test. To pass, the change moves into `Audio.kt`, and the setup that
+passed the echo check follows it only after the check has run on the phone.
+
+Other testing gaps, from the session transcripts of 20 to 23 September:
+
+| What happened | Would a test have caught it? |
+|---|---|
+| `/play` fought the voice and the hold music (item 24) | Yes: a mouth test with a sentence that arrives while a track plays. None exists yet. |
+| The voice came out garbled from the pre-rendered replies (item 32) | Yes: transcribe each pre-rendered clip with the speech worker and compare it with its text. |
+| The voice said ".ts" about twelve times (item 34) | Probably, as a unit test on the text that goes to the voice, once the cause is found. |
+| All of the bridge's audio was lost after an app or bridge change (21 September) | A `scripts/fake-phone.ts` run after each bridge change hears what the bridge says, so it catches a loss on the bridge side. Nothing catches one in the app except the phone. |
+| The app joined, played the voice, and sent no sound until a force stop (21 September) | Not before it happened; the bridge now detects a silent track and asks for a rejoin (18.9), and `JoiningTest` covers the app's side. |
+| The opening sentence played after the hold music (item 31) | Now covered, by the test that came with the fix. |
+| Synthesis took 22 to 24 s a sentence while another job held the GPU (22 September) | No: it is load, not code. An alarm on the synthesis time would show it. |
+| A barge-in stopped the background subagents (item 4) | No: it is Claude Code's behaviour, outside this repo. |
 
 The volume-slider incident (item 1: "Shipped 21 September 2026, reverted 22
 September 2026") shipped a gain change that was never wrong in the server's
@@ -423,7 +449,42 @@ weigh separately.
 
 ## 27. Decouple audio focus from echo cancellation, so the app stops holding priority over other audio
 
-Noted 22 September 2026. Blocked on item 26 landing first.
+Noted 22 September 2026. Item 26 is built on the same branch.
+
+Built 23 September 2026 on the branch `focus`, not landed, not tried on the
+phone. `Audio.setup` now plays the bridge as media (`MODE_NORMAL`,
+`USAGE_MEDIA`, `STREAM_MUSIC`) and asks for no audio focus. The microphone
+side is unchanged: the `VOICE_COMMUNICATION` source, echo cancellation on,
+the phone's own canceller. LiveKit sets the mode in the same call that asks
+for focus, so no focus also means no mode change.
+
+Result, 23 September 2026: media mode fails in the car, and the app is back in
+call mode. `Audio.setup` equals `Audio.checked` again, so `AudioTest` passes.
+Three runs of the check that afternoon, and only the last measured anything:
+
+| Run | Said | True |
+|---|---|---|
+| 17:31, desk | `PASS` | the phone had cut its microphone 14 s earlier |
+| 17:35, desk | `PASS` | the track was open and dead: no sound for 39 s (18.9) |
+| 17:50, car | `CANNOT TELL` | FAIL. The whole passage came back, 14.9 s of it, 7.9 s of speech, peak 0.54 |
+
+So media mode never passed a valid check anywhere. In the car the voice goes
+out as music over A2DP, and the car's speakers reach the phone's microphone,
+which is the risk this item wrote down. The bridge survived it only because
+the echo drop of 18.10.1 matched the words and threw them away. No barge-in
+fired: a garbled echo dips under `bargeInLevel` for longer than
+`bargeInGapMs` between sentences, so the counter kept resetting. A net that
+catches a clean repeat is not a canceller, and the five-word case of the same
+afternoon cleared it.
+
+The check itself was wrong in two ways, both fixed with tests (18.10.3,
+18.13.2, 18.13.3): it took a cut or dead microphone for a quiet room, and
+`verdict` compared a whole-passage utterance against one sentence at a time.
+
+What is left of this item: release the audio focus without leaving call mode.
+Call mode is what the canceller holds through, and focus is what takes the
+car's audio from other apps. `AudioSwitchHandler` sets the mode in the same
+call that asks for focus, so a setup with no focus has to set the mode itself.
 
 Item 1's decision on 21 September was to keep call mode
 (`AudioManager.MODE_IN_COMMUNICATION`) rather than switch to a
@@ -911,9 +972,27 @@ This links to item 39, part 2 (the stability pass) and to the finding in
 Done when a test with the app in the background for an hour, then in front
 again, gives a working microphone with no touch, or a fix for the cause.
 
+Drive result, 23 September 2026, focus build in the car: the voice plays over
+the car as media, and barge-in stopped the answer when Chris spoke. Two faults
+showed. At first the voice was silent over Bluetooth and played on the phone
+speaker; it came back later without a known cause. After Chris used a media
+player in the car, the voice stopped again, and it returned only when he
+unplugged and replugged the phone. The bridge had sent every sentence each time,
+so the fault is between the phone and the car. One barge-in at 15:49:28 came
+while the microphone reopened and may be the voice hearing itself. The echo check
+in the car later that day gave the answer: media mode fails there. See item 27.
+
 ## 42. The bridge cannot tell which build of the app is running
 
-Noted 23 September 2026. Not started.
+Noted 23 September 2026. Built and landed 23 September 2026 (spec 14.15). The
+app sends `device` as it joins: the model, whether the phone has a hardware
+canceller, which canceller runs, the audio route with the Bluetooth name and
+car mode, and the SHA-256 of its own APK. The bridge writes one journal line
+and a `device` event, and says whether that build is the one it serves. The
+app menu shows the first 12 characters.
+
+What is left: the app sends it on join only, so the bridge is blind again after
+its own restart, which does not end the phone's room.
 
 On 23 September Chris tried three builds of the app in one hour: the media
 build with the hardware canceller, the same with the software canceller, and the

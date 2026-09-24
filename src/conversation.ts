@@ -33,7 +33,7 @@ import type { Channel } from "./channel.ts";
 import { read, type CommandName, type Reading } from "./commands.ts";
 import { VERBOSITIES, type Config, type Verbosity } from "./config.ts";
 import type { CueName } from "./cues.ts";
-import { echoOf } from "./echo.ts";
+import { ECHO_AFTER_MS, echoOf } from "./echo.ts";
 import type { Ears } from "./ear.ts";
 import type { Measures } from "./measures.ts";
 import type { Mouth } from "./mouth.ts";
@@ -172,7 +172,7 @@ export class Conversation {
       get isMuted() { return self.muted; },
       cue: (name) => this.cue(name),
       stopSpeaking: () => this.mouth.hold(),
-      heard: (text) => this.heard(text),
+      heard: (text, startedAt) => this.heard(text, startedAt),
       heardNothing: () => this.heardNothing(),
     };
     this.onTurn = hooks.onTurn;
@@ -255,19 +255,28 @@ export class Conversation {
     this.apply("resume");
   }
 
-  /** One thing Chris said, and what it does to a held answer. */
-  async heard(said: string): Promise<void> {
+  /**
+   * One thing Chris said, and what it does to a held answer. `startedAt` is
+   * when the utterance began, which only the ear knows.
+   */
+  async heard(said: string, startedAt?: number): Promise<void> {
     // 18.10 an utterance that repeats what the voice just said is the room, not
-    // Chris: the phone's echo canceller let the speaker through. It is recorded
-    // rather than acted on, because a person may read a sentence back.
+    // Chris: the phone's echo canceller let the speaker through. It is dropped
+    // only when it began while the voice played or just after, because a
+    // person may read a sentence back. A command is never dropped: the bridge
+    // tells Chris which words to say, and he says them.
     const echoed = echoOf(said, this.mouth.lastSpoken);
-    if (echoed) {
-      this.measures.echo(said, echoed);
-      this.channel.journal(`the bridge may have heard itself: "${said}" repeats "${echoed}"`);
-    }
+    if (echoed) this.measures.echo(said, echoed);
     const awaited = this.awaitingCommand > Date.now();
-    this.awaitingCommand = 0;
     const reading = read(said, this.config, this.muted, awaited);
+    const overVoice = startedAt !== undefined && (this.mouth.speaking || this.mouth.lastVoiceAt >= startedAt - ECHO_AFTER_MS);
+    if (echoed && overVoice && reading.kind !== "command") {
+      this.channel.journal(`the bridge dropped "${said}" as its own echo of "${echoed}"`);
+      this.heardNothing();
+      return;
+    }
+    if (echoed) this.channel.journal(`the bridge may have heard itself: "${said}" repeats "${echoed}"`);
+    this.awaitingCommand = 0;
     this.channel.tell({ kind: "heard", text: said });
     this.measures.bargeInWas(reading.kind === "command" ? "command" : "speech");
 

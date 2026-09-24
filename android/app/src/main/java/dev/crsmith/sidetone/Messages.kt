@@ -305,5 +305,19 @@ object Outgoing {
         put("text", text)
     })
 
+    /**
+     * 14.15 what the phone says about itself as it joins: the model, whether it
+     * has a hardware echo canceller, which canceller runs, the audio route, and
+     * the SHA-256 of its own app, when it could read it.
+     */
+    fun device(model: String, aec: Boolean, canceller: String, route: String, apk: String?): ByteArray = encode(buildJsonObject {
+        put("kind", "device")
+        put("model", model)
+        put("aec", aec)
+        put("canceller", canceller)
+        put("route", route)
+        apk?.let { put("apk", it) }
+    })
+
     private fun encode(message: JsonObject): ByteArray = message.toString().encodeToByteArray()
 }

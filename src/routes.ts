@@ -84,7 +84,7 @@ export interface Site {
   /** the files served as they are: the LiveKit SDK, the page's decoder, and 17 the Android app */
   files: { sdk: string; decoder: string; apk: string };
   /** whether the room is joined, and whether each engine is warm */
-  health: () => { room: boolean; speech: boolean; transcription: boolean };
+  health: () => { room: boolean; speech: boolean; transcription: boolean; microphone: boolean; sinceSound: number | null };
   startedAt: number;
 }
 
@@ -127,7 +127,7 @@ export function routes(site: Site): (request: Request, ip: string | undefined) =
      * nothing ever asked.
      */
     if (url.pathname === "/health") {
-      const { room, speech, transcription } = site.health();
+      const { room, speech, transcription, microphone, sinceSound } = site.health();
       const warm = speech && transcription;
       const upMs = Date.now() - site.startedAt;
       const well = wellEnough(room, conversation.agent.running, warm, upMs);
@@ -140,6 +140,11 @@ export function routes(site: Site): (request: Request, ip: string | undefined) =
         // 11.12 the one state that makes a working bridge look dead. It cost
         // two journal digs on 21 September, both times an accidental tap.
         audio: mouth.audioOn ? "on" : "off",
+        // 18.13.2 the other half of that: a bridge with nothing to hear looks
+        // well, and the echo check passes when nothing can come back
+        microphone: microphone ? "open" : "cut",
+        // 18.13.3 a track that carries nothing is quiet in a way no room is
+        soundMs: sinceSound,
         muted: conversation.isMuted,
         network: { phone: conversation.network.get("phone"), bridge: conversation.network.get("bridge") },
         turns: conversation.agent.turns,

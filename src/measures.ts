@@ -11,7 +11,7 @@
  * answer starts. A fact out of order is dropped rather than half recorded.
  */
 import type { Utterance } from "./audio.ts";
-import { Diagnostics, type Event } from "./diagnostics.ts";
+import { Diagnostics, type Device, type Event } from "./diagnostics.ts";
 import { Latency, type Outcome, type Round } from "./latency.ts";
 
 export class Measures {
@@ -109,6 +109,11 @@ export class Measures {
    */
   echo(said: string, spoke: string): void {
     this.diagnostics.echo(said, spoke);
+  }
+
+  /** 14.15 what the phone said about itself as it joined. */
+  device(event: Device): void {
+    this.diagnostics.device(event);
   }
 
   /** 15.7 a track began on the room's speaker: the hold music, or a file asked for. */
