@@ -300,6 +300,8 @@ project bridge stays in place.
 
 11.6 The target feel is the Claude app voice mode. The bridge waits a short time. The bridge does not cut in. The bridge does not feel slow.
 
+11.6.1 The bridge keeps its own fixed replies, such as "Muted.", on disk after it makes them once, so a reply to a command plays at once. The speech worker transcribes each reply before the bridge keeps it. A reply whose words do not match its text (18.14.2) plays that one time and is not kept. The warm command also checks each reply that is already kept, and makes a refused reply again, up to 20 times. The cloning voice garbles a reply of one word most of the time: on 23 September "Muted." came out clean in 2 takes of 12. Before this check the bridge kept the first take, and a garbled "Muted." and "Listening." played on every mute from 18 September.
+
 11.7 A non-verbal end-of-turn signal, for example a click sound, is an option for later.
 
 11.8 The product is for one user. The product does not need to separate the voices of more than one person.
@@ -722,6 +724,14 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 
 18.13.3 The check reads how long since the microphone carried any sound, and cannot tell when that is longer than the passage. An open track that carries nothing brings nothing back, exactly like a room that stayed quiet. On 23 September a check passed while the capture had been dead for 39 seconds (18.9). `/health` therefore says `soundMs`, from the ear.
 
+18.14 The bridge keeps a copy of each clip it sends to the room, so the agent can check the sound. The agent cannot hear its own voice, and the record holds the text and the timings, not the sound. On 23 September three reports of garbled speech could not be checked for this reason.
+
+18.14.1 The bridge keeps the last 100 clips under `~/.sidetone/sent/`, and deletes the oldest first. Each clip has the text it was made from, the time, and its source: a kept reply played from disk (11.6.1), or a clip the engine made for this sentence. A clip is two to five seconds, so 100 clips use about 20 MB and hold the last five answers or more. The copy stores speech, so a setting turns it off. The copy is on while the reports of 23 September are open.
+
+18.14.2 `bun scripts/sent-check.ts` lists the clips. Given a clip's number, or a wav and its text, it transcribes the clip with the speech worker and compares the words with the text. It gives the likeness of 18.10 in both directions and takes the lower value. The likeness of the text in the transcription finds a lost sound. The likeness of the transcription in the text finds a repeat or an added sound. A value below 0.8 marks the clip as garbled. The check also gives the length, the sample rate, the channel count and the peak.
+
+18.14.3 The copy is taken in the bridge. A fault that starts later, in the network, the room or the phone's decoder, does not show in it. If the copy is clean and Chris hears garbled speech, the fault is after the bridge.
+
 ## 19. POINT STATUS
 
 19.1 Muted command subset. Mute, unmute, and the two commands that turn the tones on and off. The set is a list in the settings, so Chris adds more later. The tone commands are on it because Chris mutes when the car is loud, and the tones are the next noise he wants gone; silencing them asks nothing of the microphone. See 9.5 and 9.6.
@@ -784,6 +794,7 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 | Settle time before listening again | 300 milliseconds | 11.2 |
 | Longest run of text spoken as one piece | 240 characters | 5.6 |
 | Narration delay | 5 seconds | 2.3 |
+| Keep a copy of each clip sent | on, the last 100, in `~/.sidetone/sent/` | 18.14 |
 
 21.3 A setting with the value "to set at" gets its first value at the build step named. The builder does not wait for this value before that step. The three such settings got their first values at 7.3.
 

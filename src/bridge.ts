@@ -31,6 +31,7 @@ import { Mouth, keptLines, type Speaker } from "./mouth.ts";
 import { Recorder } from "./record.ts";
 import { Screens } from "./screen.ts";
 import { SCREENSHOT_DIR, Screenshots } from "./screenshot.ts";
+import { SentClips, clipChecker } from "./sent.ts";
 import { LocalWhisper, SpokenAhead, textToSpeech, type SpeechToText, type TextToSpeech } from "./speech.ts";
 import { Working, jobsRunning } from "./working.ts";
 
@@ -111,7 +112,9 @@ export function assemble(
   const speechDir = new URL("../speech", import.meta.url).pathname;
   const stt = parts.stt ?? new LocalWhisper(config, speechDir);
   const tts = parts.tts ?? textToSpeech(config, speechDir);
-  const ahead = parts.made ?? new SpokenAhead(tts, scratch, keptLines(config));
+  // 11.6.1 the speech worker checks a kept line before it is kept; 18.14 a copy of each clip sent
+  const kept = { ...keptLines(config), check: clipChecker(stt) };
+  const ahead = parts.made ?? new SpokenAhead(tts, scratch, kept, config.keepSentClips ? new SentClips(config.sentDir) : undefined);
   const cues = parts.cues ?? new Cues(scratch, config.cueVolume);
   const ready = Promise.all([stt.start(), tts.start(), cues.build()]).then(() => undefined);
 

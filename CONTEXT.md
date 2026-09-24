@@ -183,6 +183,10 @@ _Avoid_: the log, the chat history.
 The turns a client missed while it was away, given to it when it comes back.
 _Avoid_: the backlog, the replay buffer.
 
+**A sent clip**:
+A copy of one wav the bridge sent to the room, with the text it was made from. The agent checks it to learn whether the sound was bad at the bridge.
+_Avoid_: an outgoing clip, a recording.
+
 **The record**:
 Every event of a session, written to disk as it happens, so a session can be read after the process that ran it is gone.
 _Avoid_: the log file, telemetry.

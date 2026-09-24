@@ -16,6 +16,7 @@ import { dirname, join } from "node:path";
 import type { Subprocess } from "bun";
 import type { Config } from "./config.ts";
 import { linesOf } from "./protocol.ts";
+import type { SentClips, Source } from "./sent.ts";
 
 /** 4.8 the seam. A local engine only: there is no cloud engine to put here. */
 export interface SpeechToText {
@@ -255,6 +256,25 @@ export function voiceSignature(config: Config): string {
 }
 
 /**
+ * 11.6.1 how many takes `warm` makes of a kept line before it gives up. The
+ * cloning voice garbles a line of one word most of the time: on 23 September
+ * "Muted." came out clean in 2 takes of 12, and "Stopped." in none of 3.
+ */
+export const WARM_TRIES = 20;
+
+/**
+ * The sentences worth keeping between runs, and where to keep them.
+ * `check` says whether a wav says its text (11.6.1). Without it every take
+ * is kept.
+ */
+export interface Kept {
+  dir: string;
+  signature: string;
+  lines: readonly string[];
+  check?: (wav: string, text: string) => Promise<boolean>;
+}
+
+/**
  * One sentence of lookahead (5.7, 11.6).
  *
  * The bridge speaks one sentence at a time and waits for each to finish, so
@@ -283,11 +303,15 @@ export class SpokenAhead {
    * `kept` names the sentences worth keeping between runs and where to keep
    * them. Leave it out and nothing is kept, which is what the text loop and
    * every test want.
+   *
+   * `sent` keeps a copy of each wav as it is taken (18.14). Leave it out and
+   * no copy is kept.
    */
   constructor(
     private readonly tts: TextToSpeech,
     private readonly scratch: string,
-    private readonly kept?: { dir: string; signature: string; lines: readonly string[] },
+    private readonly kept?: Kept,
+    private readonly sent?: Pick<SentClips, "keep">,
   ) {}
 
   /** The wav for this sentence, already made if it was the one expected. */
@@ -297,13 +321,18 @@ export class SpokenAhead {
     this.ready = null;
     const keeping = this.keptPath(text);
     let wav: Promise<string>;
+    let source: Source = "made";
     if (ready?.text === text) wav = ready.wav;
     else {
       this.drop(ready);
-      wav = keeping && existsSync(keeping) ? Promise.resolve(keeping) : this.make(text);
+      if (keeping && existsSync(keeping)) { wav = Promise.resolve(keeping); source = "kept"; }
+      else wav = this.make(text);
     }
-    // a kept line is on disk for good; anything else goes once it has played
-    if (!keeping) wav.then((path) => { this.handed = path; }, () => {});
+    // 18.14 a copy that fails costs the check one clip, never the sentence
+    if (this.sent) wav.then((path) => this.sent?.keep(path, text, source)).catch(() => {});
+    // a kept line is on disk for good; anything else goes once it has played,
+    // and so does a take of a kept line that the check refused (11.6.1)
+    wav.then((path) => { if (path !== keeping) this.handed = path; }, () => {});
     return wav;
   }
 
@@ -329,15 +358,25 @@ export class SpokenAhead {
    * Make every kept line that is missing, and say how many. This is what the
    * warm command runs: the alternative is paying for each one the first time
    * it is needed, which is the moment it is least welcome.
+   *
+   * 11.6.1 with a check, a line already kept is checked too, and one the check
+   * refuses is made again, up to `WARM_TRIES` times. `onEach` says what became
+   * of each line: kept from before, made now, or garbled on every try.
    */
-  async warm(onEach?: (text: string, made: boolean) => void): Promise<number> {
+  async warm(onEach?: (text: string, outcome: "kept" | "made" | "garbled") => void): Promise<number> {
     let made = 0;
     for (const text of this.kept?.lines ?? []) {
       const path = this.keptPath(text);
       if (!path) continue;
-      const already = existsSync(path);
-      if (!already) { await this.make(text); made += 1; }
-      onEach?.(text, !already);
+      if (existsSync(path) && (await this.kept?.check?.(path, text) ?? true)) { onEach?.(text, "kept"); continue; }
+      await unlink(path).catch(() => {});
+      for (let tries = 0; tries < WARM_TRIES && !existsSync(path); tries++) {
+        const wav = await this.make(text);
+        if (wav !== path) await unlink(wav).catch(() => {});
+      }
+      const kept = existsSync(path);
+      if (kept) made += 1;
+      onEach?.(text, kept ? "made" : "garbled");
     }
     return made;
   }
@@ -373,6 +412,8 @@ export class SpokenAhead {
     const wav = join(this.scratch, `say-${++this.counter}.wav`);
     const made = keeping
       ? this.tts.synthesize(text, wav).then(async (path) => {
+        // 11.6.1 a garbled take plays this once, and is never kept to play again
+        if (this.kept?.check && !(await this.kept.check(path, text))) return path;
         await mkdir(dirname(keeping), { recursive: true });
         await rename(path, keeping);
         return keeping;

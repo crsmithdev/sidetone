@@ -122,6 +122,13 @@ export interface Config {
    * costs nothing: what is missing is made again, and `warm` makes all of it.
    */
   spokenDir: string;
+  /**
+   * 18.14 whether the bridge keeps a copy of each clip it sends, and where.
+   * It stores speech, so it is a setting. It is on while the garbled speech
+   * of 23 September is open (todo item 33).
+   */
+  keepSentClips: boolean;
+  sentDir: string;
   /** 5.6 a run of text this long with no punctuation is spoken anyway */
   sentenceMaxChars: number;
   /** 11.5 the pause that ends a turn, and the level that counts as speech */
@@ -269,6 +276,8 @@ export const DEFAULTS: Config = {
   chatterboxExaggeration: 0.5,
   chatterboxCfg: 0.5,
   spokenDir: join(homedir(), ".sidetone", "spoken"),
+  keepSentClips: true,
+  sentDir: join(homedir(), ".sidetone", "sent"),
   sentenceMaxChars: 240,
   endOfTurnPauseMs: 1_500,
   earlyTranscribeMs: 400,

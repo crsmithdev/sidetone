@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DEFAULTS } from "../src/config.ts";
 import { KEPT_LINES, keptLines } from "../src/mouth.ts";
-import { SpokenAhead, type TextToSpeech } from "../src/speech.ts";
+import { SpokenAhead, WARM_TRIES, type TextToSpeech } from "../src/speech.ts";
 
 /** A voice that writes a file and counts how often it was asked to (11.6). */
 function engine(voice = "male", switchable = true) {
@@ -139,5 +139,57 @@ describe("a switch of voice (9.4)", () => {
     const { tts } = engine("only", false);
     expect(new SpokenAhead(tts, scratchDir()).use("male")).toBe(false);
     expect(tts.voice).toBe("only");
+  });
+});
+
+/**
+ * A check that says the next answers in `verdicts`, then clean. It stands in
+ * for the speech worker, which is what the bridge checks a kept line with.
+ */
+function checker(...verdicts: boolean[]) {
+  const checked: string[] = [];
+  const check = async (_wav: string, text: string) => { checked.push(text); return verdicts.shift() ?? true; };
+  return { check, checked };
+}
+
+describe("a kept line is checked before it is kept (11.6.1)", () => {
+  test("a line the check refuses still plays, is not kept, and is made again next time", async () => {
+    const dir = scratchDir();
+    const { tts, asked } = engine();
+    const ahead = new SpokenAhead(tts, scratchDir(), { dir, signature: "test", lines: KEPT_LINES, check: checker(false).check });
+    const garbled = await ahead.take("Muted.");
+    expect(existsSync(garbled)).toBe(true);
+    expect(garbled.startsWith(dir)).toBe(false);
+    const clean = await ahead.take("Muted.");
+    expect(asked).toEqual(["Muted.", "Muted."]);
+    expect(clean.startsWith(dir)).toBe(true);
+    // the refused take was scratch, so it goes once the next one is taken
+    expect(existsSync(garbled)).toBe(false);
+  });
+
+  test("warm checks a line already kept, and makes it again when the check refuses it", async () => {
+    const dir = scratchDir();
+    const kept = { dir, signature: "test", lines: ["Muted.", "Listening."] };
+    await new SpokenAhead(engine().tts, scratchDir(), kept).warm();
+    const { tts, asked } = engine();
+    // the kept "Muted." is garbled; the first new take of it is too, the second is clean
+    const { check } = checker(false, false, true, true);
+    const said: string[] = [];
+    const made = await new SpokenAhead(tts, scratchDir(), { ...kept, check }).warm((text, outcome) => said.push(`${outcome} ${text}`));
+    expect(asked).toEqual(["Muted.", "Muted."]);
+    expect(made).toBe(1);
+    expect(said).toEqual(["made Muted.", "kept Listening."]);
+  });
+
+  test("warm gives up on a line after a number of tries, and says so", async () => {
+    const dir = scratchDir();
+    const { tts, asked } = engine();
+    const { check } = checker(...new Array<boolean>(100).fill(false));
+    const said: string[] = [];
+    const ahead = new SpokenAhead(tts, scratchDir(), { dir, signature: "test", lines: ["Muted."], check });
+    expect(await ahead.warm((text, outcome) => said.push(`${outcome} ${text}`))).toBe(0);
+    expect(asked.length).toBe(WARM_TRIES);
+    expect(said).toEqual(["garbled Muted."]);
+    expect(existsSync(join(dir, "test-male", "muted.wav"))).toBe(false);
   });
 });

@@ -18,7 +18,8 @@ import { Session, recorded, spawnClaude } from "./session.ts";
 import { keptLines } from "./mouth.ts";
 import { fetchCert } from "./keys.ts";
 import { endpoints, livekitConfig, serve } from "./serve.ts";
-import { SpokenAhead, textToSpeech } from "./speech.ts";
+import { clipChecker } from "./sent.ts";
+import { LocalWhisper, SpokenAhead, textToSpeech } from "./speech.ts";
 
 function showConfig(config: Config): void {
   console.log(`config: ${configPath()}`);
@@ -76,14 +77,17 @@ async function warm(config: Config): Promise<void> {
   const speechDir = new URL("../speech", import.meta.url).pathname;
   const scratch = mkdtempSync(join(tmpdir(), "sidetone-warm-"));
   const tts = textToSpeech(config, speechDir);
+  // 11.6.1 the speech worker checks each line, kept or new, before it is kept
+  const stt = new LocalWhisper(config, speechDir);
   const startedAt = Date.now();
-  await tts.start();
+  await Promise.all([tts.start(), stt.start()]);
   console.log(`${config.ttsEngine} ${config.ttsVoice} ready in ${((Date.now() - startedAt) / 1000).toFixed(1)}s`);
-  const ahead = new SpokenAhead(tts, scratch, keptLines(config));
+  const ahead = new SpokenAhead(tts, scratch, { ...keptLines(config), check: clipChecker(stt) });
   const at = Date.now();
-  const made = await ahead.warm((text, fresh) => console.log(`  ${fresh ? "made" : "kept"}  ${text}`));
+  const made = await ahead.warm((text, outcome) => console.log(`  ${outcome.padEnd(7)}  ${text}`));
   console.log(`${made} made in ${((Date.now() - at) / 1000).toFixed(1)}s, under ${config.spokenDir}`);
   tts.stop();
+  stt.stop();
 }
 
 const [command, ...rest] = process.argv.slice(2);
