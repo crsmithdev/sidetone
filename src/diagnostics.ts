@@ -43,12 +43,13 @@ export interface Answered {
 }
 export interface Barged { kind: "barged"; at: number; level: number; heldMs: number }
 /**
- * 11.9 Chris spoke over a turn that was still running. The bridge waited
- * `waitedMs` for the turn to end by itself, then either did not need to
- * interrupt or sent the interrupt, which stops every subagent the turn started.
- * The count of each is what says if `interruptAfterMs` is worth changing.
+ * 11.9 Chris spoke over a turn that was still running. Until 24 September the
+ * bridge waited `waitedMs` for the turn to end by itself, then either did not
+ * need to interrupt or sent the interrupt, which stops every subagent the turn
+ * started. Item 4 since then it writes what he said into the turn, `injected`,
+ * and never interrupts. A line from before has no `injected`.
  */
-export interface Cutoff { kind: "cutoff"; at: number; waitedMs: number; interrupted: boolean }
+export interface Cutoff { kind: "cutoff"; at: number; waitedMs: number; interrupted: boolean; injected: boolean }
 export interface Spoke { kind: "spoke"; at: number; text: string; whole: boolean }
 export interface Note { kind: "note"; at: number; text: string }
 /**
@@ -129,8 +130,8 @@ export class Diagnostics {
     this.add({ kind: "barged", at, level: Number(level.toFixed(3)), heldMs: Math.round(heldMs) });
   }
 
-  cutoff(waitedMs: number, interrupted: boolean, at = Date.now()): void {
-    this.add({ kind: "cutoff", at, waitedMs: Math.round(waitedMs), interrupted });
+  cutoff(waitedMs: number, interrupted: boolean, injected: boolean, at = Date.now()): void {
+    this.add({ kind: "cutoff", at, waitedMs: Math.round(waitedMs), interrupted, injected });
   }
 
   spoke(text: string, whole: boolean, at = Date.now()): void {

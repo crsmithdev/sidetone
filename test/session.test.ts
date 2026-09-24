@@ -393,3 +393,133 @@ describe("a permission request taken back (10.5)", () => {
     r.s.stop();
   });
 });
+
+/**
+ * Item 4 what Chris says mid-turn goes into the turn that runs. Captured 24
+ * September from claude 2.1.282 with the stream events kept, and trimmed as
+ * the pong run was. The tool run is the message sent while `sleep 5` ran; the
+ * text run is the message sent after the fifth word of a story with no tools.
+ * The replay stops where the message went in, and goes on once it is written.
+ */
+describe("speech written into a running turn (item 4)", () => {
+  function replayed(name: string, before: (line: string, index: number) => boolean) {
+    const path = new URL(`./fixtures/${name}`, import.meta.url).pathname;
+    const written: string[] = [];
+    /** the hooks in the order they fired: "reply" for a message begun after the injection, else the words */
+    const events: string[] = [];
+    const unprompted: Turn[] = [];
+    let release = () => {};
+    const injected = new Promise<void>((resolve) => { release = resolve; });
+    let seen = () => {};
+    const reached = new Promise<void>((resolve) => { seen = resolve; });
+    const spawn: Spawn = () => ({
+      pid: undefined,
+      lines: (async function* () {
+        const lines = (await Bun.file(path).text()).split("\n").filter((line) => line.trim());
+        let stopped = false;
+        for (const [index, line] of lines.entries()) {
+          yield line;
+          if (!stopped && before(line, index)) { stopped = true; seen(); await injected; }
+        }
+      })(),
+      write: (line) => { written.push(line); },
+      kill: () => {},
+      exited: new Promise(() => {}),
+    });
+    const s = new Session("/tmp", config, {
+      onDelta: (text) => events.push(text),
+      onInjectedReply: () => events.push("reply"),
+      onUnprompted: (turn) => unprompted.push(turn),
+    }, spawn);
+    /** the words the hooks were given after the reply began */
+    const reply = () => events.slice(events.indexOf("reply") + 1).join("");
+    return { s, written, events, unprompted, reached, reply, inject: (text: string) => { const ok = s.inject(text); release(); return ok; } };
+  }
+
+  test("during a tool call: the one result ends the turn, and the reply is the message after the tool", async () => {
+    const r = replayed("stream-inject-tool.ndjson", (line) => line.includes('"task_started"'));
+    const turn = r.s.ask("run three sleeps");
+    await r.reached;
+    expect(r.inject("reply only with PELICAN")).toBe(true);
+    const done = await turn;
+    expect(JSON.parse(r.written[1] as string)).toEqual({ type: "user", message: { role: "user", content: "reply only with PELICAN" } });
+    expect(r.events.filter((event) => event === "reply")).toHaveLength(1);
+    expect(r.reply()).toBe("PELICAN");
+    expect(done.text).toBe("PELICAN");
+    expect(r.unprompted).toEqual([]);
+    r.s.stop();
+  });
+
+  test("during the last text: the story's own result ends nothing, and the second result ends the turn", async () => {
+    let words = 0;
+    const r = replayed("stream-inject-text.ndjson", (line) => line.includes('"text_delta"') && ++words === 5);
+    const turn = r.s.ask("a story");
+    await r.reached;
+    expect(r.inject("reply only with PELICAN")).toBe(true);
+    const done = await turn;
+    // the story went on after the injection, to its end, before the reply began
+    const story = r.events.slice(0, r.events.indexOf("reply")).join("");
+    expect(story.length).toBeGreaterThan(500);
+    expect(r.events.filter((event) => event === "reply")).toHaveLength(1);
+    expect(r.reply()).toBe("PELICAN");
+    expect(done.text).toBe("PELICAN");
+    // the story's result is not a turn nobody asked for
+    expect(r.unprompted).toEqual([]);
+    // both results were paid for
+    expect(r.s.totalCostUsd()).toBeGreaterThan(done.costUsd);
+    r.s.stop();
+  });
+
+  const START = '{"type":"stream_event","event":{"type":"message_start","message":{}}}';
+
+  test("with no turn running there is nothing to write into", () => {
+    const r = session();
+    r.s.start();
+    expect(r.s.inject("hello")).toBe(false);
+    expect(r.current().written).toEqual([]);
+    r.s.stop();
+  });
+
+  test("a second injection before the reply begins gets one reply; one after it gets a reply of its own", async () => {
+    const replies: string[] = [];
+    const made: Array<ReturnType<typeof scripted>> = [];
+    const s = new Session("/tmp", config, { onInjectedReply: () => replies.push("reply") }, () => { const p = scripted(); made.push(p); return p.process; });
+    const turn = s.ask("one");
+    const p = made[0] as ReturnType<typeof scripted>;
+    s.inject("two");
+    s.inject("three");
+    p.prints(START);
+    await tick();
+    expect(replies).toHaveLength(1);
+    s.inject("four");
+    // the reply to two and three ends with a result; four has not been answered, so it ends nothing
+    p.prints(RESULT("answer to two and three"));
+    p.prints(START);
+    p.prints(RESULT("answer to four"));
+    expect((await turn).text).toBe("answer to four");
+    expect(replies).toHaveLength(2);
+    s.stop();
+  });
+
+  test("a process that ends with an injection pending fails the turn", async () => {
+    const r = session();
+    const turn = r.s.ask("one");
+    r.s.inject("two");
+    r.current().ends();
+    await expect(turn).rejects.toThrow("the Claude Code process ended mid-turn");
+    r.s.stop();
+  });
+
+  test("8.6 the silence timer runs on across the result of the answer spoken over", async () => {
+    const restarts: string[] = [];
+    const made: Array<ReturnType<typeof scripted>> = [];
+    const s = new Session("/tmp", { ...config, silenceMs: 50 }, { onRestart: (reason) => restarts.push(reason) }, () => { const p = scripted(); made.push(p); return p.process; });
+    const turn = s.ask("one");
+    s.inject("two");
+    (made[0] as ReturnType<typeof scripted>).prints(RESULT("the old answer"));
+    // the process never begins the reply: the watchdog restarts it, and the turn fails
+    await expect(turn).rejects.toThrow("restarted");
+    expect(restarts).toHaveLength(1);
+    s.stop();
+  });
+});

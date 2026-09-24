@@ -64,9 +64,13 @@ export class Measures {
     this.diagnostics.barged(level, heldMs);
   }
 
-  /** 11.9 how long an interrupted turn was given to end by itself, and if it did. */
-  cutOff(waitedMs: number, interrupted: boolean): void {
-    this.diagnostics.cutoff(waitedMs, interrupted);
+  /**
+   * 11.9 Chris spoke over a turn that runs. Item 4 what he said went into the
+   * turn, or, with the result already back, waited `waitedMs` for the turn to
+   * end and became the next one. The bridge no longer interrupts.
+   */
+  cutOff(waitedMs: number, interrupted: boolean, injected: boolean): void {
+    this.diagnostics.cutoff(waitedMs, interrupted, injected);
   }
 
   /** 18.6 what the utterance behind that barge-in turned out to be. */

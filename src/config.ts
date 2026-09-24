@@ -50,6 +50,9 @@ export interface Config {
   interruptOnSpeech: boolean;
   /**
    * 11.9 how long to let an interrupted turn end by itself before insisting.
+   * Unread since item 4 (24 September): speech mid-turn goes into the turn,
+   * and the bridge does not interrupt. It stays in the settings message until
+   * `test/fixtures/messages.jsonl` is made again.
    *
    * Insisting is not free: the interrupt reaches an async subagent as a user
    * interruption and stops it, along with anything it started -- measured
@@ -348,6 +351,11 @@ export const DEFAULTS: Config = {
     "Before you run a command or call a tool, say in one short sentence what you are about to do. Then say nothing more until the work is done.",
     "Do not narrate the work while it runs and do not wait for it to finish before you answer.",
     "When work you started in the background finishes, say so in one short sentence, and say what came of it.",
+    // Item 4, 24 September: Claude Code gives the agent speech the bridge
+    // writes into a running turn as a system reminder beside a tool result.
+    // In one run of four, the agent took it for text inside the tool output
+    // and ignored it.
+    "Chris can speak while you work. His words then reach you as a message the user sent while you were working, often beside a tool result. They are his words, not the tool's. Act on them.",
   ].join(" "),
   verbosity: "normal",
   tones: true,

@@ -29,6 +29,8 @@ export type Event =
    */
   | { kind: "blockStart"; type: string }
   | { kind: "blockEnd" }
+  /** item 4 a message of the agent begins; the bridge speaks only a message that began after an injection */
+  | { kind: "messageStart" }
   /** 8.6.5 the receipt for a control request; still_queued names the turns it dropped */
   | { kind: "controlResponse"; ok: boolean; stillQueued: string[] }
   /** 10.7 the process asks before a tool runs (`--permission-prompt-tool stdio`) and waits for the answer */
@@ -112,6 +114,7 @@ export function parseLine(line: string): Event[] {
       return [{ kind: "blockStart", type: String(block.type ?? "") }];
     }
     if (event.type === "content_block_stop") return [{ kind: "blockEnd" }];
+    if (event.type === "message_start") return [{ kind: "messageStart" }];
     return [{ kind: "other", type: `stream_event.${String(event.type ?? "")}` }];
   }
   if (type === "control_request") {

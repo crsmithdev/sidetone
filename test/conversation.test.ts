@@ -641,7 +641,7 @@ describe("what an utterance does to the hold: the table (11.3)", () => {
     { said: "sidetone where are we", want: "dropped", before: answered, script: { deltas: ["It joins the room."] } },
     { said: "what is the config file for", want: "dropped" },
     { said: "what is the tallest one", want: "resumes", midTurn: true, overrides: { interruptOnSpeech: false } },
-    { said: "what is the tallest one", want: "dropped", midTurn: true, overrides: { interruptOnSpeech: true, interruptAfterMs: 5 } },
+    { said: "what is the tallest one", want: "dropped", midTurn: true, overrides: { interruptOnSpeech: true } },
     { said: "sidetone carry on", want: "resumes" },
     { said: "sidetone end the turn", want: "dropped" },
     { said: "sidetone end the turn", want: "dropped", midTurn: true },
@@ -823,25 +823,24 @@ describe("the cue at the end of the speech (15.15)", () => {
     expect(r.cues).toEqual(["done"]);
   });
 
-  test("a barge-in that ends the turn early gets none: the new question owns the mouth", async () => {
+  test("item 4 speech written into the turn: the cue ends the reply, once", async () => {
     let end = () => {};
     const hold = new Promise<void>((resolve) => { end = resolve; });
-    // the first turn says a sentence and runs on; the turn the question starts says nothing
-    let asked = 0;
-    const r = room({ interruptOnSpeech: true, interruptAfterMs: 5 }, {
-      during: (hooks) => { if (asked++ === 0) hooks.onDelta?.("The first sentence. "); },
-      hold,
-      onInterrupt: () => end(),
-    });
+    const r = room({ interruptOnSpeech: true }, { during: (hooks) => hooks.onDelta?.("The first sentence. "), hold });
     const turn = r.c.turn("how does a suspension bridge work");
     await tick();
     expect(r.said).toEqual(["The first sentence."]);
     r.c.ears.stopSpeaking();
     await r.c.heard("what is the tallest one");
+    await settled();
+    expect(r.cues).toEqual([]);
+    r.agent.hooks().onInjectedReply?.();
+    r.agent.hooks().onDelta?.("The tallest is in Turkey. ");
+    end();
     await turn;
     await settled();
-    expect(asked).toBe(2);
-    expect(r.cues).toEqual([]);
+    expect(r.said).toEqual(["The first sentence.", "The tallest is in Turkey."]);
+    expect(r.cues).toEqual(["done"]);
   });
 
   test("end the turn: the turn spoke and it is over, so the cue follows the stop", async () => {

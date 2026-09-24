@@ -334,9 +334,30 @@ project bridge stays in place.
 
 11.8 The product is for one user. The product does not need to separate the voices of more than one person.
 
-11.9 A question that arrives while the bridge is still speaking has one of two treatments, and which one is a setting. Holding keeps the answer and refuses the question. Interrupting stops the voice at once and asks the question, which is the feel of 11.6. Chris changes the setting out loud, because the car is where the answer is found.
+11.9 A question that arrives while a turn runs has one of two treatments, and which one is a setting. Holding keeps the answer and refuses the question. Interrupting stops the voice at once and gives the question to the agent, which is the feel of 11.6. Chris changes the setting out loud, because the car is where the answer is found.
 
-11.9.1 Interrupting stops the voice. It stops the turn only when the turn will not end by itself within a set time. An interrupt reaches a subagent and stops it, and the voice is silent either way, so the bridge waits before it insists.
+11.9.1 Interrupting does not interrupt the agent. Since 24 September (item 4), the bridge writes what Chris said into the turn that runs, as a stream-json user message. An interrupt reaches a subagent and stops it, and this does not. The commands "stop" and "end the turn" still interrupt the turn (9.4.8).
+
+11.9.2 A note from the bridge goes in front of what Chris said. It says what Chris heard last, that the voice stopped, and that he said this while the agent worked. The pending screenshots go with it (14.12.6).
+
+11.9.3 From that moment, the bridge speaks only a message that the agent started after the injection. The stream's `message_start` event marks the start of a message. The rest of a message that was in progress when Chris spoke goes to the client and not to the voice. The message that follows is a new answer (14.7).
+
+11.9.4 The turn ends at the first result that comes after the start of such a message. A result that comes before one ends only the message Chris spoke over. The turn goes on, and the bridge does not speak that result as an answer that nobody asked for (11.11).
+
+11.9.5 A second question while the turn runs goes into the turn in the same way. The rule of 11.9.3 counts from the latest injection.
+
+11.9.6 The result can be back while the voice still says the answer. Then there is no turn to go into. The bridge waits for that turn to end, and the question starts a new turn, with the note of 11.10.
+
+11.9.7 A process that ends or restarts with an injection pending fails the turn, and the bridge says so, as for any turn that fails. The ceiling (8.6) and the silence detector (8.4) measure the turn through the injection, not only to the first result.
+
+11.9.8 Each question that Chris speaks over a running turn puts a `cutoff` line in the record. The line has `injected`: true when the question went into the turn, and false when it started a new turn. `interrupted` is false in both cases. A line from before 24 September has no `injected`.
+
+11.9.9 These facts were measured on 24 September, on claude 2.1.282 with Sonnet:
+
+- A message sent while a tool call runs goes into the same turn. The process reads it when the tool returns, about 1.5 seconds later. There is one result, with `num_turns` 2. The process does not echo the message on its output.
+- Claude Code gives that message to the agent as a system reminder beside the tool result: "The user sent a new message while you were working". In 4 runs of 6, the agent acted on it. In 2 runs of 6, the agent took it for text inside the tool output, ignored it, and did the rest of the work. Since then the voice instruction tells the agent that these words are from Chris (6.5). With that line, the agent acted on the message in 3 runs of 3 through the whole bridge.
+- A message sent while the agent writes its last text, with no tool call left, does not cut in. The answer finishes in full, with its own result. Then the message runs as a second turn, with a second result. This happened in 4 runs of 4.
+- So after an injection the bridge gets one result or two, and it cannot know which before they come.
 
 11.10 What the bridge did not say is kept for one turn. The client already shows it, because the words reach the client ahead of the voice (14.7, 14.9), so the bridge adds no note (4.3.1). A command says it, and the agent is told where Chris stopped hearing, because the agent's own context holds the whole answer either way.
 
@@ -455,7 +476,7 @@ project bridge stays in place.
 14.12.6 A written screenshot is a pending screenshot. It joins the next turn that Chris starts with his words, spoken or typed. That turn takes every pending screenshot, in the order they arrived. One line for the agent names each file, and the line does not go into the transcript. The rules are these:
 
 - A pending screenshot expires 2 minutes after it arrives. It then joins no turn, so an old image does not join an unrelated turn.
-- The bridge takes the pending screenshots when it decides that Chris's words start a turn. A screenshot that arrives after that moment waits for the next turn. It does not join the turn in progress, because that turn races with its answer (11.11). This is also true while an interrupted turn stops (11.9).
+- The bridge takes the pending screenshots when it decides that Chris's words start a turn. A screenshot that arrives after that moment waits for the next turn. It does not join the turn in progress, because that turn races with its answer (11.11). A screenshot that arrives after Chris speaks into a running turn also waits for the next turn (11.9.2).
 - A screenshot alone does not start a turn. Words that start no turn, such as a wake command or a question that the bridge refuses mid-turn, leave the screenshot pending.
 
 14.12.7 The bridge tells the client what becomes of each screenshot, with the `screenshot` message. It has `id`, and `state`, which is one of these:
@@ -850,7 +871,6 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 | Gated action list | to set at 7.2 | 10.1 |
 | End-of-turn pause | 1.5 seconds | 11.5 |
 | A question mid-answer | holds and refuses; interrupting is the other way | 11.9 |
-| Wait before insisting on an interrupt | 5 seconds | 11.9.1 |
 | Usage warning level | 80 percent of the reported rate limit | 13.2 |
 | Audio cue delay | 4 seconds, then every 6 seconds | 15.5 |
 | Hold music: silence before it plays, in a long turn | 8 seconds, 0 turns it off | 15.7 |

@@ -17,6 +17,8 @@ export class Answer {
   private seq = 0;
   private open = false;
   private firstWord = true;
+  /** item 4 Chris spoke over this answer: the rest of it goes to the client and not to the voice */
+  private hushed = false;
   /** 15.15 whether any sentence reached the voice: an answer that said nothing gets no cue at its end. */
   spoke = false;
 
@@ -26,7 +28,7 @@ export class Answer {
     sentenceMaxChars: number,
     /** how a sentence reaches the voice: the answer's queue, or ahead of a hold (11.11) */
     private readonly speak: (sentence: string, answer: number) => void,
-    /** false once a newer answer owns the mouth: an interrupted turn runs on until its result */
+    /** false once a newer answer owns the mouth: a new turn, or the reply to words written into this one */
     private readonly live: () => boolean,
     /** 18.4 the agent's share of the round trip ends with its first word */
     private readonly onFirstWord: () => void = () => {},
@@ -60,6 +62,11 @@ export class Answer {
     this.endSentence();
   }
 
+  /** Item 4 Chris spoke into the turn: from now on this answer is shown and not said. */
+  hush(): void {
+    this.hushed = true;
+  }
+
   /** The stream is over: what the marker and the collector still hold goes out. */
   end(): void {
     if (!this.live()) return;
@@ -85,6 +92,7 @@ export class Answer {
   // when the words arrived only after the whole answer had been spoken.
   private say(sentence: string): void {
     this.channel.tell({ kind: "sentence", text: sentence, answer: this.id });
+    if (this.hushed) return;
     this.spoke = true;
     this.speak(sentence, this.id);
   }

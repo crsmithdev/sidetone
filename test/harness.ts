@@ -38,6 +38,8 @@ export interface Script {
   /** what the real process does with an interrupt: it returns a result */
   onInterrupt?: () => void;
   fail?: string;
+  /** item 4 whether an injection finds a turn to go into; unset, it does */
+  inject?: (text: string) => boolean;
 }
 
 /** The agent, scripted: no Claude Code process anywhere near a turn. */
@@ -60,6 +62,7 @@ export function scripted(script: Script = {}) {
     },
     agree: () => calls.push("agree"),
     interrupt: () => { calls.push("interrupt"); script.onInterrupt?.(); },
+    inject: (text: string) => { calls.push(`inject ${text}`); return script.inject?.(text) ?? true; },
     restart: (reason: string) => calls.push(`restart ${reason}`),
     answer: (id: string, allow: boolean, message?: string) => { answers.push(message === undefined ? { id, allow } : { id, allow, message }); },
     running: true,

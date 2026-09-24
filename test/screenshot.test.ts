@@ -170,22 +170,38 @@ describe("a pending screenshot and the turn (14.12.6)", () => {
     expect(r.told.filter((m) => m.kind === "screenshot")).toEqual([{ kind: "screenshot", id: "a", state: "pending" }]);
   });
 
-  test("a screenshot that arrives while an interrupted turn winds down waits for the turn after", async () => {
+  test("item 4 a screenshot taken before Chris speaks mid-turn goes into the turn with his words", async () => {
     let end = () => {};
     const r = bridge({
-      overrides: { interruptOnSpeech: true, interruptAfterMs: 100 },
+      overrides: { interruptOnSpeech: true },
       script: { hold: new Promise<void>((resolve) => { end = resolve; }) },
     });
     r.channel.receive({ kind: "said", text: "first" });
     await until(() => r.agent.calls.some((call) => call.startsWith("ask ")));
-    // Chris speaks mid-turn; the bridge waits for the old turn before it asks
+    for (const part of parts("a")) r.channel.receive(part);
     r.channel.receive({ kind: "said", text: "second" });
+    await until(() => r.agent.calls.some((call) => call.startsWith("inject ")));
+    const injected = r.agent.calls.find((call) => call.startsWith("inject "))!;
+    expect(injected).toEndWith("second");
+    expect(injected).toContain("a.jpg");
+    end();
+  });
+
+  test("item 4 a screenshot that arrives after Chris speaks mid-turn waits for the turn after", async () => {
+    let end = () => {};
+    const r = bridge({
+      overrides: { interruptOnSpeech: true },
+      script: { hold: new Promise<void>((resolve) => { end = resolve; }) },
+    });
+    r.channel.receive({ kind: "said", text: "first" });
+    await until(() => r.agent.calls.some((call) => call.startsWith("ask ")));
+    r.channel.receive({ kind: "said", text: "second" });
+    await until(() => r.agent.calls.some((call) => call.startsWith("inject ")));
     for (const part of parts("a")) r.channel.receive(part);
     end();
-    await until(() => r.agent.calls.filter((call) => call.startsWith("ask ")).length > 1);
-    const second = r.agent.calls.filter((call) => call.startsWith("ask "))[1]!;
-    expect(second).toEndWith("second");
-    expect(second).not.toContain("a.jpg");
+    await until(() => r.turns.length > 0);
+    const injected = r.agent.calls.find((call) => call.startsWith("inject "))!;
+    expect(injected).not.toContain("a.jpg");
     expect(r.told.filter((m) => m.kind === "screenshot")).toEqual([{ kind: "screenshot", id: "a", state: "pending" }]);
   });
 });

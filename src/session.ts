@@ -63,6 +63,11 @@ export interface SessionHooks {
   onPermissionCancel?(id: string): void;
   /** 15.2 something to play while a turn is long */
   onEvent?(event: Event): void;
+  /**
+   * Item 4 the first message the agent began after the last `inject`. The
+   * words before it belong to the answer Chris spoke over; these answer him.
+   */
+  onInjectedReply?(): void;
 }
 
 const TICK_MS = 1_000;
@@ -130,6 +135,12 @@ export class Session {
   private replyText = "";
   private costUsd = 0;
   private timer: ReturnType<typeof setInterval> | null = null;
+  /**
+   * Item 4 what Chris said mid-turn was written into the turn, and whether a
+   * message has begun since. A result that comes before one is the end of
+   * the answer he spoke over, not of the turn.
+   */
+  private injection: { replied: boolean } | null = null;
   /** 10.7 the requests the current process waits on, by id, with the input an allow hands back */
   private asked = new Map<string, Record<string, unknown>>();
   /** 8.9 the window and the compaction threshold, once claude reports them */
@@ -190,6 +201,9 @@ export class Session {
       case "delta": this.hooks.onDelta?.(event.text); break;
       case "blockStart": this.hooks.onBlockStart?.(event.type); break;
       case "blockEnd": this.hooks.onBlockEnd?.(); break;
+      case "messageStart":
+        if (this.injection && !this.injection.replied) { this.injection.replied = true; this.hooks.onInjectedReply?.(); }
+        break;
       // 8.6.5 the receipt says the process took the interrupt. It does not say the
       // process is ready, so 8.6.7 still measures readiness by the grace time.
       case "permission": this.asked.set(event.id, event.input); this.hooks.onPermission?.({ id: event.id, tool: event.tool, input: event.input }); break;
@@ -205,6 +219,12 @@ export class Session {
   private finish(text: string, costUsd: number, usage: Usage, isError: boolean, now: number): void {
     this.costUsd += costUsd;
     this.contextUsed = contextTokens(usage);
+    // Item 4, measured 24 September: a message written while the agent writes
+    // its last text does not cut in. That answer ends with a result of its
+    // own, and the message then runs as a second turn with a second result.
+    // The first ends nothing: the turn, its ceiling and its silence timer go on.
+    if (this.injection && !this.injection.replied) { this.replyText = ""; return; }
+    this.injection = null;
     this.supervisor.turnEnded(now);
     this.narrator.turnEnded();
     const turn: Turn = { number: this.turnNumber, text: text || this.replyText.trim(), costUsd, isError };
@@ -218,6 +238,7 @@ export class Session {
   private fail(error: Error): void {
     const pending = this.pending;
     this.pending = null;
+    this.injection = null;
     pending?.reject(error);
   }
 
@@ -296,6 +317,19 @@ export class Session {
 
   private write(value: unknown): void {
     this.child?.write(JSON.stringify(value));
+  }
+
+  /**
+   * Item 4 what Chris said, written into the turn that runs, with no
+   * interrupt. Measured 24 September: sent while a tool runs, the process
+   * reads it when the tool returns and the agent answers it in the same turn,
+   * with one result. False when no turn runs: the result is already back.
+   */
+  inject(text: string): boolean {
+    if (!this.pending) return false;
+    this.injection = { replied: false };
+    this.write({ type: "user", message: { role: "user", content: text } });
+    return true;
   }
 
   /** One turn: text in, text out. Claude Code never sees audio (3.3). */

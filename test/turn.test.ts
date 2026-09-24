@@ -309,13 +309,14 @@ describe("clearing the context is gated (10.1, ADR 0009)", () => {
 });
 
 describe("11.9 a question that lands mid-answer", () => {
-  /** A turn in flight, with one sentence heard and two held behind a barge-in. */
-  async function midAnswer(overrides: Partial<Config> = {}) {
+  /**
+   * A turn in flight, with one sentence heard and two held behind a barge-in.
+   * `answer` ends it, as the result of the process does.
+   */
+  async function midAnswer(overrides: Partial<Config> = {}, script: Script = {}) {
     let answer = () => {};
     const hold = new Promise<void>((resolve) => { answer = resolve; });
-    // a turn that ends only when it is made to, so the wait of 11.9 runs out
-    const r = room({ hold, onInterrupt: () => answer(), text: "One. Two. Three." },
-      { interruptAfterMs: 20, ...overrides });
+    const r = room({ hold, text: "One. Two. Three.", ...script }, overrides);
     const turn = r.c.turn("how does a suspension bridge work");
     await tick();
     r.agent.hooks().onDelta?.("One. ");
@@ -325,6 +326,8 @@ describe("11.9 a question that lands mid-answer", () => {
     await tick();
     return { ...r, turn, answer };
   }
+  const injected = (r: { agent: { calls: string[] } }) => r.agent.calls.filter((call) => call.startsWith("inject "));
+  const asks = (r: { agent: { calls: string[] } }) => r.agent.calls.filter((call) => call.startsWith("ask "));
 
   test("holding: it is refused and the answer resumes", async () => {
     const r = await midAnswer({ interruptOnSpeech: false });
@@ -332,69 +335,160 @@ describe("11.9 a question that lands mid-answer", () => {
     await tick();
     expect(r.said.join(" ")).toContain("I am still on the last one");
     expect(r.agent.calls).not.toContain("interrupt");
+    expect(injected(r)).toEqual([]);
     expect(r.said).toContain("Two.");
     r.answer();
     await r.turn;
   });
 
-  test("interrupting: the answer stops, the question is asked, nothing else is said", async () => {
+  test("interrupting: the voice stops, and what he said goes into the turn with no interrupt", async () => {
     const r = await midAnswer({ interruptOnSpeech: true });
     await r.c.heard("what is the tallest one");
-    expect(r.agent.calls).toContain("interrupt");
+    expect(injected(r)).toHaveLength(1);
+    expect(r.agent.calls).not.toContain("interrupt");
+    expect(asks(r)).toHaveLength(1);
     expect(r.said.join(" ")).not.toContain("I am still on the last one");
     expect(r.said).not.toContain("Two.");
     expect(r.said).not.toContain("Three.");
+    r.answer();
+    await r.turn;
   });
 
-  test("interrupting: the record says the bridge waited, then interrupted", async () => {
+  test("interrupting: the note says where he stopped hearing, and that he said it while the agent worked", async () => {
     const r = await midAnswer({ interruptOnSpeech: true });
     await r.c.heard("what is the tallest one");
-    const cutoffs = r.c.measures.recent().filter((e) => e.kind === "cutoff");
-    expect(cutoffs).toMatchObject([{ kind: "cutoff", interrupted: true }]);
-    expect((cutoffs[0] as { waitedMs: number }).waitedMs).toBeGreaterThanOrEqual(15);
+    const text = injected(r)[0] ?? "";
+    expect(text).toContain('The voice stopped mid-answer, after: "One."');
+    expect(text).toContain("while you worked");
+    expect(text).toContain("Do not repeat any of it");
+    expect(text).toEndWith("\n\nwhat is the tallest one");
+    // the note is for the agent; the transcript keeps what Chris actually said
+    expect(r.channel.missed().some((entry) => entry.text === "what is the tallest one")).toBe(true);
+    r.answer();
+    await r.turn;
   });
 
-  test("interrupting: a turn that ends inside the wait is recorded as not interrupted", async () => {
-    const r = await midAnswer({ interruptOnSpeech: true, interruptAfterMs: 500 });
+  test("interrupting: the record keeps the cutoff line, marked as injected", async () => {
+    const r = await midAnswer({ interruptOnSpeech: true });
+    await r.c.heard("what is the tallest one");
+    expect(r.c.measures.recent().filter((e) => e.kind === "cutoff")).toMatchObject([{ kind: "cutoff", interrupted: false, injected: true }]);
+    r.answer();
+    await r.turn;
+  });
+
+  test("interrupting: the rest of the message he spoke over is shown, not spoken", async () => {
+    const r = await midAnswer({ interruptOnSpeech: true });
+    await r.c.heard("what is the tallest one");
+    r.agent.hooks().onDelta?.("Four. ");
+    await tick();
+    expect(r.said).not.toContain("Four.");
+    expect(r.told.some((m) => m.kind === "delta" && m.text === "Four. ")).toBe(true);
+    r.answer();
+    await r.turn;
+    expect(r.said).not.toContain("Four.");
+  });
+
+  test("interrupting: the message begun after it is the reply, spoken as an answer of its own", async () => {
+    const r = await midAnswer({ interruptOnSpeech: true });
+    const first = r.told.find((m) => m.kind === "sentence")!;
+    await r.c.heard("what is the tallest one");
+    r.agent.hooks().onInjectedReply?.();
+    r.agent.hooks().onDelta?.("The tallest is in Turkey. ");
+    await tick();
+    expect(r.said.at(-1)).toBe("The tallest is in Turkey.");
+    r.answer();
+    await r.turn;
+    const reply = r.told.find((m) => m.kind === "sentence" && m.text === "The tallest is in Turkey.")!;
+    expect("answer" in reply && "answer" in first && reply.answer !== first.answer).toBe(true);
+    // the turn is what Chris heard of the reply, under the reply's number
+    expect(r.told.filter((m) => m.kind === "turn").at(-1)).toMatchObject({ text: "The tallest is in Turkey.", answer: "answer" in reply ? reply.answer : -1 });
+    expect(r.cues.filter((cue) => cue === "done")).toHaveLength(1);
+  });
+
+  test("interrupting: a second question while the turn runs goes in the same way", async () => {
+    const r = await midAnswer({ interruptOnSpeech: true });
+    await r.c.heard("what is the tallest one");
+    r.agent.hooks().onInjectedReply?.();
+    r.agent.hooks().onDelta?.("The tallest ");
+    r.c.ears.stopSpeaking();
+    await r.c.heard("and the longest");
+    expect(injected(r)).toHaveLength(2);
+    expect(r.agent.calls).not.toContain("interrupt");
+    r.agent.hooks().onDelta?.("is in Turkey. ");
+    r.agent.hooks().onInjectedReply?.();
+    r.agent.hooks().onDelta?.("The longest is in China. ");
+    await tick();
+    expect(r.said).not.toContain("The tallest is in Turkey.");
+    expect(r.said.at(-1)).toBe("The longest is in China.");
+    r.answer();
+    await r.turn;
+  });
+
+  test("interrupting: the result already back, only the voice was left, so it is a new turn", async () => {
+    const r = await midAnswer({ interruptOnSpeech: true }, { inject: () => false });
     const heard = r.c.heard("what is the tallest one");
     r.answer();
     await heard;
-    expect(r.agent.calls).not.toContain("interrupt");
-    expect(r.c.measures.recent().filter((e) => e.kind === "cutoff")).toMatchObject([{ kind: "cutoff", interrupted: false }]);
+    await r.turn;
+    await tick();
+    expect(asks(r)).toHaveLength(2);
+    expect(asks(r)[1]).toContain('The voice stopped mid-answer, after: "One."');
+    expect(asks(r)[1]).toEndWith("\n\nwhat is the tallest one");
+    expect(r.c.measures.recent().filter((e) => e.kind === "cutoff")).toMatchObject([{ kind: "cutoff", interrupted: false, injected: false }]);
   });
 
-  test("interrupting: the agent is told where Chris stopped hearing, and the question is clean", async () => {
-    const r = await midAnswer({ interruptOnSpeech: true });
+  test("interrupting: a process that fails with an injection pending says so", async () => {
+    const r = await midAnswer({ interruptOnSpeech: true }, { fail: "restarted: silent" });
     await r.c.heard("what is the tallest one");
-    const asked = r.agent.calls.filter((call) => call.startsWith("ask ")).at(-1) ?? "";
-    expect(asked).toContain('The voice stopped mid-answer, after: "One."');
-    // 18 September: told only that he missed the rest, the agent said it again
-    expect(asked).toContain("Do not repeat any of it");
-    expect(asked).toContain("what is the tallest one");
-    // the note is for the agent; the transcript keeps what Chris actually said
-    expect(r.channel.missed().some((entry) => entry.text === "what is the tallest one")).toBe(true);
+    r.answer();
+    await r.turn;
+    await tick();
+    expect(r.said.at(-1)).toBe("That turn did not finish.");
   });
 
-  test("interrupting: what was not spoken is already on the client as text, and gets no note (11.10)", async () => {
+  test("end the turn still interrupts", async () => {
+    const r = await midAnswer({ interruptOnSpeech: true });
+    await r.c.heard("sidetone end the turn");
+    expect(r.agent.calls).toContain("interrupt");
+    expect(injected(r)).toEqual([]);
+    r.answer();
+    await r.turn;
+  });
+
+  test("10.7 at the agent's gate, speech refuses the gate first, then goes into the turn", async () => {
+    const r = await midAnswer({ interruptOnSpeech: true });
+    r.agent.hooks().onPermission?.({ id: "r1", tool: "Bash", input: { command: "git push --force origin main" } });
+    await r.c.heard("what is the tallest one");
+    expect(r.agent.answers).toEqual([{ id: "r1", allow: false, message: expect.stringContaining('Chris said "what is the tallest one"') }]);
+    expect(injected(r)).toHaveLength(1);
+    r.answer();
+    await r.turn;
+  });
+
+  test("8.6.3 the checkpoint still stops for the agreement word after an injection", async () => {
     const r = await midAnswer({ interruptOnSpeech: true });
     await r.c.heard("what is the tallest one");
-    expect(r.told.some((value) => value.kind === "narration" && value.text.startsWith("not spoken:"))).toBe(false);
-    const shown = r.told.flatMap((value) => (value.kind === "sentence" || value.kind === "delta" ? [value.text] : [])).join(" ");
-    expect(shown).toContain("Two.");
-    expect(shown).toContain("Three.");
+    r.agent.hooks().onCheckpoint?.(600_000);
+    await r.c.heard("continue");
+    expect(r.agent.calls).toContain("agree");
+    expect(injected(r)).toHaveLength(1);
+    r.answer();
+    await r.turn;
   });
 
   test("carry on says the rest, once, without asking the agent again", async () => {
     const r = await midAnswer({ interruptOnSpeech: true });
     await r.c.heard("what is the tallest one");
-    const asks = r.agent.calls.filter((call) => call.startsWith("ask ")).length;
     await r.c.heard("sidetone carry on");
     await tick();
     expect(r.said).toContain("Two.");
     expect(r.said).toContain("Three.");
-    expect(r.agent.calls.filter((call) => call.startsWith("ask ")).length).toBe(asks);
+    expect(asks(r)).toHaveLength(1);
+    expect(injected(r)).toHaveLength(1);
     await r.c.heard("sidetone carry on");
     expect(r.said.join(" ")).toContain("There is nothing left of it");
+    r.answer();
+    await r.turn;
   });
 
   test("the mode is a wake command, and it says which way it now is", async () => {
@@ -405,44 +499,6 @@ describe("11.9 a question that lands mid-answer", () => {
     await r.c.heard("sidetone interrupt off");
     await tick();
     expect(r.said).toContain("Interrupting off.");
-  });
-});
-
-describe("11.9 waiting before insisting", () => {
-  /** A turn that ends on its own a moment after the question lands. */
-  async function endsByItself(afterMs: number, patienceMs: number) {
-    let answer = () => {};
-    const hold = new Promise<void>((resolve) => { answer = resolve; });
-    // the real process returns a result once it takes an interrupt, so the
-    // stub does too: without that this measures the grace timer, not the wait
-    const r = room({ hold, text: "One. Two.", onInterrupt: () => answer() },
-      { interruptOnSpeech: true, interruptAfterMs: patienceMs });
-    const turn = r.c.turn("something");
-    await tick();
-    r.agent.hooks().onDelta?.("One. ");
-    await tick();
-    r.c.ears.stopSpeaking();
-    setTimeout(answer, afterMs);
-    await r.c.heard("what is the tallest one");
-    await turn;
-    return r;
-  }
-
-  test("a turn that ends by itself is never interrupted, so a subagent lives", async () => {
-    const r = await endsByItself(10, 200);
-    expect(r.agent.calls).not.toContain("interrupt");
-    // and the question still gets asked, with the note in front of it
-    expect(r.agent.calls.filter((call) => call.startsWith("ask ")).length).toBe(2);
-  });
-
-  test("a turn that will not end is interrupted after the wait", async () => {
-    const r = await endsByItself(10_000, 20);
-    expect(r.agent.calls).toContain("interrupt");
-  });
-
-  test("the wait is silent: nothing of the stopped answer is said", async () => {
-    const r = await endsByItself(10, 200);
-    expect(r.said).not.toContain("Two.");
   });
 });
 
@@ -765,8 +821,10 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
   });
 
   test("a turn that is no longer the mouth's does not start it", async () => {
-    const r = await slow({ interruptOnSpeech: true, interruptAfterMs: 20 });
-    // an interrupt that the scripted agent never answers, so the old turn runs on
+    const r = await slow({ interruptOnSpeech: true });
+    // item 4 the result is back and only the voice was left, so what Chris says
+    // waits for the old turn to end and is the next one; the old turn runs on here
+    r.c.agent.inject = () => false;
     void r.c.heard("what is the tallest one");
     await wait(AFTER * 2);
     expect(r.tracks).toHaveLength(0);
