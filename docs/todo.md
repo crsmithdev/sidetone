@@ -345,6 +345,10 @@ Still to do:
 5. The matcher does not see `bash -c`, `$(…)`, `xargs rm -rf` or
    `find -delete`. Auto mode still judges those.
 
+On hold 24 September 2026: Chris plans to move the execution engine into
+aleph, which may make points 1 and 2 (the settings for `scripts/job`) moot.
+Points 3 to 5 are built or recorded and stay.
+
 Done when a job started by `scripts/job` does not stop on a permission, and
 a gated action has been agreed and refused once by voice in the room.
 
