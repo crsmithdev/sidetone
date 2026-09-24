@@ -573,6 +573,51 @@ tunnel (14.8), and the history arrives when it comes back.
 Done when Chris taps Leave in the car, the music plays, the app is still on the
 screen, and one tap brings the conversation back with the history.
 
+## 50. The settings screen fills the window
+
+Noted 24 September 2026, from using the app. Not started.
+
+The options behind the gear are a dropdown menu (`Options.kt`, spec 17.22). It
+is small, its controls sit in a narrow column, and a slider in a dropdown is a
+poor target in a moving car.
+
+The settings should fill the window, with the top bar and its gear the only
+thing left around it. Tapping the gear opens it; the same tap or a back gesture
+closes it. The controls are the ones the menu holds now, with room to grow as
+item 44 adds the bridge's thresholds: verbosity, tones, hold music volume,
+"Leave", "Quit" and the build line.
+
+Done when the gear opens a screen that fills the window under the top bar, every
+control in it works as it does in the menu today, and a back gesture returns to
+the conversation.
+
+## 51. A design pass on the status light and its legend
+
+Noted 24 September 2026, from reading the legend on the phone. Not started.
+
+Four of the seven states are amber: connecting, signal lost, reconnecting and
+rejoining (`Reading.kt`). The colour therefore says almost nothing, and the
+legend that item 45 added lists four rows that look the same. Green is
+listening, red is disconnected, grey is left by hand.
+
+Look at the light and the legend together, as one design rather than two:
+
+- What the colour should carry, and how many colours that needs. A reader in a
+  car has a glance, not a reading.
+- Whether the four amber states are four states to a person, or one state
+  ("not hearing you, working on it") with detail in the word beside the light.
+- The word beside the light, which item 45 made always visible (17.11.7): it may
+  be doing more of the work than the colour now.
+- The ring, which carries the connection quality, and the motion, which carries
+  work in progress: with a word and a colour, whether they are still worth the
+  space.
+- The legend's shape, now that it has a row for each state: what a person who
+  taps the light actually wants to know.
+
+Done when the light says at a glance which of the states that matter it is in,
+the legend reads as one idea rather than a table of four ambers, and both are in
+the spec.
+
 ## Done
 
 One line for each item that shipped: the number, the title, the date, the
