@@ -1088,3 +1088,31 @@ so the gear opens something real.
 
 Done when Chris taps the gear on the phone and reaches a settings screen from
 which "Leave" works.
+
+## 47. Hold to talk keeps the turn open until the release
+
+Noted 23 September 2026. Not started.
+
+While Chris holds the hold to talk button, the bridge still ends his turn after
+`endOfTurnPauseMs` (1.5 seconds) of quiet (src/audio.ts, the `quietMs` check).
+Only the release ends the turn at once (spec 9.5.2). Nothing keeps the turn open
+while the button stays down.
+
+The bridge learns a hold from the `mic` message with `hold` set (src/bridge.ts).
+Keep the hold state in the bridge, and skip the end-of-turn pause while it is
+set. The release still ends the turn at once.
+
+Done when a hold with a pause of more than 1.5 seconds in the middle gives one
+`heard` with the words from both sides of the pause.
+
+## 48. The voice keeps speaking to the end of the sentence after a barge-in or audio off
+
+Noted 23 September 2026. Not started, not verified.
+
+Chris says the voice goes on to the end of the sentence when he barges in. He
+says the same after he turns the audio off: the voice goes on to the end of the
+sentence or of the message. Neither is confirmed. Reproduce both, and find where
+the playback queue stops. Both must cut the voice at once.
+
+Done when a barge-in and an audio off each stop the voice in under half a
+second, and the run that shows it is on record.
