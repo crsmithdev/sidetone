@@ -31,6 +31,10 @@ export type Event =
   | { kind: "blockEnd" }
   /** 8.6.5 the receipt for a control request; still_queued names the turns it dropped */
   | { kind: "controlResponse"; ok: boolean; stillQueued: string[] }
+  /** 10.7 the process asks before a tool runs (`--permission-prompt-tool stdio`) and waits for the answer */
+  | { kind: "permission"; id: string; tool: string; input: Record<string, unknown> }
+  /** 10.7 the process takes a request back, as it does when an interrupt lands on one */
+  | { kind: "permissionCancel"; id: string }
   /** parentId names the Agent call this one runs inside, or null at the top level */
   | { kind: "toolStart"; id: string; tool: string; parentId: string | null }
   | { kind: "toolEnd"; id: string; parentId: string | null }
@@ -110,6 +114,13 @@ export function parseLine(line: string): Event[] {
     if (event.type === "content_block_stop") return [{ kind: "blockEnd" }];
     return [{ kind: "other", type: `stream_event.${String(event.type ?? "")}` }];
   }
+  if (type === "control_request") {
+    const request = (raw.request ?? {}) as Record<string, unknown>;
+    if (request.subtype === "can_use_tool") {
+      return [{ kind: "permission", id: String(raw.request_id ?? ""), tool: String(request.tool_name ?? ""), input: (request.input ?? {}) as Record<string, unknown> }];
+    }
+  }
+  if (type === "control_cancel_request") return [{ kind: "permissionCancel", id: String(raw.request_id ?? "") }];
   if (type === "control_response") {
     const response = (raw.response ?? {}) as Record<string, unknown>;
     const inner = (response.response ?? {}) as Record<string, unknown>;

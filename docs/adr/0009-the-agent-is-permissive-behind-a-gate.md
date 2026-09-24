@@ -8,8 +8,18 @@ what it is about to do before it asks.
 
 ## Consequences
 
-One action is gated today: clearing the context, which kills the process the
-conversation lives in. Everything else about what the agent may do comes from
+One action of the bridge is gated: clearing the context, which kills the process
+the conversation lives in. Four actions of the agent are gated (spec 10.7): a
+force push, a remote branch delete, `rm -rf` outside the project, and a drop or
+truncate of a database. The agent asks the bridge before each of these, through
+`--permission-prompt-tool stdio` and ask rules the bridge passes in `--settings`.
+
+The ask rules are wider than the four: they send each `git push`, each `rm` and
+each DROP or TRUNCATE to the bridge. The bridge allows each request that is not
+one of the four. So auto mode does not judge these commands any more; the bridge
+does. Before this change, an ask with no answer was a deny.
+
+Everything else about what the agent may do comes from
 the project's own instructions file, not from the bridge — the bridge does not
 put the agent in a worktree, and the container that the specification asks for,
 to isolate the file system and the processes, is not built.

@@ -114,7 +114,7 @@ How much the agent says in a reply: brief, normal or full. The bridge names it i
 _Avoid_: the length, the detail level.
 
 **A gated action**:
-An action the bridge does only after Chris speaks the agreement word. It fails closed.
+An action the bridge does, or lets the agent do, only after Chris speaks the agreement word. It fails closed. The agent's gated actions are in spec 10.7.
 _Avoid_: a confirmation, an approval, a prompt.
 
 **The agreement word**:

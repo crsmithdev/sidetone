@@ -25,6 +25,8 @@
  * | end the turn | dropped, a replay too | interrupted |
  * | clear the context | held until the gate answers | dies with the process |
  * | the agreement word, at the gate | dropped | dies with the process |
+ * | the agreement word, at the agent's gate | resumes | the action runs |
+ * | anything else, at the agent's gate | handled as what it was | the action is denied |
  * | the agreement word, at the checkpoint | resumes | runs on |
  * | nothing, until the gate times out | resumes | untouched |
  */
@@ -38,8 +40,9 @@ import type { Ears } from "./ear.ts";
 import type { Measures } from "./measures.ts";
 import type { Mouth } from "./mouth.ts";
 import { Network } from "./network.ts";
+import { ASK_RULES, gatedAction } from "./gated.ts";
 import { withoutMarker } from "./sentences.ts";
-import { Session, type SessionHooks, type Turn } from "./session.ts";
+import { Session, type Permission, type SessionHooks, type Turn } from "./session.ts";
 
 export type { CueName };
 
@@ -55,6 +58,8 @@ export interface Agent {
   agree(): void;
   interrupt(): void;
   restart(reason: string): void;
+  /** 10.7 the answer to a permission request the agent sent */
+  answer(id: string, allow: boolean, message?: string): void;
   readonly running: boolean;
   readonly turns: number;
   readonly rateLimit: { fiveHour: number; sevenDay: number };
@@ -125,8 +130,19 @@ export class Conversation {
    * as the command.
    */
   private awaitingCommand = 0;
-  /** 10.1 an action waiting for the agreement word before it happens. */
-  private gate: { act(): void; denied: string; timer: ReturnType<typeof setTimeout> } | null = null;
+  /**
+   * 10.1 an action waiting for the agreement word before it happens. `act`
+   * says what becomes of a held answer once it has run. `refused` hears why
+   * the gate closed without it, and `request` names the agent's request the
+   * gate answers (10.7), so a request the agent takes back can close it.
+   */
+  private gate: {
+    act(): Hold;
+    denied: string;
+    refused?(why: string): void;
+    request?: string;
+    timer: ReturnType<typeof setTimeout>;
+  } | null = null;
   /** 9.4.7 the last three request and reply pairs, which the bridge answers from itself */
   private readonly recent: Array<{ said: string; reply: string }> = [];
 
@@ -137,7 +153,7 @@ export class Conversation {
   readonly network = new Network();
 
   constructor(
-    dir: string,
+    private readonly dir: string,
     private readonly config: Config,
     /** what the bridge says, from a sentence to the sound of it, in whichever voice */
     private readonly mouth: Mouth,
@@ -147,8 +163,14 @@ export class Conversation {
     makeAgent: MakeAgent = claudeCode(dir),
   ) {
     this.measures = mouth.measures;
-    // 6.5 the voice instruction lives in the bridge, not in the agent's identity file
-    const args = [...config.claudeArgs, "--append-system-prompt", config.voiceInstruction];
+    // 6.5 the voice instruction lives in the bridge, not in the agent's identity file.
+    // 10.7 the agent asks the bridge before the actions the ask rules name.
+    const args = [
+      ...config.claudeArgs,
+      "--append-system-prompt", config.voiceInstruction,
+      "--permission-prompt-tool", "stdio",
+      "--settings", JSON.stringify({ permissions: { ask: ASK_RULES } }),
+    ];
     this.agent = makeAgent({
       onDelta: (text) => this.streaming().delta(text),
       onBlockStart: (type) => this.streaming().blockStart(type),
@@ -162,6 +184,12 @@ export class Conversation {
       onInterrupt: () => { this.checkpointOpen = false; },
       onUnprompted: (turn) => this.unprompted(turn),
       onRestart: () => this.cue("starting"),
+      onPermission: (request) => this.permission(request),
+      onPermissionCancel: (id) => {
+        if (this.gate?.request !== id) return;
+        this.refuseGate("the request was taken back");
+        this.apply("resume");
+      },
     }, { ...config, claudeArgs: args });
     this.tones = config.tones;
     this.holdMusic = config.holdMusic;
@@ -282,11 +310,7 @@ export class Conversation {
 
     // 10.5 the gate fails closed: anything that is not the agreement word
     // cancels the action, and is then handled as what it was.
-    if (this.gate && !reading.agreed) {
-      const denied = this.gate.denied;
-      this.closeGate();
-      this.reply(denied);
-    }
+    if (this.gate && !reading.agreed) this.refuseGate(`Chris said "${said}"`);
     const { hold, then } = this.decide(said, reading);
     this.apply(hold);
     await then?.();
@@ -312,7 +336,7 @@ export class Conversation {
     if (this.muted) return { hold: "resume" };
     // 10.2 the agreement word is a word said plainly, not a wake command
     if (reading.agreed) {
-      if (this.gate) { const act = this.gate.act; this.closeGate(); act(); return { hold: "discard" }; }
+      if (this.gate) { const act = this.gate.act; this.closeGate(); return { hold: act() }; }
       if (this.checkpointOpen) {
         this.checkpointOpen = false;
         this.agent.agree();
@@ -364,12 +388,15 @@ export class Conversation {
    * fails closed when no clear agreement comes, and the held answer waits with
    * it rather than resuming under the question.
    */
-  private askFirst(what: string, denied: string, act: () => void): void {
+  private askFirst(what: string, denied: string, act: () => Hold, refused?: (why: string) => void, request?: string): void {
     this.reply(`${what} Say ${this.config.agreementWord} to let it happen.`);
+    const seconds = Math.round(this.config.checkpointWindowMs / 1000);
     this.gate = {
       act,
       denied,
-      timer: setTimeout(() => { this.gate = null; this.reply(denied); this.apply("resume"); }, this.config.checkpointWindowMs),
+      refused,
+      request,
+      timer: setTimeout(() => { this.refuseGate(`no answer in ${seconds} seconds`); this.apply("resume"); }, this.config.checkpointWindowMs),
     };
   }
 
@@ -377,6 +404,41 @@ export class Conversation {
     if (!this.gate) return;
     clearTimeout(this.gate.timer);
     this.gate = null;
+  }
+
+  /** 10.5 the gate closes without the action, and says so. */
+  private refuseGate(why: string): void {
+    const gate = this.gate;
+    if (!gate) return;
+    this.closeGate();
+    gate.refused?.(why);
+    this.reply(gate.denied);
+  }
+
+  /**
+   * 10.7 the agent asks before a tool runs. The four actions of 10.7 wait for
+   * the agreement word; anything else is let through at once, because the
+   * agent is permissive (6.3). One gate at a time: a request that arrives
+   * while a question is open is denied, and the agent is told why.
+   */
+  private permission(request: Permission): void {
+    const what = gatedAction(request.tool, request.input, this.dir);
+    const action = `${request.tool} ${JSON.stringify(typeof request.input.command === "string" ? request.input.command : request.input)}`;
+    const answer = (allow: boolean, why: string, message?: string) => {
+      this.agent.answer(request.id, allow, message);
+      this.channel.journal(`the bridge ${allow ? "allowed" : "denied"} the agent's ${action}: ${why}`);
+    };
+    if (!what) { answer(true, "not a gated action"); return; }
+    if (this.gate) {
+      answer(false, "a question was already open", "The bridge denied this without asking Chris: a question to him is already open. Ask again after he answers it.");
+      return;
+    }
+    this.askFirst(what, "Nothing was done.", () => {
+      answer(true, `Chris said "${this.config.agreementWord}"`);
+      return "resume";
+    }, (why) => {
+      answer(false, why, `Chris did not agree (${why}), so the bridge denied this. Do not run it, or another form of it, unless he asks for it again.`);
+    }, request.id);
   }
 
   /** Not awaited by the caller: the microphone has to stay open through a turn. */
@@ -452,7 +514,7 @@ export class Conversation {
       // is wanted, because at the checkpoint the bridge has just asked for one.
       // 15.1 never while an answer is wanted: at the checkpoint the bridge has
       // just asked for one. cue() keeps it off the voice.
-      if (!this.checkpointOpen) this.cue("thinking");
+      if (!this.checkpointOpen && !this.gate) this.cue("thinking");
       timer = setTimeout(tick.bind(this), this.config.audioCueEveryMs);
     }.bind(this), this.config.audioCueDelayMs);
     return () => clearTimeout(timer);
@@ -605,6 +667,7 @@ export class Conversation {
         this.askFirst("I am about to clear the context and start again.", "Nothing was cleared.", () => {
           this.agent.restart("cleared by voice");
           this.reply("Context cleared.");
+          return "discard";
         });
         return "keep";
     }

@@ -28,6 +28,13 @@ export function processRssBytes(pid: number): number | null {
   return match ? Number(match[1]) * 1024 : null;
 }
 
+/** 10.7 what the agent asks to run, and the id its answer must carry. */
+export interface Permission {
+  id: string;
+  tool: string;
+  input: Record<string, unknown>;
+}
+
 export interface SessionHooks {
   /** 8.6.3 the bridge speaks at the checkpoint and waits for the agreement word */
   onCheckpoint?(runningMs: number): void;
@@ -47,6 +54,13 @@ export interface SessionHooks {
    * only exists for the length of a turn the bridge started.
    */
   onUnprompted?(turn: Turn): void;
+  /**
+   * 10.7 the agent asks before a tool runs, and waits for `answer`. It asks
+   * only about what the ask rules of `src/gated.ts` name.
+   */
+  onPermission?(request: Permission): void;
+  /** 10.7 a request that can no longer be answered: the process took it back, or it ended */
+  onPermissionCancel?(id: string): void;
   /** 15.2 something to play while a turn is long */
   onEvent?(event: Event): void;
 }
@@ -116,6 +130,8 @@ export class Session {
   private replyText = "";
   private costUsd = 0;
   private timer: ReturnType<typeof setInterval> | null = null;
+  /** 10.7 the requests the current process waits on, by id, with the input an allow hands back */
+  private asked = new Map<string, Record<string, unknown>>();
   /** 8.9 the window and the compaction threshold, once claude reports them */
   contextWindow = 0;
   contextThreshold = 0;
@@ -158,6 +174,7 @@ export class Session {
       for (const event of parseLine(line)) this.handle(event, Date.now());
     }
     if (this.child !== child) return;
+    this.cancelAsked();
     // the stream ended: either we killed it, or it died and the silence timer is about to say so
     if (this.pending) this.fail(new Error("the Claude Code process ended mid-turn"));
   }
@@ -175,6 +192,8 @@ export class Session {
       case "blockEnd": this.hooks.onBlockEnd?.(); break;
       // 8.6.5 the receipt says the process took the interrupt. It does not say the
       // process is ready, so 8.6.7 still measures readiness by the grace time.
+      case "permission": this.asked.set(event.id, event.input); this.hooks.onPermission?.({ id: event.id, tool: event.tool, input: event.input }); break;
+      case "permissionCancel": if (this.asked.delete(event.id)) this.hooks.onPermissionCancel?.(event.id); break;
       case "controlResponse": this.hooks.onInterrupt?.(event.ok ? "the process took the interrupt" : "the process refused the interrupt"); break;
       case "context": this.contextWindow = event.window; this.contextThreshold = event.threshold; break;
       case "rateLimit": this.rateLimit = { fiveHour: event.fiveHour, sevenDay: event.sevenDay }; break;
@@ -242,6 +261,26 @@ export class Session {
     this.write({ type: "control_request", request: { subtype: "interrupt" } });
   }
 
+  /**
+   * 10.7 the answer to a permission request. Only a request the current
+   * process still waits on is answered, and only once: a restart or a cancel
+   * has already taken it back.
+   */
+  answer(id: string, allow: boolean, message = ""): void {
+    const input = this.asked.get(id);
+    if (!input) return;
+    this.asked.delete(id);
+    const response = allow ? { behavior: "allow", updatedInput: input } : { behavior: "deny", message };
+    this.write({ type: "control_response", response: { subtype: "success", request_id: id, response } });
+  }
+
+  /** 10.5 a process that ends takes its requests with it, and whoever asked Chris is told. */
+  private cancelAsked(): void {
+    const ids = [...this.asked.keys()];
+    this.asked.clear();
+    for (const id of ids) this.hooks.onPermissionCancel?.(id);
+  }
+
   restart(reason: string): void {
     this.stop();
     this.fail(new Error(`restarted: ${reason}`));
@@ -250,6 +289,7 @@ export class Session {
 
   stop(): void {
     if (this.timer) { clearInterval(this.timer); this.timer = null; }
+    this.cancelAsked();
     this.child?.kill();
     this.child = null;
   }

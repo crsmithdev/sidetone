@@ -432,6 +432,111 @@ describe("the gate on clearing the context (10)", () => {
   });
 });
 
+/**
+ * 10.7 the agent's own gated actions. The process asks before a tool runs
+ * (`--permission-prompt-tool stdio`); the bridge reads back the four of 10.7
+ * and waits for the agreement word, and lets everything else through (6.3).
+ */
+describe("the gate on the agent's actions (10.7)", () => {
+  const FORCE = { id: "r1", tool: "Bash", input: { command: "git push --force origin main" } };
+  const asks = (r: ReturnType<typeof room>, request = FORCE) => r.agent.hooks().onPermission?.(request);
+
+  test("the agent is started so that it asks the bridge", () => {
+    const r = room();
+    const args = r.agent.config()?.claudeArgs ?? [];
+    expect(args.join(" ")).toContain("--permission-prompt-tool stdio");
+    const settings = JSON.parse(args[args.indexOf("--settings") + 1] as string);
+    expect(settings.permissions.ask).toContain("Bash(git push *)");
+  });
+
+  test("an action that is not gated is let through at once, and the journal says why", async () => {
+    const r = room();
+    asks(r, { id: "r0", tool: "Bash", input: { command: "git push origin main" } });
+    await tick();
+    expect(r.agent.answers).toEqual([{ id: "r0", allow: true }]);
+    expect(r.said).toEqual([]);
+    expect(r.journal.at(-1)).toBe('[the bridge allowed the agent\'s Bash "git push origin main": not a gated action]');
+  });
+
+  test("it reads back what the agent is about to do and waits", async () => {
+    const r = room();
+    asks(r);
+    await tick();
+    expect(r.said).toEqual(["The agent wants to force push to origin main. Say continue to let it happen."]);
+    expect(r.agent.answers).toEqual([]);
+  });
+
+  test("the agreement word lets it happen", async () => {
+    const r = room();
+    asks(r);
+    await r.c.heard("continue");
+    await tick();
+    expect(r.agent.answers).toEqual([{ id: "r1", allow: true }]);
+    expect(r.journal.at(-1)).toBe('[the bridge allowed the agent\'s Bash "git push --force origin main": Chris said "continue"]');
+  });
+
+  test("10.5 anything else denies it, and the agent is told why", async () => {
+    const r = room();
+    asks(r);
+    await r.c.heard("hang on what");
+    await tick();
+    expect(r.agent.answers).toEqual([{ id: "r1", allow: false, message: expect.stringContaining('Chris said "hang on what"') }]);
+    expect(r.said.slice(0, 2)).toEqual(["The agent wants to force push to origin main. Say continue to let it happen.", "Nothing was done."]);
+    expect(r.journal).toContain('[the bridge denied the agent\'s Bash "git push --force origin main": Chris said "hang on what"]');
+  });
+
+  test("10.5 no answer in time denies it", async () => {
+    const r = room({ checkpointWindowMs: 10 });
+    asks(r);
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(r.agent.answers).toEqual([{ id: "r1", allow: false, message: expect.stringContaining("no answer in") }]);
+    expect(r.said.at(-1)).toBe("Nothing was done.");
+  });
+
+  test("a request the agent takes back closes the gate, and a late agreement does nothing", async () => {
+    const r = room();
+    asks(r);
+    r.agent.hooks().onPermissionCancel?.("r1");
+    await r.c.heard("continue");
+    await tick();
+    // the deny is written for the journal's sake; the session drops it, because the request is gone
+    expect(r.agent.answers.every((answer) => !answer.allow)).toBe(true);
+    expect(r.journal).toContain('[the bridge denied the agent\'s Bash "git push --force origin main": the request was taken back]');
+  });
+
+  test("one gate at a time: a second request while one is open is denied without a question", async () => {
+    const r = room();
+    asks(r);
+    // the harness runs the agent in /tmp, so the path is outside it
+    asks(r, { id: "r2", tool: "Bash", input: { command: "rm -rf /var/junk" } });
+    await tick();
+    expect(r.agent.answers).toEqual([{ id: "r2", allow: false, message: expect.stringContaining("already open") }]);
+    expect(r.said).toEqual(["The agent wants to force push to origin main. Say continue to let it happen."]);
+    await r.c.heard("continue");
+    expect(r.agent.answers.at(-1)).toEqual({ id: "r1", allow: true });
+  });
+
+  test("a request while the context gate is open is denied too", async () => {
+    const r = room();
+    await r.c.heard("sidetone clear context");
+    asks(r);
+    await tick();
+    expect(r.agent.answers).toEqual([{ id: "r1", allow: false, message: expect.stringContaining("already open") }]);
+  });
+
+  test("the held answer resumes once the agreement word lets the action run", async () => {
+    const r = room();
+    r.c.ears.stopSpeaking();
+    r.mouth.say("the rest.");
+    asks(r);
+    await tick();
+    expect(r.mouth.onHold).toBe(true);
+    await r.c.heard("continue");
+    await tick();
+    expect(r.said).toContain("the rest.");
+  });
+});
+
 describe("switching voice (4.9)", () => {
   test("it changes the voice, keeps the setting, and leaves the answer alone", async () => {
     const r = room();

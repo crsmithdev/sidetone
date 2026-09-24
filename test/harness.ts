@@ -43,7 +43,10 @@ export interface Script {
 /** The agent, scripted: no Claude Code process anywhere near a turn. */
 export function scripted(script: Script = {}) {
   const calls: string[] = [];
+  /** 10.7 each answer to a permission request, as the process would read it */
+  const answers: Array<{ id: string; allow: boolean; message?: string }> = [];
   let hooks: SessionHooks = {};
+  let given: Config | null = null;
   const agent: Agent = {
     start: () => calls.push("start"),
     stop: () => calls.push("stop"),
@@ -58,14 +61,16 @@ export function scripted(script: Script = {}) {
     agree: () => calls.push("agree"),
     interrupt: () => { calls.push("interrupt"); script.onInterrupt?.(); },
     restart: (reason: string) => calls.push(`restart ${reason}`),
+    answer: (id: string, allow: boolean, message?: string) => { answers.push(message === undefined ? { id, allow } : { id, allow, message }); },
     running: true,
     turns: 1,
     rateLimit: script.rateLimit ?? { fiveHour: 0, sevenDay: 0 },
     contextFraction: () => null,
     totalCostUsd: () => 0.5,
   };
-  const make: MakeAgent = (given) => { hooks = given; return agent; };
-  return { make, calls, hooks: () => hooks };
+  const make: MakeAgent = (made, config) => { hooks = made; given = config; return agent; };
+  /** `config` is what the agent was started with, the conversation's own arguments included */
+  return { make, calls, answers, hooks: () => hooks, config: () => given };
 }
 
 /** What a test may do to the hold music's source and to a sentence's length. */

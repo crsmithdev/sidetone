@@ -293,6 +293,24 @@ project bridge stays in place.
 
 10.6 A gated action is atomic. An interruption does not leave the action half done.
 
+10.7 Four actions of the agent are gated:
+
+10.7.1 A force push: `git push` with `--force`, `--force-with-lease`, `-f`, or a refspec that starts with `+`.
+
+10.7.2 A remote branch delete: `git push <remote> --delete <branch>`, `git push <remote> :<branch>`, `--prune` or `--mirror`.
+
+10.7.3 `rm` with both `-r` and `-f`, on a path that is not below the project directory. A path with a variable counts as outside.
+
+10.7.4 A drop or a truncate of a database. The bridge cannot tell a production database from a test one, so it asks for each drop and each truncate.
+
+10.8 The bridge starts the agent with `--permission-prompt-tool stdio` and with ask rules in `--settings`. The rules make the agent send a permission request for each `git push`, each `rm`, and each command that holds DROP or TRUNCATE. The bridge reads back the four actions of 10.7 and allows every other request. Measured 24 September on claude 2.1.282: in auto mode with no ask rules, three force pushes of three ran and sent no request. With the rules, each one sent a request.
+
+10.9 One gate is open at a time. The bridge denies a request that arrives while a question is open, and tells the agent that a question is open.
+
+10.10 The bridge denies the request when Chris says a word that is not the agreement word, and when no answer comes in the window. An interrupt, a restart or the end of the process takes the request back, and the bridge closes the gate.
+
+10.11 The journal records each answer to the agent: allowed or denied, and the reason.
+
 ## 11. INTERRUPTION AND TURN-TAKING
 
 11.1 The bridge supports live barge-in. Chris can talk while the bridge speaks.

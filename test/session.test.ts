@@ -257,3 +257,139 @@ describe("a recorded run", () => {
     s.stop();
   });
 });
+
+/**
+ * 10.7 the agent asks before a gated action. Captured 24 September from
+ * claude 2.1.282, started with `--permission-prompt-tool stdio` and the ask
+ * rules of `src/gated.ts`: the force push reached this request three runs of
+ * three, and the deny below kept the remote where it was. Trimmed by hand as
+ * the pong run was, and the stream events are gone: the request is the point.
+ */
+describe("a permission request (10.7)", () => {
+  const path = new URL("./fixtures/stream-force-push.ndjson", import.meta.url).pathname;
+  const REQUEST = "8619b696-87ef-4848-bed2-0a24bbba2b66";
+
+  function replayed() {
+    const written: string[] = [];
+    const asked: Array<{ id: string; tool: string; input: Record<string, unknown> }> = [];
+    let release = () => {};
+    const answered = new Promise<void>((resolve) => { release = resolve; });
+    let seen = () => {};
+    const asking = new Promise<void>((resolve) => { seen = resolve; });
+    const spawn: Spawn = () => ({
+      pid: undefined,
+      lines: (async function* () {
+        const lines = (await Bun.file(path).text()).split("\n").filter((line) => line.trim());
+        for (const line of lines) {
+          yield line;
+          // the process waits for the answer before it runs the tool, and so does the replay
+          if (line.includes('"can_use_tool"')) await answered;
+        }
+      })(),
+      write: (line) => { written.push(line); },
+      kill: () => {},
+      exited: new Promise(() => {}),
+    });
+    const s = new Session("/tmp", config, { onPermission: (request) => { asked.push(request); seen(); } }, spawn);
+    return { s, written, asked, release, asking };
+  }
+
+  test("the request reaches the hook with what the agent wants to run", async () => {
+    const r = replayed();
+    const turn = r.s.ask("force push");
+    await r.asking;
+    expect(r.asked).toEqual([{ id: REQUEST, tool: "Bash", input: { command: "git push --force origin main", description: "Force push main to origin" } }]);
+    r.s.answer(REQUEST, false, "Chris did not say continue.");
+    r.release();
+    await turn;
+    r.s.stop();
+  });
+
+  test("a deny goes back in the shape the process took", async () => {
+    const r = replayed();
+    const turn = r.s.ask("force push");
+    await r.asking;
+    r.s.answer(REQUEST, false, "Chris did not say continue.");
+    r.release();
+    await turn;
+    expect(JSON.parse(r.written[1] as string)).toEqual({
+      type: "control_response",
+      response: { subtype: "success", request_id: REQUEST, response: { behavior: "deny", message: "Chris did not say continue." } },
+    });
+    r.s.stop();
+  });
+
+  test("an allow hands the input back unchanged", async () => {
+    const r = replayed();
+    const turn = r.s.ask("force push");
+    await r.asking;
+    r.s.answer(REQUEST, true);
+    r.release();
+    await turn;
+    expect(JSON.parse(r.written[1] as string)).toEqual({
+      type: "control_response",
+      response: { subtype: "success", request_id: REQUEST, response: { behavior: "allow", updatedInput: { command: "git push --force origin main", description: "Force push main to origin" } } },
+    });
+    r.s.stop();
+  });
+
+  test("a request is answered once, and one the process never asked is not answered", async () => {
+    const r = replayed();
+    const turn = r.s.ask("force push");
+    await r.asking;
+    r.s.answer(REQUEST, false, "no");
+    r.s.answer(REQUEST, true);
+    r.s.answer("not-asked", true);
+    r.release();
+    await turn;
+    expect(r.written).toHaveLength(2);
+    r.s.stop();
+  });
+});
+
+describe("a permission request taken back (10.5)", () => {
+  const ASK = (id: string) => `{"type":"control_request","request_id":"${id}","request":{"subtype":"can_use_tool","tool_name":"Bash","display_name":"Bash","input":{"command":"git push --force origin main"},"decision_reason_type":"rule","tool_use_id":"toolu_1"}}`;
+  // captured 24 September: an interrupt while the request was open
+  const CANCEL = (id: string) => `{"type":"control_cancel_request","request_id":"${id}"}`;
+
+  function watching() {
+    const cancelled: string[] = [];
+    const made: Array<ReturnType<typeof scripted>> = [];
+    const spawn: Spawn = () => { const p = scripted(); made.push(p); return p.process; };
+    const s = new Session("/tmp", config, { onPermissionCancel: (id) => cancelled.push(id) }, spawn);
+    return { s, cancelled, current: () => made[made.length - 1] as ReturnType<typeof scripted> };
+  }
+
+  test("the process takes it back after an interrupt, and a late answer is not written", async () => {
+    const r = watching();
+    void r.s.ask("force push").catch(() => {});
+    r.current().prints(ASK("a"));
+    r.current().prints(CANCEL("a"));
+    await tick();
+    expect(r.cancelled).toEqual(["a"]);
+    r.s.answer("a", true);
+    expect(r.current().written).toHaveLength(1);
+    r.s.stop();
+  });
+
+  test("a restart takes back every open request", async () => {
+    const r = watching();
+    void r.s.ask("force push").catch(() => {});
+    r.current().prints(ASK("a"));
+    await tick();
+    r.s.restart("test");
+    expect(r.cancelled).toEqual(["a"]);
+    r.s.stop();
+  });
+
+  test("a process whose output ends takes back every open request", async () => {
+    const r = watching();
+    void r.s.ask("force push").catch(() => {});
+    r.current().prints(ASK("a"));
+    await tick();
+    r.current().ends();
+    await tick();
+    expect(r.cancelled).toEqual(["a"]);
+    r.s.stop();
+  });
+});
