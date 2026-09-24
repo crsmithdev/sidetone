@@ -202,9 +202,25 @@ describe("an utterance, read once (9.1, 9.5, 10.2)", () => {
     expect(read("unmute", DEFAULTS, true, true)).toEqual({ kind: "command", name: "unmute", agreed: false });
     expect(read("sidetone stats", DEFAULTS, true, false)).toEqual({ kind: "unclear", agreed: false });
   });
-  test("the agreement word is found in anything said", () => {
+  test("the agreement word agrees alone, or with only a plain yes or the wake word beside it", () => {
     expect(read("Continue.", DEFAULTS, false, false)).toEqual({ kind: "speech", agreed: true });
+    for (const said of ["continue", "Continue,", "CONTINUE!", "Okay, continue.", "OK continue", "Yes, continue.", "Yeah continue",
+      "Continue, please.", "Sure, continue.", "Go ahead, continue.", "Yes please, continue.", "Side tone, continue.", "Continue, sidetone."]) {
+      expect(read(said, DEFAULTS, false, false).agreed).toBe(true);
+    }
     expect(read("yes go on", DEFAULTS, false, false).agreed).toBe(false);
+  });
+  test("anything else beside the agreement word, a negation first of all, does not agree", () => {
+    for (const said of ["do not continue", "Don't continue.", "no, don't continue", "no continue", "not continue", "continue later",
+      "can we continue later", "I want to continue the refactor", "continue with the tests", "okay", "yes", "continue continue"]) {
+      expect(read(said, DEFAULTS, false, false).agreed).toBe(false);
+    }
+  });
+  test("the rule is built from the setting, not from the word continue", () => {
+    const proceed = { ...DEFAULTS, agreementWord: "proceed" };
+    expect(read("Okay, proceed.", proceed, false, false).agreed).toBe(true);
+    expect(read("don't proceed", proceed, false, false).agreed).toBe(false);
+    expect(read("continue", proceed, false, false).agreed).toBe(false);
   });
 });
 

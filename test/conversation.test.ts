@@ -485,6 +485,15 @@ describe("the gate on the agent's actions (10.7)", () => {
     expect(r.journal).toContain('[the bridge denied the agent\'s Bash "git push --force origin main": Chris said "hang on what"]');
   });
 
+  test("10.5 the agreement word with a negation denies it", async () => {
+    const r = room();
+    asks(r);
+    await r.c.heard("don't continue");
+    await tick();
+    expect(r.agent.answers).toEqual([{ id: "r1", allow: false, message: expect.stringContaining('Chris said "don\'t continue"') }]);
+    expect(r.said.slice(0, 2)).toEqual(["The agent wants to force push to origin main. Say continue to let it happen.", "Nothing was done."]);
+  });
+
   test("10.5 no answer in time denies it", async () => {
     const r = room({ checkpointWindowMs: 10 });
     asks(r);

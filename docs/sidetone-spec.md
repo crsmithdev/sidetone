@@ -283,7 +283,7 @@ project bridge stays in place.
 
 10.1 A gated action needs a spoken agreement before the bridge does it.
 
-10.2 The agreement word is "continue". The agreement word is a setting. The agreement word is not "yes".
+10.2 The agreement word is "continue". The agreement word is a setting. The agreement word is not "yes". An utterance agrees only when it is the agreement word alone, or the word with only "okay", "ok", "yes", "yeah", "please", "sure", "go ahead" or the wake word beside it. Any other word, such as "not" or "later", means no agreement. Case and punctuation do not count.
 
 10.3 The reason is safety. A specific word cannot come from a reflex or a wrong transcription. This is like the callout that a pilot must say to override a limit.
 

@@ -215,7 +215,28 @@ export function match(said: string, wakeWord: string, muted: boolean, mutedComma
  */
 const HOLD_WORDS = 3;
 
-/** One utterance, read once: what it matched, and whether it holds the agreement word (10.2). */
+/** 10.2 the only words that may stand beside the agreement word, with the wake word and its forms. */
+const BESIDE_AGREEMENT = ["okay", "ok", "yes", "yeah", "please", "sure", "go ahead"];
+
+/**
+ * 10.2 the agreement word said alone, or with only a plain yes or the wake
+ * word beside it. Any other word, a negation first of all, is not agreement:
+ * "do not continue" holds the word, and it agreed to a force push until 24 September.
+ */
+function agrees(plain: string, words: Words): boolean {
+  const word = normalize(words.agreementWord);
+  let rest = ` ${plain} `;
+  if (!rest.includes(` ${word} `)) return false;
+  rest = rest.replace(` ${word} `, " ");
+  const wake = [words.wakeWord, ...words.wakeWordVariants].map(normalize).flatMap((form) => [form, form.replace(/ /g, "")]);
+  const beside = [...BESIDE_AGREEMENT, ...wake].sort((a, b) => b.length - a.length);
+  for (const form of beside) {
+    while (rest.includes(` ${form} `)) rest = rest.replace(` ${form} `, " ");
+  }
+  return rest.trim() === "";
+}
+
+/** One utterance, read once: what it matched, and whether it is the agreement word (10.2). */
 export type Reading = Match & { agreed: boolean };
 
 /** What reading an utterance needs to know: the words of 9.2, 9.6 and 10.2, as the config names them. */
@@ -236,7 +257,7 @@ export interface Words {
 export function read(said: string, words: Words, muted: boolean, awaiting: boolean): Reading {
   const plain = normalize(said);
   // 10.3 a specific word, so a reflex or a bad transcription cannot say it
-  const agreed = plain.includes(words.agreementWord.toLowerCase());
+  const agreed = agrees(plain, words);
   const matched = match(said, words.wakeWord, muted, words.mutedCommands, words.wakeWordVariants);
   if (matched.kind === "speech" && awaiting && plain.split(" ").length <= HOLD_WORDS) {
     const name = commandIn(plain);
