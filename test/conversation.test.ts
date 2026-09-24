@@ -580,3 +580,151 @@ describe("the bridge's own echo (18.10)", () => {
     expect(r.c.musicOn).toBe(false);
   });
 });
+
+/**
+ * 15.15 the cue at the end of the speech. It says the turn is done speaking,
+ * as against paused between two sentences: the pause is where Chris could not
+ * tell, and the cue is what tells him. It comes after the last sentence has
+ * played, so the mouth is what it waits for, and only the conversation knows
+ * that the sentence was the last.
+ */
+describe("the cue at the end of the speech (15.15)", () => {
+  /** A turn whose agent says nothing before its result comes back. */
+  const silent: Script = { deltas: [] };
+
+  test("it plays once, after the last sentence has played, and never between two", async () => {
+    const r = room({}, { deltas: ["One. ", "Two."] });
+    r.blockSay(true);
+    const turn = r.c.turn("what is two plus two");
+    await tick();
+    // the agent's result is back and both sentences are queued: the first is playing
+    expect(r.said).toEqual(["One."]);
+    expect(r.cues).toEqual([]);
+    r.release();
+    await tick();
+    // between the sentences of one turn: nothing
+    expect(r.said).toEqual(["One.", "Two."]);
+    expect(r.cues).toEqual([]);
+    r.release();
+    await turn;
+    expect(r.cues).toEqual(["done"]);
+  });
+
+  test("a turn with no speech gets nothing", async () => {
+    const r = room({}, silent);
+    await r.c.turn("what is two plus two");
+    expect(r.said).toEqual([]);
+    expect(r.cues).toEqual([]);
+  });
+
+  test("tones off silences it, like the others (15.4)", async () => {
+    const r = room({}, { deltas: ["Four."] });
+    await r.c.heard("sidetone tones off");
+    await r.c.turn("what is two plus two");
+    expect(r.said).toEqual(["Tones off.", "Four."]);
+    expect(r.cues).toEqual([]);
+  });
+
+  test("a report the agent began unasked gets it too (11.11)", async () => {
+    const r = room();
+    const hooks = r.agent.hooks();
+    hooks.onDelta?.("Job research finished. ");
+    hooks.onDelta?.("The file is written.");
+    hooks.onUnprompted?.({ number: 2, text: "Job research finished. The file is written.", costUsd: 0.01, isError: false });
+    await settled();
+    await tick();
+    expect(r.said).toEqual(["Job research finished.", "The file is written."]);
+    expect(r.cues).toEqual(["done"]);
+  });
+
+  test("an unasked result with no words gets nothing", async () => {
+    const r = room();
+    r.agent.hooks().onUnprompted?.({ number: 2, text: "", costUsd: 0.01, isError: false });
+    await tick();
+    expect(r.cues).toEqual([]);
+  });
+
+  test("a hold is not the end: the cue waits for the held rest", async () => {
+    const r = room({}, { deltas: ["One. ", "Two."] });
+    r.blockSay(true);
+    const turn = r.c.turn("what is two plus two");
+    await tick();
+    // Chris talks over the first sentence, and what he said is a command
+    r.cutSay(true);
+    r.c.ears.stopSpeaking();
+    r.release();
+    await tick();
+    r.cutSay(false); r.blockSay(false);
+    expect(r.mouth.onHold).toBe(true);
+    expect(r.cues).toEqual([]);
+    await r.c.heard("sidetone mute");
+    await turn;
+    expect(r.said).toEqual(["One.", "Muted.", "One.", "Two."]);
+    expect(r.cues).toEqual(["done"]);
+  });
+
+  test("a barge-in that ends the turn early gets none: the new question owns the mouth", async () => {
+    let end = () => {};
+    const hold = new Promise<void>((resolve) => { end = resolve; });
+    // the first turn says a sentence and runs on; the turn the question starts says nothing
+    let asked = 0;
+    const r = room({ interruptOnSpeech: true, interruptAfterMs: 5 }, {
+      during: (hooks) => { if (asked++ === 0) hooks.onDelta?.("The first sentence. "); },
+      hold,
+      onInterrupt: () => end(),
+    });
+    const turn = r.c.turn("how does a suspension bridge work");
+    await tick();
+    expect(r.said).toEqual(["The first sentence."]);
+    r.c.ears.stopSpeaking();
+    await r.c.heard("what is the tallest one");
+    await turn;
+    await settled();
+    expect(asked).toBe(2);
+    expect(r.cues).toEqual([]);
+  });
+
+  test("end the turn: the turn spoke and it is over, so the cue follows the stop", async () => {
+    let end = () => {};
+    const hold = new Promise<void>((resolve) => { end = resolve; });
+    const r = room({}, { during: (hooks) => hooks.onDelta?.("The first sentence. "), hold, onInterrupt: () => end() });
+    const turn = r.c.turn("how does a suspension bridge work");
+    await tick();
+    r.c.ears.stopSpeaking();
+    await r.c.heard("sidetone end the turn");
+    await turn;
+    expect(r.said).toEqual(["The first sentence.", "Stopped."]);
+    expect(r.cues).toEqual(["done"]);
+  });
+
+  test("carry on: the kept rest is the end of that turn's speech, so it ends with the cue", async () => {
+    const r = room();
+    r.c.ears.stopSpeaking();
+    r.mouth.say("two."); r.mouth.say("three.");
+    r.mouth.discard();
+    await r.c.heard("sidetone carry on");
+    await tick();
+    expect(r.said).toEqual(["two.", "three."]);
+    expect(r.cues).toEqual(["done"]);
+  });
+
+  test("a replay a new question cut gets none", async () => {
+    const r = room({}, silent);
+    r.c.ears.stopSpeaking();
+    r.mouth.say("two."); r.mouth.say("three.");
+    r.mouth.discard();
+    r.blockSay(true);
+    await r.c.heard("sidetone carry on");
+    await tick();
+    expect(r.said).toEqual(["two."]);
+    r.cutSay(true);
+    r.c.ears.stopSpeaking();
+    r.release();
+    await tick();
+    r.cutSay(false); r.blockSay(false);
+    await r.c.heard("what is the config file for");
+    await tick();
+    expect(r.said).toEqual(["two."]);
+    expect(r.cues).toEqual([]);
+  });
+});

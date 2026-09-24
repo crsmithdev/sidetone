@@ -411,6 +411,16 @@ export class Conversation {
       const turn = { ...result, text: withoutMarker(result.text) };
       answer.end();
       await this.mouth.drained();
+      // 15.15 the true end of the speech: the result is back, so no sentence
+      // is still to come; the answer has flushed its last one; and the mouth
+      // has said what it had, or a discard took the rest. Between two
+      // sentences the mouth also empties, but the result is not back, so this
+      // line is not reached. The thinking cue is stopped first, so the two
+      // figures cannot land together. A turn that said nothing gets no cue,
+      // and a question that cut this turn owns the mouth now (11.9): a cue
+      // then would answer the question, not end this turn.
+      stopCue();
+      if (answer.spoke && mine()) this.cue("done");
       this.lastReply = this.mouth.said.join(" ") || turn.text;
       this.recent.push({ said, reply: this.lastReply });
       if (this.recent.length > 3) this.recent.shift();
@@ -556,7 +566,15 @@ export class Conversation {
       // 11.10 the rest of an answer a barge-in took off the queue. The agent is
       // not asked again: these are its own words, already paid for.
       case "carryOn":
-        if (!this.mouth.carryOn()) this.reply("There is nothing left of it.");
+        if (!this.mouth.carryOn()) { this.reply("There is nothing left of it."); return "resume"; }
+        // 15.15 the rest is the end of a turn's speech, put off by a barge-in,
+        // so it ends with the cue. Said inside a turn it joins that turn's
+        // speech, and the turn's own end has the cue. A question that cuts
+        // the replay takes the turn number with it, and the cue with that.
+        if (!this.turnRunning) {
+          const id = this.turnId;
+          void this.mouth.drained().then(() => { if (id === this.turnId) this.cue("done"); });
+        }
         return "resume";
 
       case "interruptOn": return this.setInterrupting(true);
@@ -610,12 +628,16 @@ export class Conversation {
   }
 
   /** 11.11 the result of the answer the agent began unasked. One with no words opened none, and says nothing. */
-  private unprompted(turn: Turn): void {
+  private async unprompted(turn: Turn): Promise<void> {
     const answer = this.answering;
     if (!answer) return;
     this.answering = null;
     answer.end();
     this.channel.tell({ kind: "turn", number: turn.number, text: withoutMarker(turn.text.trim()), costUsd: this.agent.totalCostUsd(), answer: answer.id });
+    // 15.15 a report is news, and it ends as a turn does: after its last
+    // sentence has played, unless a question took the mouth first.
+    await this.mouth.drained();
+    if (answer.spoke && answer.id === this.turnId) this.cue("done");
   }
 
   /** 9.4 the two voices Chris switches between out loud; the mouth owns which. */

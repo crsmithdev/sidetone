@@ -17,6 +17,8 @@ export class Answer {
   private seq = 0;
   private open = false;
   private firstWord = true;
+  /** 15.15 whether any sentence reached the voice: an answer that said nothing gets no cue at its end. */
+  spoke = false;
 
   constructor(
     readonly id: number,
@@ -83,6 +85,7 @@ export class Answer {
   // when the words arrived only after the whole answer had been spoken.
   private say(sentence: string): void {
     this.channel.tell({ kind: "sentence", text: sentence, answer: this.id });
+    this.spoke = true;
     this.speak(sentence, this.id);
   }
 }

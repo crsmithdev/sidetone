@@ -4,7 +4,7 @@
  *
  * A cue only starts after a delay, so an ordinary wait stays quiet (15.5).
  * Each state has its own figure, so Chris can tell them apart without words
- * (15.4). The five mean exactly one thing each, and nothing else:
+ * (15.4). The six mean exactly one thing each, and nothing else:
  *
  * | cue | when | figure |
  * |---|---|---|
@@ -13,6 +13,11 @@
  * | `starting` | the Claude Code process is coming back up | three clicks, dark to bright |
  * | `hold` | Chris pressed hold to talk (15.14) | one short bright click |
  * | `release` | Chris let go of hold to talk (15.14) | one short dark click |
+ * | `done` | the agent has finished speaking (15.15) | two short clicks, dark then bright |
+ *
+ * `thinking` and `done` are one figure run both ways: down when the agent
+ * starts, up when it ends. `starting` is also three clicks dark to bright, and
+ * the count is what keeps the two apart.
  *
  * A click is a burst of noise cut to a band, not a note. Chris asked on 22
  * September 2026 for cues closer to a click than a tone, more atonal and
@@ -31,7 +36,8 @@
  *   2 ms rise keeps the onset sharp but stops a digital pop.
  * - **The length.** A routine cue wants to be under about 300 ms. These run
  *   90 to 270, with the reverb tail. The two hold to talk cues are shorter
- *   again (15.14), because they play on every hold.
+ *   again (15.14), because they play on every hold, and so is `done`
+ *   (15.15), because it plays at the end of every answer.
  *
  * Measured as the loudest 100 ms, filtered to 500-2000 Hz, the clicks stand
  * 4 to 6 dB below the notes they replace at the new default level. The notes
@@ -43,7 +49,7 @@
  */
 import { join } from "node:path";
 
-export type CueName = "heard" | "thinking" | "starting" | "hold" | "release";
+export type CueName = "heard" | "thinking" | "starting" | "hold" | "release" | "done";
 
 /** A click is 40 ms of noise: long enough to carry, short enough to stay a click. */
 const CLICK = 0.04;
@@ -57,9 +63,10 @@ const STEP = 0.09;
 /** Room for the reverb to ring out after the last click. */
 const TAIL = 0.05;
 
-/** 15.14 the two cues that play on every hold are half as long as the others. */
-const HOLD_CLICK = 0.02;
-const HOLD_TAIL = 0.02;
+/** 15.14 and 15.15 the cues that play on every hold, and at the end of every answer, are half as long as the others. */
+const SHORT_CLICK = 0.02;
+const SHORT_TAIL = 0.02;
+const SHORT = new Set<CueName>(["hold", "release", "done"]);
 
 /** How much room the reverb is in: 0 to 100. */
 const REVERB = 18;
@@ -73,13 +80,17 @@ const CUES: Record<CueName, Array<[number, number]>> = {
   // behind it do not blur into one sound.
   hold: [[1100, 2000]],
   release: [[500, 900]],
+  // 15.15 `thinking` backwards, so the start and the end of the agent's
+  // speaking are one figure, down and then up.
+  done: [[500, 900], [1100, 2000]],
 };
 
 /**
- * 15.14 a cue that plays on every hold is half as loud as the others. The
- * level is a fraction of `cueVolume`, so the setting still moves all five.
+ * 15.14 a cue that plays on every hold is half as loud as the others, and so
+ * is the one at the end of every answer (15.15). The level is a fraction of
+ * `cueVolume`, so the setting still moves all six.
  */
-const LEVEL: Partial<Record<CueName, number>> = { hold: 0.5, release: 0.5 };
+const LEVEL: Partial<Record<CueName, number>> = { hold: 0.5, release: 0.5, done: 0.5 };
 
 export class Cues {
   private files = new Map<CueName, string>();
@@ -90,12 +101,12 @@ export class Cues {
   async build(): Promise<void> {
     for (const [name, clicks] of Object.entries(CUES) as Array<[CueName, Array<[number, number]>]>) {
       const parts: string[] = [];
-      const short = name === "hold" || name === "release";
-      const length = short ? HOLD_CLICK : CLICK;
+      const short = SHORT.has(name);
+      const length = short ? SHORT_CLICK : CLICK;
       for (const [index, band] of clicks.entries()) {
         const click = join(this.dir, `cue-${name}-${index}.wav`);
         const last = index === clicks.length - 1;
-        const after = last ? (short ? HOLD_TAIL : TAIL) : STEP - CLICK;
+        const after = last ? (short ? SHORT_TAIL : TAIL) : STEP - length;
         if (!await this.click(click, band, length, after)) return;
         parts.push(click);
       }

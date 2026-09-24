@@ -304,7 +304,7 @@ project bridge stays in place.
 
 11.6.1 The bridge keeps its own fixed replies, such as "Muted.", on disk after it makes them once, so a reply to a command plays at once. The speech worker transcribes each reply before the bridge keeps it. A reply whose words do not match its text (18.14.2) plays that one time and is not kept. The warm command also checks each reply that is already kept, and makes a refused reply again, up to 20 times. The cloning voice garbles a reply of one word most of the time: on 23 September "Muted." came out clean in 2 takes of 12. Before this check the bridge kept the first take, and a garbled "Muted." and "Listening." played on every mute from 18 September.
 
-11.7 A non-verbal end-of-turn signal, for example a click sound, is an option for later.
+11.7 A cue marks the end of the bridge's speaking (15.15). Until 24 September it was an option for later.
 
 11.8 The product is for one user. The product does not need to separate the voices of more than one person.
 
@@ -505,6 +505,12 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 
 15.13 The record says when a track started and when it stopped, for the hold music and for a file from /play, with how long it ran and whether it reached its end. Without those the record said nothing about when the music began, and "it came on late" (see docs/todo.md item 17) could not be checked after a drive.
 15.14 The bridge plays a cue when Chris presses the hold to talk button (9.5.1), and a different cue when he lets go (9.5.2). The press cue is one bright click. The release cue is one dark click. Both are half as long and half as loud as the other cues, because they play on every hold. The app sends the `mic` message with `hold` set when a press opens the microphone, and with `release` set when a release cuts it (9.5.2). A cut or an open from the button that cuts the microphone plays no cue. The two cues follow the same rules as the other cues: they are not played over the voice, and the tones setting turns them off (15.4).
+
+15.15 The bridge plays a cue when it has finished speaking. A pause between two sentences of one answer sounds the same as the end of the answer, and Chris could not tell when it was safe to talk. The cue is two clicks, dark then bright: the thinking cue backwards, so the start and the end of the agent's speaking are one figure, down and then up. It is half as long and half as loud as the thinking cue, because it plays at the end of every answer. The three-click cue for a process that restarts stays as it is; the count keeps the two apart.
+
+15.15.1 The cue plays when the last sentence has finished playing, not when the bridge has finished sending it. Its frames go onto the room's one audio source behind the sentence's frames, so the phone plays the click straight after the last word. The bridge plays it only when nothing more is coming: the agent has returned its result, the last sentence has reached the voice, and the voice has said it. It never plays between the sentences of one answer, and a sentence a barge-in holds (11.3) is still to come, so the cue waits for it.
+
+15.15.2 It plays after every answer that spoke, a report the agent began unasked included (11.11). An answer with no spoken sentence gets nothing. It plays after the rest of an answer that "carry on" says (11.10), because that rest is the end of the answer's speech. It plays after "Stopped." when "end the turn" stops an answer that had spoken. It does not play for an answer that a new question cut short (11.9): the question owns the voice then, and a cue would sound like part of the answer to it. The tones setting turns it off with the others (15.4).
 
 ## 16. LESSONS FROM PRIOR ART
 

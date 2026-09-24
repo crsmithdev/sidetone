@@ -237,6 +237,32 @@ describe("what he heard (9.4.5)", () => {
     await m.mouth.drained();
     expect(m.played).toEqual(["one.", "two."]);
   });
+
+  // 15.15 the cue at the end of the speech waits on this: a held sentence is
+  // still to be said, so a hold is not the end
+  test("drained waits through a hold, and resolves when the held rest is said or dropped", async () => {
+    const m = scripted();
+    m.mouth.hold();
+    m.mouth.say("the rest.");
+    let drained = false;
+    void m.mouth.drained().then(() => { drained = true; });
+    await tick();
+    expect(drained).toBe(false);
+    m.mouth.resume();
+    await tick();
+    expect(drained).toBe(true);
+    expect(m.played).toEqual(["the rest."]);
+    m.mouth.hold();
+    m.mouth.say("more.");
+    drained = false;
+    void m.mouth.drained().then(() => { drained = true; });
+    await tick();
+    expect(drained).toBe(false);
+    m.mouth.discard();
+    await tick();
+    expect(drained).toBe(true);
+    expect(m.played).toEqual(["the rest."]);
+  });
 });
 
 describe("the round trip's marks (18.4)", () => {
