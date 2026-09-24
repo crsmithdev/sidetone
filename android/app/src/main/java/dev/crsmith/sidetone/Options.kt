@@ -24,6 +24,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
@@ -35,10 +36,12 @@ private val LEVELS = listOf("brief", "normal", "full")
  * 17.22 the options menu, behind the gear at the end of the status row.
  * Each control sends the `setting` message (9.4.9), so the bridge does what
  * the spoken command does. Each shows what the bridge last sent back, and is
- * disabled until the bridge has sent it.
+ * disabled until the bridge has sent it. "Leave" keeps the app open
+ * (17.11.10) and "Quit" closes it (17.22.4); out of the room only "Quit" shows.
  */
 @Composable
-fun Options(settings: Incoming.Settings, build: String?, onLeave: () -> Unit) {
+fun Options(settings: Incoming.Settings, build: String?, inRoom: Boolean, onQuit: () -> Unit) {
+    val context = LocalContext.current
     var open by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { open = true }) {
@@ -49,9 +52,15 @@ fun Options(settings: Incoming.Settings, build: String?, onLeave: () -> Unit) {
             Tones(settings.on["tones"])
             MusicVolume(settings.numbers["holdMusicGain"])
             HorizontalDivider()
-            DropdownMenuItem(text = { Text("Leave") }, onClick = {
+            if (inRoom) {
+                DropdownMenuItem(text = { Text("Leave") }, onClick = {
+                    open = false
+                    Bridge.leave(context)
+                })
+            }
+            DropdownMenuItem(text = { Text("Quit") }, onClick = {
                 open = false
-                onLeave()
+                onQuit()
             })
             // 14.15 the first 12 characters of the SHA-256, as the bridge's journal gives them
             DropdownMenuItem(text = { Text("Build ${build?.take(12) ?: "unknown"}") }, onClick = {}, enabled = false)

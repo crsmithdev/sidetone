@@ -50,6 +50,7 @@ systemctl --user restart sidetone.service
 | the journal, `begun at the tentative end` | the transcription started during the pause, so the round trip no longer waits for it |
 | the journal, `N false ends` on a `> ` line | a quiet of 400 ms that you then talked through. Each one is where a shorter pause would have cut you off; the total decides whether a turn detector is worth building |
 | swiping the app away | leaves the room; the bridge logs `[the room lost a microphone track]` |
+| "Leave" in the gear menu | leaves the room and keeps the app open: the dot goes grey, the word is "left", the transcript stays, and the car's own music should come back. "Rejoin" is where the hold to talk button was. The bridge logs `[the room lost a microphone track]`, and after 30 s the line of spec 18.9.2 once (spec 17.11.10) |
 
 ## 1. Can the replay be stopped?
 

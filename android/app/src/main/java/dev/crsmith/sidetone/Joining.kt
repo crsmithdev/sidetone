@@ -2,9 +2,10 @@ package dev.crsmith.sidetone
 
 /**
  * 17.11 what the app can say about the room. REJOINING: 18.9 the bridge asked
- * for a new microphone track, and the app is joining again.
+ * for a new microphone track, and the app is joining again. LEFT: 17.11.10
+ * Chris left the room by hand, and the app waits for him to come back.
  */
-enum class Status { IDLE, CONNECTING, LISTENING, RECONNECTING, REJOINING, UNREACHABLE }
+enum class Status { IDLE, CONNECTING, LISTENING, RECONNECTING, REJOINING, UNREACHABLE, LEFT }
 
 /**
  * The link to the bridge: the status word the screen shows, and what the app
@@ -47,8 +48,11 @@ class Joining(private val retryMs: Long = RETRY_MS) {
         /** 18.15 the audio setup changed, and the room is built with it at join. */
         data object SetupChanged : Event
 
-        /** The conversation ended by hand. */
+        /** 17.11.10 Chris left the room by hand, and the app stays open with the conversation. */
         data object Left : Event
+
+        /** 17.22.4 the conversation ended by hand, and the app closes. */
+        data object Quit : Event
     }
 
     /** What the app does to the room. */
@@ -97,7 +101,13 @@ class Joining(private val retryMs: Long = RETRY_MS) {
                 status = Status.REJOINING
                 return listOf(Effect.End(REJOINING))
             }
+            // 17.11.10 a leave by hand is no fault and tries nothing again: the room is Chris's to come back to
             Event.Left -> {
+                status = Status.LEFT
+                error = null
+                rejoinedAt = null
+            }
+            Event.Quit -> {
                 status = Status.IDLE
                 error = null
                 rejoinedAt = null

@@ -114,10 +114,11 @@ class ConversationTest {
         assertEquals(listOf("earlier", "earlier question", "now"), texts())
         send("""{"kind":"history","turns":[{"kind":"heard","text":"earlier question","at":5}]}""")
         assertEquals(listOf("earlier", "earlier question", "now"), texts())
-        // a new room shows it again, because a client that comes back missed what it missed
-        c.forgetHistory()
+        // 17.11.10 a room that opens again inside one conversation, after a leave or a drop, keeps its
+        // lines, and the history the bridge sends it holds the turns those lines already show
+        c.roomEnded(2_000, 2_000)
         send("""{"kind":"history","turns":[{"kind":"heard","text":"later question","at":6}]}""")
-        assertTrue(texts().contains("later question"))
+        assertEquals(listOf("earlier", "earlier question", "now"), texts())
     }
 
     @Test

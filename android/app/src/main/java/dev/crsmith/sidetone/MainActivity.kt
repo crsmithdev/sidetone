@@ -96,8 +96,8 @@ class MainActivity : ComponentActivity() {
             val colors = if (isSystemInDarkTheme()) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
             MaterialTheme(colorScheme = colors) {
                 Surface(Modifier.fillMaxSize()) {
-                    App(onLeave = {
-                        Bridge.leave(this)
+                    App(onQuit = {
+                        Bridge.quit(this)
                         finish()
                     })
                 }
@@ -150,7 +150,7 @@ private val PERMISSIONS = arrayOf(
 )
 
 @Composable
-private fun App(onLeave: () -> Unit) {
+private fun App(onQuit: () -> Unit) {
     val context = LocalContext.current
     val state by Bridge.state.collectAsStateWithLifecycle()
     fun hasMicrophone() = context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
@@ -172,7 +172,7 @@ private fun App(onLeave: () -> Unit) {
                 Button(onClick = { ask.launch(PERMISSIONS) }) { Text("Allow the microphone") }
             }
             !state.paired -> Pairing(state.error)
-            else -> Conversation(state, onLeave)
+            else -> Conversation(state, onQuit)
         }
     }
 }
@@ -228,7 +228,7 @@ private fun Pairing(error: String?) {
 }
 
 @Composable
-private fun Conversation(state: Bridge.State, onLeave: () -> Unit) {
+private fun Conversation(state: Bridge.State, onQuit: () -> Unit) {
     var draft by remember { mutableStateOf("") }
     val list = rememberLazyListState()
     // 14.9 a bubble with no words yet is not shown: the block has begun and the first word has not come.
@@ -252,7 +252,7 @@ private fun Conversation(state: Bridge.State, onLeave: () -> Unit) {
             // 17.11.7 the word says the state that the colour shows
             Text(reading.word, style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.weight(1f))
-            Options(state.settings, state.build, onLeave)
+            Options(state.settings, state.build, inRoom = state.status != Status.LEFT, onQuit = onQuit)
         }
         state.error?.let { ErrorBanner(it) }
         // 17.15 only while the bridge serves an app that is not this one
@@ -278,7 +278,8 @@ private fun Conversation(state: Bridge.State, onLeave: () -> Unit) {
                 }
             }
         }
-        HoldToTalk(state)
+        // 17.11.10 out of the room there is no one to talk to, so the way back in takes the button's place
+        if (state.status == Status.LEFT) Rejoin() else HoldToTalk(state)
         // 17.10 the three cuts share one row; each keeps its label, and the color shows the state
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Toggle(on = state.micOn, enabled = !state.holding, onClick = { Bridge.setMic(!state.micOn) }, modifier = Modifier.weight(1f)) {
@@ -361,11 +362,25 @@ private fun HoldToTalk(state: Bridge.State) {
     }
 }
 
+/**
+ * 17.11.10 the way back into a room Chris left. It has the place and the size
+ * of the hold to talk button, which is where his thumb already goes, and it
+ * is the one filled button while he is out.
+ */
+@Composable
+private fun Rejoin() {
+    val context = LocalContext.current
+    Button(onClick = { Bridge.enter(context) }, modifier = Modifier.fillMaxWidth().height(96.dp)) {
+        Text("Rejoin", style = MaterialTheme.typography.titleLarge)
+    }
+}
+
 /** 17.11.6 the colour of the dot for each room state. */
 private fun fill(light: Light) = when (light) {
     Light.GREEN -> Color(0xFF34A853)
     Light.AMBER -> Color(0xFFF9AB00)
     Light.RED -> Color(0xFFEA4335)
+    Light.GREY -> Color(0xFF9AA0A6)
 }
 
 /**

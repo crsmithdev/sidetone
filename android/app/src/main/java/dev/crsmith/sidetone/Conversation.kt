@@ -164,9 +164,4 @@ class Conversation(val transcript: Transcript = Transcript()) {
         spoken = null
         screenshots = emptyMap()
     }
-
-    /** A room that ended shows its history again when the next one opens. */
-    fun forgetHistory() {
-        historyShown = false
-    }
 }

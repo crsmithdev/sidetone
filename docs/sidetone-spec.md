@@ -574,15 +574,27 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 
 17.11.5 The app has no setting for the sign.
 
-17.11.6 The status row shows one state, not three readings that can disagree. The row is one dot. The colour of the dot is the room state: green while the status is "listening", amber while the app connects, rejoins or reconnects, and red when the bridge is unreachable. A ring around the dot is the connection quality: thick when excellent, thinner when good, thin when poor, and no ring when the quality is not known. The motion of the dot is the working sign (17.11). The ring and the sign show only while the status word is "listening". In any other state no message can come, and the row shows no ring and no sign. The notification (17.16) follows the same rule for the sign. When the status is "listening" and LiveKit says the connection of the phone is lost, the room is not live: the status word is "signal lost", and the row shows no ring and no sign. One function in the app gives this reading, and a test tries every input.
+17.11.6 The status row shows one state, not three readings that can disagree. The row is one dot. The colour of the dot is the room state: green while the status is "listening", amber while the app connects, rejoins or reconnects, red when the bridge is unreachable, and grey while Chris is out of the room by his own hand (17.11.10). A ring around the dot is the connection quality: thick when excellent, thinner when good, thin when poor, and no ring when the quality is not known. The motion of the dot is the working sign (17.11). The ring and the sign show only while the status word is "listening". In any other state no message can come, and the row shows no ring and no sign. The notification (17.16) follows the same rule for the sign. When the status is "listening" and LiveKit says the connection of the phone is lost, the room is not live: the status word is "signal lost", and the row shows no ring and no sign. One function in the app gives this reading, and a test tries every input.
 
-17.11.7 The row shows the status word beside the dot in every state: "connecting", "listening", "rejoining", "reconnecting", "signal lost" or "disconnected". The colour alone does not say which amber state the room is in. Until 23 September the row showed a word only for "reconnecting", "disconnected" and "signal lost". These states last seconds, so Chris never saw a word. The notification (17.16) starts with the same word.
+17.11.7 The row shows the status word beside the dot in every state: "connecting", "listening", "rejoining", "reconnecting", "signal lost", "disconnected" or "left". The colour alone does not say which amber state the room is in. Until 23 September the row showed a word only for "reconnecting", "disconnected" and "signal lost". These states last seconds, so Chris never saw a word. The notification (17.16) starts with the same word.
 
-17.11.8 The "Leave" button is not in the row. It is in the options menu (17.22), which opens from the gear at the end of the row. It quits the app, as before.
+17.11.8 The "Leave" button is not in the row. It is in the options menu (17.22), which opens from the gear at the end of the row. It leaves the room and keeps the app open (17.11.10). Until 24 September it quit the app; "Quit" does that now (17.22.4).
 
 17.11.9 A tap on the dot opens a legend. The legend lists each word the row can show, with the colour of the dot and what the state means. Below them it says what the ring and the motion mean. A tap anywhere closes it. The app makes the legend from the same function as the row (17.11.6), and a test checks that each state is in it.
 
-17.12 The app keeps a screen log: what it showed, in the order it showed it. Each change of a line on the screen is one entry. The log is in the memory of the app process. It ends when Chris leaves the room with the Leave button.
+17.11.10 Chris can leave the room and keep the app open. While the app is in the room the phone is in a call, as far as the car is concerned (4.2.2), and the car parks its own music for the whole call. The echo canceller needs the call mode, so the app does not change the mode. Chris leaves the room to listen to music and rejoins when he wants to talk.
+
+17.11.10.1 "Leave" in the options menu (17.22) leaves the room. The app stays open and in front. The transcript stays on the screen as history: no line grows and no line comes. The dot is grey and the word is "left". No ring and no sign show, as in every state that is not "listening". The legend has the state. The notification of 17.16 goes, because no room holds the microphone.
+
+17.11.10.2 A leave releases the phone's audio, so the car stops treating the phone as being in a call and its music comes back. The app ends its session: the room ends, LiveKit disposes the microphone track with the room, its audio handler gives back the audio mode and the audio focus, and the app clears the communication device it picked when the setup asked for no focus (4.2.2.1). This is the path a quit and a swipe away take, which the drive of 18 September checked: the bridge writes `[the room lost a microphone track]`. Only the car shows that its music comes back.
+
+17.11.10.3 A "Rejoin" button takes the place and the size of the hold to talk button (9.5.1) while the app is out of the room, because out of the room there is no one to talk to, and that button is the one his thumb already reaches for. One tap joins the room again with the pairing the app has: no code to scan and no new pairing. The row says "connecting" until the room is up. The bridge greets the app as it greets any client that joins (4.3), and the app answers with `device` (14.15). The microphone opens again if it was open. The app does not join by itself while it is left, even when the screen is built again.
+
+17.11.10.4 The bridge needs no change. To the bridge a phone that left is a phone in a tunnel (14.8): the conversation carries on. A turn that runs when Chris leaves runs to its end: the agent finishes, the voice speaks to a room with no one in it, and the bridge keeps the turn (14.8). After 30 seconds with no frames the bridge writes the line of 18.9.2 once and sends a `rejoin` that no phone gets. The `mic` message of 9.5 is not sent, so what the microphone had half recorded stays in the bridge's ear until the next sound, as after a drop.
+
+17.11.10.5 The bridge sends the history when the app rejoins. The app keeps the lines it has and shows the history once for each conversation, so a room that opens again inside one conversation does not show it a second time. This is the rule the app has for a drop. The words of a turn that ended while the app was out do not reach the screen until a later change shows only the turns the app missed; "restate" (14.6) says them again by voice.
+
+17.12 The app keeps a screen log: what it showed, in the order it showed it. Each change of a line on the screen is one entry. The log is in the memory of the app process. It ends when Chris quits the app (17.22.4). A leave (17.11.10) keeps it, as it keeps the lines, and the leave and the rejoin are two events in it (4.3.1).
 
 17.12.1 An entry has these fields:
 
@@ -625,7 +637,7 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 
 17.16.2 The buttons are "Mic off" or "Mic on", "Audio off" or "Audio on", and "End turn". Each does what the same control in the app does (9.5, 17.10, 9.4.8). "End turn" shows only while the app is in the room.
 
-17.16.3 The channel has default importance, with no sound and no vibration, so that the phone does not hide it as a silent notification. The notification alerts only once. It stays for as long as the conversation.
+17.16.3 The channel has default importance, with no sound and no vibration, so that the phone does not hide it as a silent notification. The notification alerts only once. It stays for as long as the app is in the room. A leave (17.11.10) takes it, because no room holds the microphone.
 
 17.17 The app posts an alerting notification for two events, while the app is not on the screen. A tap opens the app and clears the notification.
 
@@ -672,13 +684,15 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 17.21.3 A `turn` does not move the spoken sentence, because the voice can still say the answer after it arrives. A barge-in cuts a sentence and the bridge says it again (14.13), so the grey stays after the cut until that message repeats.
 
 17.21.4 The formatting of 17.19 stays. The grey starts at the length of the words up to the end of the sentence, once formatted. A sentence that ends inside a bold or code span can show a slightly wrong edge.
-17.22 The options menu opens from the gear at the end of the status row. Its accessibility name is "Options". It holds the verbosity, the tones, the hold music volume, "Leave" and the build line (14.15), in that order. The voice choice and the audio switch are not in it, because each already has a command or a button.
+17.22 The options menu opens from the gear at the end of the status row. Its accessibility name is "Options". It holds the verbosity, the tones, the hold music volume, "Leave", "Quit" and the build line (14.15), in that order. "Leave" shows only while the app is in the room. The voice choice and the audio switch are not in it, because each already has a command or a button.
 
 17.22.1 Each control sends the `setting` message (9.4.9). The bridge does what the spoken command does, the voice's answer included. The control does not change when it is tapped. It shows the value in the next `settings` message, so the menu shows only what the bridge holds. Until the bridge sends its settings, each control is disabled.
 
 17.22.2 The verbosity is a selector of three: brief, normal and full (9.4.10). The tones are a switch (15.4).
 
 17.22.3 The hold music volume is a slider from 0 to 1. It sets `holdMusicGain` (15.9), and no spoken command sets it. The slider sends one message when the finger lifts. The bridge gives no answer and keeps the value across restarts. The next track plays at the new volume. A track that plays keeps the old volume until it stops. The bridge ignores a value outside 0 to 1.
+
+17.22.4 "Leave" leaves the room and keeps the app open (17.11.10). "Quit" leaves the room, ends the conversation and closes the app: the transcript and the screen log go, and the next open of the app joins the room afresh. A swipe away is a quit.
 
 ## 18. MEASUREMENTS TO MAKE
 

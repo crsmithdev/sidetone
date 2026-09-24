@@ -136,8 +136,28 @@ object Bridge {
         _state.update { it.copy(paired = true, error = null) }
     }
 
-    /** Join the room, and rejoin it after any end but [leave] or a refused token. Call with the app in the foreground. */
+    /**
+     * Join the room when the app opens, and rejoin it after any end but a
+     * refused token. Call with the app in the foreground. The screen asks each
+     * time it is built, so a room Chris left by hand (17.11.10) is not opened
+     * here: it waits for his tap, which is [enter].
+     */
     fun join(context: Context) {
+        if (joining.status == Status.LEFT) return
+        open(context)
+    }
+
+    /**
+     * 17.11.10 the way back into a room Chris left. The pairing is the one the
+     * app has, and the bridge greets it as it greets any client that joins.
+     */
+    fun enter(context: Context) {
+        if (session != null) return
+        record("leave", "rejoining by hand")
+        open(context)
+    }
+
+    private fun open(context: Context) {
         if (session != null) return
         val credentials = store.load() ?: return
         val app = context.applicationContext
@@ -163,10 +183,24 @@ object Bridge {
         }
     }
 
+    /**
+     * 17.11.10 leave the room and stay open. In the room the phone is in a call
+     * as far as the car is concerned (4.2.2), and the car parks its own music
+     * for the call, so Chris leaves to listen and comes back to talk. The
+     * lines stay as history. The session goes, and with it the room, the
+     * microphone track and the route the app picked, as on a quit or a swipe.
+     */
     fun leave(context: Context) {
+        record("leave", "left the room")
+        stop(context.applicationContext)
+        link(Joining.Event.Left)
+    }
+
+    /** 17.22.4 leave the room and end the conversation. The next open of the app starts afresh. */
+    fun quit(context: Context) {
         stop(context.applicationContext)
         reset()
-        link(Joining.Event.Left)
+        link(Joining.Event.Quit)
         _state.value = State(paired = store.load() != null)
     }
 
@@ -177,10 +211,10 @@ object Bridge {
         logId = System.currentTimeMillis().toString()
     }
 
+    /** End the session. The room that is open ends with it, and [runRoom] releases what the room held. */
     private fun stop(app: Context) {
         session?.cancel()
         session = null
-        conversation.forgetHistory()
         app.stopService(Intent(app, BridgeService::class.java))
     }
 

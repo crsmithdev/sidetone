@@ -138,8 +138,12 @@ What the app's status row says about the room: the dot, the status word, the con
 _Avoid_: the status (the status is one input), the indicator.
 
 **The options menu**:
-The menu behind the "⋮" button at the end of the app's status row. It holds the verbosity, the tones, the hold music volume and "Leave". Each control changes a setting by the path of the spoken command, and shows what the bridge sends back (spec 17.22).
+The menu behind the "⋮" button at the end of the app's status row. It holds the verbosity, the tones, the hold music volume, "Leave" and "Quit". Each control changes a setting by the path of the spoken command, and shows what the bridge sends back (spec 17.22).
 _Avoid_: the settings screen, the preferences, the overflow menu.
+
+**Leave, Rejoin, Quit**:
+Leave: the app goes out of the room and stays open, with the transcript as history and the word "left" in the status row; the phone's audio is released, so the car's music comes back (spec 17.11.10). Rejoin: the button that takes the app back into the room with the pairing it has. Quit: leave and close the app.
+_Avoid_: exit, disconnect (the status word for a bridge the app cannot reach), sign out, log out.
 
 **The hold music volume**:
 How loud the hold music is, as a factor on the file from 0 to 1: the `holdMusicGain` setting. Only the options menu changes it. No spoken command does.

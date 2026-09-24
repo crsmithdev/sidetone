@@ -63,7 +63,7 @@ class BridgeService : Service() {
      * kept the car's audio after he had left it.
      */
     override fun onTaskRemoved(rootIntent: Intent?) {
-        Bridge.leave(this)
+        Bridge.quit(this)
         super.onTaskRemoved(rootIntent)
     }
 

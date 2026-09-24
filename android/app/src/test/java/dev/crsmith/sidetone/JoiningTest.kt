@@ -209,13 +209,54 @@ class JoiningTest {
         assertEquals(emptyList<Effect>(), on(Event.RejoinAsked))
     }
 
+    /** 17.22.4 a quit ends the conversation: the next open of the app starts afresh. */
     @Test
-    fun aConversationEndedByHandIsIdleAndHasNothingWrong() {
+    fun aConversationQuitByHandIsIdleAndHasNothingWrong() {
         on(Event.Opening)
         on(Event.Ended("the connection dropped"))
-        assertEquals(emptyList<Effect>(), on(Event.Left))
+        assertEquals(emptyList<Effect>(), on(Event.Quit))
         assertEquals(Status.IDLE, joining.status)
         assertNull(joining.error)
+    }
+
+    /**
+     * 17.11.10 Chris leaves the room by hand and the app stays open. Nothing is
+     * wrong and nothing tries again: the room is his to come back to, and the
+     * way back in is an ordinary join, with the word of one.
+     */
+    @Test
+    fun aRoomLeftByHandStaysLeftUntilHeComesBack() {
+        opened()
+        assertEquals(emptyList<Effect>(), on(Event.Left))
+        assertEquals(Status.LEFT, joining.status)
+        assertNull(joining.error)
+        on(Event.Opening)
+        assertEquals(Status.CONNECTING, joining.status)
+        on(Event.Connected)
+        assertEquals(Status.LISTENING, joining.status)
+    }
+
+    /**
+     * 17.11.10 a leave in the middle of a retry gives no retry, and a leave
+     * after a rejoin starts the window of 18.9.4 afresh: the room Chris comes
+     * back to is a new one, by his own hand.
+     */
+    @Test
+    fun aLeaveEndsTheRetryAndTheRejoinWindow() {
+        on(Event.Opening)
+        on(Event.Ended("the connection dropped"))
+        assertEquals(Status.UNREACHABLE, joining.status)
+        assertEquals(emptyList<Effect>(), on(Event.Left))
+        assertEquals(Status.LEFT, joining.status)
+        assertNull(joining.error)
+        opened()
+        on(Event.RejoinAsked)
+        on(Event.Ended(Joining.REJOINING))
+        opened()
+        on(Event.Left)
+        now += 1_000
+        opened()
+        assertEquals(1, on(Event.RejoinAsked).size)
     }
 
     /** The reason the room gives goes on the screen, so Chris can say what he saw. */

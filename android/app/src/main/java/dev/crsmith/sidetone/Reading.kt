@@ -1,7 +1,7 @@
 package dev.crsmith.sidetone
 
-/** 17.11.6 the colour of the dot in the status row. */
-enum class Light { GREEN, AMBER, RED }
+/** 17.11.6 the colour of the dot in the status row. GREY: 17.11.10 out of the room by hand. */
+enum class Light { GREEN, AMBER, RED, GREY }
 
 /** 17.11.6 the ring of the dot: the connection quality, thin when poor. */
 enum class Ring { THICK, MEDIUM, THIN }
@@ -36,6 +36,8 @@ fun reading(status: Status, quality: String?, sign: Sign): Reading {
         // 18.9 a rejoin shows in the light, not in a note
         Status.REJOINING -> Reading(Light.AMBER, "rejoining", null, Sign.OFF)
         Status.UNREACHABLE -> Reading(Light.RED, "disconnected", null, Sign.OFF)
+        // 17.11.10 nothing is wrong and nothing is tried, so neither amber nor red says it
+        Status.LEFT -> Reading(Light.GREY, "left", null, Sign.OFF)
     }
 }
 
@@ -51,6 +53,7 @@ val LEGEND: List<Pair<Reading, String>> = listOf(
     reading(Status.RECONNECTING, null, Sign.OFF) to "The link dropped. The app tries to get it back.",
     reading(Status.LISTENING, LOST, Sign.OFF) to "The room is open, but the sound of the phone does not reach it.",
     reading(Status.UNREACHABLE, null, Sign.OFF) to "The app cannot reach the bridge. It tries again every ${Joining.RETRY_MS / 1000} seconds.",
+    reading(Status.LEFT, null, Sign.OFF) to "You left the room. The bridge carries on. Tap Rejoin to go back in.",
 )
 
 /** LiveKit's quality as the ring. A quality not known yet draws no ring. */

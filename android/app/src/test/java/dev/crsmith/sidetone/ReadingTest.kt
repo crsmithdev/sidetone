@@ -32,6 +32,8 @@ class ReadingTest {
             // the row says "listening" only when the transport has the room
             assertTrue(at, !live || status == Status.LISTENING)
             assertEquals(at, r.light == Light.RED, status == Status.UNREACHABLE)
+            // 17.11.10 grey is the one colour that says nothing is wrong and nothing is being tried
+            assertEquals(at, r.light == Light.GREY, status == Status.LEFT)
         }
     }
 
@@ -51,6 +53,7 @@ class ReadingTest {
                 Status.RECONNECTING to "reconnecting",
                 Status.REJOINING to "rejoining",
                 Status.UNREACHABLE to "disconnected",
+                Status.LEFT to "left",
             ),
             words,
         )
@@ -83,6 +86,8 @@ class ReadingTest {
         assertEquals(Reading(Light.AMBER, "reconnecting", null, Sign.OFF), reading(Status.RECONNECTING, "excellent", Sign.SILENT))
         assertEquals(Reading(Light.RED, "disconnected", null, Sign.OFF), reading(Status.UNREACHABLE, "excellent", Sign.WORKING))
         assertEquals(Reading(Light.AMBER, "rejoining", null, Sign.OFF), reading(Status.REJOINING, "good", Sign.WORKING))
+        // 17.11.10 a room Chris left by hand is not a room that is being got back
+        assertEquals(Reading(Light.GREY, "left", null, Sign.OFF), reading(Status.LEFT, "excellent", Sign.WORKING))
     }
 
     /** The transport holds the room and LiveKit says the phone's media is lost. "stalled" would blame the bridge. */
