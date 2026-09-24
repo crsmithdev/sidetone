@@ -1104,7 +1104,10 @@ which "Leave" works.
 
 ## 47. Hold to talk keeps the turn open until the release
 
-Noted 23 September 2026. Not started.
+Noted 23 September 2026. Built and landed 23 September 2026 (spec 9.5.2).
+`Utterances.held` stops the end-of-turn pause while the button is down, the
+`microphone` message sets it on a hold-to-talk open and clears it on every
+other open and every cut, and the release still ends the turn at once.
 
 While Chris holds the hold to talk button, the bridge still ends his turn after
 `endOfTurnPauseMs` (1.5 seconds) of quiet (src/audio.ts, the `quietMs` check).
@@ -1120,7 +1123,12 @@ Done when a hold with a pause of more than 1.5 seconds in the middle gives one
 
 ## 48. The voice keeps speaking to the end of the sentence after a barge-in or audio off
 
-Noted 23 September 2026. Not started, not verified.
+Noted 23 September 2026. Built and landed 23 September 2026. Both causes were
+real and both are measured, not guessed: the LiveKit `AudioSource` holds about
+1000 ms of audio, so a cut left the buffered second playing (787 ms measured),
+and "Audio off." waited on `drained()`, which is the whole queue, so the held
+answer played on behind it. `frames()` clears the source on a cut, and
+`Mouth.quietAfter` turns the audio off when its own line ends.
 
 Chris says the voice goes on to the end of the sentence when he barges in. He
 says the same after he turns the audio off: the voice goes on to the end of the
