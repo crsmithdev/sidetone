@@ -63,6 +63,33 @@ export class SentenceCollector {
   }
 }
 
+/**
+ * 5.7.1 a path or a file name in the text. A run of word characters, dots,
+ * slashes, tildes and hyphens that holds a letter and either a slash or a
+ * word of two or more characters followed by a dot and a short extension of
+ * letters. The run ends on a word character or a slash, so the full stop
+ * after a path stays a full stop. "3.5", "1.2.3", "e.g.", "U.S." and
+ * "23/09/2026" are not paths.
+ */
+const PATH = /[\w~.\/-]*[\w\/]/g;
+const IS_PATH = /^(?=.*[A-Za-z])(?:.*\/|.*\w{2,}\.[A-Za-z]{1,5}$)/;
+
+/**
+ * 5.7.1 the text as the voice can say it: each path in it becomes words.
+ * `src/sentences.ts` becomes "S R C slash sentences dot T S". A part of the
+ * path with no vowel is spelled, because the cloning voice cannot say "src"
+ * and loops on ".ts": on 24 September the sentence that named
+ * `src/sentences.ts` looped in 9 takes of 15, and this form in 0 of 20. The
+ * screen and the record keep the written form; only the engine sees this one.
+ */
+export function speakable(text: string): string {
+  return text.replace(PATH, (run) => {
+    if (!IS_PATH.test(run)) return run;
+    const parts = run.replace(/~/g, "home").replace(/\//g, " slash ").replace(/\./g, " dot ").trim().split(/\s+/);
+    return parts.map((part) => /^[a-z]+$/i.test(part) && !/[aeiou]/i.test(part) ? [...part.toUpperCase()].join(" ") : part).join(" ");
+  });
+}
+
 /** 15.7.4 the word the agent starts a reply with when it expects the turn to take a while. */
 export const LONG_MARKER = "[long]";
 

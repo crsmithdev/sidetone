@@ -433,3 +433,16 @@ describe("an announcement from outside the conversation", () => {
     expect(m.played).toEqual(["one.", "Job research finished."]);
   });
 });
+
+describe("a path reaches the voice in a speakable form (5.7.1)", () => {
+  test("the engine is given the spoken form, and the screen and the record keep the written one", async () => {
+    const m = scripted();
+    m.mouth.say("The file is src/sentences.ts.");
+    m.mouth.say("Then src/mouth.ts.");
+    await tick();
+    expect(m.wavs).toEqual(["The file is S R C slash sentences dot T S..wav", "Then S R C slash mouth dot T S..wav"]);
+    expect(m.started).toEqual(["Then S R C slash mouth dot T S.", undefined]);
+    expect(m.played).toEqual(["The file is src/sentences.ts.", "Then src/mouth.ts."]);
+    expect(m.mouth.said).toEqual(["The file is src/sentences.ts.", "Then src/mouth.ts."]);
+  });
+});

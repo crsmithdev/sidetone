@@ -19,6 +19,7 @@ import { decodeWav, encodeWav, wavFromFile } from "./audio.ts";
 import type { Config } from "./config.ts";
 import type { CueName, Cues } from "./cues.ts";
 import type { Measures } from "./measures.ts";
+import { speakable } from "./sentences.ts";
 import { voiceSignature, type SpokenAhead } from "./speech.ts";
 
 /** 15.10.1 how far before its stop a track picks up again, so the ear finds its place */
@@ -567,7 +568,8 @@ export class Mouth {
       return whole;
     }
     const madeAt = Date.now();
-    const wav = await this.made.take(text);
+    // 5.7.1 the engine is given a path as words; the text stays as written
+    const wav = await this.made.take(speakable(text));
     // 18.4 the first sound of the answer closes the round trip, and the engine's
     // share of it is told first. A later sentence is not a round trip, and the
     // tracker ignores both.
@@ -577,7 +579,8 @@ export class Mouth {
     // the current sentence is made. A barge-in during this prefetch makes
     // the bridge's next word wait for it, which costs one synthesis once and
     // saves one on every sentence of every answer.
-    this.made.start(next());
+    const after = next();
+    this.made.start(after === undefined ? undefined : speakable(after));
     // A sentence the audio going off stopped is said as words, as every later
     // one is: it counts as heard, and it is not put back for a resume.
     const whole = (await this.speaker.play(text, wav, this.cutOff)) || !this.audio;

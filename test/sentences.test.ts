@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { LongMarker, SentenceCollector, withoutMarker } from "../src/sentences.ts";
+import { KEPT_LINES } from "../src/mouth.ts";
+import { LongMarker, SentenceCollector, speakable, withoutMarker } from "../src/sentences.ts";
 
 describe("sentence collector (5.6)", () => {
   test("a sentence is ready as soon as its end is certain", () => {
@@ -112,5 +113,31 @@ describe("the long marker (15.7.4)", () => {
     const said = ["[lo", "ng] Checking. ", "Done."].flatMap((delta) => c.push(marker.push(delta)));
     expect(said).toEqual(["Checking."]);
     expect(c.flush()).toBe("Done.");
+  });
+});
+
+describe("a path as the voice can say it (5.7.1)", () => {
+  test("a path is said with its slashes and its dot, and a part with no vowel is spelled", () => {
+    expect(speakable("The sentence collector in src/sentences.ts holds back a sentence."))
+      .toBe("The sentence collector in S R C slash sentences dot T S holds back a sentence.");
+  });
+  test("each path in a sentence is said once, and the full stop after one stays", () => {
+    expect(speakable("I changed src/sentences.ts, src/mouth.ts and src/conversation.ts."))
+      .toBe("I changed S R C slash sentences dot T S, S R C slash mouth dot T S and S R C slash conversation dot T S.");
+  });
+  test("a file name alone, and a hidden folder under the home", () => {
+    expect(speakable("See docs/todo.md and README.md.")).toBe("See docs slash todo dot M D and README dot M D.");
+    expect(speakable("in ~/.sidetone/record.jsonl")).toBe("in home slash dot sidetone slash record dot jsonl");
+  });
+  test("the backticks around a path are not part of it", () => {
+    expect(speakable("`src/sent.ts` has it.")).toBe("`S R C slash sent dot T S` has it.");
+  });
+  test("a number, an abbreviation and a date are not paths", () => {
+    for (const text of ["it costs 3.5 cents.", "version 1.2.3 is out.", "e.g. the U.S. at 9 a.m.", "on 23/09/2026.", "well... maybe."]) {
+      expect(speakable(text)).toBe(text);
+    }
+  });
+  test("every kept line is its own speakable form, so its key on disk does not move", () => {
+    for (const line of KEPT_LINES) expect(speakable(line)).toBe(line);
   });
 });

@@ -120,6 +120,8 @@ project bridge stays in place.
 
 5.7 The bridge changes the sentence to speech with the local voice.
 
+5.7.1 The bridge gives the voice a path as words: `src/sentences.ts` is said as "S R C slash sentences dot T S", and a part of a path with no vowel is spelled. The screen, the record and the sent clip's sentence keep the written form. The cloning voice loops on ".ts": on 24 September a sentence that named `src/sentences.ts` looped in 9 takes of 15, and the spoken form in 0 of 20.
+
 5.8 The bridge sends the speech to the client over LiveKit.
 
 5.9 The client plays the speech.
