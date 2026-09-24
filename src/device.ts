@@ -1,10 +1,10 @@
 /**
- * What the phone says about itself when it joins the room (spec 14.15).
+ * What the phone says about itself when the bridge greets it (spec 14.15).
  *
  * On 23 September the bridge heard its own voice, and the record could not say
  * which echo canceller had run, on which phone, over which audio route, or
  * even which of three builds of the app was in the room. The app says all of
- * that once for each room, and this reads it.
+ * that once for each greeting, and this reads it.
  */
 import type { Device } from "./diagnostics.ts";
 

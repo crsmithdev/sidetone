@@ -203,7 +203,6 @@ object Bridge {
             if (!_state.value.audioOn) tell(room, Outgoing.audio(false))
             if (!_state.value.musicOn) tell(room, Outgoing.music(false))
             if (_state.value.micOn) micLock.withLock { openMic(room) }
-            sendDevice(room)
             sendCrashes(room)
             ended.await()
         } catch (e: CancellationException) {
@@ -245,6 +244,7 @@ object Bridge {
                     is Conversation.Effect.Alert -> Alerts.post(app, effect.title, effect.text)
                     is Conversation.Effect.Offer -> offer(effect.apk)
                     is Conversation.Effect.Rejoin -> rejoin(ended)
+                    is Conversation.Effect.Device -> sendDevice(room)
                 }
             }
             else -> Unit
@@ -485,7 +485,10 @@ object Bridge {
         if (conversation.tick(SystemClock.elapsedRealtime(), now())) shown()
     }
 
-    /** 14.15 the phone says what it is, which canceller runs, where the audio plays, and its build. */
+    /**
+     * 14.15 the phone says what it is, which canceller runs, where the audio plays, and its build.
+     * It answers each `protocol`: a restart of the bridge keeps the room, so the join is not enough.
+     */
     private fun sendDevice(room: Room) {
         scope.launch {
             val aec = Audio.hardwareCanceller()

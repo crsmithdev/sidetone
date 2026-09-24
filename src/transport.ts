@@ -59,6 +59,8 @@ export class Transport {
   readonly room = new Room();
   private source = new AudioSource(RTC_RATE, 1);
   private stopped = false;
+  /** 14.8 what to do with a client that arrives, kept for the ones already there at connect */
+  private arrived?: (identity: string) => void;
 
   /**
    * Join with a token, the way a client does. A client never holds the api
@@ -70,6 +72,9 @@ export class Transport {
    */
   async connect(url: string, token: string, name = "bridge"): Promise<void> {
     await this.room.connect(url, token, { autoSubscribe: true, dynacast: false });
+    // 14.15 a restart of the bridge leaves the phone in its room, and the SDK
+    // names no arrival for a participant that was there first
+    for (const participant of this.room.remoteParticipants.values()) this.arrived?.(participant.identity ?? "");
     const track = LocalAudioTrack.createAudioTrack(name, this.source);
     const options = new TrackPublishOptions();
     options.source = TrackSource.SOURCE_MICROPHONE;
@@ -159,8 +164,12 @@ export class Transport {
     });
   }
 
-  /** 14.8 a client that just arrived has to be given what it missed. */
+  /**
+   * 14.8 a client that just arrived has to be given what it missed. Call it
+   * before the join: a client already in the room is told of once, at connect.
+   */
   onParticipant(handle: (identity: string) => void): void {
+    this.arrived = handle;
     this.room.on(RoomEvent.ParticipantConnected, (participant: RemoteParticipant) => handle(participant.identity ?? ""));
   }
 

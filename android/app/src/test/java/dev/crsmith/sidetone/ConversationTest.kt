@@ -69,7 +69,16 @@ class ConversationTest {
     fun theProtocolGivesTheStopButtonItsWordsAndOffersTheApp() {
         val effects = send("""{"kind":"protocol","endTurn":"end turn","apk":{"url":"https://b/sidetone.apk","sha256":"ab"}}""")
         assertEquals("end turn", c.endTurn)
-        assertEquals(listOf(Conversation.Effect.Offer(Apk("https://b/sidetone.apk", "ab"))), effects)
+        assertEquals(listOf(Conversation.Effect.Offer(Apk("https://b/sidetone.apk", "ab")), Conversation.Effect.Device), effects)
+    }
+
+    @Test
+    fun eachGreetingIsAnsweredWithTheDeviceOnceAndNothingElseIs() {
+        // 14.15 a bridge that restarted greets the phone again, and has to be told what it is again
+        assertEquals(listOf(Conversation.Effect.Offer(null), Conversation.Effect.Device), send("""{"kind":"protocol","endTurn":"end turn"}"""))
+        assertEquals(listOf(Conversation.Effect.Offer(null), Conversation.Effect.Device), send("""{"kind":"protocol","endTurn":"end turn"}"""))
+        assertTrue(send("""{"kind":"settings","settings":{}}""").isEmpty())
+        assertTrue(send("""{"kind":"history","turns":[]}""").isEmpty())
     }
 
     @Test

@@ -3,6 +3,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { encodeWav } from "../src/audio.ts";
+import { RoomEvent } from "@livekit/rtc-node";
 import { RTC_RATE, Transport, fadeOut, frameAt, resample, roomSpeaker, tokenFor, uniqueIdentity, type Player } from "../src/transport.ts";
 import type { Fade } from "../src/mouth.ts";
 
@@ -96,6 +97,42 @@ describe("the identity the bridge joins under", () => {
 
   test("it still says what it is, for a log that has to be read", () => {
     expect(uniqueIdentity()).toStartWith("bridge-");
+  });
+});
+
+/**
+ * 14.15 a restart of the bridge does not end the phone's room. The SDK names
+ * no arrival for a participant that was there first, so the phone went
+ * ungreeted and never said what it is.
+ */
+describe("the clients the bridge is told of (14.8, 14.15)", () => {
+  /** A room that holds `present` when the bridge connects, and keeps its handlers so a test can fire one. */
+  function roomWith(present: string[]) {
+    const handlers = new Map<string, (participant: { identity: string }) => void>();
+    const transport = new Transport();
+    (transport as unknown as { room: unknown }).room = {
+      connect: async () => {},
+      on: (event: string, handle: (participant: { identity: string }) => void) => { handlers.set(event, handle); },
+      remoteParticipants: new Map(present.map((identity) => [identity, { identity }])),
+    };
+    return { transport, arrive: (identity: string) => handlers.get(RoomEvent.ParticipantConnected)?.({ identity }) };
+  }
+
+  test("one already in the room when the bridge connects is told of once", async () => {
+    const { transport } = roomWith(["phone-1"]);
+    const told: string[] = [];
+    transport.onParticipant((identity) => told.push(identity));
+    await transport.connect("ws://127.0.0.1:7880", "token");
+    expect(told).toEqual(["phone-1"]);
+  });
+
+  test("one that arrives later is told of as it arrives", async () => {
+    const { transport, arrive } = roomWith([]);
+    const told: string[] = [];
+    transport.onParticipant((identity) => told.push(identity));
+    await transport.connect("ws://127.0.0.1:7880", "token");
+    arrive("phone-1");
+    expect(told).toEqual(["phone-1"]);
   });
 });
 

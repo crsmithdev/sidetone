@@ -24,6 +24,8 @@ class Conversation(val transcript: Transcript = Transcript()) {
         data class Offer(val apk: Apk?) : Effect
         /** 18.9 leave the room and join again, so a new microphone track is published. */
         data object Rejoin : Effect
+        /** 14.15 the bridge greeted this app, so it is a bridge that has to be told what the phone is. */
+        data object Device : Effect
     }
 
     val lines: List<Line> get() = transcript.lines
@@ -86,7 +88,7 @@ class Conversation(val transcript: Transcript = Transcript()) {
             is Incoming.Said -> transcript.onLines(if (message.line.kind == Line.Kind.YOU) "heard" else "note", at, message.line)
             is Incoming.Protocol -> {
                 endTurn = message.endTurn
-                return listOf(Effect.Offer(message.apk))
+                return listOf(Effect.Offer(message.apk), Effect.Device)
             }
             is Incoming.Offer -> return listOf(Effect.Offer(message.apk))
             is Incoming.Announce -> {

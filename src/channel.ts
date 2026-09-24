@@ -41,7 +41,7 @@ export interface Ends {
   screenshot(part: Record<string, unknown>): string[];
   /** 14.14 a crash report from the phone; what to say about it */
   crash(report: Record<string, unknown>): string;
-  /** 14.15 what the phone says about itself as it joins; what to say about it */
+  /** 14.15 what the phone says about itself each time the bridge greets it; what to say about it */
   device(value: Record<string, unknown>): Promise<string>;
 }
 
