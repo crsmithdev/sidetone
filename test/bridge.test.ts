@@ -199,3 +199,24 @@ describe("the bridge, assembled as the car assembles it", () => {
     expect(r.said).toEqual(["Four."]);
   });
 });
+
+/** 18.15 the bridge changes the phone's audio setup without a build. */
+describe("a pushed audio setup (18.15)", () => {
+  const names = { mode: "normal", output: "media", focus: "none", canceller: "software", noiseSuppression: true, autoGainControl: false } as const;
+
+  test("a push reaches the phone, the journal and the record, as one thing", () => {
+    const r = bridge();
+    r.setup({ kind: "setup", default: false, ...names });
+    expect(r.told).toContainEqual({ kind: "setup", default: false, ...names });
+    expect(r.journal.at(-1)).toBe("[pushed the phone an audio setup: normal mode, media output, no focus, software canceller, noise suppression on, auto gain control off; the phone rejoins with it]");
+    expect(r.measures.recent().at(-1)).toMatchObject({ kind: "setup", pushed: names });
+  });
+
+  test("a default sends the phone back to the setup in its code, and the record says so", () => {
+    const r = bridge();
+    r.setup({ kind: "setup", default: true });
+    expect(r.told).toContainEqual({ kind: "setup", default: true });
+    expect(r.journal.at(-1)).toBe("[pushed the phone the setup in the app's code; the phone rejoins with it]");
+    expect(r.measures.recent().at(-1)).toMatchObject({ kind: "setup", pushed: null });
+  });
+});

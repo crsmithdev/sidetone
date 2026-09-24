@@ -45,7 +45,9 @@ export function decode(message) {
     // one line for each answer, grown by sentences, so it ignores the blocks.
     case "blockStart":
     case "delta":
-    case "blockEnd": return {};
+    case "blockEnd":
+    // 18.15 the app changes its audio setup on this. The page has none to change.
+    case "setup": return {};
     default: return { line: [`(unknown message: ${message.kind})`, "note"] };
   }
 }

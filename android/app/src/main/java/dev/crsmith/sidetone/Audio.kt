@@ -13,6 +13,8 @@ import io.livekit.android.AudioType
 import io.livekit.android.LiveKitOverrides
 import io.livekit.android.audio.AudioSwitchHandler
 import io.livekit.android.room.track.LocalAudioTrackOptions
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
 
 /**
  * 4.2.2 how the app sets up the phone's audio: the one place that does. Barge-in
@@ -37,6 +39,45 @@ data class AudioSetup(
     val noiseSuppression: Boolean,
     val autoGainControl: Boolean,
 )
+
+/**
+ * 18.15 a setup as the bridge names it, with no Android constant in it: the
+ * words of the `setup` message, the `device` message and the store. [Audio.named]
+ * maps each name to its constant, because 4.2.2 keeps the setup in one place.
+ * The capture source is not named: VOICE_COMMUNICATION is the only source
+ * Android cancels echo on, so it never changes.
+ */
+data class SetupNames(
+    /** "call" or "normal" */
+    val mode: String,
+    /** "voice" or "media": how the bridge's audio plays */
+    val output: String,
+    /** "gain" or "none" */
+    val focus: String,
+    /** "hardware" or "software": which canceller is asked for; 14.15 says which one runs */
+    val canceller: String,
+    val noiseSuppression: Boolean,
+    val autoGainControl: Boolean,
+)
+
+/**
+ * 18.15 the pushed setup, kept across an app restart so a setup under test
+ * survives a drive. `read` and `write` are the one string the app keeps, so a
+ * test hands in a variable and the app hands in its preferences. The string
+ * is the JSON of [SetupNames]; one an older app wrote, or one that does not
+ * read, is no setup, and the app runs with the setup in its code.
+ */
+class SetupStore(private val read: () -> String?, private val write: (String?) -> Unit) {
+    fun load(): SetupNames? {
+        val kept = read() ?: return null
+        val json = runCatching { Json.parseToJsonElement(kept) as? JsonObject }.getOrNull() ?: return null
+        return setupNames(json)
+    }
+
+    fun save(names: SetupNames) = write(setupJson(names).toString())
+
+    fun clear() = write(null)
+}
 
 object Audio {
     /**
@@ -79,6 +120,58 @@ object Audio {
         autoGainControl = true,
     )
     const val CHECKED_ON = "23 September 2026"
+
+    /**
+     * 18.15 the setup a pushed message names, or null when a name is not one
+     * here. The output names the usage, the content type and the stream
+     * together, because the three go together: a call plays speech on the
+     * voice call stream, and media plays music on the music stream, which is
+     * the setup of item 27 that the car defeated on 23 September.
+     */
+    fun named(names: SetupNames): AudioSetup? {
+        val mode = when (names.mode) {
+            "call" -> AudioManager.MODE_IN_COMMUNICATION
+            "normal" -> AudioManager.MODE_NORMAL
+            else -> return null
+        }
+        val (usage, contentType, stream) = when (names.output) {
+            "voice" -> Triple(AudioAttributes.USAGE_VOICE_COMMUNICATION, AudioAttributes.CONTENT_TYPE_SPEECH, AudioManager.STREAM_VOICE_CALL)
+            "media" -> Triple(AudioAttributes.USAGE_MEDIA, AudioAttributes.CONTENT_TYPE_MUSIC, AudioManager.STREAM_MUSIC)
+            else -> return null
+        }
+        val focus = when (names.focus) {
+            "gain" -> AudioManager.AUDIOFOCUS_GAIN
+            "none" -> null
+            else -> return null
+        }
+        val hardware = when (names.canceller) {
+            "hardware" -> true
+            "software" -> false
+            else -> return null
+        }
+        return AudioSetup(
+            mode = mode,
+            usage = usage,
+            contentType = contentType,
+            stream = stream,
+            focus = focus,
+            source = MediaRecorder.AudioSource.VOICE_COMMUNICATION,
+            echoCancellation = true,
+            hardwareEchoCanceller = hardware,
+            noiseSuppression = names.noiseSuppression,
+            autoGainControl = names.autoGainControl,
+        )
+    }
+
+    /** 18.15 a setup as the bridge names it, for the `device` message (14.15). */
+    fun names(setup: AudioSetup) = SetupNames(
+        mode = if (setup.mode == AudioManager.MODE_IN_COMMUNICATION) "call" else "normal",
+        output = if (setup.usage == AudioAttributes.USAGE_VOICE_COMMUNICATION) "voice" else "media",
+        focus = if (setup.focus == null) "none" else "gain",
+        canceller = if (setup.hardwareEchoCanceller) "hardware" else "software",
+        noiseSuppression = setup.noiseSuppression,
+        autoGainControl = setup.autoGainControl,
+    )
 
     /** 14.15 whether the phone has a hardware echo canceller. */
     fun hardwareCanceller(): Boolean = AcousticEchoCanceler.isAvailable()

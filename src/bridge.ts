@@ -26,12 +26,13 @@ import { Cues } from "./cues.ts";
 import type { Event } from "./diagnostics.ts";
 import { Ear, SILENCE_MS } from "./ear.ts";
 import { Measures } from "./measures.ts";
-import type { Outgoing } from "./messages.ts";
+import type { Outgoing, Setup } from "./messages.ts";
 import { Mouth, keptLines, type Speaker } from "./mouth.ts";
 import { Recorder } from "./record.ts";
 import { Screens } from "./screen.ts";
 import { SCREENSHOT_DIR, Screenshots } from "./screenshot.ts";
 import { SentClips, clipChecker } from "./sent.ts";
+import { setupWords } from "./setup.ts";
 import { LocalWhisper, SpokenAhead, textToSpeech, type SpeechToText, type TextToSpeech } from "./speech.ts";
 import { Working, jobsRunning } from "./working.ts";
 
@@ -58,6 +59,13 @@ export interface Bridge {
    * left the app silent or the room speaking to nobody.
    */
   announce(text: string): void;
+  /**
+   * 18.15 push the phone an audio setup, or send it back to the one in its
+   * code. The message, the journal line and the record event go together, so
+   * the record always says which setup was asked for; the phone's own word on
+   * what it runs with is the `device` message after its rejoin (14.15).
+   */
+  setup(message: Setup): void;
   stop(): void;
 }
 
@@ -208,6 +216,11 @@ export function assemble(
       mouth.announce(text, () => !conversation.busy);
       // 17.17 the words reach the app at once, which notifies them when it is not in front
       channel.tell({ kind: "narration", text, announce: true });
+    },
+    setup(message: Setup) {
+      channel.tell(message);
+      channel.journal(`pushed the phone ${message.default ? "" : "an audio setup: "}${setupWords(message)}; the phone rejoins with it`);
+      measures.setup(message.default ? null : { mode: message.mode, output: message.output, focus: message.focus, canceller: message.canceller, noiseSuppression: message.noiseSuppression, autoGainControl: message.autoGainControl });
     },
     stop() { clearInterval(watch); clearInterval(work); conversation.stop(); stt.stop(); tts.stop(); },
   };

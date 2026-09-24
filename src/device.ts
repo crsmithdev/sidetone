@@ -7,6 +7,7 @@
  * that once for each greeting, and this reads it.
  */
 import type { Device } from "./diagnostics.ts";
+import { namesWords, readNames } from "./setup.ts";
 
 /**
  * The phone's message, read. `served` is the hash of the app the bridge
@@ -14,14 +15,22 @@ import type { Device } from "./diagnostics.ts";
  * record, or null for a message that is not readable, and the journal line.
  */
 export function readDevice(value: Record<string, unknown>, served: string | undefined, at = Date.now()): { event: Device | null; line: string } {
-  const { model, aec, canceller, route, apk } = value;
+  const { model, aec, canceller, route, apk, setup, pushed } = value;
+  const unreadable = { event: null, line: "a device message from the phone was not readable" };
   if (typeof model !== "string" || typeof aec !== "boolean" || (canceller !== "hardware" && canceller !== "software")
     || typeof route !== "string" || (apk !== undefined && typeof apk !== "string")) {
-    return { event: null, line: "a device message from the phone was not readable" };
+    return unreadable;
   }
+  // 18.15 an app from before the setup message names none; one that names it says whether the bridge pushed it
+  const names = setup === undefined ? undefined : readNames(setup as Record<string, unknown>);
+  if (setup !== undefined && (names === null || typeof pushed !== "boolean")) return unreadable;
   const same = apk === undefined || served === undefined ? null : apk.toLowerCase() === served.toLowerCase();
-  const event: Device = { kind: "device", at, model, aec, canceller, route, ...(apk === undefined ? {} : { apk }), same };
-  return { event, line: `the phone is a ${model}: ${canceller} echo canceller (hardware ${aec ? "available" : "not available"}), route ${route}, ${build(apk, served, same)}` };
+  const event: Device = {
+    kind: "device", at, model, aec, canceller, route, ...(apk === undefined ? {} : { apk }), same,
+    ...(names ? { setup: names, pushed: pushed as boolean } : {}),
+  };
+  const ran = names ? `, setup ${namesWords(names)}, ${pushed ? "pushed" : "the one in the code"}` : "";
+  return { event, line: `the phone is a ${model}: ${canceller} echo canceller (hardware ${aec ? "available" : "not available"}), route ${route}, ${build(apk, served, same)}${ran}` };
 }
 
 /** 14.15.2 the app's build, and whether it is the one the bridge serves now. */

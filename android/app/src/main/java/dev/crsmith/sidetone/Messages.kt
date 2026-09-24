@@ -63,6 +63,12 @@ sealed interface Incoming {
     /** 18.9 the microphone track carries no sound: leave the room and join it again. */
     data object Rejoin : Incoming
 
+    /**
+     * 18.15 the audio setup to run with, in names, or null for the one in the
+     * app's code. The room is built with the setup at join, so the app rejoins.
+     */
+    data class Setup(val names: SetupNames?) : Incoming
+
     /** 14.10 the agent works (`on`), or does not. The bridge repeats "on" every few seconds while the work lasts. */
     data class Working(val on: Boolean) : Incoming
 
@@ -105,6 +111,11 @@ fun decode(payload: ByteArray): Incoming? {
     if (kind == "protocol") return Incoming.Protocol(message.string("endTurn") ?: return null, apk)
     if (kind == "apk") return Incoming.Offer(apk ?: return null)
     if (kind == "rejoin") return Incoming.Rejoin
+    if (kind == "setup") {
+        // a default reads nothing else, so a stale name cannot ride along
+        if (message.bool("default") == true) return Incoming.Setup(null)
+        return Incoming.Setup(setupNames(message) ?: return null)
+    }
     if (kind == "screenshot") return Incoming.Screenshot(message.string("id") ?: return null, message.string("state") ?: return null)
     if (kind == "speaking") return Incoming.Speaking(message.string("text") ?: return null, message.int("answer"))
     if (kind == "settings") {
@@ -143,6 +154,26 @@ fun decode(payload: ByteArray): Incoming? {
         return lineOf(message)?.let { Incoming.Turn(it, answer) } ?: Incoming.Unknown(kind)
     }
     return lineOf(message)?.let(Incoming::Said) ?: Incoming.Unknown(kind)
+}
+
+/** 18.15 the six names of a setup, from the `setup` message or the store; null when one is missing. */
+fun setupNames(message: JsonObject): SetupNames? = SetupNames(
+    mode = message.string("mode") ?: return null,
+    output = message.string("output") ?: return null,
+    focus = message.string("focus") ?: return null,
+    canceller = message.string("canceller") ?: return null,
+    noiseSuppression = message.bool("noiseSuppression") ?: return null,
+    autoGainControl = message.bool("autoGainControl") ?: return null,
+)
+
+/** 18.15 the six names as the `device` message and the store write them. */
+fun setupJson(names: SetupNames): JsonObject = buildJsonObject {
+    put("mode", names.mode)
+    put("output", names.output)
+    put("focus", names.focus)
+    put("canceller", names.canceller)
+    put("noiseSuppression", names.noiseSuppression)
+    put("autoGainControl", names.autoGainControl)
 }
 
 /** 18.9.4 the shortest time between two rejoins that the bridge asked for. */
@@ -335,15 +366,19 @@ object Outgoing {
     /**
      * 14.15 what the phone says about itself as it joins: the model, whether it
      * has a hardware echo canceller, which canceller runs, the audio route, and
-     * the SHA-256 of its own app, when it could read it.
+     * the SHA-256 of its own app, when it could read it. 18.15 `setup` is the
+     * setup in force and `pushed` whether the bridge pushed it, so the record
+     * always names what ran.
      */
-    fun device(model: String, aec: Boolean, canceller: String, route: String, apk: String?): ByteArray = encode(buildJsonObject {
+    fun device(model: String, aec: Boolean, canceller: String, route: String, apk: String?, setup: SetupNames, pushed: Boolean): ByteArray = encode(buildJsonObject {
         put("kind", "device")
         put("model", model)
         put("aec", aec)
         put("canceller", canceller)
         put("route", route)
         apk?.let { put("apk", it) }
+        put("setup", setupJson(setup))
+        put("pushed", pushed)
     })
 
     private fun encode(message: JsonObject): ByteArray = message.toString().encodeToByteArray()

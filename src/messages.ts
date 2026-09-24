@@ -69,7 +69,30 @@ export type Outgoing =
    * turn, a turn took it, it waited too long, or Chris dropped it. The app
    * shows the mark on the thumbnail from this.
    */
-  | { kind: "screenshot"; id: string; state: "pending" | "sent" | "expired" | "dropped" };
+  | { kind: "screenshot"; id: string; state: "pending" | "sent" | "expired" | "dropped" }
+  /**
+   * 18.15 the phone's audio setup, changed with no build. A `default` of true
+   * carries no other field: it sends the phone back to the setup in its own
+   * code. The app rejoins the room to apply either.
+   */
+  | Setup;
+
+/**
+ * 18.15 the phone's audio setup in names, so no Android constant crosses the
+ * wire. `Audio.kt` maps each name to its constant, because 4.2.2 keeps the
+ * setup in one place. The capture source is not here: VOICE_COMMUNICATION is
+ * the only source Android cancels echo on, so it never changes.
+ */
+export interface AudioSetup {
+  mode: "call" | "normal";
+  output: "voice" | "media";
+  focus: "gain" | "none";
+  canceller: "hardware" | "software";
+  noiseSuppression: boolean;
+  autoGainControl: boolean;
+}
+
+export type Setup = ({ kind: "setup"; default: false } & AudioSetup) | { kind: "setup"; default: true };
 
 /** 17.15 the app the bridge serves: where to fetch it, and its SHA-256 in hex. */
 export interface Apk {

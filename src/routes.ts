@@ -9,6 +9,7 @@
 import { wavFromFile } from "./audio.ts";
 import type { Bridge } from "./bridge.ts";
 import { settingsInForce, type Config } from "./config.ts";
+import { readSetup } from "./setup.ts";
 import { RTC_RATE } from "./transport.ts";
 
 /**
@@ -190,6 +191,19 @@ export function routes(site: Site): (request: Request, ip: string | undefined) =
       console.log(`[to say when free: ${text}]`);
       bridge.announce(text);
       return Response.json({ queued: text }, { status: 202 });
+    }
+    /**
+     * 18.15 push the phone an audio setup, in names, or send it back to the
+     * one in its code with `default` true. `scripts/audio-setup.ts` calls it.
+     * The same guard as /say: a shell on this machine only.
+     */
+    if (url.pathname === "/setup" && request.method === "POST") {
+      if (!isLocal(ip)) return new Response("not found", { status: 404 });
+      const body = await request.json().catch(() => ({})) as Record<string, unknown>;
+      const setup = readSetup(body);
+      if (!setup) return Response.json({ error: "a setup is mode call|normal, output voice|media, focus gain|none, canceller hardware|software, noiseSuppression and autoGainControl true|false; or default true" }, { status: 400 });
+      bridge.setup(setup);
+      return Response.json({ pushed: setup }, { status: 202 });
     }
     // 12.1 the boundary. Everything below here needs the code or a token.
     if (url.pathname === "/pair" && request.method === "POST") {

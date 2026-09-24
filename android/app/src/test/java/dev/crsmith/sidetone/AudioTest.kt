@@ -1,10 +1,13 @@
 package dev.crsmith.sidetone
 
+import android.media.AudioAttributes
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.media.MediaRecorder
 import java.io.File
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -67,6 +70,72 @@ class AudioTest {
         assertEquals("Bluetooth A2DP (SYNC)", Audio.routeName(AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, "SYNC"))
         assertEquals("wired", Audio.routeName(AudioDeviceInfo.TYPE_WIRED_HEADPHONES, ""))
         assertEquals("device type 9999 (x)", Audio.routeName(9999, "x"))
+    }
+
+    /** 18.15 the setup in the code, as the bridge names it: the words the `setup` and `device` messages carry. */
+    private val codeNames = SetupNames(mode = "call", output = "voice", focus = "gain", canceller = "hardware", noiseSuppression = true, autoGainControl = true)
+
+    @Test
+    fun `each name maps to its constant, and back`() {
+        assertEquals(codeNames, Audio.names(setup))
+        assertEquals(setup, Audio.named(codeNames))
+        val media = SetupNames(mode = "normal", output = "media", focus = "none", canceller = "software", noiseSuppression = false, autoGainControl = false)
+        val named = Audio.named(media)!!
+        assertEquals(AudioManager.MODE_NORMAL, named.mode)
+        assertEquals(AudioAttributes.USAGE_MEDIA, named.usage)
+        assertEquals(AudioAttributes.CONTENT_TYPE_MUSIC, named.contentType)
+        assertEquals(AudioManager.STREAM_MUSIC, named.stream)
+        assertNull(named.focus)
+        assertFalse(named.hardwareEchoCanceller)
+        assertFalse(named.noiseSuppression)
+        assertFalse(named.autoGainControl)
+        assertEquals(media, Audio.names(named))
+    }
+
+    @Test
+    fun `a pushed setup keeps the capture source and the echo cancellation`() {
+        // 18.15 the message has no source: VOICE_COMMUNICATION is the only one Android cancels echo on
+        for (canceller in listOf("hardware", "software")) {
+            val named = Audio.named(codeNames.copy(mode = "normal", canceller = canceller))!!
+            assertEquals(MediaRecorder.AudioSource.VOICE_COMMUNICATION, named.source)
+            assertTrue(named.echoCancellation)
+        }
+    }
+
+    @Test
+    fun `a name the app does not know maps to nothing`() {
+        assertNull(Audio.named(codeNames.copy(mode = "communication")))
+        assertNull(Audio.named(codeNames.copy(output = "speech")))
+        assertNull(Audio.named(codeNames.copy(focus = "transient")))
+        assertNull(Audio.named(codeNames.copy(canceller = "webrtc")))
+    }
+
+    @Test
+    fun `a pushed setup does not touch the setup in the code`() {
+        // 18.15 a pushed setup is an experiment, named in the device message and the record.
+        // The guard of 18.13.1 holds the setup in the code, which is what ships.
+        val pushed = Audio.named(SetupNames(mode = "normal", output = "media", focus = "none", canceller = "software", noiseSuppression = true, autoGainControl = true))!!
+        assertTrue(pushed != Audio.setup)
+        assertEquals(Audio.checked, Audio.setup)
+        assertEquals(codeNames, Audio.names(Audio.setup))
+    }
+
+    @Test
+    fun `the store keeps a pushed setup, and a default clears it`() {
+        // 18.15 the setup survives an app restart, so a setup under test survives a drive
+        var kept: String? = null
+        val store = SetupStore(read = { kept }, write = { kept = it })
+        assertNull(store.load())
+        val names = SetupNames(mode = "normal", output = "media", focus = "none", canceller = "software", noiseSuppression = true, autoGainControl = false)
+        store.save(names)
+        assertEquals(names, store.load())
+        assertEquals(names, SetupStore(read = { kept }, write = {}).load())
+        store.clear()
+        assertNull(kept)
+        assertNull(store.load())
+        // what an older app wrote, or a hand edit, is no setup
+        kept = "{\"mode\":\"call\"}"
+        assertNull(store.load())
     }
 
     private companion object {

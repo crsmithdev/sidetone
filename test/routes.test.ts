@@ -72,7 +72,7 @@ describe("pairing, the boundary (12.1, ADR 0005)", () => {
 });
 
 describe("the routes for this machine only (12.1)", () => {
-  for (const [method, path] of [["GET", "/diagnostics"], ["POST", "/say"], ["POST", "/play"]] as const) {
+  for (const [method, path] of [["GET", "/diagnostics"], ["POST", "/say"], ["POST", "/play"], ["POST", "/setup"]] as const) {
     test(`${method} ${path} is not found from the tailnet`, async () => {
       const s = site();
       const response = method === "GET" ? await s.get(path, TAILNET) : await s.post(path, { text: "x", file: "/x" }, TAILNET);
@@ -114,6 +114,31 @@ describe("/say is one announcement (17.17)", () => {
   test("an empty line is refused", async () => {
     const s = site();
     expect((await s.post("/say", { text: "  " })).status).toBe(400);
+    expect(s.told).toEqual([]);
+  });
+});
+
+describe("/setup pushes the phone an audio setup (18.15)", () => {
+  const names = { mode: "normal", output: "media", focus: "none", canceller: "software", noiseSuppression: true, autoGainControl: true } as const;
+
+  test("a setup in names goes to the phone, and the answer says what went", async () => {
+    const s = site();
+    const response = await s.post("/setup", names);
+    expect(response.status).toBe(202);
+    expect(await response.json()).toEqual({ pushed: { kind: "setup", default: false, ...names } });
+    expect(s.told).toContainEqual({ kind: "setup", default: false, ...names });
+  });
+
+  test("a default sends the phone back to the setup in its code", async () => {
+    const s = site();
+    expect((await s.post("/setup", { default: true })).status).toBe(202);
+    expect(s.told).toContainEqual({ kind: "setup", default: true });
+  });
+
+  test("a name the app does not map is refused, and nothing goes", async () => {
+    const s = site();
+    expect((await s.post("/setup", { ...names, mode: "communication" })).status).toBe(400);
+    expect((await s.post("/setup", {})).status).toBe(400);
     expect(s.told).toEqual([]);
   });
 });

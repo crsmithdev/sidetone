@@ -188,6 +188,27 @@ class JoiningTest {
         assertEquals(1, on(Event.RejoinAsked).size)
     }
 
+    /**
+     * 18.15 a pushed setup applies by a rejoin, at once. The window of 18.9.4
+     * is for a phone that is simply silent; a push is one message from a
+     * script, so it is not held to it, and it counts as the last rejoin.
+     */
+    @Test
+    fun aChangedSetupRejoinsAtOnceEvenInsideTheWindow() {
+        opened()
+        on(Event.RejoinAsked)
+        on(Event.Ended(Joining.REJOINING))
+        opened()
+        now += 1_000
+        assertEquals(listOf(Effect.End(Joining.REJOINING)), on(Event.SetupChanged))
+        assertEquals(Status.REJOINING, joining.status)
+        assertEquals(listOf(Effect.Open(now)), on(Event.Ended(Joining.REJOINING)))
+        assertNull(joining.error)
+        opened()
+        now += REJOIN_MS - 1
+        assertEquals(emptyList<Effect>(), on(Event.RejoinAsked))
+    }
+
     @Test
     fun aConversationEndedByHandIsIdleAndHasNothingWrong() {
         on(Event.Opening)

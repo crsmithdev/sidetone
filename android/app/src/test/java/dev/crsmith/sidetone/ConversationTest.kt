@@ -97,6 +97,18 @@ class ConversationTest {
     }
 
     @Test
+    fun aSetupIsAskedOfTheRoomAndNothingElse() {
+        // 18.15 the room is built with the setup at join, so the room has to be asked; the screen shows nothing
+        val names = SetupNames("normal", "media", "none", "software", noiseSuppression = true, autoGainControl = true)
+        assertEquals(
+            listOf(Conversation.Effect.Setup(names)),
+            send("""{"kind":"setup","default":false,"mode":"normal","output":"media","focus":"none","canceller":"software","noiseSuppression":true,"autoGainControl":true}"""),
+        )
+        assertEquals(listOf(Conversation.Effect.Setup(null)), send("""{"kind":"setup","default":true}"""))
+        assertTrue(c.lines.isEmpty())
+    }
+
+    @Test
     fun theHistoryIsShownOnceAndSaysWhereItEnds() {
         send("""{"kind":"history","turns":[{"kind":"heard","text":"earlier question","at":5}]}""")
         assertEquals(listOf("earlier", "earlier question", "now"), texts())

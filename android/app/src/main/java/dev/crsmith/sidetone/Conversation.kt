@@ -26,6 +26,8 @@ class Conversation(val transcript: Transcript = Transcript()) {
         data object Rejoin : Effect
         /** 14.15 the bridge greeted this app, so it is a bridge that has to be told what the phone is. */
         data object Device : Effect
+        /** 18.15 run with this setup, or with the one in the code for null: keep it, and rejoin the room with it. */
+        data class Setup(val names: SetupNames?) : Effect
     }
 
     val lines: List<Line> get() = transcript.lines
@@ -97,6 +99,7 @@ class Conversation(val transcript: Transcript = Transcript()) {
                 if (!inFront) return listOf(Effect.Alert("Sidetone", message.line.text))
             }
             is Incoming.Rejoin -> return listOf(Effect.Rejoin)
+            is Incoming.Setup -> return listOf(Effect.Setup(message.names))
             is Incoming.Speaking -> spokenIn(lines, message.text)?.let { spoken = it }
             is Incoming.Screenshot -> {
                 // 17.18.5 the bridge has it: the thumbnail joins the transcript once

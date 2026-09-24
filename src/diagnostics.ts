@@ -11,6 +11,7 @@
  * over. It measures and remembers; it decides nothing.
  */
 import type { Utterance } from "./audio.ts";
+import type { AudioSetup } from "./messages.ts";
 
 export interface Heard {
   kind: "heard";
@@ -76,9 +77,17 @@ export interface Echo { kind: "echo"; at: number; said: string; spoke: string }
  */
 export interface Device {
   kind: "device"; at: number; model: string; aec: boolean; canceller: "hardware" | "software"; route: string; apk?: string; same: boolean | null;
+  /** 18.15 the setup the phone runs with, and whether the bridge pushed it; an older app names none */
+  setup?: AudioSetup; pushed?: boolean;
 }
+/**
+ * 18.15 the bridge pushed the phone an audio setup, or sent it back to the
+ * one in its code (`pushed` null). The phone's own word on what it then runs
+ * with is the `device` event that follows its rejoin.
+ */
+export interface SetupPushed { kind: "setup"; at: number; pushed: AudioSetup | null }
 export interface Track { kind: "track"; at: number; what: "music" | "file"; on: boolean; ms?: number; whole?: boolean }
-export type Event = Heard | Matched | Barged | Answered | Cutoff | Spoke | Note | Setting | Track | Echo | Device;
+export type Event = Heard | Matched | Barged | Answered | Cutoff | Spoke | Note | Setting | Track | Echo | Device | SetupPushed;
 
 /** Enough to read a drive back, not so much that it is a log of its own. */
 const KEEP = 120;
@@ -145,6 +154,11 @@ export class Diagnostics {
   /** 14.15 what the phone said about itself as it joined. */
   device(event: Device): void {
     this.add(event);
+  }
+
+  /** 18.15 the bridge pushed the phone an audio setup, or null for the one in its code. */
+  setup(pushed: AudioSetup | null, at = Date.now()): void {
+    this.add({ kind: "setup", at, pushed });
   }
 
   /** 15.7 a track started. */

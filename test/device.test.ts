@@ -35,3 +35,34 @@ describe("the phone's device message (14.15)", () => {
     }
   });
 });
+
+/** 18.15 the setup in force on the phone, and whether the bridge pushed it. */
+describe("the setup the phone runs with (14.15, 18.15)", () => {
+  const phone = { kind: "device", model: "Pixel 8", aec: true, canceller: "software", route: "speaker" };
+  const setup = { mode: "normal", output: "media", focus: "none", canceller: "software", noiseSuppression: true, autoGainControl: true };
+
+  test("a pushed setup is named in the record and the journal", () => {
+    const { event, line } = readDevice({ ...phone, setup, pushed: true }, undefined);
+    expect(event).toMatchObject({ setup, pushed: true });
+    expect(line).toEndWith("build unknown, setup normal mode, media output, no focus, software canceller, noise suppression on, auto gain control on, pushed");
+  });
+
+  test("the setup in the code is named as that", () => {
+    const { event, line } = readDevice({ ...phone, setup: { ...setup, mode: "call" }, pushed: false }, undefined);
+    expect(event?.pushed).toBe(false);
+    expect(line).toEndWith("call mode, media output, no focus, software canceller, noise suppression on, auto gain control on, the one in the code");
+  });
+
+  test("an app from before the setup message names none, and the record has none", () => {
+    const { event, line } = readDevice(phone, undefined);
+    expect(event).not.toHaveProperty("setup");
+    expect(event).not.toHaveProperty("pushed");
+    expect(line).toEndWith("build unknown");
+  });
+
+  test("a setup with a name the bridge does not know is not readable", () => {
+    for (const bad of [{ ...phone, setup: { ...setup, focus: "transient" }, pushed: false }, { ...phone, setup, pushed: "yes" }, { ...phone, setup }]) {
+      expect(readDevice(bad, undefined).event).toBeNull();
+    }
+  });
+});

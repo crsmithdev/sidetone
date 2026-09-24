@@ -87,6 +87,9 @@ object Bridge {
     private val micLock = Mutex()
     private lateinit var app: Context
     private lateinit var store: CredentialStore
+
+    /** 18.15 the setup the bridge pushed, kept across a restart. Empty, the app runs with the one in its code. */
+    private lateinit var setups: SetupStore
     private lateinit var crashes: Crashes
     private var session: Job? = null
     private var room: Room? = null
@@ -117,6 +120,10 @@ object Bridge {
         if (::store.isInitialized) return
         app = context.applicationContext
         store = CredentialStore(context.applicationContext)
+        val audio = app.getSharedPreferences("sidetone-audio", Context.MODE_PRIVATE)
+        setups = SetupStore(read = { audio.getString("setup", null) }, write = { kept ->
+            audio.edit().apply { if (kept == null) remove("setup") else putString("setup", kept) }.apply()
+        })
         // 17.20 a crash writes a report, and the next room sends it
         crashes = Crashes(File(app.filesDir, "crashes"))
         crashes.catchAll { crashState(_state.value) }
@@ -179,14 +186,16 @@ object Bridge {
 
     /** One room, from connect to its end. Returns why it ended. */
     private suspend fun runRoom(app: Context, credentials: Credentials): String = coroutineScope {
+        // 18.15 the room is built with the setup in force, so a pushed one takes a rejoin
+        val (setup, _) = setupInForce()
         val room = LiveKit.create(
             app,
             RoomOptions(
                 adaptiveStream = true,
                 // 4.2 the framework's echo cancellation, which keeps the microphone open while the bridge speaks
-                audioTrackCaptureDefaults = Audio.capture(Audio.setup),
+                audioTrackCaptureDefaults = Audio.capture(setup),
             ),
-            Audio.overrides(app, Audio.setup),
+            Audio.overrides(app, setup),
         )
         this@Bridge.room = room
         val ended = CompletableDeferred<String>()
@@ -245,6 +254,7 @@ object Bridge {
                     is Conversation.Effect.Offer -> offer(effect.apk)
                     is Conversation.Effect.Rejoin -> rejoin(ended)
                     is Conversation.Effect.Device -> sendDevice(room)
+                    is Conversation.Effect.Setup -> applySetup(effect.names, ended)
                 }
             }
             else -> Unit
@@ -269,6 +279,40 @@ object Bridge {
             // a rejoin asks only for the room to end; the loop in join opens the next
             is Joining.Effect.Open, Joining.Effect.Forget -> Unit
         }
+    }
+
+    /**
+     * 18.15 the setup the room is built with, and whether the bridge pushed it.
+     * A kept setup that does not read, such as one an older app wrote, is no
+     * setup: the app runs with the one in its code and says so.
+     */
+    private fun setupInForce(): Pair<AudioSetup, Boolean> {
+        val pushed = setups.load()?.let(Audio::named) ?: return Audio.setup to false
+        return pushed to true
+    }
+
+    /**
+     * 18.15 the bridge pushed a setup, or asked for the one in the code. It is
+     * kept first, so it survives a restart, and then the room ends the way a
+     * rejoin does (18.9): [join] opens the next room with it. A name this app
+     * does not map is refused and written down, and nothing changes.
+     */
+    private fun applySetup(names: SetupNames?, ended: CompletableDeferred<String>) {
+        if (names == null) {
+            setups.clear()
+            record("setup", "the audio setup is the one in the code again; rejoining")
+        } else {
+            if (Audio.named(names) == null) {
+                Log.w(TAG, "a pushed audio setup has a name this app does not know: $names")
+                record("setup", "a pushed audio setup was refused, a name this app does not know: $names")
+                return
+            }
+            setups.save(names)
+            record("setup", "a pushed audio setup: ${names.mode} mode, ${names.output} output, ${names.focus} focus, ${names.canceller} canceller, " +
+                "noise suppression ${if (names.noiseSuppression) "on" else "off"}, auto gain control ${if (names.autoGainControl) "on" else "off"}; rejoining")
+        }
+        Log.i(TAG, "the audio setup changed; rejoining")
+        for (effect in link(Joining.Event.SetupChanged)) if (effect is Joining.Effect.End) ended.complete(effect.reason)
     }
 
     /**
@@ -486,14 +530,16 @@ object Bridge {
     }
 
     /**
-     * 14.15 the phone says what it is, which canceller runs, where the audio plays, and its build.
+     * 14.15 the phone says what it is, which canceller runs, where the audio plays, its build,
+     * and 18.15 the setup in force and whether the bridge pushed it.
      * It answers each `protocol`: a restart of the bridge keeps the room, so the join is not enough.
      */
     private fun sendDevice(room: Room) {
         scope.launch {
             val aec = Audio.hardwareCanceller()
-            val route = runCatching { Audio.route(app, Audio.setup) }.getOrElse { "unknown: ${it.message}" }
-            val message = Outgoing.device(Build.MODEL, aec, Audio.canceller(Audio.setup, aec), route, Updater.installedHash(app))
+            val (setup, pushed) = setupInForce()
+            val route = runCatching { Audio.route(app, setup) }.getOrElse { "unknown: ${it.message}" }
+            val message = Outgoing.device(Build.MODEL, aec, Audio.canceller(setup, aec), route, Updater.installedHash(app), Audio.names(setup), pushed)
             room.localParticipant.publishData(message).onFailure { Log.w(TAG, "the device message did not go", it) }
         }
     }

@@ -13,6 +13,7 @@
 import type { Utterance } from "./audio.ts";
 import { Diagnostics, type Device, type Event } from "./diagnostics.ts";
 import { Latency, type Outcome, type Round } from "./latency.ts";
+import type { AudioSetup } from "./messages.ts";
 
 export class Measures {
   private readonly latency = new Latency();
@@ -114,6 +115,11 @@ export class Measures {
   /** 14.15 what the phone said about itself as it joined. */
   device(event: Device): void {
     this.diagnostics.device(event);
+  }
+
+  /** 18.15 the bridge pushed the phone an audio setup, or null for the one in its code. */
+  setup(pushed: AudioSetup | null): void {
+    this.diagnostics.setup(pushed);
   }
 
   /** 15.7 a track began on the room's speaker: the hold music, or a file asked for. */

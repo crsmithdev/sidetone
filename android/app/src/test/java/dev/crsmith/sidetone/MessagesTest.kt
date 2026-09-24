@@ -228,6 +228,8 @@ class MessagesTest {
         assertTrue(Incoming.Announce(Line(Line.Kind.NOTE, "Job build finished.")) in decoded)
         assertTrue(Incoming.Offer(Apk("https://bridge:3100/sidetone.apk", "cd34")) in decoded)
         assertTrue(Incoming.Rejoin in decoded)
+        assertTrue(Incoming.Setup(SetupNames("normal", "media", "none", "software", noiseSuppression = true, autoGainControl = true)) in decoded)
+        assertTrue(Incoming.Setup(null) in decoded)
         assertTrue(Incoming.Working(true) in decoded)
         assertTrue(Incoming.Screenshot("1789999559000", "pending") in decoded)
         assertTrue(Incoming.Screenshot("1789999559000", "sent") in decoded)
@@ -333,15 +335,33 @@ class MessagesTest {
 
     @Test
     fun theDeviceMessageSaysWhatThePhoneIs() {
-        // 14.15 the bridge's src/device.ts reads these names
+        val code = SetupNames("call", "voice", "gain", "hardware", noiseSuppression = true, autoGainControl = true)
+        // 14.15 the bridge's src/device.ts reads these names; 18.15 the setup in force, and whether the bridge pushed it
         assertEquals(
-            """{"kind":"device","model":"Pixel 8","aec":true,"canceller":"software","route":"speaker","apk":"ab12"}""",
-            Outgoing.device("Pixel 8", true, "software", "speaker", "ab12").decodeToString(),
+            """{"kind":"device","model":"Pixel 8","aec":true,"canceller":"software","route":"speaker","apk":"ab12",""" +
+                """"setup":{"mode":"call","output":"voice","focus":"gain","canceller":"hardware","noiseSuppression":true,"autoGainControl":true},"pushed":false}""",
+            Outgoing.device("Pixel 8", true, "software", "speaker", "ab12", code, pushed = false).decodeToString(),
         )
         // a hash the app could not read is left out, not sent empty
         assertEquals(
-            """{"kind":"device","model":"Pixel 8","aec":false,"canceller":"software","route":"none"}""",
-            Outgoing.device("Pixel 8", false, "software", "none", null).decodeToString(),
+            """{"kind":"device","model":"Pixel 8","aec":false,"canceller":"software","route":"none",""" +
+                """"setup":{"mode":"normal","output":"media","focus":"none","canceller":"software","noiseSuppression":true,"autoGainControl":false},"pushed":true}""",
+            Outgoing.device("Pixel 8", false, "software", "none", null, code.copy(mode = "normal", output = "media", focus = "none", canceller = "software", autoGainControl = false), pushed = true).decodeToString(),
         )
+    }
+
+    @Test
+    fun aSetupComesInNamesOrAsksForTheDefault() {
+        // 18.15 no Android constant crosses the wire; Audio.kt maps each name
+        assertEquals(
+            Incoming.Setup(SetupNames("normal", "media", "none", "software", noiseSuppression = true, autoGainControl = false)),
+            decode(bytes("""{"kind":"setup","default":false,"mode":"normal","output":"media","focus":"none","canceller":"software","noiseSuppression":true,"autoGainControl":false}""")),
+        )
+        // a default reads nothing else, so a stale name cannot ride along
+        assertEquals(Incoming.Setup(null), decode(bytes("""{"kind":"setup","default":true}""")))
+        assertEquals(Incoming.Setup(null), decode(bytes("""{"kind":"setup","default":true,"mode":"communication"}""")))
+        // a setup with a name missing is not a setup, and never the default
+        assertNull(decode(bytes("""{"kind":"setup","default":false,"mode":"normal","output":"media","focus":"none","canceller":"software","noiseSuppression":true}""")))
+        assertNull(decode(bytes("""{"kind":"setup"}""")))
     }
 }

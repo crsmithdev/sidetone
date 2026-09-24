@@ -44,6 +44,9 @@ class Joining(private val retryMs: Long = RETRY_MS) {
         /** 18.9 the bridge hears no sound from the microphone track and asks for a new one. */
         data object RejoinAsked : Event
 
+        /** 18.15 the audio setup changed, and the room is built with it at join. */
+        data object SetupChanged : Event
+
         /** The conversation ended by hand. */
         data object Left : Event
     }
@@ -84,6 +87,12 @@ class Joining(private val retryMs: Long = RETRY_MS) {
             Event.RejoinAsked -> {
                 // 18.9 a request inside REJOIN_MS of the last one is refused, so a phone that is simply silent cannot loop
                 if (!rejoinDue(rejoinedAt, now)) return emptyList()
+                rejoinedAt = now
+                status = Status.REJOINING
+                return listOf(Effect.End(REJOINING))
+            }
+            Event.SetupChanged -> {
+                // 18.15 a push is one message from a script, not a silent phone, so the window of 18.9.4 does not hold it
                 rejoinedAt = now
                 status = Status.REJOINING
                 return listOf(Effect.End(REJOINING))
