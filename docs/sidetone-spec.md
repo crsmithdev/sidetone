@@ -11,6 +11,7 @@ The screenshot (14.12, 17.18) added 22 September 2026.
 Formatted text in the bubbles (17.19) added 22 September 2026.
 The status row shows one state (17.11.6) from 22 September 2026.
 The status row is one dot (17.11.6) from 23 September 2026.
+The status word in every state, the legend of the light (17.11.7, 17.11.9) and the gear (17.22) from 23 September 2026.
 The pending screenshot (14.12.5 to 14.12.7, 17.18.5) added 23 September 2026.
 The crash report (14.14, 17.20) added 23 September 2026.
 The spoken sentence in the bubbles (17.21) added 23 September 2026.
@@ -551,19 +552,21 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 
 17.11.1 Off. The sign shows nothing. This is the state before any `working` message, after a message with `on` set to false, and after the app leaves the room.
 
-17.11.2 Working. The dot pulses slowly. The row shows no word. This is the state after a message with `on` set to true, while a `working` message arrives at least every 15 seconds.
+17.11.2 Working. The dot pulses slowly. The sign adds no word to the row. This is the state after a message with `on` set to true, while a `working` message arrives at least every 15 seconds.
 
-17.11.3 Stalled. The bridge said that the agent works, and no `working` message has arrived for 15 seconds. The dot blinks fast. The row shows no word. This is three heartbeats (14.10.2). It means that the bridge has stopped sending. The room is live when the sign shows (17.11.6), so the bridge is stuck. The next message ends this state. The 15 seconds is a constant of the app, because the app has no settings file.
+17.11.3 Stalled. The bridge said that the agent works, and no `working` message has arrived for 15 seconds. The dot blinks fast. The sign adds no word to the row. This is three heartbeats (14.10.2). It means that the bridge has stopped sending. The room is live when the sign shows (17.11.6), so the bridge is stuck. The next message ends this state. The 15 seconds is a constant of the app, because the app has no settings file.
 
 17.11.4 The sign follows the messages of the bridge. It does not follow the sound. It shows with the audio cut (17.10), when the voice, the tones and the hold music give no sign of the work.
 
 17.11.5 The app has no setting for the sign.
 
-17.11.6 The status row shows one state, not three readings that can disagree. The row is one large dot. The colour of the dot is the room state: green while the status is "listening", amber while the app connects, rejoins or reconnects, and red when the bridge is unreachable. A ring around the dot is the connection quality: thick when excellent, thinner when good, thin when poor, and no ring when the quality is not known. The motion of the dot is the working sign (17.11). The ring and the sign show only while the status word is "listening". In any other state no message can come, and the row shows no ring and no sign. The notification (17.16) follows the same rule for the sign. When the status is "listening" and LiveKit says the connection of the phone is lost, the room is not live: the status word is "signal lost", and the row shows no ring and no sign. One function in the app gives this reading, and a test tries every input.
+17.11.6 The status row shows one state, not three readings that can disagree. The row is one dot. The colour of the dot is the room state: green while the status is "listening", amber while the app connects, rejoins or reconnects, and red when the bridge is unreachable. A ring around the dot is the connection quality: thick when excellent, thinner when good, thin when poor, and no ring when the quality is not known. The motion of the dot is the working sign (17.11). The ring and the sign show only while the status word is "listening". In any other state no message can come, and the row shows no ring and no sign. The notification (17.16) follows the same rule for the sign. When the status is "listening" and LiveKit says the connection of the phone is lost, the room is not live: the status word is "signal lost", and the row shows no ring and no sign. One function in the app gives this reading, and a test tries every input.
 
-17.11.7 The row shows a word only for a state that Chris does not expect: "reconnecting", "disconnected" and "signal lost". While the room connects, rejoins, listens or works, the row shows no word. The notification (17.16) keeps the status word in every state.
+17.11.7 The row shows the status word beside the dot in every state: "connecting", "listening", "rejoining", "reconnecting", "signal lost" or "disconnected". The colour alone does not say which amber state the room is in. Until 23 September the row showed a word only for "reconnecting", "disconnected" and "signal lost". These states last seconds, so Chris never saw a word. The notification (17.16) starts with the same word.
 
-17.11.8 The "Leave" button is not in the row. It is in the options menu (17.22), which opens from the button at the end of the row. It quits the app, as before.
+17.11.8 The "Leave" button is not in the row. It is in the options menu (17.22), which opens from the gear at the end of the row. It quits the app, as before.
+
+17.11.9 A tap on the dot opens a legend. The legend lists each word the row can show, with the colour of the dot and what the state means. Below them it says what the ring and the motion mean. A tap anywhere closes it. The app makes the legend from the same function as the row (17.11.6), and a test checks that each state is in it.
 
 17.12 The app keeps a screen log: what it showed, in the order it showed it. Each change of a line on the screen is one entry. The log is in the memory of the app process. It ends when Chris leaves the room with the Leave button.
 
@@ -655,7 +658,7 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 17.21.3 A `turn` does not move the spoken sentence, because the voice can still say the answer after it arrives. A barge-in cuts a sentence and the bridge says it again (14.13), so the grey stays after the cut until that message repeats.
 
 17.21.4 The formatting of 17.19 stays. The grey starts at the length of the words up to the end of the sentence, once formatted. A sentence that ends inside a bold or code span can show a slightly wrong edge.
-17.22 The options menu opens from the "⋮" button at the end of the status row. It holds the verbosity, the tones, the hold music volume and "Leave", in that order. The voice choice and the audio switch are not in it, because each already has a command or a button.
+17.22 The options menu opens from the gear at the end of the status row. Its accessibility name is "Options". It holds the verbosity, the tones, the hold music volume, "Leave" and the build line (14.15), in that order. The voice choice and the audio switch are not in it, because each already has a command or a button.
 
 17.22.1 Each control sends the `setting` message (9.4.9). The bridge does what the spoken command does, the voice's answer included. The control does not change when it is tapped. It shows the value in the next `settings` message, so the menu shows only what the bridge holds. Until the bridge sends its settings, each control is disabled.
 
@@ -685,7 +688,7 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 
 18.9.1 The bridge finds the fault when the track carries no sound for 30 seconds. It also finds the fault when no audio arrives for 30 seconds though the phone says its microphone is open.
 
-18.9.2 When the bridge first finds the fault, it sends the phone one `rejoin` message. It sends no second message until the microphone has carried sound again. The bridge writes the fault to the journal and sends no note (4.3.1). The app shows the rejoin in its status light: the light takes the tertiary colour and the word "rejoining" until the app is in the room again.
+18.9.2 When the bridge first finds the fault, it sends the phone one `rejoin` message. It sends no second message until the microphone has carried sound again. The bridge writes the fault to the journal and sends no note (4.3.1). The app shows the rejoin in its status row: the dot is amber and the word beside it is "rejoining" (17.11.7) until the app is in the room again.
 
 18.9.3 The app leaves the room and joins it again when it gets the message. It opens the microphone again if the microphone was open.
 

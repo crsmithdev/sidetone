@@ -8,6 +8,8 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -15,7 +17,6 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -23,8 +24,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 
@@ -32,7 +32,7 @@ import kotlin.math.roundToInt
 private val LEVELS = listOf("brief", "normal", "full")
 
 /**
- * 17.22 the options menu, behind the "⋮" button at the end of the status row.
+ * 17.22 the options menu, behind the gear at the end of the status row.
  * Each control sends the `setting` message (9.4.9), so the bridge does what
  * the spoken command does. Each shows what the bridge last sent back, and is
  * disabled until the bridge has sent it.
@@ -41,8 +41,8 @@ private val LEVELS = listOf("brief", "normal", "full")
 fun Options(settings: Incoming.Settings, build: String?, onLeave: () -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
-        TextButton(onClick = { open = true }, modifier = Modifier.semantics { contentDescription = "Options" }) {
-            Text("⋮", style = MaterialTheme.typography.titleLarge)
+        IconButton(onClick = { open = true }) {
+            Icon(painterResource(R.drawable.ic_gear), contentDescription = "Options")
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }, modifier = Modifier.width(288.dp)) {
             Verbosity(settings.words["verbosity"])

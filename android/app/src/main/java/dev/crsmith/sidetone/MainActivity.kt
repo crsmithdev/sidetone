@@ -37,6 +37,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -47,7 +48,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -246,7 +249,8 @@ private fun Conversation(state: Bridge.State, onLeave: () -> Unit) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             val reading = reading(state.status, state.quality, state.sign)
             StatusDot(reading)
-            reading.caption?.let { Text(it, style = MaterialTheme.typography.titleMedium) }
+            // 17.11.7 the word says the state that the colour shows
+            Text(reading.word, style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.weight(1f))
             Options(state.settings, state.build, onLeave)
         }
@@ -357,22 +361,26 @@ private fun HoldToTalk(state: Bridge.State) {
     }
 }
 
+/** 17.11.6 the colour of the dot for each room state. */
+private fun fill(light: Light) = when (light) {
+    Light.GREEN -> Color(0xFF34A853)
+    Light.AMBER -> Color(0xFFF9AB00)
+    Light.RED -> Color(0xFFEA4335)
+}
+
 /**
  * 17.11.6 the room in one dot. The colour is the room state, the ring is the
  * connection quality, and the motion is the working sign (17.11): a slow pulse
  * while the agent works, a fast blink when it stalls. The outer size does not
- * change, so the row does not move when the ring goes.
+ * change, so the row does not move when the ring goes. A tap opens the legend
+ * (17.11.9).
  */
 @Composable
 private fun StatusDot(reading: Reading) {
-    val fill = when (reading.light) {
-        Light.GREEN -> Color(0xFF34A853)
-        Light.AMBER -> Color(0xFFF9AB00)
-        Light.RED -> Color(0xFFEA4335)
-    }
+    var legend by remember { mutableStateOf(false) }
     val ring = when (reading.ring) {
-        Ring.THICK -> 4.dp
-        Ring.MEDIUM -> 2.5.dp
+        Ring.THICK -> 3.5.dp
+        Ring.MEDIUM -> 2.dp
         Ring.THIN -> 1.dp
         null -> 0.dp
     }
@@ -388,11 +396,39 @@ private fun StatusDot(reading: Reading) {
         Sign.SILENT -> if (motion.animateFloat(0f, 1f, infiniteRepeatable(tween(400)), label = "blink").value < 0.5f) 1f else 0.15f
     }
     val said = listOf(reading.word, signWord(reading.sign)).filter { it.isNotEmpty() }.joinToString(", ")
-    Box(
-        Modifier.size(32.dp).border(ring, MaterialTheme.colorScheme.onSurface, CircleShape).semantics { contentDescription = said },
-        contentAlignment = Alignment.Center,
-    ) {
-        Box(Modifier.size(22.dp).alpha(alpha).background(fill, CircleShape))
+    Box {
+        Box(
+            Modifier.size(26.dp).clip(CircleShape).clickable(onClickLabel = "Explain the light") { legend = true }
+                .border(ring, MaterialTheme.colorScheme.onSurface, CircleShape).semantics { contentDescription = said },
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(Modifier.size(18.dp).alpha(alpha).background(fill(reading.light), CircleShape))
+        }
+        DropdownMenu(expanded = legend, onDismissRequest = { legend = false }, modifier = Modifier.width(300.dp)) {
+            Legend()
+        }
+    }
+}
+
+/**
+ * 17.11.9 what the light means: each colour with its word and state, then the
+ * ring and the motion. It explains and does nothing, so a tap anywhere closes it.
+ */
+@Composable
+private fun Legend() {
+    Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        for ((reading, means) in LEGEND) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(Modifier.padding(top = 3.dp).size(14.dp).background(fill(reading.light), CircleShape))
+                Column {
+                    Text(reading.word, style = MaterialTheme.typography.labelLarge)
+                    Text(means, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+        HorizontalDivider()
+        Text("The ring is the signal: thick when it is excellent, thin when it is poor.", style = MaterialTheme.typography.bodySmall)
+        Text("A slow pulse: the agent works. A fast blink: the agent has stalled.", style = MaterialTheme.typography.bodySmall)
     }
 }
 

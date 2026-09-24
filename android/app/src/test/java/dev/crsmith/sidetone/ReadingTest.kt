@@ -29,50 +29,65 @@ class ReadingTest {
             assertEquals(at, live, r.word == "listening")
             assertTrue(at, live || r.ring == null)
             assertTrue(at, live || r.sign == Sign.OFF)
-            // a live room shows no word: the dot says it
-            assertTrue(at, !live || r.caption == null)
             // the row says "listening" only when the transport has the room
             assertTrue(at, !live || status == Status.LISTENING)
             assertEquals(at, r.light == Light.RED, status == Status.UNREACHABLE)
         }
     }
 
-    /** Words show only for the surprising states. Connecting and rejoining show in the colour. */
+    /**
+     * 17.11.7 the row shows the status word beside the light in every state.
+     * It showed a word only in the surprising states, so Chris, who mostly
+     * sees a live room, never saw one (docs/todo.md item 45).
+     */
     @Test
-    fun onlyASurprisingStateHasAWord() {
-        for ((status, quality, sign) in everyReading()) {
-            val r = reading(status, quality, sign)
-            val surprising = status == Status.RECONNECTING || status == Status.UNREACHABLE ||
-                (status == Status.LISTENING && quality == "lost")
-            assertEquals("$status $quality $sign -> $r", surprising, r.caption != null)
-        }
-        assertEquals(Light.AMBER, reading(Status.CONNECTING, null, Sign.OFF).light)
-        assertEquals(Light.AMBER, reading(Status.REJOINING, "good", Sign.OFF).light)
+    fun everyStateHasItsOwnWord() {
+        val words = Status.entries.associateWith { reading(it, "good", Sign.OFF).word }
+        assertEquals(
+            mapOf(
+                Status.IDLE to "connecting",
+                Status.CONNECTING to "connecting",
+                Status.LISTENING to "listening",
+                Status.RECONNECTING to "reconnecting",
+                Status.REJOINING to "rejoining",
+                Status.UNREACHABLE to "disconnected",
+            ),
+            words,
+        )
+    }
+
+    /** 17.11.9 the legend names each word the row can show, once, with the colour the light has for it. */
+    @Test
+    fun theLegendHasEveryState() {
+        val shown = everyReading().map { (status, quality, sign) -> reading(status, quality, sign) }
+        val legend = LEGEND.map { it.first }
+        assertEquals(shown.map { it.word to it.light }.toSet(), legend.map { it.word to it.light }.toSet())
+        assertEquals(legend.size, legend.map { it.word }.toSet().size)
     }
 
     /** A live room hides nothing: the quality shows as the ring and the sign as the motion. */
     @Test
     fun aLiveRoomShowsItsQualityAndItsSign() {
         for (sign in Sign.entries) {
-            assertEquals(Reading(Light.GREEN, "listening", null, Ring.THICK, sign), reading(Status.LISTENING, "excellent", sign))
+            assertEquals(Reading(Light.GREEN, "listening", Ring.THICK, sign), reading(Status.LISTENING, "excellent", sign))
         }
         assertEquals(Ring.MEDIUM, reading(Status.LISTENING, "good", Sign.OFF).ring)
         assertEquals(Ring.THIN, reading(Status.LISTENING, "poor", Sign.OFF).ring)
         // a quality not known yet draws no ring
-        assertEquals(Reading(Light.GREEN, "listening", null, null, Sign.OFF), reading(Status.LISTENING, null, Sign.OFF))
+        assertEquals(Reading(Light.GREEN, "listening", null, Sign.OFF), reading(Status.LISTENING, null, Sign.OFF))
     }
 
     /** The row the brief names: a quality and a sign kept from before the drop. */
     @Test
     fun aRoomThatIsGoneSaysOnlyWhy() {
-        assertEquals(Reading(Light.AMBER, "reconnecting", "reconnecting", null, Sign.OFF), reading(Status.RECONNECTING, "excellent", Sign.SILENT))
-        assertEquals(Reading(Light.RED, "disconnected", "disconnected", null, Sign.OFF), reading(Status.UNREACHABLE, "excellent", Sign.WORKING))
-        assertEquals(Reading(Light.AMBER, "rejoining", null, null, Sign.OFF), reading(Status.REJOINING, "good", Sign.WORKING))
+        assertEquals(Reading(Light.AMBER, "reconnecting", null, Sign.OFF), reading(Status.RECONNECTING, "excellent", Sign.SILENT))
+        assertEquals(Reading(Light.RED, "disconnected", null, Sign.OFF), reading(Status.UNREACHABLE, "excellent", Sign.WORKING))
+        assertEquals(Reading(Light.AMBER, "rejoining", null, Sign.OFF), reading(Status.REJOINING, "good", Sign.WORKING))
     }
 
     /** The transport holds the room and LiveKit says the phone's media is lost. "stalled" would blame the bridge. */
     @Test
     fun aLostQualityIsNotALiveRoom() {
-        assertEquals(Reading(Light.AMBER, "signal lost", "signal lost", null, Sign.OFF), reading(Status.LISTENING, "lost", Sign.SILENT))
+        assertEquals(Reading(Light.AMBER, "signal lost", null, Sign.OFF), reading(Status.LISTENING, "lost", Sign.SILENT))
     }
 }
