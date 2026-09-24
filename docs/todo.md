@@ -380,8 +380,7 @@ that are not yet done.
 
 ## 26. Automated coverage for a barge-in / echo-cancellation regression, before item 27
 
-Noted 22 September 2026. Built 23 September 2026 on the branch `focus`, not
-landed yet.
+Noted 22 September 2026. Built and landed 23 September 2026 (15ed8e8).
 
 What was built. A unit test cannot hear the phone, so there are two parts:
 
@@ -449,10 +448,11 @@ weigh separately.
 
 ## 27. Decouple audio focus from echo cancellation, so the app stops holding priority over other audio
 
-Noted 22 September 2026. Item 26 is built on the same branch.
+Noted 22 September 2026. Item 26 landed. Media mode was tried and reverted;
+what is left is the audio focus alone.
 
-Built 23 September 2026 on the branch `focus`, not landed, not tried on the
-phone. `Audio.setup` now plays the bridge as media (`MODE_NORMAL`,
+Tried and reverted on 23 September 2026: the app is back in call mode. What
+the media setup did, for the record: `Audio.setup` played the bridge as media (`MODE_NORMAL`,
 `USAGE_MEDIA`, `STREAM_MUSIC`) and asks for no audio focus. The microphone
 side is unchanged: the `VOICE_COMMUNICATION` source, echo cancellation on,
 the phone's own canceller. LiveKit sets the mode in the same call that asks
@@ -522,8 +522,8 @@ verified by whatever item 26 puts in place plus a real drive test.
 
 ## 28. A proper options menu in the Android app
 
-Noted 22 September 2026. Built 23 September 2026 on branch `options-menu`, not
-landed and not yet used on the phone.
+Noted 22 September 2026. Built and landed 23 September 2026 (010a92d). Not yet
+used on the phone.
 
 Today the only way to change a setting is a voice command (spec 9, e.g.
 "music on"/"music off") or editing the config file on the bridge machine by
@@ -785,8 +785,8 @@ Decided 23 September 2026:
 
 Noted 23 September 2026. The bridge side is built and landed (c621b40):
 the setting, the line in each turn's prompt, the five commands, and the
-`verbosity` key a client may set (9.4.9, 9.4.10). The app selector is built
-with item 28, on branch `options-menu`.
+`verbosity` key a client may set (9.4.9, 9.4.10). The app selector landed
+with item 28.
 
 Chris wants to set how much the agent says: a voice command after the wake
 word, and a control in the app. This is the same idea as the tone commands
