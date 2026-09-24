@@ -3,7 +3,9 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { encodeWav } from "../src/audio.ts";
-import { RoomEvent } from "@livekit/rtc-node";
+import { RoomEvent, TrackKind } from "@livekit/rtc-node";
+import { Ear } from "../src/ear.ts";
+import { Measures } from "../src/measures.ts";
 import { RTC_RATE, Transport, fadeOut, frameAt, resample, roomSpeaker, tokenFor, uniqueIdentity, type Player } from "../src/transport.ts";
 import type { Fade } from "../src/mouth.ts";
 
@@ -297,5 +299,143 @@ describe("a cut stops the voice at once (11.3, 11.12.2)", () => {
     const whole = await transport.speak(encodeWav(new Int16Array(RTC_RATE * 3).fill(10_000), RTC_RATE), () => ++frames > 40);
     expect(whole).toBe(false);
     expect(source.queuedDuration).toBeLessThan(500);
+  });
+});
+
+/**
+ * 18.9.7 one microphone track per participant feeds the ear. On 23 September
+ * a track outlived the app's cut and stayed in the room. Each later press
+ * published a second track, and the dead one's silent frames went into the
+ * same ear: every press gave a barge-in and no utterance.
+ */
+describe("one microphone track per participant (18.9.7)", () => {
+  /** A track the test sends frames down, one at a time. */
+  function track(sid: string) {
+    const queued: Int16Array[] = [];
+    let wake: (() => void) | null = null;
+    return {
+      sid,
+      kind: TrackKind.KIND_AUDIO,
+      send(data: Int16Array) { queued.push(data); wake?.(); },
+      async *frames() {
+        for (;;) {
+          while (queued.length) yield { data: queued.shift() as Int16Array };
+          await new Promise<void>((resolve) => { wake = resolve; });
+        }
+      },
+    };
+  }
+  type Track = ReturnType<typeof track>;
+
+  /** A room that holds `present` at the start, with a transport whose streams are the tracks' own. */
+  function roomWith(present: Array<{ identity: string; tracks: Track[] }>) {
+    const handlers = new Map<string, Array<(...args: unknown[]) => void>>();
+    const participants = new Map(present.map(({ identity, tracks }) => [identity, {
+      identity,
+      trackPublications: new Map(tracks.map((t) => [t.sid, { track: t }])),
+    }]));
+    const transport = new Transport();
+    (transport as unknown as { room: unknown }).room = {
+      on: (event: string, handle: (...args: unknown[]) => void) => { handlers.set(event, [...(handlers.get(event) ?? []), handle]); },
+      remoteParticipants: participants,
+    };
+    (transport as unknown as { stream: unknown }).stream = (t: Track) => t.frames();
+    const fire = (event: string, t: Track, identity: string) => {
+      for (const handle of handlers.get(event) ?? []) handle(t, { track: t }, { identity });
+    };
+    return {
+      transport,
+      publish: (t: Track, identity = "phone-1") => fire(RoomEvent.TrackSubscribed, t, identity),
+      unpublish: (t: Track, identity = "phone-1") => fire(RoomEvent.TrackUnsubscribed, t, identity),
+    };
+  }
+
+  const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
+  const RATE = 16_000;
+  const frame = (level: number) => new Int16Array(RATE / 50).fill(Math.round(level * 32768));
+
+  test("the case of 23 September: a dead track and a live one, and a press on the live one is heard", async () => {
+    const dead = track("TR_AM7P3opgxRZtPh");
+    const { transport, publish } = roomWith([{ identity: "phone-1", tracks: [dead] }]);
+    const told: string[] = [];
+    const lines: string[] = [];
+    const ear = new Ear({
+      isMuted: false,
+      cue: () => {},
+      stopSpeaking: () => told.push("stop"),
+      heard: async (text) => { told.push(`heard ${text}`); },
+      heardNothing: () => told.push("nothing"),
+    }, async () => "right now", {
+      sampleRate: RATE, endOfTurnPauseMs: 900, speechOnsetMs: 50, speechLevel: 0.02,
+      bargeInLevel: 0.05, bargeInMs: 400, bargeInGapMs: 120, minSpeechPeak: 0.15, earlyTranscribeMs: 200,
+    }, new Measures(), (line) => lines.push(line));
+    transport.onAudio((f) => ear.frame(f), (line) => lines.push(line));
+    const live = track("TR_AM4SMJBU3kPTqf");
+    publish(live);
+    expect(lines).toContain("[a newer microphone track from phone-1: TR_AM4SMJBU3kPTqf feeds the ear, TR_AM7P3opgxRZtPh no longer does]");
+    ear.hold(true);
+    // one second of speech on the live track, and a silent frame beside each one from the dead track
+    for (let i = 0; i < 50; i++) {
+      dead.send(frame(0));
+      live.send(frame(0.4));
+      await tick();
+    }
+    ear.reset(true);
+    await tick();
+    expect(told).toEqual(["stop", "heard right now"]);
+  });
+
+  test("when the newest track goes, the one before it feeds the ear again", async () => {
+    const older = track("TR_a");
+    const newer = track("TR_b");
+    const { transport, publish, unpublish } = roomWith([]);
+    const heard: number[] = [];
+    const lines: string[] = [];
+    transport.onAudio((f) => heard.push(f[0] as number), (line) => lines.push(line));
+    publish(older);
+    publish(newer);
+    older.send(new Int16Array([1]));
+    newer.send(new Int16Array([2]));
+    await tick();
+    unpublish(newer);
+    older.send(new Int16Array([3]));
+    await tick();
+    expect(heard).toEqual([2, 3]);
+    expect(lines).toEqual([
+      "[a newer microphone track from phone-1: TR_b feeds the ear, TR_a no longer does]",
+      "[TR_a from phone-1 feeds the ear again]",
+    ]);
+  });
+
+  test("an older track that goes changes nothing and says nothing", async () => {
+    const older = track("TR_a");
+    const newer = track("TR_b");
+    const { transport, publish, unpublish } = roomWith([]);
+    const heard: number[] = [];
+    const lines: string[] = [];
+    transport.onAudio((f) => heard.push(f[0] as number), (line) => lines.push(line));
+    publish(older);
+    publish(newer);
+    unpublish(older);
+    newer.send(new Int16Array([2]));
+    await tick();
+    expect(heard).toEqual([2]);
+    expect(lines).toHaveLength(1);
+  });
+
+  test("each participant has its own track, so two participants both feed the ear", async () => {
+    const phone = track("TR_phone");
+    const page = track("TR_page");
+    const { transport, publish } = roomWith([]);
+    const heard: number[] = [];
+    const lines: string[] = [];
+    transport.onAudio((f) => heard.push(f[0] as number), (line) => lines.push(line));
+    publish(phone, "phone-1");
+    publish(page, "page-1");
+    phone.send(new Int16Array([1]));
+    page.send(new Int16Array([2]));
+    await tick();
+    expect(heard.sort()).toEqual([1, 2]);
+    expect(lines).toEqual([]);
   });
 });

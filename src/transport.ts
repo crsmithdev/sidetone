@@ -96,35 +96,67 @@ export class Transport {
     await this.connect(keys.url, await tokenFor(keys, roomName, identity, 24), identity);
   }
 
+  /** The frames of one track, at 48 kHz. A test gives its own. */
+  private stream = (track: RemoteTrack): AsyncIterable<{ data: Int16Array }> =>
+    new AudioStream(track, { sampleRate: RTC_RATE, numChannels: 1 });
+
   /**
    * Every frame of every microphone in the room, at 48 kHz. The bridge is the
    * only other participant, and it never subscribes to itself.
+   *
+   * 18.9.7 one track per participant feeds the ear: the newest. On 23
+   * September a track outlived the app's cut, and each later press published
+   * a second one. The dead track's silent frames went into the same ear, and
+   * every press gave a barge-in and no utterance. An older track stays
+   * subscribed and its frames are dropped, so it feeds the ear again when the
+   * newer one goes.
    */
-  onAudio(handle: (frame: Int16Array) => void): void {
+  onAudio(handle: (frame: Int16Array) => void, say: (line: string) => void = console.log): void {
     const started = new Set<string>();
-    const pump = (track: RemoteTrack): void => {
+    /** the audio tracks of each participant, oldest first */
+    const tracks = new Map<string, string[]>();
+    const add = (identity: string, sid: string): void => {
+      const sids = tracks.get(identity) ?? [];
+      const older = sids.at(-1);
+      sids.push(sid);
+      tracks.set(identity, sids);
+      if (older) say(`[a newer microphone track from ${identity}: ${sid} feeds the ear, ${older} no longer does]`);
+    };
+    const remove = (identity: string, sid: string): void => {
+      const sids = tracks.get(identity) ?? [];
+      const at = sids.indexOf(sid);
+      if (at < 0) return;
+      sids.splice(at, 1);
+      if (at === sids.length && sids.length) say(`[${sids.at(-1)} from ${identity} feeds the ear again]`);
+    };
+    const pump = (track: RemoteTrack, identity: string): void => {
       if (track.kind !== TrackKind.KIND_AUDIO) return;
       const sid = track.sid ?? `${started.size}`;
       if (started.has(sid)) return;
       started.add(sid);
+      add(identity, sid);
       void (async () => {
-        const stream = new AudioStream(track, { sampleRate: RTC_RATE, numChannels: 1 });
-        for await (const frame of stream) {
+        for await (const frame of this.stream(track)) {
           if (this.stopped) return;
+          if (tracks.get(identity)?.at(-1) !== sid) continue;
           handle(new Int16Array(frame.data.buffer, frame.data.byteOffset, frame.data.length));
         }
       })();
     };
-    this.room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack) => pump(track));
+    this.room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack, _: unknown, participant: RemoteParticipant) => pump(track, participant.identity ?? ""));
     // A resubscribe gives the same track back, and a sid left in the set would
     // then refuse to pump it: the bridge would hold a live microphone it never
     // reads. Nothing in the room says so, which is how a deaf bridge hides.
-    this.room.on(RoomEvent.TrackUnsubscribed, (track: RemoteTrack) => { if (track.sid) started.delete(track.sid); });
+    this.room.on(RoomEvent.TrackUnsubscribed, (track: RemoteTrack, _: unknown, participant: RemoteParticipant) => {
+      if (!track.sid) return;
+      started.delete(track.sid);
+      remove(participant.identity ?? "", track.sid);
+    });
     // A track subscribed before this handler was attached never fires the event
     // again, and the bridge then looks deaf for the life of the room.
     for (const participant of this.room.remoteParticipants.values()) {
       for (const publication of participant.trackPublications.values()) {
-        if (publication.track) pump(publication.track as RemoteTrack);
+        if (publication.track) pump(publication.track as RemoteTrack, participant.identity ?? "");
       }
     }
   }

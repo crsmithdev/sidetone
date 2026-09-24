@@ -166,10 +166,14 @@ export class Ear {
    *
    * 9.5.2 `release` is a hold to talk button let go. What was recorded is an
    * utterance that ends now, without the end-of-turn pause. When nothing was
-   * recorded, it is a plain cut.
+   * recorded, it is a plain cut, and a barge-in during it gets a line.
    */
   reset(release = false): void {
+    const barged = this.utterances.bargingIn;
     const said = release ? this.utterances.flush() : null;
+    // 18.9.8 the fault of 23 September gave a barge-in on each press and no
+    // other line, so the journal did not show that the ear heard nothing
+    if (release && barged && !said) this.say("[a barge-in and no utterance: the press recorded nothing]");
     this.utterances.reset();
     this.barging = false;
     this.frameAt = 0;

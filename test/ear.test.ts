@@ -146,6 +146,49 @@ describe("a hold to talk button let go (9.5.2)", () => {
   });
 });
 
+/**
+ * 18.9.8 a press that barged in and recorded nothing. On 23 September a dead
+ * track put a silent frame beside each live one: the barge-in counter
+ * permits a short gap, and the recording needs loud frames in a row. Four
+ * presses gave a barge-in each, and the journal said nothing else.
+ */
+describe("a press with a barge-in and no utterance (18.9.8)", () => {
+  function journaled() {
+    const lines: string[] = [];
+    const to = listener();
+    const ear = new Ear(to, async () => "words", { ...OPTIONS }, new Measures(), (line) => lines.push(line));
+    return { lines, to, ear };
+  }
+  const LINE = "[a barge-in and no utterance: the press recorded nothing]";
+
+  test("the release says so in the journal", () => {
+    const { lines, to, ear } = journaled();
+    ear.hold(true);
+    for (let i = 0; i < 50; i++) { ear.frame(frame(0.4)); ear.frame(frame(0)); }
+    ear.reset(true);
+    expect(to.told).toEqual(["stop", "nothing"]);
+    expect(lines.at(-1)).toBe(LINE);
+  });
+
+  test("a release that recorded something, or had no barge-in, says nothing of it", async () => {
+    const heard = journaled();
+    for (let i = 0; i < 30; i++) heard.ear.frame(frame(0.4));
+    heard.ear.reset(true);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(heard.lines).not.toContain(LINE);
+    const quiet = journaled();
+    quiet.ear.reset(true);
+    expect(quiet.lines).toEqual([]);
+  });
+
+  test("a plain cut is not a press, and says nothing of it", () => {
+    const { lines, ear } = journaled();
+    for (let i = 0; i < 50; i++) { ear.frame(frame(0.4)); ear.frame(frame(0)); }
+    ear.reset(false);
+    expect(lines).not.toContain(LINE);
+  });
+});
+
 describe("what is too quiet to have been a person (4.6)", () => {
   test("it costs no turn, and the passage comes back", async () => {
     let asked = 0;
