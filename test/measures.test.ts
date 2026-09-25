@@ -35,6 +35,21 @@ describe("one fact, told once", () => {
     expect(answered).toMatchObject({ answerMs: 2400, agentMs: 200, sentenceMs: 200, synthesisMs: 150 });
   });
 
+  test("18.4.1 the agent's timings reach the record on the same event", () => {
+    const measures = new Measures();
+    measures.speechEnded(1_000, 2_500);
+    measures.transcribed(2_800);
+    measures.agent({ kind: "requesting" }, 2_810);
+    measures.agent({ kind: "messageStart", usage: { inputTokens: 2, outputTokens: 3, cacheReadTokens: 10221, cacheCreationTokens: 16037 } }, 3_300);
+    measures.agent({ kind: "blockStart", type: "thinking" }, 3_310);
+    measures.agent({ kind: "thinking", tokens: 50 }, 3_320);
+    measures.agent({ kind: "blockStart", type: "text" }, 3_900);
+    measures.agent({ kind: "delta", text: "Four." }, 3_910);
+    measures.answering(4_400);
+    const answered = measures.recent().find((event) => event.kind === "answered");
+    expect(answered).toMatchObject({ requestMs: 490, inputTokens: 2, cacheReadTokens: 10221, cacheCreationTokens: 16037, thinkingTokens: 50, firstEvent: "thinking", toolsBeforeText: 0 });
+  });
+
   test("a barge-in reaches both, from one telling", () => {
     const measures = new Measures();
     measures.bargeIn(0.334, 400);

@@ -887,3 +887,21 @@ describe("the cue at the end of the speech (15.15)", () => {
     expect(r.cues).toEqual([]);
   });
 });
+
+describe("the agent's timings (18.4.1)", () => {
+  test("what the agent's stream says reaches the round the answer closes", async () => {
+    const r = room({}, {
+      during: (hooks) => {
+        hooks.onEvent?.({ kind: "requesting" });
+        hooks.onEvent?.({ kind: "messageStart", usage: { inputTokens: 2, outputTokens: 3, cacheReadTokens: 10221, cacheCreationTokens: 16037 } });
+        hooks.onEvent?.({ kind: "blockStart", type: "text" });
+      },
+      deltas: ["Four."],
+    });
+    const now = Date.now();
+    r.measures.speechEnded(now - 1_500, now);
+    await r.c.turn("what is two plus two");
+    await r.mouth.drained();
+    expect(r.measures.recent().find((event) => event.kind === "answered")).toMatchObject({ cacheReadTokens: 10221, cacheCreationTokens: 16037, inputTokens: 2, firstEvent: "text", toolsBeforeText: 0 });
+  });
+});

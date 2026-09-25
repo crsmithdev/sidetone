@@ -12,6 +12,7 @@
  * setting as if it were a cost.
  */
 
+import type { Event } from "./protocol.ts";
 import type { WorkerTimes } from "./speech.ts";
 
 export interface Round {
@@ -39,8 +40,27 @@ export interface Round {
   synthesisMs: number;
 }
 
-/** 18.4.1 a round, with what the worker says the sentence cost it when it says. */
-export type TimedRound = Round & Partial<WorkerTimes>;
+/**
+ * 18.4.1 where the agent's time to the first word went, from its stream. A
+ * field the stream did not give is left out, not zero.
+ */
+export interface AgentTimes {
+  /** what the turn's first request read: new input, cache hit, cache written */
+  inputTokens?: number;
+  cacheReadTokens?: number;
+  cacheCreationTokens?: number;
+  /** the thinking estimate before the first word, over every message */
+  thinkingTokens?: number;
+  /** what the first block held: "text", "tool_use" or "thinking" */
+  firstEvent?: string;
+  /** the tool calls before the first word */
+  toolsBeforeText?: number;
+  /** the first request left, to its first message began: network and queue */
+  requestMs?: number;
+}
+
+/** 18.4.1 a round, with what the worker says the sentence cost it when it says, and what the agent's stream says. */
+export type TimedRound = Round & Partial<WorkerTimes> & AgentTimes;
 
 /** Enough rounds to have a median, few enough that a drive ago does not count. */
 const KEEP = 20;
@@ -49,7 +69,11 @@ const KEEP = 20;
 export type Outcome = "speech" | "command" | "nothing";
 
 export class Latency {
-  private open: { endedAt: number; noticedAt: number; transcribedAt: number; firstDeltaAt: number; firstSentenceAt: number; synthesisMs: number; worker?: WorkerTimes } | null = null;
+  private open: {
+    endedAt: number; noticedAt: number; transcribedAt: number; firstDeltaAt: number; firstSentenceAt: number; synthesisMs: number; worker?: WorkerTimes;
+    /** 18.4.1 the stream from the first request after the round opened to the first word */
+    requestedAt: number; spoke: boolean; agent: AgentTimes;
+  } | null = null;
   private readonly rounds: Round[] = [];
   /**
    * 18.6 every barge-in, with the sound that caused it. The two thresholds are
@@ -65,7 +89,7 @@ export class Latency {
    * must not be charged for a wait that a setting decides.
    */
   speechEnded(endedAt: number, noticedAt = Date.now()): void {
-    this.open = { endedAt, noticedAt, transcribedAt: 0, firstDeltaAt: 0, firstSentenceAt: 0, synthesisMs: 0 };
+    this.open = { endedAt, noticedAt, transcribedAt: 0, firstDeltaAt: 0, firstSentenceAt: 0, synthesisMs: 0, requestedAt: 0, spoke: false, agent: {} };
   }
 
   /** The recording is text. */
@@ -76,6 +100,37 @@ export class Latency {
   /** The agent's first word of the answer arrived. */
   firstDelta(at = Date.now()): void {
     if (this.open && !this.open.firstDeltaAt) this.open.firstDeltaAt = at;
+  }
+
+  /**
+   * 18.4.1 an event of the agent's stream. Only the stream from the first
+   * request after the round opened to the first word counts.
+   */
+  agent(event: Event, at = Date.now()): void {
+    const open = this.open;
+    if (!open || open.spoke) return;
+    if (!open.requestedAt) {
+      if (event.kind === "requesting") open.requestedAt = at;
+      return;
+    }
+    const times = open.agent;
+    switch (event.kind) {
+      case "messageStart":
+        if (times.toolsBeforeText !== undefined) break;
+        times.inputTokens = event.usage.inputTokens;
+        times.cacheReadTokens = event.usage.cacheReadTokens;
+        times.cacheCreationTokens = event.usage.cacheCreationTokens;
+        times.requestMs = at - open.requestedAt;
+        times.toolsBeforeText = 0;
+        break;
+      case "thinking": times.thinkingTokens = (times.thinkingTokens ?? 0) + event.tokens; break;
+      case "blockStart":
+        times.firstEvent ??= event.type;
+        if (event.type === "tool_use") times.toolsBeforeText = (times.toolsBeforeText ?? 0) + 1;
+        break;
+      case "delta": open.spoke = true; break;
+      default: break;
+    }
   }
 
   /** The first whole sentence of the answer left the collector. */
@@ -108,6 +163,7 @@ export class Latency {
       sentenceMs: open.firstDeltaAt && open.firstSentenceAt ? open.firstSentenceAt - open.firstDeltaAt : 0,
       synthesisMs: open.synthesisMs,
       ...open.worker,
+      ...open.agent,
     };
     this.rounds.push(round);
     if (this.rounds.length > KEEP) this.rounds.shift();

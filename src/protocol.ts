@@ -29,8 +29,18 @@ export type Event =
    */
   | { kind: "blockStart"; type: string }
   | { kind: "blockEnd" }
-  /** item 4 a message of the agent begins; the bridge speaks only a message that began after an injection */
-  | { kind: "messageStart" }
+  /**
+   * item 4 a message of the agent begins; the bridge speaks only a message that began after an injection.
+   * 18.4.1 `usage` is what its request read: the cache it hit and the cache it wrote.
+   */
+  | { kind: "messageStart"; usage: Usage }
+  /** 18.4.1 a request for the next message of the agent leaves */
+  | { kind: "requesting" }
+  /**
+   * 18.4.1 the process's estimate of the thinking grew by `tokens`. Measured 25
+   * September: a short thinking block of 20 tokens gave no estimate at all.
+   */
+  | { kind: "thinking"; tokens: number }
   /**
    * Item 4 `--replay-user-messages` prints a user message again when the
    * process puts it into the conversation, not when it reads it. Queued
@@ -94,6 +104,8 @@ export function parseLine(line: string): Event[] {
       resetsAt: num(info.resetsAt),
     }];
   }
+  if (type === "system" && subtype === "status" && raw.status === "requesting") return [{ kind: "requesting" }];
+  if (type === "system" && subtype === "thinking_tokens") return [{ kind: "thinking", tokens: num(raw.estimated_tokens_delta) }];
   if (type === "system" && subtype === "init") {
     return [{ kind: "init", sessionId: String(raw.session_id ?? ""), model: String(raw.model ?? "") }];
   }
@@ -120,7 +132,10 @@ export function parseLine(line: string): Event[] {
       return [{ kind: "blockStart", type: String(block.type ?? "") }];
     }
     if (event.type === "content_block_stop") return [{ kind: "blockEnd" }];
-    if (event.type === "message_start") return [{ kind: "messageStart" }];
+    if (event.type === "message_start") {
+      const message = (event.message ?? {}) as Record<string, unknown>;
+      return [{ kind: "messageStart", usage: usageOf(message.usage) }];
+    }
     return [{ kind: "other", type: `stream_event.${String(event.type ?? "")}` }];
   }
   if (type === "control_request") {

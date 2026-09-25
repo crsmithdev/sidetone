@@ -14,6 +14,7 @@ import type { Utterance } from "./audio.ts";
 import { Diagnostics, type Device, type Event } from "./diagnostics.ts";
 import { Latency, type Outcome, type Round } from "./latency.ts";
 import type { AudioSetup } from "./messages.ts";
+import type { Event as AgentEvent } from "./protocol.ts";
 import type { WorkerTimes } from "./speech.ts";
 
 export class Measures {
@@ -42,6 +43,11 @@ export class Measures {
   /** The agent's first word of the answer. */
   firstDelta(at = Date.now()): void {
     this.latency.firstDelta(at);
+  }
+
+  /** 18.4.1 an event of the agent's stream, which says where its time to the first word went. */
+  agent(event: AgentEvent, at = Date.now()): void {
+    this.latency.agent(event, at);
   }
 
   /** The first whole sentence of the answer reached the mouth. */

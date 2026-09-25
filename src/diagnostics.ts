@@ -11,6 +11,7 @@
  * over. It measures and remembers; it decides nothing.
  */
 import type { Utterance } from "./audio.ts";
+import type { AgentTimes } from "./latency.ts";
 import type { AudioSetup } from "./messages.ts";
 import type { WorkerTimes } from "./speech.ts";
 
@@ -38,9 +39,10 @@ export interface Matched { kind: "matched"; at: number; said: string; became: st
  * answer, and how the time between was spent. The last three are zero when
  * their mark was never made; a record from before 19 September lacks them.
  * 18.4.1 the worker's own times follow when the worker gave them; a record
- * from before 24 September lacks them.
+ * from before 24 September lacks them. The agent's times follow when its
+ * stream gave them; a record from before 25 September lacks them.
  */
-export interface Answered extends Partial<WorkerTimes> {
+export interface Answered extends Partial<WorkerTimes>, AgentTimes {
   kind: "answered"; at: number; answerMs: number; pauseMs: number; transcribeMs: number;
   agentMs: number; sentenceMs: number; synthesisMs: number;
   /** 11.6.5 the opener that played before the first sentence, or null for none. A record from before 25 September has no field. */

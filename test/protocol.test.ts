@@ -84,3 +84,20 @@ describe("line splitter", () => {
     expect(splitter.push("\n  \n")).toEqual([]);
   });
 });
+
+describe("the agent's timings (18.4.1)", () => {
+  // captured from claude 2.1.282, sonnet, 25 September (test/fixtures/stream-think-tool.ndjson)
+  const REQUESTING = '{"type":"system","subtype":"status","status":"requesting","session_id":"799e","uuid":"d5e0"}';
+  const MESSAGE_START = '{"type":"stream_event","event":{"type":"message_start","message":{"model":"claude-sonnet-5","content":[],"usage":{"input_tokens":2,"cache_creation_input_tokens":16037,"cache_read_input_tokens":10221,"output_tokens":3}}},"parent_tool_use_id":null}';
+  const THINKING_TOKENS = '{"type":"system","subtype":"thinking_tokens","estimated_tokens":182,"estimated_tokens_delta":132,"session_id":"799e"}';
+
+  test("a request leaves", () => {
+    expect(parseLine(REQUESTING)).toEqual([{ kind: "requesting" }]);
+  });
+  test("a message begins with the usage of its request", () => {
+    expect(parseLine(MESSAGE_START)).toEqual([{ kind: "messageStart", usage: { inputTokens: 2, outputTokens: 3, cacheReadTokens: 10221, cacheCreationTokens: 16037 } }]);
+  });
+  test("the thinking estimate gives what it grew by", () => {
+    expect(parseLine(THINKING_TOKENS)).toEqual([{ kind: "thinking", tokens: 132 }]);
+  });
+});

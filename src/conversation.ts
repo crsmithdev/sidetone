@@ -178,6 +178,7 @@ export class Conversation {
       onDelta: (text) => this.streaming().delta(text),
       onBlockStart: (type) => this.streaming().blockStart(type),
       onBlockEnd: () => this.answering?.blockEnd(),
+      onEvent: (event) => this.measures.agent(event),
       onNarration: (text) => this.channel.narrate(text),
       // 8.6.3 speak, say how long it has run, and report the usage with the ask (8.6.4)
       onCheckpoint: (ms) => {
