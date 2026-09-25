@@ -146,7 +146,7 @@ describe("the carriers (11.6.3)", () => {
   test("every carrier is a sentence that ends with the line's own words", () => {
     const words = (line: string) => line.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(Boolean);
     for (const [line, carrier] of Object.entries(CARRIERS)) {
-      expect((KEPT_LINES as readonly string[]).includes(line)).toBe(true);
+      expect(keptLines(DEFAULTS).lines.includes(line)).toBe(true);
       const own = words(line);
       const said = words(carrier);
       expect(said.length).toBeGreaterThan(own.length);
@@ -159,6 +159,22 @@ describe("the carriers (11.6.3)", () => {
     for (const line of KEPT_LINES) {
       if (line.split(" ").length <= 2) expect(CARRIERS[line]).toBeDefined();
     }
+  });
+
+  test("11.6.5 every default opener is a kept line of one to three words, with a carrier", () => {
+    const lines = keptLines(DEFAULTS).lines;
+    for (const opener of DEFAULTS.openers) {
+      expect(lines).toContain(opener);
+      expect(opener.split(" ").length).toBeLessThanOrEqual(3);
+      expect(CARRIERS[opener]).toBeDefined();
+    }
+  });
+
+  test("11.6.5 the openers in the file are kept lines, and the fixed replies stay", () => {
+    const lines = keptLines({ ...DEFAULTS, openers: ["Very well."] }).lines;
+    expect(lines).toContain("Very well.");
+    expect(lines).not.toContain("Okay.");
+    for (const line of KEPT_LINES) expect(lines).toContain(line);
   });
 
   test("the kept lines the bridge really uses carry the tries and the carriers", () => {

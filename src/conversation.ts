@@ -551,9 +551,14 @@ export class Conversation {
     if (this.recent.length > 3) this.recent.shift();
   }
 
-  /** 15.1 a wait must not be silence. 15.5 only once the wait is long enough. */
+  /**
+   * 15.1 a wait must not be silence. 15.5 only once the wait is long enough.
+   * 11.6.5 an opener is sound, so the wait counts again from its end.
+   */
   private cueWhileWaiting(): () => void {
     let timer = setTimeout(function tick(this: Conversation) {
+      const quiet = this.mouth.openerEndedAt + this.config.audioCueDelayMs - Date.now();
+      if (quiet > 0) { timer = setTimeout(tick.bind(this), quiet); return; }
       // 15.1 a cue fills silence. Never over the voice — one transport shares a
       // single audio source and refuses two writers — and never while an answer
       // is wanted, because at the checkpoint the bridge has just asked for one.

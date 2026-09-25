@@ -43,6 +43,8 @@ export interface Matched { kind: "matched"; at: number; said: string; became: st
 export interface Answered extends Partial<WorkerTimes> {
   kind: "answered"; at: number; answerMs: number; pauseMs: number; transcribeMs: number;
   agentMs: number; sentenceMs: number; synthesisMs: number;
+  /** 11.6.5 the opener that played before the first sentence, or null for none. A record from before 25 September has no field. */
+  opener?: string | null;
 }
 export interface Barged { kind: "barged"; at: number; level: number; heldMs: number }
 /**

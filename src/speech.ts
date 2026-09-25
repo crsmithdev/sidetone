@@ -508,6 +508,12 @@ export class SpokenAhead {
     }
   }
 
+  /** 11.6.5 the kept clip of this line when it is on disk, or null. It never makes one. */
+  keptClip(text: string): string | null {
+    const path = this.keptPath(text);
+    return path && existsSync(path) ? path : null;
+  }
+
   /**
    * Where this sentence lives when it is kept, or null when it is not one of
    * the kept lines. The voice is in the path because a sentence belongs to the

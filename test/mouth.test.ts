@@ -40,6 +40,7 @@ function scripted(holdBackstopMs = 10_000, switchable = true, ahead?: SpokenAhea
     start: (text: string | undefined) => { started.push(text); },
     use: (voice: string) => { used.push(voice); return switchable; },
     times: () => undefined,
+    keptClip: () => null,
   };
   const measures = new Measures();
   const mouth = new Mouth(speaker, made, { file: (name) => `${name}.wav` }, measures, { holdBackstopMs, voiceChoices: { female: "f", male: "m" } });
@@ -587,5 +588,184 @@ describe("a path reaches the voice in a speakable form (5.7.1)", () => {
     expect(m.started).toEqual(["Then S R C slash mouth dot T S.", undefined]);
     expect(m.played).toEqual(["The file is src/sentences.ts.", "Then src/mouth.ts."]);
     expect(m.mouth.said).toEqual(["The file is src/sentences.ts.", "Then src/mouth.ts."]);
+  });
+});
+
+/**
+ * 11.6.5 a mouth with openers. `clips` are the lines with a kept clip; a
+ * kept clip is taken at once, any other sentence after `takeMs`. An opener
+ * plays for `openerMs`, and a sentence at once. `log` has each take, and the
+ * start and the end of each sound, with the time since the mouth was made.
+ */
+function opening(options: { openers?: string[]; clips?: string[]; takeMs?: number; openerMs?: number; muted?: () => boolean; random?: () => number } = {}) {
+  const openers = options.openers ?? ["Okay.", "Right.", "Sure."];
+  const clips = new Set(options.clips ?? openers);
+  const log: Array<{ what: string; at: number }> = [];
+  const played: string[] = [];
+  const taken: string[] = [];
+  const t0 = Date.now();
+  const note = (what: string) => log.push({ what, at: Date.now() - t0 });
+  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+  let cutting = false;
+  const speaker: Speaker = {
+    async play(text, wav, cut) {
+      played.push(text);
+      note(`start ${text}`);
+      if (clips.has(text) && openers.includes(text) && options.openerMs) await sleep(options.openerMs);
+      note(`end ${text}`);
+      return wav === null || !(cutting || cut());
+    },
+    cue() {},
+    track: () => null,
+  };
+  const made = {
+    take: async (text: string) => {
+      taken.push(text);
+      note(`take ${text}`);
+      if (clips.has(text)) return `kept/${text}`;
+      if (options.takeMs) await sleep(options.takeMs);
+      return `${text}.wav`;
+    },
+    start: () => {},
+    use: () => true,
+    times: () => undefined,
+    keptClip: (text: string) => clips.has(text) ? `kept/${text}` : null,
+  };
+  const measures = new Measures();
+  const mouth = new Mouth(speaker, made, { file: (name) => `${name}.wav` }, measures, {
+    holdBackstopMs: 10_000, voiceChoices: { female: "f", male: "m" }, openers, muted: options.muted, random: options.random,
+  });
+  /** one answer to Chris: a new turn, and its sentences */
+  const answer = async (...sentences: string[]) => {
+    mouth.newTurn();
+    for (const sentence of sentences) mouth.say(sentence, 1);
+    await mouth.drained();
+  };
+  const at = (what: string) => log.find((entry) => entry.what === what)?.at ?? NaN;
+  return { mouth, measures, played, taken, log, answer, at, cut: (on: boolean) => { cutting = on; } };
+}
+
+describe("the opener (11.6.5)", () => {
+  test("the answer to Chris opens with a kept opener, and the answer follows it", async () => {
+    const m = opening({ random: () => 0 });
+    await m.answer("The tests pass.", "All of them.");
+    expect(m.played).toEqual(["Okay.", "The tests pass.", "All of them."]);
+  });
+
+  test("the choice never plays the same opener twice in a row", async () => {
+    // a random of 0 takes the first opener it may, every time
+    const m = opening({ random: () => 0 });
+    for (let turn = 0; turn < 6; turn++) await m.answer(`Answer ${turn}.`);
+    const openers = m.played.filter((text) => !text.startsWith("Answer"));
+    expect(openers).toHaveLength(6);
+    for (let i = 1; i < openers.length; i++) expect(openers[i]).not.toBe(openers[i - 1]);
+  });
+
+  test("the choice is random among the openers that may play", async () => {
+    const m = opening({ random: () => 0.99 });
+    await m.answer("One.");
+    expect(m.played[0]).toBe("Sure.");
+  });
+
+  test("the only opener with a clip, played last time, is not played again: none is", async () => {
+    const m = opening({ openers: ["Okay.", "Right."], clips: ["Right."], random: () => 0 });
+    await m.answer("One.");
+    await m.answer("Two.");
+    await m.answer("Three.");
+    expect(m.played).toEqual(["Right.", "One.", "Two.", "Right.", "Three."]);
+  });
+
+  test("an opener with no kept clip is never synthesized", async () => {
+    const m = opening({ openers: ["Okay.", "Right."], clips: [] });
+    await m.answer("One.");
+    expect(m.taken).toEqual(["One."]);
+    expect(m.played).toEqual(["One."]);
+  });
+
+  test("an empty list turns the openers off", async () => {
+    const m = opening({ openers: [] });
+    await m.answer("One.");
+    expect(m.played).toEqual(["One."]);
+  });
+
+  test("the first sentence is made before the opener plays, and follows it with no added delay", async () => {
+    const m = opening({ takeMs: 80, openerMs: 20, random: () => 0 });
+    await m.answer("A sentence the engine makes.");
+    expect(m.at("take A sentence the engine makes.")).toBeLessThanOrEqual(m.at("start Okay."));
+    // the sentence plays when it is made, not when it is made plus the opener
+    expect(m.at("start A sentence the engine makes.")).toBeLessThan(80 + 15);
+  });
+
+  test("a sentence made before the opener ends plays right after the opener", async () => {
+    const m = opening({ takeMs: 5, openerMs: 60, random: () => 0 });
+    await m.answer("A sentence the engine makes.");
+    const end = m.at("end Okay.");
+    const start = m.at("start A sentence the engine makes.");
+    expect(start).toBeGreaterThanOrEqual(end);
+    expect(start - end).toBeLessThan(15);
+  });
+
+  test("a first sentence that is itself a kept clip gets no opener", async () => {
+    const m = opening({ clips: ["Okay.", "Right.", "Sure.", "Nothing is running."] });
+    await m.answer("Nothing is running.");
+    expect(m.played).toEqual(["Nothing is running."]);
+  });
+
+  test("a fixed reply, and an answer nobody asked for, get no opener", async () => {
+    const m = opening();
+    m.mouth.newTurn();
+    m.mouth.reply("Carrying on.");
+    m.mouth.reply("The job finished.", 7);
+    await m.mouth.drained();
+    expect(m.played).toEqual(["Carrying on.", "The job finished."]);
+  });
+
+  test("no opener with the audio off", async () => {
+    const m = opening();
+    m.mouth.setAudio(false);
+    await m.answer("One.");
+    expect(m.played).toEqual(["One."]);
+  });
+
+  test("no opener while muted", async () => {
+    const m = opening({ muted: () => true });
+    await m.answer("One.");
+    expect(m.played).toEqual(["One."]);
+  });
+
+  test("a first sentence a barge-in cut gets no second opener when it resumes", async () => {
+    const m = opening({ openerMs: 30, random: () => 0 });
+    m.mouth.newTurn();
+    m.mouth.say("One.", 1);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    // Chris talks over the opener: it and the sentence behind it are cut
+    m.cut(true);
+    m.mouth.hold();
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    m.cut(false);
+    m.mouth.resume();
+    await m.mouth.drained();
+    expect(m.played).toEqual(["Okay.", "One.", "One."]);
+  });
+
+  test("the answered line of the record says which opener played, or none", async () => {
+    const m = opening({ random: () => 0 });
+    const open = () => { const now = Date.now(); m.measures.speechEnded(now - 1_500, now); m.measures.transcribed(now); m.measures.firstDelta(now); };
+    open();
+    await m.answer("One.");
+    open();
+    m.mouth.newTurn();
+    m.mouth.reply("Carrying on.");
+    await m.mouth.drained();
+    const rounds = m.measures.recent().filter((e) => e.kind === "answered");
+    expect(rounds.map((round) => (round as { opener?: string | null }).opener)).toEqual(["Okay.", null]);
+  });
+
+  test("the opener counts as sound: the mouth says when the last one ended", async () => {
+    const m = opening({ openerMs: 20, random: () => 0 });
+    expect(m.mouth.openerEndedAt).toBe(0);
+    const before = Date.now();
+    await m.answer("One.");
+    expect(m.mouth.openerEndedAt).toBeGreaterThanOrEqual(before + 20);
   });
 });

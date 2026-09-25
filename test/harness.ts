@@ -90,6 +90,8 @@ export interface Options {
   script?: Script;
   overrides?: Partial<Config>;
   music?: Music;
+  /** 11.6.5 the lines with a kept clip on disk; unset, none has one, so no opener plays */
+  kept?: string[];
 }
 
 const built: Bridge[] = [];
@@ -160,6 +162,7 @@ export function bridge(options: Options = {}) {
       start: (text: string | undefined) => { lookahead.push(text); },
       use: (voice: string) => { switched.push(voice); return true; },
       times: () => undefined,
+      keptClip: (text: string) => options.kept?.includes(text) ? text : null,
     },
     cues: { file: (name) => name, build: async () => {} },
     record: () => {},

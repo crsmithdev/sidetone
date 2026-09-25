@@ -85,10 +85,11 @@ export class Measures {
   /**
    * 18.4 the first audio of the answer is on its way, which closes the round.
    * A later sentence of the same answer closes nothing, and records nothing.
+   * `opener` is the opener that played before it (11.6.5), or null for none.
    */
-  answering(at = Date.now()): Round | null {
+  answering(at = Date.now(), opener: string | null = null): Round | null {
     const round = this.latency.answered(at);
-    if (round) this.diagnostics.answered(round, at);
+    if (round) this.diagnostics.answered({ ...round, opener }, at);
     return round;
   }
 

@@ -1208,3 +1208,46 @@ describe("a track asked for (15.12)", () => {
     expect(events[1]?.whole).toBe(false);
   });
 });
+
+describe("the opener (11.6.5)", () => {
+  const openers = { kept: ["Okay."], overrides: { ...config, openers: ["Okay."] } };
+
+  test("a new turn's answer opens with the opener", async () => {
+    const r = bridge({ ...openers, script: { deltas: ["It is fine."] } });
+    await r.c.turn("is it fine");
+    expect(r.said).toEqual(["Okay.", "It is fine."]);
+  });
+
+  test("an answer that ends while muted opens with nothing", async () => {
+    let answer = () => {};
+    const r = bridge({ ...openers, script: { deltas: ["It is fine."], hold: new Promise<void>((resolve) => { answer = resolve; }) } });
+    const turn = r.c.turn("is it fine");
+    await r.c.heard("sidetone mute");
+    answer();
+    await turn;
+    expect(r.said).not.toContain("Okay.");
+    expect(r.said).toContain("It is fine.");
+  });
+
+  test("the thinking cue waits its delay after the opener, not after the turn began", async () => {
+    let answer = () => {};
+    const r = bridge({
+      kept: ["Okay."],
+      overrides: { ...config, openers: ["Okay."], audioCueDelayMs: 60, audioCueEveryMs: 60 },
+      script: {
+        // the first sentence arrives at 40 ms; the turn runs on to 200 ms
+        during: (hooks) => { setTimeout(() => { hooks.onBlockStart?.("text"); hooks.onDelta?.("It is fine. And "); }, 40); },
+        hold: new Promise<void>((resolve) => { answer = resolve; }),
+      },
+    });
+    const turn = r.c.turn("is it fine");
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    expect(r.said[0]).toBe("Okay.");
+    // 60 ms after the turn began is 20 ms after the opener: too soon
+    expect(r.cues).not.toContain("thinking");
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    expect(r.cues).toContain("thinking");
+    answer();
+    await turn;
+  });
+});

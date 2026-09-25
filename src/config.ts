@@ -123,6 +123,13 @@ export interface Config {
    */
   warmTries: number;
   /**
+   * 11.6.5 the short kept lines, one of which plays at the start of an answer
+   * while its first sentence is made. An empty list turns them off. "Mm-hm."
+   * is not on it: the check and the carrier cut match words, and the speech
+   * worker has no one spelling for it, so no take of it can be kept.
+   */
+  openers: string[];
+  /**
    * 18.14 whether the bridge keeps a copy of each clip it sends, and where.
    * It stores speech, so it is a setting. It is on while the garbled speech
    * of 23 September is open (todo item 33).
@@ -276,6 +283,7 @@ export const DEFAULTS: Config = {
   chatterboxCfg: 0.5,
   spokenDir: join(homedir(), ".sidetone", "spoken"),
   warmTries: 100,
+  openers: ["Okay.", "Right.", "Sure.", "Got it.", "Alright.", "Let me see.", "One moment."],
   keepSentClips: true,
   sentDir: join(homedir(), ".sidetone", "sent"),
   sentenceMaxChars: 240,

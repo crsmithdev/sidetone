@@ -37,6 +37,11 @@ describe("config (21)", () => {
     // 11.6.1 the takes of a fixed reply before warm gives up on saying it alone
     expect(DEFAULTS.warmTries).toBe(100);
   });
+  test("11.6.5 the openers are a list in the file, and an empty list turns them off", () => {
+    expect(DEFAULTS.openers).toEqual(["Okay.", "Right.", "Sure.", "Got it.", "Alright.", "Let me see.", "One moment."]);
+    expect(loadConfig(withFile('{"openers":["Right."]}')).openers).toEqual(["Right."]);
+    expect(loadConfig(withFile('{"openers":[]}')).openers).toEqual([]);
+  });
   test("the number of warm tries is a whole number of at least one", () => {
     expect(() => loadConfig(withFile('{"warmTries":0}'))).toThrow(/warmTries/);
     expect(() => loadConfig(withFile('{"warmTries":2.5}'))).toThrow(/warmTries/);

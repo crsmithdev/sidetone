@@ -110,7 +110,7 @@ export const KEPT_LINES = [
  * those are the lines the voice garbles; a longer line came out clean in
  * every take measured.
  */
-export const CARRIERS: Partial<Record<typeof KEPT_LINES[number], string>> = {
+export const CARRIERS: Record<string, string> = {
   "Muted.": "The microphone is muted.",
   "Listening.": "I am listening.",
   "Tones on.": "I turned the tones on.",
@@ -127,6 +127,16 @@ export const CARRIERS: Partial<Record<typeof KEPT_LINES[number], string>> = {
   "Carrying on.": "I am carrying on.",
   "Stopped.": "The answer has stopped.",
   "Context cleared.": "I have the context cleared.",
+  // 11.6.5 the openers: each is its own sentence after one that says the
+  // question was heard, so it keeps the tone it has alone. "The answer is
+  // over. Stopped." carried "Stopped." in 10 takes of 10 on 24 September.
+  "Okay.": "I heard the question. Okay.",
+  "Right.": "I heard the question. Right.",
+  "Sure.": "I heard the question. Sure.",
+  "Got it.": "I heard the question. Got it.",
+  "Alright.": "I heard the question. Alright.",
+  "Let me see.": "I heard the question. Let me see.",
+  "One moment.": "I heard the question. One moment.",
 };
 
 /**
@@ -139,9 +149,10 @@ export function keptLines(config: Config): Kept {
   return {
     dir: config.spokenDir,
     signature: voiceSignature(config),
-    lines: KEPT_LINES,
+    // 11.6.5 the openers are fixed lines too, made and checked the same way
+    lines: [...KEPT_LINES, ...config.openers],
     tries: config.warmTries,
-    carrier: (text) => (CARRIERS as Record<string, string | undefined>)[text] ?? null,
+    carrier: (text) => CARRIERS[text] ?? null,
   };
 }
 
@@ -162,6 +173,8 @@ export interface Queued {
   answer?: number;
   /** what happens once the sentence has been said, and not put back */
   then?: () => void;
+  /** 11.6.5 the first sentence of an answer to Chris, which may open with an opener once */
+  opens?: boolean;
 }
 
 export interface Fade {
@@ -223,11 +236,15 @@ export class Mouth {
   private holdTracks: HoldTrack[] | null = null;
   /** 15.10.1 the turn of the track that the next silent stretch plays */
   private nextHoldTrack = 0;
+  /** 11.6.5 the opener of the last answer, or null when it had none; the next choice skips it */
+  private lastOpener: string | null = null;
+  /** 11.6.5 when the last opener ended; null while one plays */
+  private openerEnded: number | null = 0;
 
   constructor(
     private readonly speaker: Speaker,
     /** 11.6 the sentence made ahead of time, the kept ones, and whose voice */
-    private readonly made: Pick<SpokenAhead, "take" | "start" | "use" | "times">,
+    private readonly made: Pick<SpokenAhead, "take" | "start" | "use" | "times" | "keptClip">,
     private readonly cues: Pick<Cues, "file">,
     /** 18.4 the round trip closes here, so the one bookkeeper lives here. */
     readonly measures: Measures,
@@ -245,6 +262,12 @@ export class Mouth {
       music?: { folder: string; gain: number; rate: number; fadeMs: number };
       /** 14.13 the voice reached this sentence, as it starts to play */
       speaking?: (sentence: Queued) => void;
+      /** 11.6.5 the openers; absent or empty means none */
+      openers?: readonly string[];
+      /** 11.6.5 whether the bridge is muted, which plays no opener */
+      muted?: () => boolean;
+      /** 11.6.5 the choice among the openers; a test fixes it */
+      random?: () => number;
       say?: (line: string) => void;
     },
   ) {
@@ -259,8 +282,9 @@ export class Mouth {
   /** One sentence of the answer. It is what a barge-in holds. */
   say(text: string, answer?: number): void {
     // 18.4 the collector's share ends here, whatever the queue does next
-    if (this.firstOfTurn) { this.firstOfTurn = false; this.measures.firstSentence(); }
-    this.outbox.push({ text, answer });
+    const opens = this.firstOfTurn;
+    if (opens) { this.firstOfTurn = false; this.measures.firstSentence(); }
+    this.outbox.push({ text, answer, opens });
     void this.pump();
   }
 
@@ -314,6 +338,8 @@ export class Mouth {
   get lastSpoken(): readonly string[] { return this.lately; }
   /** 15.7 when the last sentence ended, in milliseconds since the epoch. Zero before the first. */
   get lastVoiceAt(): number { return this.voiceEndedAt; }
+  /** 11.6.5 when the last opener ended: now while one plays, and zero before the first. */
+  get openerEndedAt(): number { return this.openerEnded ?? Date.now(); }
 
   /** A turn begins: what he heard of the last one is the last one's. */
   newTurn(): void {
@@ -565,7 +591,10 @@ export class Mouth {
         // the sentence is made and about to play
         const next = (): string | undefined =>
           (this.ahead[0] ?? (this.holding ? undefined : this.outbox[0]))?.text;
-        try { whole = await this.speak(text, next); }
+        // 11.6.5 the opener is once per answer: a resume of a cut first sentence has none
+        const opens = queued.opens === true;
+        queued.opens = false;
+        try { whole = await this.speak(text, next, opens); }
         catch { /* a transport that dropped is not this loop's problem */ }
         finally { this.playing = false; }
         // A sentence a barge-in cut is not a sentence Chris heard. It goes back
@@ -600,7 +629,7 @@ export class Mouth {
    * time, so at the moment a sentence begins the one after it has usually not
    * arrived, and a few seconds later it almost always has.
    */
-  private async speak(text: string, next: () => string | undefined): Promise<boolean> {
+  private async speak(text: string, next: () => string | undefined, opens = false): Promise<boolean> {
     if (!this.audio) {
       // The round trip is still closed: the answer arrived, and how long that
       // took is the same question whether it is read or heard.
@@ -611,13 +640,19 @@ export class Mouth {
     }
     const madeAt = Date.now();
     // 5.7.1 the engine is given a path as words; the text stays as written
-    const wav = await this.made.take(speakable(text));
+    const spoken = speakable(text);
+    const making = this.made.take(spoken);
+    // 11.6.5 the opener plays while the engine makes the sentence, and the
+    // sentence plays when both are done: never later than it would have
+    const opener = opens ? this.chooseOpener(spoken) : null;
+    if (opener) await this.playOpener(opener);
+    const wav = await making;
     // 18.4 the first sound of the answer closes the round trip, and the engine's
     // share of it is told first. A later sentence is not a round trip, and the
     // tracker ignores both. The worker's times are read for every sentence, so
     // a resume does not report the times of the first take again (18.4.1).
     this.measures.synthesized(Date.now() - madeAt, this.made.times(wav));
-    this.measures.answering();
+    this.measures.answering(Date.now(), opener?.text ?? null);
     // The engine takes one request at a time, so this starts only now that
     // the current sentence is made. A barge-in during this prefetch makes
     // the bridge's next word wait for it, which costs one synthesis once and
@@ -630,6 +665,36 @@ export class Mouth {
     this.voiceEndedAt = Date.now();
     this.measures.spoken(text, whole);
     return whole;
+  }
+
+  /**
+   * 11.6.5 an opener for the answer whose first sentence is `first`: a random
+   * one of those with a kept clip on disk, never the last answer's. None
+   * when the first sentence is a kept clip itself, which plays at once, or
+   * while muted. An opener is never made: a synthesis is the delay it hides.
+   */
+  private chooseOpener(first: string): { text: string; wav: string } | null {
+    const { openers = [], muted, random = Math.random } = this.settings;
+    const last = this.lastOpener;
+    this.lastOpener = null;
+    if (openers.length === 0 || muted?.() || this.made.keptClip(first)) return null;
+    const ready = openers.flatMap((text) => {
+      const wav = text === last ? null : this.made.keptClip(text);
+      return wav ? [{ text, wav }] : [];
+    });
+    const chosen = ready[Math.floor(random() * ready.length)] ?? null;
+    this.lastOpener = chosen?.text ?? null;
+    return chosen;
+  }
+
+  /** 11.6.5 play the opener. It is sound, so the thinking cue counts from its end (15.5). */
+  private async playOpener(opener: { text: string; wav: string }): Promise<void> {
+    this.lately.push(opener.text);
+    if (this.lately.length > LATELY) this.lately.shift();
+    this.openerEnded = null;
+    try { await this.speaker.play(opener.text, opener.wav, this.cutOff); }
+    catch { /* the sentence behind it still plays */ }
+    finally { this.openerEnded = Date.now(); }
   }
 
   private clearBackstop(): void {
