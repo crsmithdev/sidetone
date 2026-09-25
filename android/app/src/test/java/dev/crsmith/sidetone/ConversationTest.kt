@@ -192,6 +192,21 @@ class ConversationTest {
     }
 
     @Test
+    fun anOlderSettingsMessageThatArrivesLateChangesNothing() {
+        // 9.4.9.1 the SDK can swap two data messages: the music went off, then the older "on" arrived
+        send("""{"kind":"settings","seq":2,"settings":{"holdMusic":false,"audio":true}}""")
+        send("""{"kind":"settings","seq":1,"settings":{"holdMusic":true,"audio":true}}""")
+        assertEquals(false, c.settingsOn["holdMusic"])
+        assertEquals(1, c.settingsCount)
+        // a new bridge process counts on from the clock, so its first message is newer
+        send("""{"kind":"settings","seq":3,"settings":{"holdMusic":true,"audio":false}}""")
+        assertEquals(mapOf("holdMusic" to true, "audio" to false), c.settingsOn)
+        c.clear()
+        send("""{"kind":"settings","seq":1,"settings":{"holdMusic":false}}""")
+        assertEquals(false, c.settingsOn["holdMusic"])
+    }
+
+    @Test
     fun aSettingMessageIsWhatTheAppSendsToChangeOne() {
         assertEquals(
             """{"kind":"setting","patch":{"holdMusic":false}}""",

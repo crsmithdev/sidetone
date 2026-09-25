@@ -205,6 +205,17 @@ describe("the bridge, assembled as the car assembles it", () => {
     expect(settings.at(-1)?.audio).toBe(true);
   });
 
+  test("the audio button is kept across restarts, and every client reads it back (11.12.3)", async () => {
+    const r = bridge();
+    r.channel.receive({ kind: "voice", on: false });
+    expect(r.mouth.audioOn).toBe(false);
+    expect(r.patches).toEqual([{ audio: false }]);
+    const settings = r.told.flatMap((message) => (message.kind === "settings" ? [message.settings] : []));
+    expect(settings.at(-1)?.audio).toBe(false);
+    // the next process starts from the file, not with the audio on
+    expect(bridge({ overrides: { audio: false } }).mouth.audioOn).toBe(false);
+  });
+
   test("what Chris says arrives through the channel as a turn (14.11)", async () => {
     const r = bridge({ script: { deltas: ["Four."] } });
     r.channel.receive({ kind: "said", text: "what is two plus two" });

@@ -268,6 +268,8 @@ export class Mouth {
      */
     private readonly settings: {
       holdBackstopMs: number;
+      /** 11.12.3 whether the audio starts on */
+      audio?: boolean;
       voiceChoices: Config["voiceChoices"];
       talking?: () => boolean;
       /** 15.8 the hold music: the folder of tracks, the gain, and the rate the room plays at. Absent means none. */
@@ -284,6 +286,7 @@ export class Mouth {
     },
   ) {
     this.talking = settings.talking ?? (() => false);
+    this.audio = settings.audio ?? true;
   }
 
   private readonly talking: () => boolean;

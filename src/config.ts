@@ -206,6 +206,8 @@ export interface Config {
   holdMusicAfterMs: number;
   /** 15.7.3 whether the hold music plays at all, so it can be turned off by voice */
   holdMusic: boolean;
+  /** 11.12.3 whether the bridge makes any sound. It is kept across restarts, as the hold music is. */
+  audio: boolean;
   /** 15.8 the folder of tracks: every audio file in it, in file-name order. Not in the repository. */
   holdMusicFolder: string;
   /** 15.9 how loud the track is, as a factor on the file. The voice is 1. */
@@ -371,6 +373,7 @@ export const DEFAULTS: Config = {
   audioCueEveryMs: 6_000,
   holdMusicAfterMs: 8_000,
   holdMusic: true,
+  audio: true,
   holdMusicFolder: join(homedir(), ".sidetone", "hold"),
   holdMusicGain: 0.4,
   holdMusicFadeMs: 300,
@@ -410,7 +413,7 @@ export const IN_FORCE = [
   "minSpeechPeak", "wakeHoldMs", "interruptOnSpeech",
   "holdBackstopMs",
   "sentenceMaxChars", "audioCueDelayMs", "audioCueEveryMs",
-  "holdMusic", "holdMusicAfterMs", "holdMusicGain", "holdMusicFadeMs", "holdMusicFadeInMs",
+  "audio", "holdMusic", "holdMusicAfterMs", "holdMusicGain", "holdMusicFadeMs", "holdMusicFadeInMs",
   "cueVolume", "ttsEngine", "ttsVoice", "sttModel", "wakeWord",
   "chatterboxExaggeration", "chatterboxCfg", "verbosity", "tones",
 ] as const satisfies ReadonlyArray<keyof Config>;

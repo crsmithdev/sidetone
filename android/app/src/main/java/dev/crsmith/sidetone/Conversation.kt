@@ -58,6 +58,8 @@ class Conversation(val transcript: Transcript = Transcript()) {
      */
     var settingsCount = 0
         private set
+    /** 9.4.9.1 the `seq` of the settings shown, so a late older message changes nothing. */
+    private var settingsSeq: Long? = null
 
     /**
      * 14.12.7 what became of each screenshot, by id, as the bridge last said:
@@ -115,10 +117,14 @@ class Conversation(val transcript: Transcript = Transcript()) {
                 screenshots = screenshots + (message.id to message.state)
             }
             is Incoming.Settings -> {
-                settingsOn = message.on
-                settingWords = message.words
-                settingNumbers = message.numbers
-                settingsCount += 1
+                val last = settingsSeq
+                if (message.seq == null || last == null || message.seq > last) {
+                    settingsSeq = message.seq
+                    settingsOn = message.on
+                    settingWords = message.words
+                    settingNumbers = message.numbers
+                    settingsCount += 1
+                }
             }
             is Incoming.Working -> {
                 workingOn = message.on
@@ -170,6 +176,7 @@ class Conversation(val transcript: Transcript = Transcript()) {
         settingWords = emptyMap()
         settingNumbers = emptyMap()
         settingsCount = 0
+        settingsSeq = null
         spoken = null
         screenshots = emptyMap()
     }

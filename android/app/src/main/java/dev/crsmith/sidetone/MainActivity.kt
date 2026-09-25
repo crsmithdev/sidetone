@@ -306,10 +306,11 @@ private fun Conversation(state: Bridge.State, onQuit: () -> Unit) {
             Toggle(on = state.micOn, enabled = !state.holding, onClick = { Bridge.setMic(!state.micOn) }, modifier = Modifier.weight(1f)) {
                 Text("Mic")
             }
-            Toggle(on = state.audioOn, onClick = { Bridge.setAudio(!state.audioOn) }, modifier = Modifier.weight(1f)) {
+            // 17.10.6 the audio and the music are the bridge's settings: each waits for the bridge to send it
+            Toggle(on = state.audioOn, enabled = "audio" in state.settings.on, onClick = { Bridge.setAudio(!state.audioOn) }, modifier = Modifier.weight(1f)) {
                 Text("Audio")
             }
-            Toggle(on = state.musicOn, onClick = { Bridge.setMusic(!state.musicOn) }, modifier = Modifier.weight(1f)) {
+            Toggle(on = state.musicOn, enabled = "holdMusic" in state.settings.on, onClick = { Bridge.setMusic(!state.musicOn) }, modifier = Modifier.weight(1f)) {
                 Text("Music")
             }
         }

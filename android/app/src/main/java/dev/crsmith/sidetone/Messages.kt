@@ -82,9 +82,11 @@ sealed interface Incoming {
     /**
      * 9.4.9 the settings in force on the bridge, sent when this client joins and
      * whenever one changes, however it changed. The app shows what it can and
-     * sends [Outgoing.setting] to change one.
+     * sends [Outgoing.setting] to change one. 9.4.9.1 `seq` grows with each
+     * message, so an older one that arrives late is dropped; null from a bridge
+     * that sends none.
      */
-    data class Settings(val on: Map<String, Boolean>, val words: Map<String, String>, val numbers: Map<String, Double> = emptyMap()) : Incoming
+    data class Settings(val on: Map<String, Boolean>, val words: Map<String, String>, val numbers: Map<String, Double> = emptyMap(), val seq: Long? = null) : Incoming
 
     /**
      * 14.13 the voice started saying this sentence. A [Sentence] says the words
@@ -128,7 +130,7 @@ fun decode(payload: ByteArray): Incoming? {
             if (primitive.isString) words[name] = primitive.content
             else primitive.content.toBooleanStrictOrNull()?.let { on[name] = it } ?: primitive.doubleOrNull?.let { numbers[name] = it }
         }
-        return Incoming.Settings(on, words, numbers)
+        return Incoming.Settings(on, words, numbers, message.long("seq"))
     }
     if (kind == "working") return Incoming.Working(message.bool("on") ?: return null)
     if (kind == "sentence") {

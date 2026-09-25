@@ -62,9 +62,10 @@ export class Channel {
     private readonly send: (message: Outgoing) => void,
     private readonly ends: Ends,
     private readonly say: (line: string) => void = console.log,
-    /** 11.12 the settings that belong to this run rather than to the file. */
-    private readonly live?: () => Record<string, unknown>,
   ) {}
+
+  /** 9.4.9.1 the `seq` of the last settings message. */
+  private settingsSeq = 0;
 
   /** Say it to the client. A word said or answered is kept for 14.8; a note is written to the journal. */
   tell(message: Outgoing): void {
@@ -78,11 +79,13 @@ export class Channel {
 
   /**
    * 9.4.9 the settings in force, whenever they change and when a client joins.
-   * `live` names the ones that are not in the config file: the audio, which is
-   * this run's own state and the one a client most needs to read back.
+   * 9.4.9.1 `seq` is the clock in milliseconds, one more when two share a
+   * millisecond, so it grows across restarts too: the app can get two of these
+   * out of order, and shows only the newest.
    */
   settings(): void {
-    this.send({ kind: "settings", settings: { ...settingsInForce(this.config), ...this.live?.() } });
+    this.settingsSeq = Math.max(Date.now(), this.settingsSeq + 1);
+    this.send({ kind: "settings", seq: this.settingsSeq, settings: settingsInForce(this.config) });
   }
 
   /** 2.3 what the bridge says about itself, on the journal and in the client. */

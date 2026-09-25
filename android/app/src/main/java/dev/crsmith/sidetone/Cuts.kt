@@ -1,32 +1,29 @@
 package dev.crsmith.sidetone
 
 /**
- * 17.10.5 the three cuts of the button row. They are kept on the phone, so a
- * new process opens the microphone only when Chris left it open. Before,
- * they lived in [Bridge.State] only, and after a process death the next room
- * opened the microphone without a word.
+ * 17.10.5 the one cut the phone keeps: the microphone. It is kept on the
+ * phone, so a new process opens the microphone only when Chris left it open.
+ * Before, it lived in [Bridge.State] only, and after a process death the next
+ * room opened the microphone without a word. The audio and the music are the
+ * bridge's settings, and the buttons show what the bridge sends (17.10.6).
  */
-data class Cuts(val micOn: Boolean = true, val audioOn: Boolean = true, val musicOn: Boolean = true) {
-    fun applyTo(state: Bridge.State) = state.copy(micOn = micOn, audioOn = audioOn, musicOn = musicOn)
+data class Cuts(val micOn: Boolean = true) {
+    fun applyTo(state: Bridge.State) = state.copy(micOn = micOn)
 
     companion object {
-        fun of(state: Bridge.State) = Cuts(state.micOn, state.audioOn, state.musicOn)
+        fun of(state: Bridge.State) = Cuts(state.micOn)
     }
 }
 
 /** The cuts by key. `read` gives null for a key that was never written. */
 class CutStore(private val read: (String) -> Boolean?, private val write: (String, Boolean) -> Unit) {
-    fun load() = Cuts(read(MIC) ?: true, read(AUDIO) ?: true, read(MUSIC) ?: true)
+    fun load() = Cuts(read(MIC) ?: true)
 
     fun save(cuts: Cuts) {
         write(MIC, cuts.micOn)
-        write(AUDIO, cuts.audioOn)
-        write(MUSIC, cuts.musicOn)
     }
 
     private companion object {
         const val MIC = "micOn"
-        const val AUDIO = "audioOn"
-        const val MUSIC = "musicOn"
     }
 }

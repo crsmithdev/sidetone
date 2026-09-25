@@ -166,7 +166,7 @@ export function assemble(
       if (hold) conversation.cue(on ? "hold" : "release");
       if (!on) ear.reset(hold);
     },
-    voice: (on) => mouth.setAudio(on),
+    voice: (on) => conversation.setAudio(on),
     // 15.7.3 the setting the voice command sets; the conversation reads it on every look
     music: (on) => conversation.setMusic(on),
     quality: (side, quality) => conversation.network.saw(side, quality),
@@ -179,7 +179,7 @@ export function assemble(
       if (event) measures.device(event);
       return line;
     },
-  }, say, () => ({ audio: mouth.audioOn }));
+  }, say);
 
   const conversation: Conversation = new Conversation(dir, config, mouth, channel, {
     // 9.4 the file is for the next run; the live copy is what /diagnostics and
@@ -194,8 +194,6 @@ export function assemble(
       channel.settings();
     },
     onTurn: (turn) => say(`[turn ${turn.number}, $${conversation.agent.totalCostUsd().toFixed(4)} this session]`),
-    // 11.12 the audio went on or off by voice; the app's own button reads this back
-    onAudio: () => channel.settings(),
     // 14.12.6 the pending screenshots join the turn Chris asks for next
     screenshots: () => screenshots.take(),
   }, parts.makeAgent);

@@ -46,9 +46,9 @@ object Bridge {
         val micOn: Boolean = true,
         /** 9.5.1 the hold to talk button is down. */
         val holding: Boolean = false,
-        /** 11.12 whether the bridge makes any sound, or only writes its answers. */
+        /** 11.12 whether the bridge makes any sound, or only writes its answers, as the bridge last said (17.10.6). */
         val audioOn: Boolean = true,
-        /** 15.7.3 whether the bridge may play hold music. */
+        /** 15.7.3 whether the bridge may play hold music, as the bridge last said (17.10.6). */
         val musicOn: Boolean = true,
         /** 9.4.8 what the Stop button says, as the bridge gave it. */
         val endTurn: String? = null,
@@ -262,10 +262,6 @@ object Bridge {
             // 4.2.2.1 a setup with no focus picks its output device itself, once the room's audio is up
             Audio.pickRoute(app, setup)?.let { Log.i(TAG, "route picked: $it") }
             link(Joining.Event.Connected)
-            // the bridge starts every process with its audio on, so an audio cut has to be
-            // said again to a room this app has only just joined
-            if (!_state.value.audioOn) tell(room, Outgoing.audio(false))
-            if (!_state.value.musicOn) tell(room, Outgoing.music(false))
             if (_state.value.micOn) micLock.withLock { openMic(room) }
             sendCrashes(room)
             ended.await()
@@ -439,9 +435,7 @@ object Bridge {
      * words carry on arriving and only the sound goes.
      */
     fun setAudio(on: Boolean) {
-        if (_state.value.audioOn == on) return
-        _state.update { it.copy(audioOn = on) }
-        keepCuts()
+        // 17.10.6 the button changes when the bridge sends the settings back
         val room = room ?: return
         tell(room, Outgoing.audio(on))
         record("audio", if (on) "audio on" else "audio off")
@@ -452,9 +446,6 @@ object Bridge {
      * (15.7.3). The voice and the tones carry on.
      */
     fun setMusic(on: Boolean) {
-        if (_state.value.musicOn == on) return
-        _state.update { it.copy(musicOn = on) }
-        keepCuts()
         val room = room ?: return
         tell(room, Outgoing.music(on))
         record("music", if (on) "music on" else "music off")
@@ -603,7 +594,9 @@ object Bridge {
     /** The screen shows what the conversation holds now. */
     private fun shown() {
         _state.update { it.copy(lines = conversation.lines, spoken = conversation.spoken, endTurn = conversation.endTurn, sign = conversation.sign, screenshots = conversation.screenshots,
-            settings = Incoming.Settings(conversation.settingsOn, conversation.settingWords, conversation.settingNumbers), settingsCount = conversation.settingsCount) }
+            settings = Incoming.Settings(conversation.settingsOn, conversation.settingWords, conversation.settingNumbers), settingsCount = conversation.settingsCount,
+            // 17.10.6 the saved settings are the bridge's; on until it says otherwise
+            audioOn = conversation.settingsOn["audio"] ?: true, musicOn = conversation.settingsOn["holdMusic"] ?: true) }
     }
 
     /**

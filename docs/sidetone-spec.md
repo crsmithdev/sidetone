@@ -264,6 +264,8 @@ project bridge stays in place.
 
 9.4.9 A client can read the settings in force and change one. The bridge sends a settings message when a client joins and again whenever a setting changes, however it changed. A client changes a setting by sending one, and the bridge does exactly what the spoken command does, the voice's answer included: a switch on a screen and the words spoken aloud cannot end anywhere different. The bridge acts only on the settings it has a spoken command for — the tones, the hold music, interrupting, which of the two voices speaks, and the verbosity — and on the hold music volume (17.22.3) and the three thresholds of the ear (17.22.5, 17.22.6). It ignores any other name. Before this a client could change a setting only by sending the words of the command, and had no way at all to read one back, so a settings screen would have shown values it could not verify.
 
+9.4.9.1 Each settings message has a `seq`: the bridge's clock in milliseconds, or one more than the last `seq` when that is larger. So `seq` grows across restarts of the bridge. The app can get two data messages out of order. It ignores a settings message whose `seq` is not larger than the last one it used. A new room starts the count again.
+
 9.4.10 Set the verbosity: how much the agent says. The levels are brief, normal and full. Brief is one or two sentences and only the result. Normal is the behaviour from before the setting. Full gives the reasoning and more detail. The commands are "verbosity brief", "verbosity normal" and "verbosity full", and "shorter" and "longer" move one level. At either end, the level stays where it is. The bridge adds one line that names the level to the prompt of each turn. The level is kept in the settings file, so it survives a restart and a new session.
 
 9.4.11 A setting that goes on and off has two commands, one for on and one for off. There is no bare command that flips it. The bare "tones" and the bare "interrupt" are removed, because a flip said blind leaves the setting in a state that Chris does not know. The bridge reads the on and off commands before the end turn command, so "turn the audio on" turns the audio on and does not end the turn.
@@ -412,7 +414,7 @@ project bridge stays in place.
 
 11.12.2 When the audio goes off, the bridge stops the sentence in flight and the hold music at once. It does not wait for the sentence or the track to end.
 
-11.12.3 A new bridge process starts with the audio on. A client that has the audio off sends the `voice` message again when it joins the room.
+11.12.3 The audio is a setting, `audio`. The bridge keeps it across restarts, as it keeps the hold music (15.7.3). The `voice` message and "audio on" and "audio off" set it. A new bridge process starts with the audio as it was.
 
 ## 12. SECURITY
 
@@ -646,11 +648,13 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 
 17.10.2 The app records each change as an event in the screen log, "audio off" or "audio on", "music off" or "music on", and adds no note (4.3.1).
 
-17.10.3 On the tap of "Music", the app sends the `music` message with `on` set to false or to true. The bridge sets the setting of 15.7.3 and keeps it across restarts. It gives no answer. A track that plays stops at once (15.10.3). The app has the music on at its first launch (17.10.5). An app that has the music off sends the message again when it joins the room. The bridge does not tell the app the setting, so "music off" by voice does not change the button.
+17.10.3 On the tap of "Music", the app sends the `music` message with `on` set to false or to true. The bridge sets the setting of 15.7.3 and keeps it across restarts. It gives no answer. A track that plays stops at once (15.10.3).
 
 17.10.4 The "Mic" button and the hold to talk button change the state only after the microphone track opens or closes. A publish can fail, for example while the room reconnects. The button then stays as it was, and the app adds the note "the microphone did not open" with the reason. Out of the room, the button sets the state that the next room opens.
 
-17.10.5 The app keeps the three cuts on the phone. A new process of the app, after a death, a kill or an update, starts with the cuts as Chris left them. So a room opens the microphone only when Chris left it open. A quit (17.22.4) ends the conversation and keeps the cuts. A hold to talk press is not a cut: the app keeps the state from before the press.
+17.10.5 The app keeps the microphone cut on the phone. A new process of the app, after a death, a kill or an update, starts with the cut as Chris left it. So a room opens the microphone only when Chris left it open. A quit (17.22.4) ends the conversation and keeps the cut. A hold to talk press is not a cut: the app keeps the state from before the press.
+
+17.10.6 "Audio" and "Music" show the bridge's settings `audio` and `holdMusic` from the last settings message (9.4.9). A tap sends the message, and the button changes when the bridge sends the settings back. So a change by voice changes the button too. Each button is disabled until the bridge sends its setting. Before this, the app kept its own copy of both, and the copy and the bridge could disagree.
 
 17.11 The app shows a working sign in its status row, as a slow pulse of the green status dot (17.11.6). The sign says that the agent works (14.10). It has three states.
 
@@ -941,6 +945,7 @@ The same line also gives where the agent's time to the first word went, from its
 | Usage warning level | 80 percent of the reported rate limit | 13.2 |
 | Audio cue delay | 4 seconds, then every 6 seconds | 15.5 |
 | Hold music: silence before it plays, in a long turn | 8 seconds, 0 turns it off | 15.7 |
+| Audio: on or off | on; "audio on", "audio off" and the app's button change it | 11.12.3 |
 | Hold music: on or off | on; "music on" and "music off" change it | 15.7.3 |
 | Hold music: tracks | every audio file in `~/.sidetone/hold/` | 15.8 |
 | Hold music: gain | 0.4 | 15.9 |

@@ -53,7 +53,7 @@ export type Outgoing =
    * able to read one: before this a client could set a setting by sending the
    * words of the command, and had no way at all to know what it was now.
    */
-  | { kind: "settings"; settings: Record<string, unknown> }
+  | { kind: "settings"; seq: number; settings: Record<string, unknown> }
   /**
    * 14.13 the voice started this sentence. A `sentence` message says the words
    * are known; this says they are being heard, which is a different moment: the

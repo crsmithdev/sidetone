@@ -49,6 +49,16 @@ describe("what a client is told (4.3, 14.7)", () => {
     expect(turns.map((t) => `${t.kind} ${t.text}`)).toEqual(["heard what is two plus two", "turn Four."]);
   });
 
+  test("each settings message has a larger seq than the last, so the app can drop an old one (9.4.9.1)", () => {
+    const { c, sent } = channel();
+    c.settings();
+    c.settings();
+    const seqs = sent.flatMap((message) => (message.kind === "settings" ? [message.seq] : []));
+    expect(seqs).toHaveLength(2);
+    expect(seqs[1]).toBeGreaterThan(seqs[0] as number);
+    expect(seqs[0]).toBeGreaterThanOrEqual(Date.now() - 1_000);
+  });
+
   test("a narration reaches the client once and the journal once", () => {
     const { c, sent, journal } = channel();
     c.narrate("the wake word arrived with no command");

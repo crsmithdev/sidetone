@@ -97,8 +97,6 @@ export interface ConversationHooks {
   onTurn?(turn: Turn): void;
   /** 9.4 a setting Chris changed out loud, for whoever keeps settings. */
   onSetting?(patch: Partial<Config>): void;
-  /** 11.12 the audio went on or off by voice, so every client can be told. */
-  onAudio?(): void;
   /** 14.12.6 the files of the pending screenshots, taken by the turn about to start */
   screenshots?(): string[];
 }
@@ -210,14 +208,12 @@ export class Conversation {
     };
     this.onTurn = hooks.onTurn;
     this.onSetting = hooks.onSetting;
-    this.onAudio = hooks.onAudio;
     this.screenshots = hooks.screenshots;
   }
 
   private onTurn?: (turn: Turn) => void;
   private screenshots?: () => string[];
   private onSetting?: (patch: Partial<Config>) => void;
-  private onAudio?: () => void;
   /** Where the agent's words and blocks go: the answer of the turn that runs, or one the agent began unasked; null between them. */
   private answering: Answer | null = null;
   /** Item 4 what opens the reply to speech written into the turn that runs; the turn sets it. */
@@ -636,8 +632,8 @@ export class Conversation {
        * bridge looks dead from the car, so the way back has to be something
        * that can be said: the microphone is still listening either way.
        */
-      case "audioOn": return this.setAudio(true);
-      case "audioOff": return this.setAudio(false);
+      case "audioOn": return this.switchAudio(true);
+      case "audioOff": return this.switchAudio(false);
 
       // A question about the bridge, not about the work. Report, then carry on.
       case "usage": {
@@ -766,7 +762,7 @@ export class Conversation {
    * 11.12 the audio on or off. On, the voice says so; off, nothing could be
    * heard anyway, so the client is told and the journal says it.
    */
-  private setAudio(on: boolean): Hold {
+  private switchAudio(on: boolean): Hold {
     if (on) {
       this.mouth.setAudio(true);
       this.reply("Audio on.");
@@ -776,7 +772,7 @@ export class Conversation {
       this.mouth.quietAfter("Audio off.");
       this.channel.journal("the audio is off; the words carry on in the transcript");
     }
-    this.onAudio?.();
+    this.onSetting?.({ audio: on });
     return "resume";
   }
 
@@ -791,6 +787,12 @@ export class Conversation {
    * 15.7.3 the hold music on or off, kept across restarts. The app's music
    * button (17.10) sets it with no answer, as the audio button does.
    */
+  /** 17.10.1 the audio from the app's button: at once, and with no answer. */
+  setAudio(on: boolean): void {
+    this.mouth.setAudio(on);
+    this.onSetting?.({ audio: on });
+  }
+
   setMusic(on: boolean): void {
     this.holdMusic = on;
     this.onSetting?.({ holdMusic: on });
