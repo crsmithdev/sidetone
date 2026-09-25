@@ -49,6 +49,14 @@ speaks only text from a message that started after the injection. Not yet used
 in the car. Open: the race between a request and its `message_start`, two
 injections in the text shape, and removing the unread `interruptAfterMs`.
 
+Since then (731ca2c, f80dca6): the bridge runs Claude Code with
+`--replay-user-messages` and takes the reply to be the first message after the
+echo of Chris's words (8 of 8 runs), which closes the race. Two utterances
+during the last text merge into one turn (6 of 6). The note in front of his
+words says they are his and not tool output: the agent obeyed in 18 of 20
+runs, against 7 of 10 before. Chris chose that over a voice instruction line
+that gave 10 of 10 by telling the agent to trust any text of that shape.
+
 Done when it has been used in the car and a correction mid-turn reached the
 agent with no re-run of a job.
 
@@ -352,54 +360,6 @@ Points 3 to 5 are built or recorded and stay.
 Done when a job started by `scripts/job` does not stop on a permission, and
 a gated action has been agreed and refused once by voice in the room.
 
-## 36. Review every wake-word command
-
-Noted 23 September 2026. The decisions landed 23 September 2026 (001ed63, spec
-9.4.6, 9.4.11, 9.4.12), and the five verbosity commands with item 37 (c621b40).
-Reviewed 23 September 2026, `~/.sidetone/findings/wake-36.md`: every one of
-the 24 commands has a verdict. The fixes it asks for landed 24 September
-2026 (59343d6): one word for one target, the toggles above `endTurn`, and the
-bare "where" and "man" gone, each with the clash phrase as a test.
-
-Counts from `~/.sidetone/record.jsonl`, 17 to 23 September 2026. Six commands
-fired: end turn 24, carry on 5, stats 4, mute 3, unmute 3, interrupt on 2. The
-wake word came 6 times with no command after it. The other 16 never fired.
-Only mute and unmute have fired under "sidetone"; the rest of the evidence for
-"sidetone" comes from the corpus, which uses two synthetic voices.
-
-Landed: `summarize` gone, the bare `tones` and `interrupt` gone, "clear context"
-needs both words, "continue" is the agreement word only, and every form is one
-or two words.
-
-Clashes the review found, with a probe and not from the record. The matcher
-accepts a word within a spelling tolerance of the target, one character for a
-word of five letters or fewer, and the first row that matches wins:
-
-| Said | Reached | Should reach | Cause |
-|---|---|---|---|
-| turn the audio on, turn the music on, turn interrupt on | endTurn | the toggle | "on" is one letter from "in"; `["in","turn"]` comes first |
-| what can I say | maleVoice | nothing | "can" is one letter from "man" |
-| there, here | where | nothing | one letter from "where"; `where` discards a held answer, so this costs the most |
-| mute the music | mute | musicOff | mute comes first and needs one word |
-| in the wake-word hold: one more, make it so, the best, turn it on | tonesOn, maleVoice, carryOn, endTurn | speech | the hold matches three words or fewer with no wake word |
-
-Still to do:
-
-1. Add the clash phrases to `test/commands.test.ts` as failing cases.
-2. Make the three changes: one word per target in `commandIn`, the on and off
-   toggles above `endTurn` or `["in","the","turn"]` in its place, and drop the
-   bare "where" and the form "man". Keep the corpus misses at 5 or fewer.
-3. The spec: 9.4 lists 9 of the 24 commands, and the rest sit in 4.9, 11.9,
-   11.10, 11.12, 15.4 and 15.7.3, with `stats` in none. A table in 9.4 that
-   points to each section fixes it. 9.5 says two commands work while muted; the
-   default muted set has four (`tonesOn`, `tonesOff` too). Still so on 24
-   September.
-4. The vault note "Wake Commands Lose Summarize And The Bare Toggles" still
-   says "not landed".
-
-Done when the clash phrases reach the right command in the tests, and 9.4 and
-9.5 match the code.
-
 ## 38. A screenshot from the phone does not reach the agent, and the status shows twice
 
 Noted 23 September 2026. Part 2 built and landed 23 September 2026 (ad48d25,
@@ -500,7 +460,21 @@ the process.
 
 ## 41. Voice input after the app was closed for a while
 
-Noted 23 September 2026. Not investigated.
+Noted 23 September 2026. Investigated 24 September 2026,
+`~/.sidetone/findings/voice-input-41.md`. The background was not the cause. At
+12:58 a rejoin left a microphone track in the room that the app did not know
+about, and from 13:55 each hold press added a second track. The bridge fed
+both into one ear, and the silent dead track stopped every utterance, with no
+journal line. Fixed on the bridge in 9c0acd7: the ear hears the newest track of
+each participant, and a press that records nothing says so. The app keeps its
+cuts across a process death since 37bfd3e, which removes the trigger.
+
+Still to do: reproduce on the phone or an emulator how the track outlived
+`closeMic` (tap Mic off within 200 ms of the publish, twenty times, and list
+the room's tracks). The finding says the likely path is an unpublish before the
+server had the publish. There is no `adb` on this machine yet.
+
+The text below is the item as it was noted.
 
 At about 13:55 on 23 September the bridge lost the voice of Chris. The journal
 showed the phone open and cut its microphone every two to four seconds, and
@@ -643,6 +617,12 @@ the spec.
 
 One line for each item that shipped: the number, the title, the date, the
 commit, and any finding that lived only in the item.
+
+- **36. Review every wake-word command.** Closed 24 September 2026. The review
+  is `~/.sidetone/findings/wake-36.md`. The clashes landed in 59343d6 and
+  e066b4c; in the wake-word hold, a command now needs its exact words. Spec
+  9.4.13 is a table of all 24 commands, and 9.5 names the four that work while
+  muted. `stats` has no section of its own.
 
 - **1. The volume of the phone audio path**, with item 25 merged in. Closed 24
   September 2026, answered by the echo work of 23 and 24 September (15ed8e8,
