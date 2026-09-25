@@ -13,20 +13,32 @@
  * three force pushes of three ran and no request came. With these rules,
  * every force push, both forms of a remote delete, both forms of `rm -rf`, a
  * DROP inside a quoted script and a compound command each sent a request, and
- * `ls` did not.
+ * `ls` did not. `bash -c`, `sh -c`, `eval`, `find -delete`, `find -exec rm -rf`
+ * and `Drop table` sent none until they had rules of their own.
  */
 import { homedir } from "node:os";
 import { resolve } from "node:path";
 
-/** What Claude Code asks the bridge about. A wide net: `gatedAction` decides. */
+/**
+ * What Claude Code asks the bridge about. A wide net: `gatedAction` decides.
+ * The rules match case, and they do not look inside a shell string, so a
+ * shell, `eval`, `find` and the title case of DROP and TRUNCATE have their own.
+ */
 export const ASK_RULES = [
   "Bash(git push *)",
   "Bash(rm *)",
   "Bash(*DROP *)",
+  "Bash(*Drop *)",
   "Bash(*drop *)",
   "Bash(*TRUNCATE *)",
+  "Bash(*Truncate *)",
   "Bash(*truncate *)",
   "Bash(dropdb *)",
+  "Bash(bash *)",
+  "Bash(sh *)",
+  "Bash(eval *)",
+  "Bash(xargs *)",
+  "Bash(find *)",
 ];
 
 /**
@@ -35,15 +47,92 @@ export const ASK_RULES = [
  */
 export function gatedAction(tool: string, input: Record<string, unknown>, project: string): string | null {
   if (tool !== "Bash" || typeof input.command !== "string") return null;
-  const command = input.command;
-  let cwd = project;
-  for (const words of segments(command)) {
+  return scan(input.command, project, project) ?? drop(input.command);
+}
+
+/** 10.7.6 what the bridge reads back for a command it cannot split into words. */
+const UNREADABLE = "The agent wants to run a command that the bridge cannot read.";
+
+/** A command line, and each command and shell string inside it, checked for the first three actions. */
+function scan(command: string, cwd: string, project: string): string | null {
+  const parsed = segments(command);
+  if (!parsed) return UNREADABLE;
+  for (const { words, inner } of parsed) {
+    for (const nested of inner) {
+      const found = scan(nested, cwd, project);
+      if (found) return found;
+    }
     const [name, ...args] = withoutPrefixes(words);
     if (name === "cd" && args[0]) { cwd = pathOf(args[0], cwd); continue; }
-    const found = (name === "git" && push(args)) || (name === "rm" && removal(args, cwd, project)) || (name === "dropdb" && dropdb(args));
+    const found = check(name, args, cwd, project);
     if (found) return found;
   }
-  return drop(command);
+  return null;
+}
+
+/** One command's name and arguments, as a readback or null. */
+function check(name: string | undefined, args: string[], cwd: string, project: string): string | null {
+  if (name === undefined) return null;
+  // a name the shell expands is a command nobody can know here
+  if (/^[$`]/.test(name)) return UNREADABLE;
+  if (name === "git") return push(args);
+  if (name === "rm") return removal(args, cwd, project);
+  if (name === "dropdb") return dropdb(args);
+  if (name === "bash" || name === "sh") return shell(args, cwd, project);
+  if (name === "eval") return scan(args.join(" "), cwd, project);
+  if (name === "xargs") return xargs(args, cwd, project);
+  if (name === "find") return find(args, cwd, project);
+  return null;
+}
+
+/** `bash -c <string>` or `sh -c <string>`: the string is a command line. A script file is not read. */
+function shell(args: string[], cwd: string, project: string): string | null {
+  let i = 0;
+  let string = false;
+  while (i < args.length && /^[-+]/.test(args[i]!)) {
+    if (args[i] === "-o" || args[i] === "+o") i++;
+    else if (/^-[A-Za-z]*c/.test(args[i]!)) string = true;
+    i++;
+  }
+  if (!string) return null;
+  if (i >= args.length) return UNREADABLE;
+  return scan(args[i]!, cwd, project);
+}
+
+/** The xargs options that take the next word as their value. */
+const XARGS_VALUES = ["-a", "-d", "-E", "-I", "-L", "-n", "-P", "-s", "--arg-file", "--delimiter", "--eof", "--replace", "--max-lines", "--max-args", "--max-procs", "--max-chars"];
+
+/** xargs runs the command after its options, with the paths it reads added: those cannot be known here. */
+function xargs(args: string[], cwd: string, project: string): string | null {
+  let i = 0;
+  while (i < args.length && args[i]!.startsWith("-")) i += XARGS_VALUES.includes(args[i]!) ? 2 : 1;
+  const [name, ...rest] = args.slice(i);
+  if (name === "rm" && flags(rest).recursive && flags(rest).force) return "The agent wants to run rm -rf on each path that xargs reads.";
+  return check(name, rest, cwd, project);
+}
+
+/** `find` with `-delete`, or with `-exec rm -rf`, on a start path that is not in the project. */
+function find(args: string[], cwd: string, project: string): string | null {
+  let i = 0;
+  while (i < args.length && /^-[HLP]$/.test(args[i]!)) i++;
+  const starts: string[] = [];
+  while (i < args.length && !/^[-(!]/.test(args[i]!)) starts.push(args[i++]!);
+  let deletes = false;
+  while (i < args.length) {
+    const arg = args[i++]!;
+    if (arg === "-delete") { deletes = true; continue; }
+    if (!["-exec", "-execdir", "-ok", "-okdir"].includes(arg)) continue;
+    const end = args.findIndex((word, j) => j >= i && (word === ";" || word === "+"));
+    const [name, ...rest] = args.slice(i, end < 0 ? undefined : end);
+    i = end < 0 ? args.length : end + 1;
+    if (name === "rm") { const { recursive, force } = flags(rest); deletes ||= recursive && force; continue; }
+    const found = check(name, rest, cwd, project);
+    if (found) return found;
+  }
+  if (!deletes) return null;
+  const outside = (starts.length ? starts : ["."]).map((path) => pathOf(path, cwd)).filter((path) => !within(path, project, true));
+  if (outside.length === 0) return null;
+  return `The agent wants to delete what find matches in ${and(outside)}.`;
 }
 
 /** A git command's arguments: a force push or a remote delete, as a readback. */
@@ -79,6 +168,15 @@ function push(args: string[]): string | null {
 
 /** `rm` with both -r and -f, on a path that is not under the project. */
 function removal(args: string[], cwd: string, project: string): string | null {
+  const { recursive, force, paths } = flags(args);
+  if (!recursive || !force) return null;
+  const outside = paths.map((path) => pathOf(path, cwd)).filter((path) => !within(path, project, false));
+  if (outside.length === 0) return null;
+  return `The agent wants to delete ${and(outside)} and everything in ${outside.length === 1 ? "it" : "them"}.`;
+}
+
+/** The options and paths of an `rm`. */
+function flags(args: string[]): { recursive: boolean; force: boolean; paths: string[] } {
   let recursive = false;
   let force = false;
   const paths: string[] = [];
@@ -90,10 +188,12 @@ function removal(args: string[], cwd: string, project: string): string | null {
     else if (options && /^-[A-Za-z]+$/.test(arg)) { recursive ||= /[rR]/.test(arg); force ||= arg.includes("f"); }
     else if (!options || !arg.startsWith("-")) paths.push(arg);
   }
-  if (!recursive || !force) return null;
-  const outside = paths.map((path) => pathOf(path, cwd)).filter((path) => !path.startsWith(`${project}/`));
-  if (outside.length === 0) return null;
-  return `The agent wants to delete ${and(outside)} and everything in ${outside.length === 1 ? "it" : "them"}.`;
+  return { recursive, force, paths };
+}
+
+/** A path below the project; the project itself counts only when `self` is set. */
+function within(path: string, project: string, self: boolean): boolean {
+  return path.startsWith(`${project}/`) || (self && path === project);
 }
 
 function dropdb(args: string[]): string | null {
@@ -137,18 +237,30 @@ function withoutPrefixes(words: string[]): string[] {
 /**
  * A command line as the shell splits it: into the commands between `;`,
  * `&&`, `||`, `|`, `&` and a newline, and each into words, with the quotes
- * taken off. It does not look inside `$(...)`, a backtick or `bash -c`.
+ * taken off. A `$(...)` or a backtick stays in its word as written, and its
+ * text is also given as a command line of its own. Null when a quote, a
+ * `$(` or a backtick does not close.
  */
-function segments(command: string): string[][] {
-  const result: string[][] = [];
+function segments(command: string): { words: string[]; inner: string[] }[] | null {
+  const result: { words: string[]; inner: string[] }[] = [];
   let words: string[] = [];
+  let inner: string[] = [];
   let word = "";
   let started = false;
   let quote: string | null = null;
   const endWord = () => { if (started) words.push(word); word = ""; started = false; };
-  const endSegment = () => { endWord(); if (words.length) result.push(words); words = []; };
+  const endSegment = () => { endWord(); if (words.length || inner.length) result.push({ words, inner }); words = []; inner = []; };
   for (let i = 0; i < command.length; i++) {
     const ch = command[i]!;
+    if (quote !== "'" && (ch === "`" || (ch === "$" && command[i + 1] === "("))) {
+      const end = ch === "`" ? command.indexOf("`", i + 1) : closing(command, i + 2);
+      if (end < 0) return null;
+      inner.push(command.slice(i + (ch === "`" ? 1 : 2), end));
+      word += command.slice(i, end + 1);
+      started = true;
+      i = end;
+      continue;
+    }
     if (quote) {
       if (ch === quote) quote = null;
       else if (ch === "\\" && quote === '"' && i + 1 < command.length) word += command[++i];
@@ -162,6 +274,26 @@ function segments(command: string): string[][] {
     word += ch;
     started = true;
   }
+  if (quote) return null;
   endSegment();
   return result;
+}
+
+/** The index of the `)` that closes a `$(` whose text starts at `from`, or -1. */
+function closing(command: string, from: number): number {
+  let depth = 1;
+  let quote: string | null = null;
+  for (let i = from; i < command.length; i++) {
+    const ch = command[i]!;
+    if (quote) {
+      if (ch === quote) quote = null;
+      else if (ch === "\\" && quote === '"') i++;
+      continue;
+    }
+    if (ch === "\\") i++;
+    else if (ch === "'" || ch === '"') quote = ch;
+    else if (ch === "(") depth++;
+    else if (ch === ")" && --depth === 0) return i;
+  }
+  return -1;
 }

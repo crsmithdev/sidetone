@@ -333,7 +333,11 @@ project bridge stays in place.
 
 10.7.4 A drop or a truncate of a database. The bridge cannot tell a production database from a test one, so it asks for each drop and each truncate.
 
-10.8 The bridge starts the agent with `--permission-prompt-tool stdio` and with ask rules in `--settings`. The rules make the agent send a permission request for each `git push`, each `rm`, and each command that holds DROP or TRUNCATE. The bridge reads back the four actions of 10.7 and allows every other request. Measured 24 September on claude 2.1.282: in auto mode with no ask rules, three force pushes of three ran and sent no request. With the rules, each one sent a request.
+10.7.5 One of the four inside another command is gated the same way. The bridge looks inside the string of `bash -c`, `sh -c` and `eval`, and inside `$(...)` and backticks. `xargs rm -rf` is gated, because the paths come from its input. `find` with `-delete`, or with `-exec rm -rf`, is gated on a start path that is not in the project.
+
+10.7.6 A command that the bridge cannot read is gated. Examples are a quote or a `$(` that does not close, `bash -c` or `eval` of a variable, and a command name that the shell expands. The readback says that the bridge cannot read the command.
+
+10.8 The bridge starts the agent with `--permission-prompt-tool stdio` and with ask rules in `--settings`. The rules make the agent send a permission request for each `git push`, `rm`, `bash`, `sh`, `eval`, `xargs` and `find`, and for each command that holds DROP, Drop, drop, TRUNCATE, Truncate or truncate. The rules match case, so each case form needs its own rule. The bridge reads back the actions of 10.7 and allows every other request. Measured 24 September on claude 2.1.282: in auto mode with no ask rules, three force pushes of three ran and sent no request. With the rules, each one sent a request. With the first rules, `bash -c`, `sh -c`, `eval`, `find -delete`, `find -exec rm -rf` and `Drop table` sent no request, and a force push inside `sh -c` ran. With the rules above, each one sent a request.
 
 10.9 One gate is open at a time. The bridge denies a request that arrives while a question is open, and tells the agent that a question is open.
 

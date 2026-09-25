@@ -68,6 +68,45 @@ describe("a drop or truncate of a database (10.7.4)", () => {
   });
 });
 
+describe("a gated action inside another command (10.7.5)", () => {
+  test.each([
+    [`bash -c "rm -rf /tmp/junk"`, "The agent wants to delete /tmp/junk and everything in it."],
+    [`sh -c 'git push --force origin main'`, "The agent wants to force push to origin main."],
+    [`bash -lc "cd /tmp && rm -rf junk"`, "The agent wants to delete /tmp/junk and everything in it."],
+    [`eval "rm -rf /tmp/junk"`, "The agent wants to delete /tmp/junk and everything in it."],
+    ["echo $(rm -rf /tmp/junk)", "The agent wants to delete /tmp/junk and everything in it."],
+    ["echo `git push -f origin main`", "The agent wants to force push to origin main."],
+    [`x="$(cd /tmp; rm -rf junk)"`, "The agent wants to delete /tmp/junk and everything in it."],
+    [`bash -c "echo \\$(rm -rf /tmp/junk)"`, "The agent wants to delete /tmp/junk and everything in it."],
+    ["echo /tmp/junk | xargs rm -rf", "The agent wants to run rm -rf on each path that xargs reads."],
+    ["ls | xargs -n 1 -I{} rm -r -f {}", "The agent wants to run rm -rf on each path that xargs reads."],
+    [`ls | xargs sh -c 'git push -f origin main'`, "The agent wants to force push to origin main."],
+    ["find /tmp/junk -delete", "The agent wants to delete what find matches in /tmp/junk."],
+    ["find /tmp/a ../b -name '*.log' -delete", "The agent wants to delete what find matches in /tmp/a and /home/chris/b."],
+    ["find /tmp -name junk -exec rm -rf {} +", "The agent wants to delete what find matches in /tmp."],
+    ["find -L /tmp -name junk -execdir rm -fr {} \;", "The agent wants to delete what find matches in /tmp."],
+    [`find /tmp -exec sh -c 'rm -rf "$1"' _ {} \;`, "The agent wants to delete $1 and everything in it."],
+    [`sqlite3 prod.db "Drop table users"`, "The agent wants to run DROP TABLE users."],
+  ])("%s", (command, readback) => {
+    expect(bash(command)).toBe(readback);
+  });
+});
+
+describe("a command the bridge cannot read is gated (10.7.6)", () => {
+  const unreadable = "The agent wants to run a command that the bridge cannot read.";
+  test.each([
+    `bash -c "$CMD"`,
+    `eval "$(cat script)"`,
+    "bash -c",
+    `sh -c 'rm -rf /tmp/junk`,
+    "echo $(rm -rf /tmp/junk",
+    "echo `rm -rf /tmp/junk",
+    "$(which rm) -rf /tmp/junk",
+  ])("%s", (command) => {
+    expect(bash(command)).toBe(unreadable);
+  });
+});
+
 describe("everything else is not gated (6.3)", () => {
   test.each([
     "git push origin main",
@@ -80,6 +119,19 @@ describe("everything else is not gated (6.3)", () => {
     "truncate -s 0 log.txt",
     "ls",
     "echo 'rm -rf is dangerous'",
+    `bash -c "rm -rf build"`,
+    "bash scripts/build.sh",
+    `sh -c 'git push origin main'`,
+    "echo '$(rm -rf /tmp/junk)'",
+    "echo $(git rev-parse HEAD)",
+    "find . -name '*.ts'",
+    "find /tmp -name junk",
+    "find build -delete",
+    "find . -name '*.orig' -exec rm -f {} +",
+    "find /tmp -name junk -exec ls {} +",
+    "ls | xargs grep drop",
+    "ls | xargs rm",
+    `git commit -m "Drop the old flag"`,
   ])("%s", (command) => {
     expect(bash(command)).toBeNull();
   });
@@ -92,10 +144,16 @@ describe("everything else is not gated (6.3)", () => {
 
 /**
  * The ask rules decide what reaches the bridge at all. Measured 24 September
- * on 2.1.282: with these, a force push, both remote deletes, both rm forms,
- * a DROP inside a quoted script and a compound command each sent can_use_tool,
- * and `ls` did not. Without them, three force pushes of three ran unasked.
+ * on 2.1.282: with the first rules, a force push, both remote deletes, both rm
+ * forms, a DROP inside a quoted script, a compound command, `$(...)`, a
+ * backtick and `xargs rm -rf` each sent can_use_tool, and `ls` did not.
+ * `bash -c`, `sh -c`, `eval`, `find -delete`, `find -exec rm -rf` and a
+ * `Drop table` did not: the rules match case, and they do not look inside a
+ * shell string. The rules for those are below.
  */
 test("the ask rules cover every command the four start with", () => {
-  expect(ASK_RULES).toEqual(expect.arrayContaining(["Bash(git push *)", "Bash(rm *)", "Bash(*DROP *)", "Bash(dropdb *)"]));
+  expect(ASK_RULES).toEqual(expect.arrayContaining([
+    "Bash(git push *)", "Bash(rm *)", "Bash(*DROP *)", "Bash(dropdb *)",
+    "Bash(bash *)", "Bash(sh *)", "Bash(eval *)", "Bash(xargs *)", "Bash(find *)", "Bash(*Drop *)", "Bash(*Truncate *)",
+  ]));
 });
