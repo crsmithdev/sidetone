@@ -168,10 +168,18 @@ export class Transport {
    * bridge heard nothing for the next twenty minutes without one line in the
    * journal about it. Whether a track arrived is the first thing to know and
    * the bridge was not saying it.
+   *
+   * `open` says whether a track still feeds the ear (18.9.7). The loss of an
+   * older track leaves the newer one, so the microphone stays open.
    */
-  onMicrophone(handle: (on: boolean, sid: string) => void): void {
+  onMicrophone(handle: (on: boolean, sid: string, open: boolean) => void): void {
+    const tracks = new Set<string>();
     const say = (on: boolean) => (track: RemoteTrack) => {
-      if (track.kind === TrackKind.KIND_AUDIO) handle(on, track.sid ?? "");
+      if (track.kind !== TrackKind.KIND_AUDIO) return;
+      const sid = track.sid ?? "";
+      if (on) tracks.add(sid);
+      else tracks.delete(sid);
+      handle(on, sid, tracks.size > 0);
     };
     this.room.on(RoomEvent.TrackSubscribed, say(true));
     this.room.on(RoomEvent.TrackUnsubscribed, say(false));

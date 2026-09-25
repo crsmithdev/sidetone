@@ -87,8 +87,8 @@ export async function serve(dir: string, config: Config): Promise<void> {
   // 18.13.2 the state is kept as well as said: /health carries it, and the
   // echo check refuses to run without a microphone in the room
   let microphone = false;
-  transport.onMicrophone((on, sid) => {
-    microphone = on;
+  transport.onMicrophone((on, sid, open) => {
+    microphone = open;
     console.log(`[the room ${on ? "has" : "lost"} a microphone track, ${sid}]`);
   });
   transport.onMessage((value) => channel.receive(value));

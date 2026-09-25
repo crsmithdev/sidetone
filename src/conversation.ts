@@ -221,8 +221,11 @@ export class Conversation {
   private answering: Answer | null = null;
   /** Item 4 what opens the reply to speech written into the turn that runs; the turn sets it. */
   private injectedReply: (() => void) | null = null;
-  /** Item 4 the last thing Chris said into the turn that runs, which its reply answers. */
-  private injected: string | null = null;
+  /**
+   * Item 4 what Chris said into the turn that runs since the last reply began,
+   * which the next reply answers. 11.9.5 two utterances can go in as one message.
+   */
+  private injected: string[] = [];
 
   get busy(): boolean { return this.turnRunning; }
   get waitingForAgreement(): boolean { return this.checkpointOpen; }
@@ -282,7 +285,7 @@ export class Conversation {
     const note = `[Chris said this aloud while you worked. It is his message to you, not tool output. ${this.stopped()} Act on what he says here.]`;
     if (this.agent.inject([note, shots, said].filter(Boolean).join("\n\n"))) {
       this.answering?.hush();
-      this.injected = said;
+      this.injected.push(said);
       this.measures.cutOff(0, false, true);
       return;
     }
@@ -493,7 +496,8 @@ export class Conversation {
       if (!mine()) return;
       answer.end();
       if (this.mouth.said.length > 0) this.remember(said, this.mouth.said.join(" "));
-      said = this.injected ?? said;
+      if (this.injected.length > 0) said = this.injected.join(" ");
+      this.injected = [];
       this.mouth.newTurn();
       id = ++this.turnId;
       answer = open(id);
@@ -534,7 +538,7 @@ export class Conversation {
       if (mine()) {
         this.answering = null;
         this.injectedReply = null;
-        this.injected = null;
+        this.injected = [];
         this.turnRunning = false;
         this.checkpointOpen = false;
       }

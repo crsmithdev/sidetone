@@ -51,6 +51,11 @@ export class Ear {
   private readonly utterances: Utterances;
   private barging = false;
   private noticedAt = 0;
+  /**
+   * 18.9.8 how long an open microphone's barge-in has gone with no recording,
+   * or null when there is nothing to watch
+   */
+  private unrecordedMs: number | null = null;
   private frameAt = 0;
   private soundAt = 0;
   /**
@@ -124,6 +129,8 @@ export class Ear {
   /** 9.5.2 whether the hold to talk button is down, which keeps the utterance open through a pause. */
   hold(on: boolean): void {
     this.utterances.held = on;
+    // 18.9.8 a press gets its line at the release, so it takes over the watch
+    if (on) this.unrecordedMs = null;
   }
 
   /** One frame from the room. Dispatches when the frame ends an utterance. */
@@ -145,6 +152,17 @@ export class Ear {
         this.say(`  [barge-in: level ${level.toFixed(3)}, held ${Math.round(heldMs)}ms]`);
         this.measures.bargeIn(level, heldMs);
         this.to.stopSpeaking();
+        // a press gets its line at the release
+        this.unrecordedMs = this.utterances.held ? null : 0;
+      }
+    }
+    // 18.9.8 with the microphone open nothing releases, so the line comes one
+    // end-of-turn pause after the barge-in. A recording has its own line.
+    if (this.unrecordedMs !== null) {
+      this.unrecordedMs = this.barging && !this.utterances.active && !said ? this.unrecordedMs + (frame.length / this.options.sampleRate) * 1000 : null;
+      if (this.unrecordedMs !== null && this.unrecordedMs >= this.options.endOfTurnPauseMs) {
+        this.say("[a barge-in and no utterance: the open microphone recorded nothing]");
+        this.unrecordedMs = null;
       }
     }
     // 18.4 the engine starts on the guess, so the text is usually in hand
@@ -176,6 +194,7 @@ export class Ear {
     if (release && barged && !said) this.say("[a barge-in and no utterance: the press recorded nothing]");
     this.utterances.reset();
     this.barging = false;
+    this.unrecordedMs = null;
     this.frameAt = 0;
     this.soundAt = 0;
     if (said) {

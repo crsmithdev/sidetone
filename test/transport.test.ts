@@ -423,6 +423,19 @@ describe("one microphone track per participant (18.9.7)", () => {
     expect(lines).toHaveLength(1);
   });
 
+  test("18.13.2 the microphone stays open while a track feeds the ear: the older of two goes", () => {
+    const older = track("TR_a");
+    const newer = track("TR_b");
+    const { transport, publish, unpublish } = roomWith([]);
+    const said: string[] = [];
+    transport.onMicrophone((on, sid, open) => said.push(`${on ? "has" : "lost"} ${sid}, ${open ? "open" : "cut"}`));
+    publish(older);
+    publish(newer);
+    unpublish(older);
+    unpublish(newer);
+    expect(said).toEqual(["has TR_a, open", "has TR_b, open", "lost TR_a, open", "lost TR_b, cut"]);
+  });
+
   test("each participant has its own track, so two participants both feed the ear", async () => {
     const phone = track("TR_phone");
     const page = track("TR_page");

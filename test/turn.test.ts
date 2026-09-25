@@ -382,6 +382,22 @@ describe("11.9 a question that lands mid-answer", () => {
     await r.turn;
   });
 
+  test("interrupting: two questions that go in as one message are remembered as one request (9.4.7)", async () => {
+    const r = await midAnswer({ interruptOnSpeech: true });
+    await r.c.heard("what is the tallest one");
+    await r.c.heard("and the longest");
+    expect(injected(r)).toHaveLength(2);
+    // 11.9.5 the process takes both at once, so one echo and one reply
+    r.agent.hooks().onInjectedReply?.();
+    r.agent.hooks().onDelta?.("The tallest is in Turkey, the longest in China. ");
+    await tick();
+    r.answer();
+    await r.turn;
+    await r.c.heard("sidetone where are we");
+    await tick();
+    expect(r.said.at(-1)).toBe("You asked: what is the tallest one and the longest I said: The tallest is in Turkey, the longest in China.");
+  });
+
   test("interrupting: the record keeps the cutoff line, marked as injected", async () => {
     const r = await midAnswer({ interruptOnSpeech: true });
     await r.c.heard("what is the tallest one");

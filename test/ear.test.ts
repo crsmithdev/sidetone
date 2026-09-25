@@ -189,6 +189,60 @@ describe("a press with a barge-in and no utterance (18.9.8)", () => {
   });
 });
 
+/**
+ * 18.9.8 the same fault with the microphone open and no press. Nothing
+ * releases, so the line comes one end-of-turn pause after the barge-in.
+ */
+describe("an open microphone with a barge-in and no utterance (18.9.8)", () => {
+  function journaled(transcribe = async () => "words") {
+    const lines: string[] = [];
+    const to = listener();
+    const ear = new Ear(to, transcribe, { ...OPTIONS }, new Measures(), (line) => lines.push(line));
+    return { lines, to, ear };
+  }
+  const LINE = "[a barge-in and no utterance: the open microphone recorded nothing]";
+  const deaf = (ear: Ear, pairs: number) => { for (let i = 0; i < pairs; i++) { ear.frame(frame(0.4)); ear.frame(frame(0)); } };
+
+  test("the journal says so once, one end-of-turn pause after the barge-in", () => {
+    const { lines, ear } = journaled();
+    // the barge-in fires at the 20th loud frame, the 39th frame
+    deaf(ear, 20);
+    expect(lines.filter((line) => line.startsWith("  [barge-in"))).toHaveLength(1);
+    expect(lines).not.toContain(LINE);
+    // 900 ms is 45 more frames
+    deaf(ear, 23);
+    expect(lines).toContain(LINE);
+    deaf(ear, 100);
+    expect(lines.filter((line) => line === LINE)).toHaveLength(1);
+  });
+
+  test("a press gets its own line at the release, not this one as well", () => {
+    const { lines, ear } = journaled();
+    ear.hold(true);
+    deaf(ear, 100);
+    ear.reset(true);
+    expect(lines).not.toContain(LINE);
+    expect(lines.at(-1)).toBe("[a barge-in and no utterance: the press recorded nothing]");
+  });
+
+  test("noise the ear drops already has its line, and gets no second one", async () => {
+    // loud enough to barge in, under the invention guard: too quiet
+    const quiet = journaled();
+    for (let i = 0; i < 30; i++) quiet.ear.frame(frame(0.1));
+    for (let i = 0; i < 100; i++) quiet.ear.frame(frame(0.001));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(quiet.lines.some((line) => line.includes("too quiet"))).toBe(true);
+    expect(quiet.lines).not.toContain(LINE);
+    // loud, and whisper finds no words in it
+    const empty = journaled(async () => "");
+    for (let i = 0; i < 30; i++) empty.ear.frame(frame(0.4));
+    for (let i = 0; i < 100; i++) empty.ear.frame(frame(0.001));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(empty.lines.some((line) => line.includes("(nothing)"))).toBe(true);
+    expect(empty.lines).not.toContain(LINE);
+  });
+});
+
 describe("what is too quiet to have been a person (4.6)", () => {
   test("it costs no turn, and the passage comes back", async () => {
     let asked = 0;
