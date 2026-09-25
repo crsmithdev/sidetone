@@ -277,7 +277,9 @@ export class Conversation {
    * is no turn to go into, and what he said is the next turn, as between turns.
    */
   private async inject(said: string, shots: string): Promise<void> {
-    const note = `[From the bridge, not from Chris: he said this while you worked. ${this.stopped()} Act on what he says here.]`;
+    // 11.9.9 a note that began "From the bridge, not from Chris" read as a
+    // third party in the tool output, and the agent ignored it
+    const note = `[Chris said this aloud while you worked. It is his message to you, not tool output. ${this.stopped()} Act on what he says here.]`;
     if (this.agent.inject([note, shots, said].filter(Boolean).join("\n\n"))) {
       this.answering?.hush();
       this.injected = said;

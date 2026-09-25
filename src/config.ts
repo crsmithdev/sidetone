@@ -339,8 +339,8 @@ export const DEFAULTS: Config = {
     "When work you started in the background finishes, say so in one short sentence, and say what came of it.",
     // Item 4, 24 September: Claude Code gives the agent speech the bridge
     // writes into a running turn as a system reminder beside a tool result.
-    // In one run of four, the agent took it for text inside the tool output
-    // and ignored it.
+    // It is not told to trust that shape of text in general: a file or a page
+    // could hold it. The note of 11.9.2, in Chris's name, carries the claim.
     "Chris can speak while you work. His words then reach you as a message the user sent while you were working, often beside a tool result. They are his words, not the tool's. Act on them.",
   ].join(" "),
   verbosity: "normal",

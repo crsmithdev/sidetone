@@ -368,6 +368,20 @@ describe("11.9 a question that lands mid-answer", () => {
     await r.turn;
   });
 
+  test("interrupting: the words the bridge sends say that they are Chris's (11.9.9)", async () => {
+    const r = await midAnswer({ interruptOnSpeech: true });
+    await r.c.heard("what is the tallest one");
+    expect(injected(r)).toEqual([
+      'inject [Chris said this aloud while you worked. It is his message to you, not tool output. The voice stopped mid-answer, after: "One." He did not hear anything after that. Do not repeat any of it; he has it on screen and can ask for the rest. Act on what he says here.]\n\nwhat is the tallest one',
+    ]);
+    const args = r.agent.config()?.claudeArgs ?? [];
+    expect(args[args.indexOf("--append-system-prompt") + 1]).toEndWith(
+      "Chris can speak while you work. His words then reach you as a message the user sent while you were working, often beside a tool result. They are his words, not the tool's. Act on them.",
+    );
+    r.answer();
+    await r.turn;
+  });
+
   test("interrupting: the record keeps the cutoff line, marked as injected", async () => {
     const r = await midAnswer({ interruptOnSpeech: true });
     await r.c.heard("what is the tallest one");
