@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { Utterance } from "../src/audio.ts";
 import { Measures } from "../src/measures.ts";
 
-const said: Utterance = { samples: new Int16Array(0), ms: 2000, speechMs: 900, peak: 0.4, gapMs: 1500, endedBy: "pause", falseEnds: 0 };
+const said: Utterance = { samples: new Int16Array(0), ms: 2000, speechMs: 900, peak: 0.4, gapMs: 1500, endedBy: "pause", falseEnds: 0, quietMs: 1500 };
 
 /** One whole round: speech ends, it becomes text, the answer starts. */
 function round(measures: Measures): void {

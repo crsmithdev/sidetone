@@ -148,6 +148,15 @@ export interface Config {
    * hears. Zero turns it off.
    */
   earlyTranscribeMs: number;
+  /**
+   * 18.16 the turn detector, Pipecat Smart Turn v3 on the CPU. "shadow" asks
+   * it at each tentative end and writes its guess to the record; the pause
+   * still ends every turn. It stays off, after one line in the journal, when
+   * its worker does not load. "off" does not start the worker.
+   */
+  turnDetector: "off" | "shadow";
+  /** 18.16 the model file, from Hugging Face pipecat-ai/smart-turn-v3 */
+  turnModel: string;
   /** the level that counts as speech, as a fraction of full scale */
   speechLevel: number;
   /** how long the level must stay up before the bridge treats it as speech */
@@ -291,6 +300,8 @@ export const DEFAULTS: Config = {
   sentenceMaxChars: 240,
   endOfTurnPauseMs: 1_500,
   earlyTranscribeMs: 400,
+  turnDetector: "shadow",
+  turnModel: join(homedir(), ".cache", "sidetone", "smart-turn", "smart-turn-v3.2-cpu.onnx"),
   speechLevel: 0.02,
   speechOnsetMs: 50,
   // 2.5 times the level and 8 times the length of the recording detector.
@@ -394,7 +405,7 @@ export const DEFAULTS: Config = {
  * this list of names and not to the type, or the other way round.
  */
 export const IN_FORCE = [
-  "speechLevel", "speechOnsetMs", "endOfTurnPauseMs", "earlyTranscribeMs",
+  "speechLevel", "speechOnsetMs", "endOfTurnPauseMs", "earlyTranscribeMs", "turnDetector",
   "bargeInLevel", "bargeInMs", "bargeInGapMs",
   "minSpeechPeak", "wakeHoldMs", "interruptOnSpeech",
   "holdBackstopMs",
@@ -477,6 +488,9 @@ export function checkConfig(merged: Config): Config {
   }
   if (typeof merged.holdMusicFadeInMs !== "number" || !(merged.holdMusicFadeInMs >= 0)) {
     throw new Error(`holdMusicFadeInMs (${String(merged.holdMusicFadeInMs)}) must be zero or a positive number of milliseconds`);
+  }
+  if (merged.turnDetector !== "off" && merged.turnDetector !== "shadow") {
+    throw new Error(`turnDetector must be off or shadow, not ${String(merged.turnDetector)}`);
   }
   if (!VERBOSITIES.includes(merged.verbosity)) {
     throw new Error(`verbosity must be one of ${VERBOSITIES.join(", ")}, not ${String(merged.verbosity)}`);

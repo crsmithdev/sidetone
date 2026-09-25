@@ -20,6 +20,7 @@ import type { Agent, MakeAgent } from "../src/conversation.ts";
 import type { Outgoing } from "../src/messages.ts";
 import type { Fade, Speaker } from "../src/mouth.ts";
 import type { SessionHooks, Turn } from "../src/session.ts";
+import type { TurnDetector } from "../src/speech.ts";
 
 export const RATE = 16_000;
 
@@ -92,6 +93,8 @@ export interface Options {
   music?: Music;
   /** 11.6.5 the lines with a kept clip on disk; unset, none has one, so no opener plays */
   kept?: string[];
+  /** 18.16 the turn detector; unset, it is off */
+  turn?: TurnDetector;
 }
 
 const built: Bridge[] = [];
@@ -110,6 +113,8 @@ export function bridge(options: Options = {}) {
   const config = {
     ...TEST_CONFIG,
     ...options.overrides,
+    // 18.16 the detector is off unless a test passes one, so no test starts the real worker
+    ...(options.turn ? {} : { turnDetector: "off" as const }),
     ...(music ? { holdMusicFolder: music.folder } : { holdMusic: false }),
   };
   const said: string[] = [];
@@ -156,6 +161,7 @@ export function bridge(options: Options = {}) {
   const agent = scripted(options.script);
   const parts: Parts = {
     stt: { start: async () => {}, warmupSeconds: 1, transcribe: async () => "", transcribeWords: async () => ({ text: "", words: [] }), stop: () => {} },
+    turn: options.turn,
     tts: { start: async () => {}, sampleRate: RATE, synthesize: async (_text, wav) => wav, switchable: true, use: () => {}, voice: "test", stop: () => {} },
     made: {
       take: async (text: string) => text,

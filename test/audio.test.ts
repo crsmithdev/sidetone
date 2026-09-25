@@ -84,6 +84,39 @@ describe("the tentative end (18.4)", () => {
     // the count belongs to one utterance
     expect(drive(twice, [...Array(5).fill(LOUD), ...Array(10).fill(QUIET)]).done[0]?.falseEnds).toBe(0);
   });
+
+  /**
+   * 18.4 the round trip starts when Chris stopped, which is the quiet at the
+   * end of the utterance ago. A pause ends on the setting; a release ends at
+   * once, after whatever quiet came before it.
+   */
+  test("an utterance says how much quiet ended it", () => {
+    const paused = drive(collector(100), [...Array(5).fill(LOUD), ...Array(10).fill(QUIET)]);
+    expect(paused.done[0]?.quietMs).toBe(200);
+    expect(paused.early[0]?.quietMs).toBe(100);
+
+    const released = collector(100);
+    drive(released, [...Array(5).fill(LOUD), ...Array(3).fill(QUIET)]);
+    expect(released.flush()?.quietMs).toBe(60);
+
+    const midWord = collector(100);
+    drive(midWord, Array(5).fill(LOUD));
+    expect(midWord.flush()?.quietMs).toBe(0);
+  });
+
+  /** 18.16 a guess made at a tentative end learns it was wrong on the frame that speech comes back. */
+  test("speech after a tentative end says how long the quiet ran, on that frame only", () => {
+    const u = collector(100);
+    const seen: Array<number | null> = [];
+    for (const f of [...Array(5).fill(LOUD), ...Array(7).fill(QUIET), ...Array(3).fill(LOUD), ...Array(3).fill(QUIET), LOUD]) {
+      u.push(f);
+      u.tentativeEnd();
+      seen.push(u.resumedAfterMs);
+    }
+    // the first quiet ran 140 ms and was offered; the second, of 60 ms, was a breath
+    expect(seen.filter((ms) => ms !== null)).toEqual([140]);
+    expect(seen[12]).toBe(140);
+  });
 });
 
 describe("wav", () => {
@@ -205,7 +238,7 @@ describe("utterances (11.5)", () => {
 });
 
 describe("too quiet to have been a person", () => {
-  const heard = (peak: number) => ({ samples: new Int16Array(0), ms: 2_100, speechMs: 400, peak, gapMs: 1_500, endedBy: "pause" as const, falseEnds: 0 });
+  const heard = (peak: number) => ({ samples: new Int16Array(0), ms: 2_100, speechMs: 400, peak, gapMs: 1_500, endedBy: "pause" as const, falseEnds: 0, quietMs: 1_500 });
   test("the levels measured on 14 September fall either side of the default", () => {
     // "Thank you." came out of this one, and Chris never said it
     expect(tooQuiet(heard(0.12), 0.15)).toBe(true);

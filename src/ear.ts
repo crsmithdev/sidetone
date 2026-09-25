@@ -12,6 +12,7 @@
 import { level, tooQuiet, Utterances, type Utterance, type UtteranceOptions } from "./audio.ts";
 import type { CueName } from "./cues.ts";
 import type { Measures } from "./measures.ts";
+import type { TurnGuesses } from "./turn.ts";
 
 /** What the ear tells. `Conversation` is the one that listens. */
 export interface Ears {
@@ -71,6 +72,8 @@ export class Ear {
     private readonly options: EarOptions,
     private readonly measures: Measures,
     private readonly say: (line: string) => void = console.log,
+    /** 18.16 the turn detector in shadow: told of each tentative end and what came of it */
+    private readonly turns?: TurnGuesses,
   ) {
     // the detector reads the same object on every frame, so `set` reaches it
     this.utterances = new Utterances(options);
@@ -141,6 +144,8 @@ export class Ear {
     this.frameAt = now;
     if (!silent) this.soundAt = now;
     const said = this.utterances.push(frame);
+    const resumed = this.utterances.resumedAfterMs;
+    if (resumed !== null) this.turns?.resumed(resumed);
     // 11.3 the moment Chris really starts, the bridge stops — every sentence,
     // not one. A recording opening is not enough: road noise opens recordings.
     if (this.bargingIn !== this.barging) {
@@ -171,8 +176,12 @@ export class Ear {
     const tentative = this.utterances.tentativeEnd();
     if (tentative && !tooQuiet(tentative, this.options.minSpeechPeak)) {
       this.early = { speechMs: tentative.speechMs, text: this.transcribe(tentative).catch(() => null) };
+      this.turns?.tentative(tentative, this.early.text);
     }
-    if (said) void this.said(said);
+    if (said) {
+      this.turns?.ended(said.endedBy);
+      void this.said(said);
+    }
   }
 
   /**
@@ -198,10 +207,12 @@ export class Ear {
     this.frameAt = 0;
     this.soundAt = 0;
     if (said) {
+      this.turns?.ended(said.endedBy);
       // `said` takes the guess made at the tentative end, and clears it
       void this.said(said);
       return;
     }
+    this.turns?.cut();
     this.early = null;
     this.to.heardNothing();
   }
@@ -220,10 +231,10 @@ export class Ear {
       this.to.heardNothing();
       return;
     }
-    // 18.4 the clock starts on speech, and a lorry is not speech. The end of
-    // the turn was the pause ago, not now: measuring from here would charge a
-    // setting to the round trip.
-    this.measures.speechEnded(Date.now() - this.options.endOfTurnPauseMs, Date.now());
+    // 18.4 the clock starts on speech, and a lorry is not speech. Chris
+    // stopped the quiet that ended the utterance ago, not now: the pause in
+    // force for a pause, and less for a release.
+    this.measures.speechEnded(Date.now() - utterance.quietMs, Date.now());
     this.to.cue("heard");
     const readAt = Date.now();
     try {

@@ -8,6 +8,7 @@
  */
 import { describe, expect, test } from "bun:test";
 import { decodeWav } from "../src/audio.ts";
+import type { TurnDetector } from "../src/speech.ts";
 import { bridge } from "./harness.ts";
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -231,5 +232,40 @@ describe("a pushed audio setup (18.15)", () => {
     expect(r.told).toContainEqual({ kind: "setup", default: true });
     expect(r.journal.at(-1)).toBe("[pushed the phone the setup in the app's code; the phone rejoins with it]");
     expect(r.measures.recent().at(-1)).toMatchObject({ kind: "setup", pushed: null });
+  });
+});
+
+/** 18.16 the turn detector in shadow: loaded, it writes a guess; not loaded, it says so once and is off. */
+describe("the turn detector in shadow (18.16)", () => {
+  const scores = (probability: number): TurnDetector => ({ start: async () => {}, loadSeconds: 0.4, score: async () => ({ probability, inferenceMs: 12 }), stop: () => {} });
+
+  test("once it has loaded, a tentative end is a guess in the record", async () => {
+    const r = bridge({ turn: scores(0.9) });
+    await tick();
+    expect(r.journal).toContain("[turn detector in shadow, loaded in 0.4s]");
+    r.talk();
+    r.hush();
+    await until(() => r.measures.recent().some((event) => event.kind === "turnGuess"));
+    expect(r.measures.recent().find((event) => event.kind === "turnGuess")).toMatchObject({ probability: 0.9, outcome: "ended", endedBy: "pause" });
+  });
+
+  test("a worker that does not load is one line, and the ear goes on without it", async () => {
+    const broken: TurnDetector = { ...scores(0.9), start: async () => { throw new Error("no model at /nowhere"); } };
+    const r = bridge({ turn: broken });
+    await tick();
+    r.talk();
+    r.hush();
+    await tick();
+    expect(r.journal.filter((line) => line.startsWith("[turn detector"))).toEqual(["[turn detector off: it did not load: no model at /nowhere]"]);
+    expect(r.measures.recent().some((event) => event.kind === "turnGuess")).toBe(false);
+    expect(r.measures.recent().some((event) => event.kind === "heard")).toBe(true);
+  });
+
+  test("off starts no worker", async () => {
+    let started = 0;
+    const r = bridge({ turn: { ...scores(0.9), start: async () => { started++; } }, overrides: { turnDetector: "off" } });
+    await tick();
+    expect(started).toBe(0);
+    expect(r.journal.some((line) => line.startsWith("[turn detector"))).toBe(false);
   });
 });

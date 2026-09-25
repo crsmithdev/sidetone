@@ -95,7 +95,20 @@ export interface Device {
  */
 export interface SetupPushed { kind: "setup"; at: number; pushed: AudioSetup | null }
 export interface Track { kind: "track"; at: number; what: "music" | "file"; on: boolean; ms?: number; whole?: boolean }
-export type Event = Heard | Matched | Barged | Answered | Cutoff | Spoke | Note | Setting | Track | Echo | Device | SetupPushed;
+/**
+ * 18.16 what the turn detector said at one tentative end, and what then
+ * happened. `at` is the tentative end. `probability` and `inferenceMs` are
+ * null when the worker gave no answer in time. `quietMs` is the quiet at the
+ * guess. `resumed` means speech came back after `resumedAfterMs` of quiet;
+ * `ended` means the utterance ended on this pause or on a release (`endedBy`);
+ * `cut` means the microphone was cut and the recording dropped. `text` is what
+ * the early transcription made of the audio the guess saw, or null.
+ */
+export interface TurnGuess {
+  kind: "turnGuess"; at: number; probability: number | null; inferenceMs: number | null; quietMs: number;
+  outcome: "resumed" | "ended" | "cut"; resumedAfterMs?: number; endedBy?: "pause" | "flush"; text: string | null;
+}
+export type Event = Heard | Matched | Barged | Answered | Cutoff | Spoke | Note | Setting | Track | Echo | Device | SetupPushed | TurnGuess;
 
 /** Enough to read a drive back, not so much that it is a log of its own. */
 const KEEP = 120;
@@ -177,6 +190,11 @@ export class Diagnostics {
   /** 15.7 and it stopped, after `ms`, whole or cut short. */
   trackStopped(what: Track["what"], ms: number, whole: boolean, at = Date.now()): void {
     this.add({ kind: "track", at, what, on: false, ms: Math.round(ms), whole });
+  }
+
+  /** 18.16 one guess of the turn detector, once its outcome is known. */
+  turnGuess(line: TurnGuess): void {
+    this.add(line);
   }
 
   recent(limit = KEEP): Event[] {

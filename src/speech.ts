@@ -17,6 +17,7 @@ import type { Subprocess } from "bun";
 import type { Config } from "./config.ts";
 import { linesOf } from "./protocol.ts";
 import type { SentClips, Source } from "./sent.ts";
+import type { TurnScore } from "./turn.ts";
 
 /** One word the engine heard, and when: seconds from the start of the wav. */
 export interface HeardWord {
@@ -186,6 +187,38 @@ export class LocalWhisper implements SpeechToText {
     const reply = await this.worker.request({ wav: wavPath, words: true });
     const words = Array.isArray(reply.words) ? reply.words as HeardWord[] : [];
     return { text: typeof reply.text === "string" ? reply.text : "", words };
+  }
+
+  stop(): void { this.worker.stop(); }
+}
+
+/** 18.16 the seam for the turn detector, so a test can pass one that hangs or fails. */
+export interface TurnDetector {
+  start(): Promise<void>;
+  /** what loading and warming the model cost */
+  readonly loadSeconds: number;
+  /** `pcm` is mono at `rate`, the last eight seconds at most; the worker downsamples it */
+  score(pcm: Int16Array, rate: number): Promise<TurnScore>;
+  stop(): void;
+}
+
+/** 18.16 Pipecat Smart Turn v3, on the CPU only: the GPU is full. */
+export class SmartTurn implements TurnDetector {
+  private worker: Worker;
+  loadSeconds = 0;
+
+  constructor(config: Config, scriptDir: string) {
+    this.worker = new Worker(config.pythonBin, [join(scriptDir, "turn_worker.py"), config.turnModel]);
+  }
+
+  async start(): Promise<void> {
+    const ready = await this.worker.start();
+    this.loadSeconds = typeof ready.load_seconds === "number" ? ready.load_seconds : 0;
+  }
+
+  async score(pcm: Int16Array, rate: number): Promise<TurnScore> {
+    const reply = await this.worker.request({ pcm: Buffer.from(pcm.buffer, pcm.byteOffset, pcm.byteLength).toString("base64"), rate });
+    return { probability: Number(reply.probability), inferenceMs: Number(reply.inference_ms) };
   }
 
   stop(): void { this.worker.stop(); }

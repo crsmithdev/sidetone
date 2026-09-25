@@ -33,7 +33,8 @@ import { Screens } from "./screen.ts";
 import { SCREENSHOT_DIR, Screenshots } from "./screenshot.ts";
 import { SentClips, clipChecker } from "./sent.ts";
 import { setupWords } from "./setup.ts";
-import { LocalWhisper, SpokenAhead, textToSpeech, type SpeechToText, type TextToSpeech } from "./speech.ts";
+import { LocalWhisper, SmartTurn, SpokenAhead, textToSpeech, type SpeechToText, type TextToSpeech, type TurnDetector } from "./speech.ts";
+import { TurnGuesses } from "./turn.ts";
 import { Working, jobsRunning } from "./working.ts";
 
 /** 18 the session's own line, then every event after it, appended as it happens. */
@@ -80,6 +81,8 @@ export interface Parts {
   stt?: SpeechToText;
   /** 4.8 the sentence becomes sound */
   tts?: TextToSpeech;
+  /** 18.16 the turn detector in shadow. It is made from the config when it is left out */
+  turn?: TurnDetector;
   /** 11.6 the sentence made ahead of the one being spoken. It is made from `tts` when it is left out */
   made?: Pick<SpokenAhead, "take" | "start" | "use" | "times" | "keptClip">;
   /** 15 the cue files, built once */
@@ -197,13 +200,25 @@ export function assemble(
     screenshots: () => screenshots.take(),
   }, parts.makeAgent);
 
+  // 18.16 the turn detector in shadow. Nothing waits for it to load: until it
+  // has, and forever if it fails, the ear makes no guesses.
+  const guesses = new TurnGuesses(sampleRate, (line) => measures.turnGuess(line));
+  const turn = config.turnDetector === "shadow" ? parts.turn ?? new SmartTurn(config, speechDir) : null;
+  turn?.start().then(
+    () => {
+      guesses.score = (pcm, rate) => turn.score(pcm, rate);
+      say(`[turn detector in shadow, loaded in ${turn.loadSeconds}s]`);
+    },
+    (error: Error) => say(`[turn detector off: it did not load: ${error.message}]`),
+  );
+
   let counter = 0;
   /** 11.5 and 18.4 entire: the listening policy, one module, driven by frames. */
   const ear: Ear = new Ear(conversation.ears, async (utterance) => {
     const wav = join(scratch, `heard-${++counter}.wav`);
     await Bun.write(wav, encodeWav(utterance.samples, sampleRate));
     return stt.transcribe(wav);
-  }, { ...config, sampleRate }, measures, say);
+  }, { ...config, sampleRate }, measures, say, guesses);
 
   conversation.start();
   const watch = setInterval(() => channel.silence(ear.silence()), SILENCE_MS / 3);
@@ -226,6 +241,6 @@ export function assemble(
       channel.journal(`pushed the phone ${message.default ? "" : "an audio setup: "}${setupWords(message)}; the phone rejoins with it`);
       measures.setup(message.default ? null : { mode: message.mode, output: message.output, focus: message.focus, canceller: message.canceller, noiseSuppression: message.noiseSuppression, autoGainControl: message.autoGainControl });
     },
-    stop() { clearInterval(watch); clearInterval(work); conversation.stop(); stt.stop(); tts.stop(); },
+    stop() { clearInterval(watch); clearInterval(work); conversation.stop(); stt.stop(); tts.stop(); turn?.stop(); },
   };
 }

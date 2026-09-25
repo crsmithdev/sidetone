@@ -4,7 +4,7 @@ import { Diagnostics } from "../src/diagnostics.ts";
 
 const utterance = (over: Partial<Utterance> = {}): Utterance => ({
   samples: new Int16Array(0), ms: 3_000, speechMs: 2_400, peak: 0.3,
-  gapMs: 2_000, endedBy: "pause", falseEnds: 0, ...over,
+  gapMs: 2_000, endedBy: "pause", falseEnds: 0, quietMs: 1_500, ...over,
 });
 
 describe("what the bridge remembers", () => {

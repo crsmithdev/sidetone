@@ -39,7 +39,7 @@ function listener(muted = false) {
 }
 
 function utterance(peak: number): Utterance {
-  return { samples: new Int16Array(160), ms: 1000, speechMs: 700, peak, gapMs: 1200, endedBy: "pause", falseEnds: 0 };
+  return { samples: new Int16Array(160), ms: 1000, speechMs: 700, peak, gapMs: 1200, endedBy: "pause", falseEnds: 0, quietMs: 900 };
 }
 
 /** A frame at a level, as the phone would send it. */
@@ -324,7 +324,7 @@ describe("4.6 the invention guard", () => {
     const quiet = new Int16Array(16_000);
     quiet.fill(Math.round(0.05 * 32768));
     const { to, ear } = room(async () => "Thank you.");
-    await ear.said({ samples: quiet, ms: 1000, speechMs: 1000, peak: 0.05, gapMs: 0, endedBy: "pause", falseEnds: 0 });
+    await ear.said({ samples: quiet, ms: 1000, speechMs: 1000, peak: 0.05, gapMs: 0, endedBy: "pause", falseEnds: 0, quietMs: 900 });
     expect(to.told).toEqual(["nothing"]);
   });
 });
@@ -372,6 +372,45 @@ describe("18 a microphone that stopped", () => {
  * Item 44 a threshold changed from the options screen reaches the detector
  * without a restart: the next frame reads it.
  */
+/**
+ * 18.4 the round trip runs from when Chris stopped. That was the quiet that
+ * ended the utterance ago: the setting for a pause, and nothing for a release
+ * in mid-word. The setting alone charged a press 900 ms it never waited.
+ */
+describe("the pause the round trip is charged (18.4)", () => {
+  const speech = (frames: number) => Array.from({ length: frames }, () => frame(0.4));
+  const quiet = (frames: number) => Array.from({ length: frames }, () => frame(0.001));
+  const pauseOf = (measures: Measures) => measures.answering()?.pauseMs;
+
+  test("a release in mid-word is charged no pause", async () => {
+    const { measures, ear } = room(async () => "what is two plus two");
+    for (const f of speech(20)) ear.frame(f);
+    ear.reset(true);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(pauseOf(measures) ?? Infinity).toBeLessThan(20);
+  });
+
+  test("a release after a short quiet is charged that quiet", async () => {
+    const { measures, ear } = room(async () => "what is two plus two");
+    for (const f of [...speech(20), ...quiet(15)]) ear.frame(f);
+    ear.reset(true);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const pause = pauseOf(measures) ?? 0;
+    expect(pause).toBeGreaterThanOrEqual(300);
+    expect(pause).toBeLessThan(320);
+  });
+
+  test("a pause is charged the pause in force, which a client can change", async () => {
+    const { measures, ear } = room(async () => "what is two plus two");
+    ear.set({ endOfTurnPauseMs: 600 });
+    for (const f of [...speech(20), ...quiet(40)]) ear.frame(f);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const pause = pauseOf(measures) ?? 0;
+    expect(pause).toBeGreaterThanOrEqual(600);
+    expect(pause).toBeLessThan(620);
+  });
+});
+
 describe("a threshold set while the ear runs (item 44)", () => {
   const speech = (frames: number) => Array.from({ length: frames }, () => frame(0.4));
   const quiet = (frames: number) => Array.from({ length: frames }, () => frame(0.001));

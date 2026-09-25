@@ -153,6 +153,14 @@ describe("settings that arrive already checked", () => {
     expect(loadConfig(write({ mutedCommands: ["mute", "tonesOff"] })).mutedCommands).toEqual(["mute", "tonesOff"]);
   });
 
+  test("18.16 the turn detector runs in shadow by default, and takes only off or shadow", () => {
+    expect(DEFAULTS.turnDetector).toBe("shadow");
+    expect(DEFAULTS.turnModel).toEndWith("smart-turn-v3.2-cpu.onnx");
+    expect(loadConfig(write({ turnDetector: "off" })).turnDetector).toBe("off");
+    expect(() => loadConfig(write({ turnDetector: "live" }))).toThrow(/turnDetector/);
+    expect(Object.keys(settingsInForce(DEFAULTS))).toContain("turnDetector");
+  });
+
   test("every setting the voice path reads is in the record", () => {
     const kept = Object.keys(settingsInForce(DEFAULTS));
     for (const key of ["holdBackstopMs", "sentenceMaxChars", "audioCueDelayMs", "audioCueEveryMs", "minSpeechPeak", "holdMusic", "holdMusicFadeMs", "holdMusicFadeInMs"]) {

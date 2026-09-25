@@ -155,6 +155,12 @@ export interface Utterance {
   /** what finished it: the end-of-turn pause, or the stream ending */
   endedBy: "pause" | "flush";
   /**
+   * 18.4 the quiet at its end. Chris stopped this long before the bridge
+   * could tell: the pause in force for a pause, and whatever quiet came
+   * before a release, often none.
+   */
+  quietMs: number;
+  /**
    * Quiet stretches of at least `earlyTranscribeMs` inside it, after which
    * speech went on. Each one is a place a shorter pause, or a turn detector
    * that trusts the quiet, would have cut the sentence in half. Counted so a
@@ -189,6 +195,7 @@ export class Utterances {
   /** whether this quiet stretch is long enough that a resume makes it a false end */
   private longQuiet = false;
   private falseEnds = 0;
+  private resumedMs: number | null = null;
   /**
    * 9.5.2 the hold to talk button is down, so only its release ends the
    * utterance. A pause is Chris thinking, not the end of what he says.
@@ -205,6 +212,7 @@ export class Utterances {
   push(frame: Int16Array): Utterance | null {
     const { sampleRate, endOfTurnPauseMs, speechOnsetMs, speechLevel, bargeInLevel, bargeInMs, bargeInGapMs, earlyTranscribeMs } = this.options;
     const ms = (frame.length / sampleRate) * 1000;
+    this.resumedMs = null;
     const heard = level(frame);
     const loud = heard >= speechLevel;
 
@@ -254,6 +262,7 @@ export class Utterances {
     this.ranMs += ms;
     if (loud) {
       this.spokeMs += ms;
+      if (this.tentativeTaken) this.resumedMs = Math.round(this.quietMs);
       this.tentativeTaken = false;
       // speech went on after a quiet long enough to have been taken for the end
       if (this.longQuiet) { this.falseEnds += 1; this.longQuiet = false; }
@@ -288,6 +297,7 @@ export class Utterances {
       gapMs: Math.round(this.gapMs),
       endedBy,
       falseEnds: this.falseEnds,
+      quietMs: Math.round(this.quietMs),
     };
   }
 
@@ -320,6 +330,14 @@ export class Utterances {
     this.tentativeTaken = false;
     this.longQuiet = false;
     this.falseEnds = 0;
+  }
+
+  /**
+   * 18.16 on the frame that speech came back after a tentative end, how long
+   * the quiet ran; null on every other frame.
+   */
+  get resumedAfterMs(): number | null {
+    return this.resumedMs;
   }
 
   /** Whether a recording is open, which is not the same question as a barge-in. */

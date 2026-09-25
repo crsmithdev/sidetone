@@ -11,7 +11,7 @@
  * answer starts. A fact out of order is dropped rather than half recorded.
  */
 import type { Utterance } from "./audio.ts";
-import { Diagnostics, type Device, type Event } from "./diagnostics.ts";
+import { Diagnostics, type Device, type Event, type TurnGuess } from "./diagnostics.ts";
 import { Latency, type Outcome, type Round } from "./latency.ts";
 import type { AudioSetup } from "./messages.ts";
 import type { Event as AgentEvent } from "./protocol.ts";
@@ -27,9 +27,10 @@ export class Measures {
   }
 
   /**
-   * Chris stopped talking, at `endedAt`; the bridge could only tell one
-   * end-of-turn pause later, which is `noticedAt`. The pause is a setting, not
-   * a cost, and the two times are what keeps it out of the engine's share.
+   * Chris stopped talking, at `endedAt`; the bridge could only tell once the
+   * quiet that ended the utterance had run, which is `noticedAt`. That quiet
+   * is the pause setting, or less for a release. It is not the engine's cost,
+   * and the two times are what keeps it out of the engine's share.
    */
   speechEnded(endedAt: number, noticedAt = Date.now()): void {
     this.latency.speechEnded(endedAt, noticedAt);
@@ -145,6 +146,11 @@ export class Measures {
   /** 15.7 and it ended, after `ms`, whole or cut short. */
   trackStopped(what: "music" | "file", ms: number, whole: boolean): void {
     this.diagnostics.trackStopped(what, ms, whole);
+  }
+
+  /** 18.16 what the turn detector guessed at a tentative end, and what happened. */
+  turnGuess(line: TurnGuess): void {
+    this.diagnostics.turnGuess(line);
   }
 
   /** 9.4 the stats command, spoken, so it has to be heard once and kept. */

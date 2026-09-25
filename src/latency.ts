@@ -84,9 +84,9 @@ export class Latency {
 
   /**
    * Chris stopped talking. `endedAt` is when he stopped and `noticedAt` is when
-   * the bridge could tell, which is one end-of-turn pause later. Both are
-   * needed: the total has to run from when he stopped, and the engine's share
-   * must not be charged for a wait that a setting decides.
+   * the bridge could tell, which is the quiet that ended the utterance later.
+   * Both are needed: the total has to run from when he stopped, and the
+   * engine's share must not be charged for a wait that a setting decides.
    */
   speechEnded(endedAt: number, noticedAt = Date.now()): void {
     this.open = { endedAt, noticedAt, transcribedAt: 0, firstDeltaAt: 0, firstSentenceAt: 0, synthesisMs: 0, requestedAt: 0, spoke: false, agent: {} };
