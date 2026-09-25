@@ -203,6 +203,8 @@ export interface Config {
   holdMusicGain: number;
   /** 15.10.2 how long the track takes to fade out when a sentence stops it. Zero cuts it at once. */
   holdMusicFadeMs: number;
+  /** 15.10.4 how long each start of a track takes to rise from nothing to full level. Zero starts it at full level. */
+  holdMusicFadeInMs: number;
   /** 13.2 the reported rate-limit use that earns a spoken warning */
   usageWarnFraction: number;
   /**
@@ -361,6 +363,7 @@ export const DEFAULTS: Config = {
   holdMusicFolder: join(homedir(), ".sidetone", "hold"),
   holdMusicGain: 0.4,
   holdMusicFadeMs: 300,
+  holdMusicFadeInMs: 150,
   usageWarnFraction: 0.8,
   livekitUrl: process.env.LIVEKIT_URL ?? "",
   livekitApiKey: process.env.LIVEKIT_API_KEY ?? "",
@@ -396,7 +399,7 @@ export const IN_FORCE = [
   "minSpeechPeak", "wakeHoldMs", "interruptOnSpeech",
   "holdBackstopMs",
   "sentenceMaxChars", "audioCueDelayMs", "audioCueEveryMs",
-  "holdMusic", "holdMusicAfterMs", "holdMusicGain", "holdMusicFadeMs",
+  "holdMusic", "holdMusicAfterMs", "holdMusicGain", "holdMusicFadeMs", "holdMusicFadeInMs",
   "cueVolume", "ttsEngine", "ttsVoice", "sttModel", "wakeWord",
   "chatterboxExaggeration", "chatterboxCfg", "verbosity", "tones",
 ] as const satisfies ReadonlyArray<keyof Config>;
@@ -471,6 +474,9 @@ export function checkConfig(merged: Config): Config {
   }
   if (!Number.isInteger(merged.warmTries) || merged.warmTries < 1) {
     throw new Error(`warmTries (${String(merged.warmTries)}) must be a whole number of at least one`);
+  }
+  if (typeof merged.holdMusicFadeInMs !== "number" || !(merged.holdMusicFadeInMs >= 0)) {
+    throw new Error(`holdMusicFadeInMs (${String(merged.holdMusicFadeInMs)}) must be zero or a positive number of milliseconds`);
   }
   if (!VERBOSITIES.includes(merged.verbosity)) {
     throw new Error(`verbosity must be one of ${VERBOSITIES.join(", ")}, not ${String(merged.verbosity)}`);

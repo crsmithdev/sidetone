@@ -587,6 +587,8 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 
 15.10.3 Chris talking, the audio going off (11.12), the music going off (15.7.3) and the end of the turn cut the track at once. They do not fade it.
 
+15.10.4 Each start of a track fades in: the first start and each resume. The level rises in a straight line from zero to full. The fade-in time is a setting. The default is 150 milliseconds. The value 0 starts the track at full level. The bridge applies the fade to the samples before it plays them, so the fade costs nothing at play time. A resume starts mid-phrase (15.10.1), and without the fade it cuts in.
+
 15.11 The hold music does not play when no turn is running, when the turn is not long (15.7.4), when the bridge is muted, when the audio is off (11.12), or when a track from the /play route is playing. It does not play while the bridge waits for the agreement word, because the bridge has asked Chris a question (8.6.3, 10.1).
 
 15.12 The /play route hands the file to the mouth, which owns the room's one audio source. The track waits until nothing is being said, then plays. A sentence that arrives while it plays fades it out (15.10.2). Chris talking and the audio going off cut it at once (15.10.3). The route answers 202 as soon as the file is decoded, so the agent can ask for a track and say a sentence about it in the same turn. Before this the route wrote to the transport itself and refused, or stopped, whenever the mouth was busy, and the agent's own next sentence ended the track one second in.
@@ -927,6 +929,7 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 | Hold music: tracks | every audio file in `~/.sidetone/hold/` | 15.8 |
 | Hold music: gain | 0.4 | 15.9 |
 | Hold music: fade out | 300 milliseconds, 0 cuts at once | 15.10.2 |
+| Hold music: fade in | 150 milliseconds, 0 starts at full level | 15.10.4 |
 | GPU budget for the voice path | 8 gigabytes, the whole GPU | 4.10 |
 | Speech-to-text engine and model | faster-whisper, `small.en`, local only | 4.6 |
 | Text-to-speech engine and voice | piper, `en_US-lessac-medium`, local only | 4.9 |

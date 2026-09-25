@@ -1031,9 +1031,12 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
     writeFileSync(join(tracks, "notes.txt"), "not a track");
     const first = (track: { wav: Uint8Array } | undefined) => decodeWav(track!.wav).samples[0];
 
-    /** A room with the folder, whose tracks play until `stop` is set, one at a time. */
-    function music(more: Partial<Music> = {}) {
-      const r = room({}, { holdMusicGain: 1 }, { folder: tracks, ...more });
+    /**
+     * A room with the folder, whose tracks play until `stop` is set, one at a
+     * time. No fade in, so the first sample is the track's own.
+     */
+    function music(more: Partial<Music> = {}, overrides: Partial<Config> = {}) {
+      const r = room({}, { holdMusicGain: 1, holdMusicFadeInMs: 0, ...overrides }, { folder: tracks, ...more });
       let stop = false;
       return {
         ...r,
@@ -1085,6 +1088,53 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
       expect(r.tracks.map(first)).toEqual([0, 5_000]);
       expect(r.patches).toEqual([{ holdMusicGain: 0.5 }]);
       expect(r.said).toEqual([]);
+    });
+
+    /** Item 52 the sample of a test track at `ms` into it, as the file holds it */
+    const at = (base: number, ms: number) => (i: number) => base + Math.floor((ms * RATE / 1_000 + i) * 1_000 / RATE);
+
+    test("each start rises from zero in a straight line over holdMusicFadeInMs (item 52)", async () => {
+      const r = music({}, { holdMusicFadeInMs: 100 });
+      for (let i = 0; i < 3; i++) { await r.play(); await r.cut(); }
+      const length = RATE / 10;
+      // a, then b, then a again from the start: the fade is on a copy, so the third is faded once, not twice
+      for (const [n, base] of [[0, 0], [1, 10_000], [2, 0]] as const) {
+        const samples = decodeWav(r.tracks[n]!.wav).samples;
+        const own = at(base, 0);
+        expect(samples[0]).toBe(0);
+        for (const i of [1, 400, 800, 1_200, length - 1]) expect(samples[i]).toBe(Math.round(own(i) * i / length));
+        expect(samples[length]).toBe(own(length));
+      }
+    });
+
+    test("a resume fades in too (item 52)", async () => {
+      const r = music({}, { holdMusicFadeInMs: 100 });
+      const now = Date.now();
+      setSystemTime(new Date(now));
+      try {
+        await r.play();
+        setSystemTime(new Date(now + 3_500));
+        await r.cut();
+        await r.play();
+        await r.cut();
+        await r.play();
+      } finally {
+        setSystemTime();
+      }
+      await r.cut();
+      const samples = decodeWav(r.tracks[2]!.wav).samples;
+      const own = at(0, 1_500);
+      expect(samples[0]).toBe(0);
+      expect(samples[800]).toBe(Math.round(own(800) / 2));
+      expect(samples[RATE / 10]).toBe(own(RATE / 10));
+    });
+
+    test("a fade in of zero leaves the samples as they were (item 52)", async () => {
+      const r = music({}, { holdMusicFadeInMs: 0 });
+      await r.play(); await r.cut();
+      await r.play(); await r.cut();
+      const own = at(10_000, 0);
+      expect(Array.from(decodeWav(r.tracks[1]!.wav).samples)).toEqual(Array.from({ length: RATE * 5 }, (_, i) => own(i)));
     });
 
     test("a track that played to its end starts from the beginning next time", async () => {

@@ -139,7 +139,7 @@ export function assemble(
     // 11.6.5 no opener while muted
     muted: () => conversation.isMuted,
     // 15.8 the tracks are decoded at the rate the room plays at, so nothing resamples them
-    music: { folder: config.holdMusicFolder, gain: config.holdMusicGain, rate: sampleRate, fadeMs: config.holdMusicFadeMs },
+    music: { folder: config.holdMusicFolder, gain: config.holdMusicGain, rate: sampleRate, fadeMs: config.holdMusicFadeMs, fadeInMs: config.holdMusicFadeInMs },
     // 14.13 a client lights the words as the voice reaches them
     speaking: (sentence) => channel.tell({ kind: "speaking", text: sentence.text, ...(sentence.answer === undefined ? {} : { answer: sentence.answer }) }),
     say,

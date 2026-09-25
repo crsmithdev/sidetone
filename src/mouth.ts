@@ -49,6 +49,18 @@ function listTracks(folder: string, say?: (line: string) => void): HoldTrack[] {
 }
 
 /**
+ * 15.10.4 the start of a track, on a copy: the level rises in a straight line
+ * from nothing to full over `length` samples. The decoded track stays whole,
+ * because the next start fades from another place.
+ */
+function fadeIn(samples: Int16Array, length: number): Int16Array {
+  if (length <= 0) return samples;
+  const out = samples.slice();
+  for (let i = 0; i < Math.min(length, out.length); i++) out[i] = Math.round(out[i]! * i / length);
+  return out;
+}
+
+/**
  * The sentences the bridge says in its own voice, word for word, over and
  * over: an acknowledgement, a refusal, a thing it has nothing to say about.
  *
@@ -259,7 +271,7 @@ export class Mouth {
       voiceChoices: Config["voiceChoices"];
       talking?: () => boolean;
       /** 15.8 the hold music: the folder of tracks, the gain, and the rate the room plays at. Absent means none. */
-      music?: { folder: string; gain: number; rate: number; fadeMs: number };
+      music?: { folder: string; gain: number; rate: number; fadeMs: number; fadeInMs: number };
       /** 14.13 the voice reached this sentence, as it starts to play */
       speaking?: (sentence: Queued) => void;
       /** 11.6.5 the openers; absent or empty means none */
@@ -476,6 +488,8 @@ export class Mouth {
    * is followed by the first. A track that was stopped plays on from
    * `HOLD_RESUME_BACK_MS` before where it stopped; one that ended plays from
    * the start. The positions live only in this process.
+   *
+   * 15.10.4 every start fades in, the first and each resume.
    */
   async music(stop: () => boolean): Promise<boolean> {
     const { music } = this.settings;
@@ -493,7 +507,7 @@ export class Mouth {
     // the first decode takes seconds: a sentence may have come since
     if (!this.audio || this.occupied() || stop()) return false;
     const from = track.at;
-    const playing = this.speaker.track(encodeWav(samples.subarray(from), music.rate), () => this.cutOff() || stop(), { when: () => this.busy, ms: music.fadeMs });
+    const playing = this.speaker.track(encodeWav(fadeIn(samples.subarray(from), music.rate * music.fadeInMs / 1_000), music.rate), () => this.cutOff() || stop(), { when: () => this.busy, ms: music.fadeMs });
     if (playing) {
       this.nextHoldTrack++;
       const startedAt = Date.now();

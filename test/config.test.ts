@@ -27,6 +27,7 @@ describe("config (21)", () => {
     expect(DEFAULTS.holdMusicAfterMs).toBe(8_000);
     expect(DEFAULTS.holdMusicGain).toBe(0.4);
     expect(DEFAULTS.holdMusicFadeMs).toBe(300);
+    expect(DEFAULTS.holdMusicFadeInMs).toBe(150);
     expect(DEFAULTS.holdMusic).toBe(true);
     // item 37 normal is the behaviour from before the setting existed
     expect(DEFAULTS.verbosity).toBe("normal");
@@ -141,6 +142,11 @@ describe("settings that arrive already checked", () => {
     expect(() => loadConfig(write({ minSpeechPeak: 0.01 }))).toThrow(/minSpeechPeak/);
   });
 
+  test("a fade in under zero is refused, and zero is kept (item 52)", () => {
+    expect(() => loadConfig(write({ holdMusicFadeInMs: -1 }))).toThrow(/holdMusicFadeInMs/);
+    expect(loadConfig(write({ holdMusicFadeInMs: 0 })).holdMusicFadeInMs).toBe(0);
+  });
+
   test("a typo in the muted set is refused, not silently dropped", () => {
     // 9.6 it used to be a list of strings: "tonesoff" simply never matched
     expect(() => loadConfig(write({ mutedCommands: ["mute", "tonesoff"] }))).toThrow(/tonesoff/);
@@ -149,7 +155,7 @@ describe("settings that arrive already checked", () => {
 
   test("every setting the voice path reads is in the record", () => {
     const kept = Object.keys(settingsInForce(DEFAULTS));
-    for (const key of ["holdBackstopMs", "sentenceMaxChars", "audioCueDelayMs", "audioCueEveryMs", "minSpeechPeak", "holdMusic", "holdMusicFadeMs"]) {
+    for (const key of ["holdBackstopMs", "sentenceMaxChars", "audioCueDelayMs", "audioCueEveryMs", "minSpeechPeak", "holdMusic", "holdMusicFadeMs", "holdMusicFadeInMs"]) {
       expect(kept).toContain(key);
     }
     // the list names real settings, and the defaults answer for each of them
