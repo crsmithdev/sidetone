@@ -12,6 +12,8 @@
  * setting as if it were a cost.
  */
 
+import type { WorkerTimes } from "./speech.ts";
+
 export interface Round {
   /**
    * 11.5 the end-of-turn pause, which is a setting and not a cost. The bridge
@@ -37,6 +39,9 @@ export interface Round {
   synthesisMs: number;
 }
 
+/** 18.4.1 a round, with what the worker says the sentence cost it when it says. */
+export type TimedRound = Round & Partial<WorkerTimes>;
+
 /** Enough rounds to have a median, few enough that a drive ago does not count. */
 const KEEP = 20;
 
@@ -44,7 +49,7 @@ const KEEP = 20;
 export type Outcome = "speech" | "command" | "nothing";
 
 export class Latency {
-  private open: { endedAt: number; noticedAt: number; transcribedAt: number; firstDeltaAt: number; firstSentenceAt: number; synthesisMs: number } | null = null;
+  private open: { endedAt: number; noticedAt: number; transcribedAt: number; firstDeltaAt: number; firstSentenceAt: number; synthesisMs: number; worker?: WorkerTimes } | null = null;
   private readonly rounds: Round[] = [];
   /**
    * 18.6 every barge-in, with the sound that caused it. The two thresholds are
@@ -78,9 +83,11 @@ export class Latency {
     if (this.open && !this.open.firstSentenceAt) this.open.firstSentenceAt = at;
   }
 
-  /** What the engine spent on the sentence that will close this round. */
-  synthesized(ms: number): void {
-    if (this.open && !this.open.synthesisMs) this.open.synthesisMs = Math.round(ms);
+  /** What the engine spent on the sentence that will close this round, and what its worker says it spent. */
+  synthesized(ms: number, worker?: WorkerTimes): void {
+    if (!this.open || this.open.synthesisMs) return;
+    this.open.synthesisMs = Math.round(ms);
+    this.open.worker = worker;
   }
 
   /**
@@ -88,18 +95,19 @@ export class Latency {
    * round. Returns the round it closed, or null when it closed none: a caller
    * that records rounds must not record the one before this again.
    */
-  answered(at = Date.now()): Round | null {
+  answered(at = Date.now()): TimedRound | null {
     const open = this.open;
     if (!open) return null;
     this.open = null;
     const asked = open.transcribedAt || open.noticedAt;
-    const round: Round = {
+    const round: TimedRound = {
       pauseMs: open.noticedAt - open.endedAt,
       transcribeMs: open.transcribedAt ? open.transcribedAt - open.noticedAt : 0,
       answerMs: at - open.endedAt,
       agentMs: open.firstDeltaAt ? open.firstDeltaAt - asked : 0,
       sentenceMs: open.firstDeltaAt && open.firstSentenceAt ? open.firstSentenceAt - open.firstDeltaAt : 0,
       synthesisMs: open.synthesisMs,
+      ...open.worker,
     };
     this.rounds.push(round);
     if (this.rounds.length > KEEP) this.rounds.shift();

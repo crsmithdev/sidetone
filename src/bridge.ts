@@ -81,7 +81,7 @@ export interface Parts {
   /** 4.8 the sentence becomes sound */
   tts?: TextToSpeech;
   /** 11.6 the sentence made ahead of the one being spoken. It is made from `tts` when it is left out */
-  made?: Pick<SpokenAhead, "take" | "start" | "use">;
+  made?: Pick<SpokenAhead, "take" | "start" | "use" | "times">;
   /** 15 the cue files, built once */
   cues?: Pick<Cues, "file"> & { build(): Promise<void> };
   /** 18 where every event of the session goes. A test that keeps none passes a sink that drops them */

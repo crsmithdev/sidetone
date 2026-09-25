@@ -159,6 +159,7 @@ export function bridge(options: Options = {}) {
       take: async (text: string) => text,
       start: (text: string | undefined) => { lookahead.push(text); },
       use: (voice: string) => { switched.push(voice); return true; },
+      times: () => undefined,
     },
     cues: { file: (name) => name, build: async () => {} },
     record: () => {},

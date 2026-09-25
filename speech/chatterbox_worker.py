@@ -13,7 +13,13 @@ A reference is embedded once and kept, because embedding it is most of the
 cost of the first sentence in that voice. Switching back to a voice already
 used costs nothing.
 
-{"text": str, "wav": path, "voice": name} -> {"wav": path, "seconds": float}
+{"text": str, "wav": path, "voice": name}
+    -> {"wav": path, "seconds": float, "tokens": int,
+        "t3_seconds": float, "s3gen_seconds": float, "watermark_seconds": float}
+
+`tokens` is the count of speech tokens T3 made. The three stages are the
+calls `generate` makes: T3, S3Gen (the flow and the vocoder), and the
+watermark. `seconds` is the whole request, as in every worker.
 """
 import sys
 import time
@@ -55,12 +61,41 @@ def main() -> None:
     worker.reply(ready=True, sample_rate=model.sr, device=device,
                  warmup_seconds=round(time.time() - started, 3))
 
+    # Spec 18.4.1: the time of each stage. `generate` calls the three stages
+    # through attributes of the model, so a wrapper on each instance times
+    # them and the library stays as it is. The GPU runs ahead of Python, so a
+    # mark waits for it; otherwise one stage is charged for the one before.
+    stages: dict[str, float] = {}
+
+    def mark() -> float:
+        if device == "cuda":
+            torch.cuda.synchronize()
+        return time.perf_counter()
+
+    def timed(owner: object, name: str, stage: str) -> None:
+        call = getattr(owner, name)
+
+        def wrapped(*args, **kwargs):
+            if stage == "s3gen":
+                stages["tokens"] = int(kwargs["speech_tokens"].numel())
+            started = mark()
+            result = call(*args, **kwargs)
+            stages[f"{stage}_seconds"] = round(mark() - started, 3)
+            return result
+
+        setattr(owner, name, wrapped)
+
+    timed(model.t3, "inference", "t3")
+    timed(model.s3gen, "inference", "s3gen")
+    timed(model.watermarker, "apply_watermark", "watermark")
+
     def handle(request: dict) -> dict:
+        stages.clear()
         use(request["voice"])
         with torch.inference_mode():
             wav = model.generate(request["text"], exaggeration=exaggeration, cfg_weight=cfg_weight)
         worker.write_wav(request["wav"], wav.squeeze().cpu().numpy(), model.sr)
-        return {"wav": request["wav"]}
+        return {"wav": request["wav"], **stages}
 
     worker.serve(handle)
 

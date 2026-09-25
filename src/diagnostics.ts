@@ -12,6 +12,7 @@
  */
 import type { Utterance } from "./audio.ts";
 import type { AudioSetup } from "./messages.ts";
+import type { WorkerTimes } from "./speech.ts";
 
 export interface Heard {
   kind: "heard";
@@ -36,8 +37,10 @@ export interface Matched { kind: "matched"; at: number; said: string; became: st
  * 18.4 a round trip that closed: the end of speech to the first sound of the
  * answer, and how the time between was spent. The last three are zero when
  * their mark was never made; a record from before 19 September lacks them.
+ * 18.4.1 the worker's own times follow when the worker gave them; a record
+ * from before 24 September lacks them.
  */
-export interface Answered {
+export interface Answered extends Partial<WorkerTimes> {
   kind: "answered"; at: number; answerMs: number; pauseMs: number; transcribeMs: number;
   agentMs: number; sentenceMs: number; synthesisMs: number;
 }

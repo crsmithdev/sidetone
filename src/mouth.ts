@@ -227,7 +227,7 @@ export class Mouth {
   constructor(
     private readonly speaker: Speaker,
     /** 11.6 the sentence made ahead of time, the kept ones, and whose voice */
-    private readonly made: Pick<SpokenAhead, "take" | "start" | "use">,
+    private readonly made: Pick<SpokenAhead, "take" | "start" | "use" | "times">,
     private readonly cues: Pick<Cues, "file">,
     /** 18.4 the round trip closes here, so the one bookkeeper lives here. */
     readonly measures: Measures,
@@ -614,8 +614,9 @@ export class Mouth {
     const wav = await this.made.take(speakable(text));
     // 18.4 the first sound of the answer closes the round trip, and the engine's
     // share of it is told first. A later sentence is not a round trip, and the
-    // tracker ignores both.
-    this.measures.synthesized(Date.now() - madeAt);
+    // tracker ignores both. The worker's times are read for every sentence, so
+    // a resume does not report the times of the first take again (18.4.1).
+    this.measures.synthesized(Date.now() - madeAt, this.made.times(wav));
     this.measures.answering();
     // The engine takes one request at a time, so this starts only now that
     // the current sentence is made. A barge-in during this prefetch makes

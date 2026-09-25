@@ -39,12 +39,42 @@ export interface SpeechToText {
   stop(): void;
 }
 
+/**
+ * 18.4.1 what the worker says one request cost it, in milliseconds: the whole
+ * request, and, from the cloning voice, the speech tokens and the time of each
+ * stage. A worker that does not give a field leaves it out.
+ */
+export interface WorkerTimes {
+  workerMs: number;
+  speechTokens?: number;
+  t3Ms?: number;
+  s3genMs?: number;
+  watermarkMs?: number;
+}
+
+/** The worker's reply read as `WorkerTimes`, or null when it gives no time. */
+function workerTimes(reply: Record<string, unknown>): WorkerTimes | null {
+  const seconds = (key: string) => typeof reply[key] === "number" ? Math.round(reply[key] * 1_000) : undefined;
+  const workerMs = seconds("seconds");
+  if (workerMs === undefined) return null;
+  const times: WorkerTimes = { workerMs };
+  if (typeof reply.tokens === "number") times.speechTokens = reply.tokens;
+  const stages = { t3Ms: seconds("t3_seconds"), s3genMs: seconds("s3gen_seconds"), watermarkMs: seconds("watermark_seconds") };
+  for (const [key, ms] of Object.entries(stages)) if (ms !== undefined) times[key as keyof typeof stages] = ms;
+  return times;
+}
+
+/** How many unread `WorkerTimes` a voice keeps: a sentence made ahead that never plays is never read. */
+const TIMES_KEPT = 8;
+
 export interface TextToSpeech {
   start(): Promise<void>;
   /** Non-zero once the engine has answered, which is how the health check knows. */
   readonly sampleRate: number;
   /** Writes the speech to wavPath and returns it. */
   synthesize(text: string, wavPath: string): Promise<string>;
+  /** 18.4.1 what the worker said the wav cost, once: a second call gets nothing. */
+  times?(wavPath: string): WorkerTimes | undefined;
   /** 9.4 whether the voice is a name taken per request. A fact, so no caller has to ask twice. */
   readonly switchable: boolean;
   /** 9.4 change voice without a restart. An engine of one voice keeps the one it has. */
@@ -256,7 +286,25 @@ export class LocalVoice implements TextToSpeech {
 
   async synthesize(text: string, wavPath: string): Promise<string> {
     const reply = await this.worker.request({ text, wav: wavPath, voice: this.spoken });
-    return typeof reply.wav === "string" ? reply.wav : wavPath;
+    const wav = typeof reply.wav === "string" ? reply.wav : wavPath;
+    const times = workerTimes(reply);
+    if (times) {
+      this.timed.set(wav, times);
+      for (const old of this.timed.keys()) {
+        if (this.timed.size <= TIMES_KEPT) break;
+        this.timed.delete(old);
+      }
+    }
+    return wav;
+  }
+
+  /** 18.4.1 the worker's own times for each wav, until they are read. */
+  private readonly timed = new Map<string, WorkerTimes>();
+
+  times(wavPath: string): WorkerTimes | undefined {
+    const times = this.timed.get(wavPath);
+    this.timed.delete(wavPath);
+    return times;
   }
 
   stop(): void { this.worker.stop(); }
@@ -313,20 +361,27 @@ export type WarmOutcome = "kept" | "made" | "carried" | "garbled";
  * than to make, so making the next one while this one plays hides the cost of
  * every sentence after the first.
  *
- * The cache holds exactly one sentence, keyed by its text. A sentence a
- * barge-in cut comes back to the front of the queue, and the queue can be
+ * The cache holds exactly one sentence, keyed by its text. The queue can be
  * jumped, so what plays next is not always what was made ready: a miss just
  * synthesizes, which is what happened every time before.
+ *
+ * A sentence a barge-in cut comes back to the front of the queue. Its wav is
+ * the one handed out last, so a resume plays that wav again, and the sentence
+ * made ahead of it stays made. Until 24 September the resume deleted both and
+ * made the cut sentence again, behind the one made ahead: a whole synthesis
+ * after every hold.
  */
 export class SpokenAhead {
   private ready: { text: string; wav: Promise<string> } | null = null;
   private counter = 0;
   /**
-   * The scratch wav handed out last, removed on the next take: sentences play
-   * one at a time, so by then it has played. Without this a session left a wav
-   * per sentence under /tmp for as long as the process lived.
+   * The scratch wav handed out last, and its sentence. The next take of
+   * another sentence removes it: sentences play one at a time, so by then it
+   * has played. Without this a session left a wav per sentence under /tmp for
+   * as long as the process lived. A take of the same sentence is a resume,
+   * and gets the same wav.
    */
-  private handed: string | null = null;
+  private handed: { text: string; path: string } | null = null;
 
   /**
    * `kept` names the sentences worth keeping between runs and where to keep
@@ -345,24 +400,34 @@ export class SpokenAhead {
 
   /** The wav for this sentence, already made if it was the one expected. */
   take(text: string): Promise<string> {
-    if (this.handed) { void unlink(this.handed).catch(() => {}); this.handed = null; }
-    const ready = this.ready;
-    this.ready = null;
     const keeping = this.keptPath(text);
     let wav: Promise<string>;
     let source: Source = "made";
-    if (ready?.text === text) wav = ready.wav;
+    // 11.3 a resume: the sentence made ahead stays. A kept line that the check
+    // refused is made again instead, because a new take may be clean.
+    if (this.handed?.text === text && !keeping) wav = Promise.resolve(this.handed.path);
     else {
-      this.drop(ready);
-      if (keeping && existsSync(keeping)) { wav = Promise.resolve(keeping); source = "kept"; }
-      else wav = this.make(text);
+      if (this.handed) { void unlink(this.handed.path).catch(() => {}); this.handed = null; }
+      const ready = this.ready;
+      this.ready = null;
+      if (ready?.text === text) wav = ready.wav;
+      else {
+        this.drop(ready);
+        if (keeping && existsSync(keeping)) { wav = Promise.resolve(keeping); source = "kept"; }
+        else wav = this.make(text);
+      }
     }
     // 18.14 a copy that fails costs the check one clip, never the sentence
     if (this.sent) wav.then((path) => this.sent?.keep(path, text, source)).catch(() => {});
     // a kept line is on disk for good; anything else goes once it has played,
     // and so does a take of a kept line that the check refused (11.6.1)
-    wav.then((path) => { if (path !== keeping) this.handed = path; }, () => {});
+    wav.then((path) => { if (path !== keeping) this.handed = { text, path }; }, () => {});
     return wav;
+  }
+
+  /** 18.4.1 what the worker said the wav cost, once, when the engine says. */
+  times(wav: string): WorkerTimes | undefined {
+    return this.tts.times?.(wav);
   }
 
   /**

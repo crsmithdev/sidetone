@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
+import { mkdtempSync, readdirSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { basename, join } from "node:path";
 import { Measures } from "../src/measures.ts";
 import { ANNOUNCE_POLL_MS, Mouth, type Speaker } from "../src/mouth.ts";
+import { DEFAULTS } from "../src/config.ts";
+import { LocalVoice, SpokenAhead, type TextToSpeech } from "../src/speech.ts";
 
 /**
  * A speaker that can be made to block mid-sentence and to report a sentence
@@ -8,7 +13,7 @@ import { ANNOUNCE_POLL_MS, Mouth, type Speaker } from "../src/mouth.ts";
  * sentence takes one tick, the way the engine takes a moment, so by the time
  * one sentence is made the next has usually been queued.
  */
-function scripted(holdBackstopMs = 10_000, switchable = true) {
+function scripted(holdBackstopMs = 10_000, switchable = true, ahead?: SpokenAhead) {
   const used: string[] = [];
   const played: string[] = [];
   const wavs: Array<string | null> = [];
@@ -30,10 +35,11 @@ function scripted(holdBackstopMs = 10_000, switchable = true) {
     cue(wav, cut) { cues.push(wav); cuts.push(cut); },
     track: () => null,
   };
-  const made = {
+  const made = ahead ?? {
     take: async (text: string) => `${text}.wav`,
     start: (text: string | undefined) => { started.push(text); },
     use: (voice: string) => { used.push(voice); return switchable; },
+    times: () => undefined,
   };
   const measures = new Measures();
   const mouth = new Mouth(speaker, made, { file: (name) => `${name}.wav` }, measures, { holdBackstopMs, voiceChoices: { female: "f", male: "m" } });
@@ -124,6 +130,70 @@ describe("the hold (11.3)", () => {
     await tick();
     expect(m.played).toEqual(["half a sen"]);
     expect(m.mouth.said).toEqual([]);
+  });
+});
+
+/** A mouth over a real `SpokenAhead`, with an engine that writes each sentence to the scratch and counts it. */
+function voiced() {
+  const asked: string[] = [];
+  const tts: TextToSpeech = {
+    start: async () => {},
+    sampleRate: 24_000,
+    switchable: true,
+    voice: "test",
+    use: () => {},
+    synthesize: async (text, wav) => { asked.push(text); await Bun.write(wav, text); return wav; },
+    stop: () => {},
+  };
+  const scratch = mkdtempSync(join(tmpdir(), "mouth-"));
+  return { ...scripted(10_000, true, new SpokenAhead(tts, scratch)), asked, scratch };
+}
+
+const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
+
+/** "first." plays, "second." is made ahead, and a barge-in cuts "first.". */
+async function cutFirst(m: ReturnType<typeof voiced>) {
+  m.blockPlay(true);
+  m.mouth.say("first."); m.mouth.say("second.");
+  await settle();
+  m.cutPlay(true);
+  m.mouth.hold();
+  m.release();
+  await settle();
+  m.blockPlay(false); m.cutPlay(false);
+}
+
+describe("a resume plays the clip it cut (11.3, 11.6)", () => {
+  test("the engine is asked for neither the cut sentence nor the one made ahead again", async () => {
+    const m = voiced();
+    await cutFirst(m);
+    m.mouth.resume();
+    await m.mouth.drained();
+    expect(m.played).toEqual(["first.", "first.", "second."]);
+    expect(m.wavs[1]).toBe(m.wavs[0]);
+    expect(m.asked).toEqual(["first.", "second."]);
+  });
+
+  test("the clips go once the next sentence is taken, and none is left behind", async () => {
+    const m = voiced();
+    await cutFirst(m);
+    m.mouth.resume();
+    await m.mouth.drained();
+    m.mouth.say("third.");
+    await m.mouth.drained();
+    await settle();
+    expect(readdirSync(m.scratch)).toEqual([basename(m.wavs[3]!)]);
+  });
+
+  test("a discard drops the cut clip and the one made ahead, and the next answer is made fresh", async () => {
+    const m = voiced();
+    await cutFirst(m);
+    m.mouth.discard();
+    m.mouth.say("other.");
+    await m.mouth.drained();
+    await settle();
+    expect(m.asked).toEqual(["first.", "second.", "other."]);
+    expect(readdirSync(m.scratch)).toEqual([basename(m.wavs[1]!)]);
   });
 });
 
@@ -298,6 +368,53 @@ describe("the round trip's marks (18.4)", () => {
     await m.mouth.drained();
     const round = m.measures.recent().find((e) => e.kind === "answered") as { synthesisMs: number };
     expect(round.synthesisMs).toBeGreaterThanOrEqual(10);
+  });
+
+  /**
+   * A worker in Bun that speaks the Python workers' protocol: a ready line,
+   * then one reply a request with the timings `reply` names. No model loads.
+   */
+  async function standIn(reply: Record<string, number>) {
+    const dir = mkdtempSync(join(tmpdir(), "worker-"));
+    const script = join(dir, "worker.ts");
+    await Bun.write(script, `
+      const out = (o) => process.stdout.write(JSON.stringify(o) + "\\n");
+      out({ ready: true, sample_rate: 24000 });
+      for await (const line of console) {
+        const asked = JSON.parse(line);
+        await Bun.write(asked.wav, asked.text);
+        out({ wav: asked.wav, ...${JSON.stringify(reply)} });
+      }
+    `);
+    return new LocalVoice({ switchable: true, voices: DEFAULTS, worker: () => ({ bin: process.execPath, args: [script] }) }, DEFAULTS, dir);
+  }
+
+  test("what the worker says the sentence cost reaches the record", async () => {
+    const voice = await standIn({ seconds: 1.234, tokens: 70, t3_seconds: 0.9, s3gen_seconds: 0.25, watermark_seconds: 0.05 });
+    await voice.start();
+    try {
+      const m = scripted(10_000, true, new SpokenAhead(voice, mkdtempSync(join(tmpdir(), "mouth-"))));
+      open(m);
+      m.mouth.say("one."); m.mouth.say("two.");
+      await m.mouth.drained();
+      const rounds = m.measures.recent().filter((e) => e.kind === "answered");
+      expect(rounds).toHaveLength(1);
+      expect(rounds[0]).toMatchObject({ workerMs: 1234, speechTokens: 70, t3Ms: 900, s3genMs: 250, watermarkMs: 50 });
+    } finally { voice.stop(); }
+  });
+
+  test("a worker that gives only the whole time gives the record only that", async () => {
+    const voice = await standIn({ seconds: 0.1 });
+    await voice.start();
+    try {
+      const m = scripted(10_000, true, new SpokenAhead(voice, mkdtempSync(join(tmpdir(), "mouth-"))));
+      open(m);
+      m.mouth.say("one.");
+      await m.mouth.drained();
+      const round = m.measures.recent().find((e) => e.kind === "answered") as unknown as Record<string, unknown>;
+      expect(round.workerMs).toBe(100);
+      expect(Object.keys(round).filter((key) => ["speechTokens", "t3Ms", "s3genMs", "watermarkMs"].includes(key))).toEqual([]);
+    } finally { voice.stop(); }
   });
 
   test("a new turn starts the count again", async () => {

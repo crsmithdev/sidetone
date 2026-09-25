@@ -85,8 +85,9 @@ describe("the sentences the bridge keeps (11.6)", () => {
     const { tts, asked } = engine();
     const ahead = new SpokenAhead(tts, scratchDir());
     await ahead.take("Muted.");
+    await ahead.take("Listening.");
     await ahead.take("Muted.");
-    expect(asked).toEqual(["Muted.", "Muted."]);
+    expect(asked).toEqual(["Muted.", "Listening.", "Muted."]);
   });
 
   test("the key the bridge really uses holds the engine and its own voice settings", () => {
@@ -120,6 +121,33 @@ describe("the sentences the bridge keeps (11.6)", () => {
     const scratch = two.slice(0, two.lastIndexOf("/"));
     const { readdirSync } = await import("node:fs");
     expect(readdirSync(scratch)).toEqual([two.slice(scratch.length + 1)]);
+  });
+});
+
+describe("a sentence a barge-in cut, taken again for the resume (11.3)", () => {
+  test("its clip plays again, and the sentence made ahead of it stays made", async () => {
+    const { tts, asked } = engine();
+    const ahead = new SpokenAhead(tts, scratchDir());
+    const first = await ahead.take("The first sentence.");
+    ahead.start("The second sentence.");
+    // the barge-in cut the first sentence; the resume takes it again
+    const again = await ahead.take("The first sentence.");
+    expect(again).toBe(first);
+    expect(existsSync(first)).toBe(true);
+    ahead.start("The second sentence.");
+    await ahead.take("The second sentence.");
+    expect(asked).toEqual(["The first sentence.", "The second sentence."]);
+  });
+
+  test("the clip of the cut sentence goes once another sentence is taken", async () => {
+    const { tts } = engine();
+    const ahead = new SpokenAhead(tts, scratchDir());
+    const first = await ahead.take("The first sentence.");
+    await ahead.take("The first sentence.");
+    const other = await ahead.take("Something else.");
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(existsSync(first)).toBe(false);
+    expect(existsSync(other)).toBe(true);
   });
 });
 

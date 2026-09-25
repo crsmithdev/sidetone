@@ -363,6 +363,8 @@ project bridge stays in place.
 
 11.6.3 A reply that no take says cleanly alone is cut out of a carrier. A carrier is a sentence the voice says cleanly that ends with the reply's own words in the reply's own sense, so the words close a statement in the falling tone of an acknowledgement: "The answer has stopped." carries "Stopped.". The warm command makes a take of the carrier, the speech worker gives the time of each word it heard, and the bridge cuts the reply's words out by those times. The cut passes the same check as any take (11.6.1), or it is not kept. The carrier gets the same number of takes as the reply alone. Every reply of one or two words has a carrier; a reply of three words or more came out clean in every take measured on 24 September. The wording of a reply does not change for the voice: on 24 September "Stopped." came out clean in no take of 5 alone, and it is the answer to a barge-in, so it is the reply least able to wait for a synthesis.
 
+11.6.4 The bridge makes the next sentence while the current sentence plays. When a barge-in cuts a sentence and what Chris said resumes the answer, the bridge plays the clip of the cut sentence again and keeps the next sentence it made. The engine gets no second request for either. The bridge deletes each clip when it takes a different sentence. After a discard, the next sentence deletes the cut clip and the clip made ahead. A fixed reply that the check refused (11.6.1) is made again, because a new take can be clean. Until 24 September a resume deleted both clips and made the cut sentence again, behind the next one: a whole synthesis, about 2.2 s at the median, after every hold.
+
 11.7 A cue marks the end of the bridge's speaking (15.15). Until 24 September it was an option for later.
 
 11.8 The product is for one user. The product does not need to separate the voices of more than one person.
@@ -795,6 +797,8 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 18.3 The round-trip time is the network time plus the generation time.
 
 18.4 Measure the time to the first audio from the phone. Record a middle value and a high value across many turns.
+
+18.4.1 Each `answered` line in the record gives the time of the sentence that closed the round, as the speech worker measured it. `workerMs` is the whole request in the worker. `synthesisMs` minus `workerMs` is the wait in the worker queue and the pipe. The cloning voice also gives `speechTokens`, the count of speech tokens, and the time of each stage: `t3Ms` for the speech tokens, `s3genMs` for the flow and the vocoder, and `watermarkMs` for the watermark. The worker waits for the GPU before each mark, so a stage does not get the time of the stage before it. A worker that does not give a field leaves it out of the record. A record from before 24 September has none of these fields.
 
 18.5 The speed numbers in the earlier plan came from a different machine, a cloud sandbox, a small model, and a one-line prompt. The numbers are the right shape but they are not a promise. Confirm the speed numbers on Chris's machine.
 

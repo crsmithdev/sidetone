@@ -14,6 +14,7 @@ import type { Utterance } from "./audio.ts";
 import { Diagnostics, type Device, type Event } from "./diagnostics.ts";
 import { Latency, type Outcome, type Round } from "./latency.ts";
 import type { AudioSetup } from "./messages.ts";
+import type { WorkerTimes } from "./speech.ts";
 
 export class Measures {
   private readonly latency = new Latency();
@@ -48,9 +49,12 @@ export class Measures {
     this.latency.firstSentence(at);
   }
 
-  /** What the engine spent making the sentence about to close the round. */
-  synthesized(ms: number): void {
-    this.latency.synthesized(ms);
+  /**
+   * What the engine spent making the sentence about to close the round, and
+   * what the worker says it spent (18.4.1).
+   */
+  synthesized(ms: number, worker?: WorkerTimes): void {
+    this.latency.synthesized(ms, worker);
   }
 
   /** What that utterance was, and what the engine made of it. */
