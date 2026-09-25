@@ -613,6 +613,24 @@ Done when the light says at a glance which of the states that matter it is in,
 the legend reads as one idea rather than a table of four ambers, and both are in
 the spec.
 
+## 52. The hold music fades in
+
+Noted 24 September 2026, from Chris. Not started.
+
+A hold track starts at full level, and after a resume it starts two seconds
+before where it stopped (15.10.1), so it cuts in mid-phrase. It fades out over
+`holdMusicFadeMs` (300 ms, 15.10.2) but never fades in.
+
+Fade each start in with a straight line from zero, shorter than the fade out:
+a new setting `holdMusicFadeInMs`, default 150 ms, where 0 starts at full
+level. It applies to every start of a track, the first and each resume. The
+fade is done on the samples before `speaker.track` gets them, so it costs
+nothing at play time.
+
+Done when a test shows the first samples of a started track rise from zero over
+the setting, spec 15.10 and the defaults table name it, and Chris has heard it
+in the car.
+
 ## Done
 
 One line for each item that shipped: the number, the title, the date, the
