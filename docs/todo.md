@@ -631,24 +631,6 @@ Done when a test shows the first samples of a started track rise from zero over
 the setting, spec 15.10 and the defaults table name it, and Chris has heard it
 in the car.
 
-## 53. No audio while the app is behind another app with the screen on
-
-Noted 24 September 2026, from Chris. A job started the same evening.
-
-The app plays the voice and the hold music while another app is in front and
-the screen is on. With the screen off, it should play as now.
-
-Assumed, not yet confirmed by Chris: the app is quiet only when the screen is
-on, the app is not in front, and the sound goes to the phone's own speaker or
-earpiece. Over Bluetooth (the car, a headset) or a wired headset it keeps
-playing, because in the car Maps may be in front with the screen on. The quiet
-must not change Chris's own audio switch or survive as a kept cut, and the row
-or the notification says why the app is silent.
-
-Done when a unit test tries every input of the rule, and on the phone: the app
-behind another app with the screen on is silent on the speaker, plays with the
-screen off, and plays in the car with Maps in front.
-
 ## Done
 
 One line for each item that shipped: the number, the title, the date, the
