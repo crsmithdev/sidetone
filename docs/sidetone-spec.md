@@ -567,17 +567,17 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 
 15.6 The audio cue is pleasant and calm. It is a short click, not a musical note.
 
-15.7 The bridge plays hold music when a long turn is running and the room has heard no bridge voice for a set time. A turn is running when Chris has finished speaking and the agent has not returned its result. A turn is long when the agent says so (15.7.4) or when it calls a tool (15.7.5). The time is a setting. The default is 8 seconds. The value 0 turns the hold music off.
+15.7 The bridge plays hold music when a long turn is running and the room has heard no bridge voice for a set time. A turn is running when Chris has finished speaking and the agent has not returned its result. A turn is long when it calls a tool (15.7.5). The time is a setting. The default is 8 seconds. The value 0 turns the hold music off.
 
 15.7.1 The bridge measures the silence from the later of two moments. The first moment is the end of Chris's utterance, when the bridge hands it to the agent. The second moment is the end of the last spoken sentence.
 
-15.7.2 The agent decides ahead of time whether a turn is long, because it knows before it starts whether it will run tools or think hard. The bridge does not guess from the silence that a turn is long. The bridge measures the silence only to place the music inside a long turn. The bridge does not rely on the agent's word alone, since a tool call (15.7.5) settles it on its own.
+15.7.2 The bridge does not guess from the silence that a turn is long. The bridge measures the silence only to place the music inside a long turn. A slow turn with no tool call gets no hold music.
 
 15.7.3 Chris turns the hold music on and off by voice. He says "music on" or "music off" after the wake word. The bridge answers "Music on." or "Music off." The choice is a setting. The bridge keeps it across restarts. The bridge does not play the hold music while the setting is off. The "Music" button of the app sets the same setting (17.10.3). If Chris turns the music off while a track plays, the track stops. The two commands are not in the default muted set (9.6), because the hold music does not play while the bridge is muted (15.11).
 
-15.7.4 The voice instruction (6.5) tells the agent to start its reply with the marker `[long]` when it expects a slow turn. A reply that starts with the marker makes a long turn. The agent writes no marker when it expects a quick answer, and that turn gets no hold music. The bridge removes the marker before the text reaches the sentence splitter, the voice, the app and the transcript. The marker can arrive split across stream deltas, and the bridge holds the start of the reply until it is certain. Only the very start of the reply counts. The bridge does not remove `[long]` from later in the text.
+15.7.4 This item is removed. Earlier revisions had the agent start a slow reply with the marker `[long]`. The agent also wrote the marker after a tool call, where the bridge did not remove it, and the voice spoke it. A tool call already makes a turn long, so the marker added only a slow turn with no tool call. The item number does not change, because other sections point to it.
 
-15.7.5 A reply can start with a tool call and no text, or call a tool after text with no marker in front of it. Either way the tool call itself makes the turn long, marker or not, the moment the tool call starts. This does not depend on the agent writing `[long]`.
+15.7.5 A tool call makes the turn long, the moment the tool call starts. A reply can start with a tool call and no text, or call a tool after text. Either way the turn is long from the tool call on.
 
 15.8 The tracks are the audio files in a folder. The folder is a setting. The default is `~/.sidetone/hold/`. A new track needs no settings edit. The repository does not hold the audio. The bridge lists the folder once, on first use. If the folder is missing or has no tracks, the bridge writes one line to the log and does not try again in that process. A track that the bridge cannot read gets one line in the log, and the next track plays in its place.
 
