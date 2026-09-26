@@ -22,6 +22,8 @@ from faster_whisper import WhisperModel  # noqa: E402
 def main() -> None:
     model_name = sys.argv[1]
     root = sys.argv[2]
+    # the names Chris says, as the initial prompt; an empty string sends none
+    prompt = (sys.argv[3] if len(sys.argv) > 3 else "") or None
     model = WhisperModel(model_name, device="cuda", compute_type="float16", download_root=root)
 
     # the warmup transcription, on a second of silence, so the first real one is fast
@@ -34,7 +36,9 @@ def main() -> None:
         # writes something for silence anyway -- "you", "Thank you." -- and the
         # bridge sends that phantom to the agent and pays for a turn.
         timed = bool(request.get("words"))
-        segments, _ = model.transcribe(request["wav"], beam_size=1, vad_filter=True, word_timestamps=timed)
+        segments, _ = model.transcribe(
+            request["wav"], beam_size=1, vad_filter=True, word_timestamps=timed, initial_prompt=prompt,
+        )
         segments = list(segments)
         result = {"text": "".join(segment.text for segment in segments).strip()}
         if timed:

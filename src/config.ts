@@ -67,6 +67,12 @@ export interface Config {
   /** 4.6 a small Whisper-family model */
   sttModel: string;
   /**
+   * Names Chris says that the engine has no reason to know. They go to the
+   * model as its initial prompt, which biases it toward these spellings. An
+   * empty list sends no prompt.
+   */
+  sttVocabulary: string[];
+  /**
    * 4.9 which engine speaks. kokoro is on the GPU; piper is the CPU fallback;
    * chatterbox clones a voice from a recording and costs twenty times kokoro.
    */
@@ -284,6 +290,7 @@ export const DEFAULTS: Config = {
   pythonBin: new URL("../.venv/bin/python", import.meta.url).pathname,
   modelsDir: join(homedir(), ".sidetone", "models"),
   sttModel: "small.en",
+  sttVocabulary: ["Sidetone", "aleph", "Cloud Chamber", "Beamline", "Voiceover", "Claude", "LiveKit", "Kokoro", "Chatterbox", "worktree"],
   ttsEngine: "chatterbox",
   // 4.9 the engine names its voices; the table in speech.ts is the one place they are written
   ...ENGINES.chatterbox.voices,
@@ -410,7 +417,7 @@ export const IN_FORCE = [
   "holdBackstopMs",
   "sentenceMaxChars", "audioCueDelayMs", "audioCueEveryMs",
   "audio", "holdMusic", "holdMusicAfterMs", "holdMusicGain", "holdMusicFadeMs", "holdMusicFadeInMs",
-  "cueVolume", "ttsEngine", "ttsVoice", "sttModel", "wakeWord",
+  "cueVolume", "ttsEngine", "ttsVoice", "sttModel", "sttVocabulary", "wakeWord",
   "chatterboxExaggeration", "chatterboxCfg", "verbosity", "tones",
 ] as const satisfies ReadonlyArray<keyof Config>;
 

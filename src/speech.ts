@@ -170,7 +170,9 @@ export class LocalWhisper implements SpeechToText {
   warmupSeconds = 0;
 
   constructor(config: Config, scriptDir: string) {
-    this.worker = new Worker(config.pythonBin, [join(scriptDir, "stt_worker.py"), config.sttModel, config.modelsDir]);
+    this.worker = new Worker(config.pythonBin, [
+      join(scriptDir, "stt_worker.py"), config.sttModel, config.modelsDir, config.sttVocabulary.join(", "),
+    ]);
   }
 
   async start(): Promise<void> {
