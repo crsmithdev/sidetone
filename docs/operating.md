@@ -145,6 +145,16 @@ for it.
 `bun scripts/browser-check.ts` drives the client page in a real browser with a
 wav file for a microphone. Point it at a bridge of your own, not the live one.
 
+After each Claude Code upgrade, measure the stream facts again (spec 16.2):
+
+```bash
+bun scripts/protocol-check.ts --runs 3            # Haiku; --model sonnet for the bridge's model
+```
+
+It drives the real `claude` with the bridge's flags, text in, and prints one
+line for each fact: the runs that held, the runs in all, and the claude
+version. It costs money and needs the network, so it is not in `bun test`.
+
 ## Adding a command
 
 The matcher forgives spelling, because a speech engine gives back a word that
