@@ -121,6 +121,19 @@ describe("the bridge, assembled as the car assembles it", () => {
     expect(r.said).toEqual(["Job research finished."]);
   });
 
+  test("job news waits for a running turn, then goes in as one turn (14.10.6)", async () => {
+    let release!: () => void;
+    const r = bridge({ script: { hold: new Promise<void>((resolve) => { release = resolve; }) } });
+    void r.c.turn("what is going on");
+    r.tell("sidetone/alpha passed");
+    r.tell("cloudchamber/beta needs-you question");
+    const asks = () => r.agent.calls.filter((call) => call.startsWith("ask "));
+    expect(asks().length).toBe(1);
+    release();
+    await until(() => asks().length === 2, 3_000);
+    expect(asks()[1].endsWith("[job news] sidetone/alpha passed\n[job news] cloudchamber/beta needs-you question")).toBe(true);
+  });
+
   test("a setting a client sends does what the spoken command does (9.4.9)", async () => {
     const r = bridge();
     r.channel.receive({ kind: "setting", patch: { holdMusic: true } });

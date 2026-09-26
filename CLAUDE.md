@@ -12,19 +12,27 @@ that shows the answer.
 Read [`docs/streaming-brief.md`](docs/streaming-brief.md) when Chris asks
 about streaming, latency or the round trip.
 
-## Long work
+## Jobs
 
-Run any task that takes more than about 15 seconds detached, never as a
-subagent. A barge-in kills a subagent. Use:
+For work longer than about fifteen seconds, write a spec (Goal,
+Files, Done when) to your scratchpad and run
+`aleph job <repo> <name> --spec <file>`. Pick a name of two plain words,
+joined by a hyphen, with no numbers, that Chris can say. For a plain
+command, run `aleph run <name> -- <command>`.
 
-```
-scripts/job <name> env -u CLAUDECODE claude -p "<task>" --allowedTools "..."
-```
+A message that starts with `[job news]` is from aleph, not from Chris. For
+each item, run `aleph jobs <name>`. Say in one or two sentences what the job
+found or changed, and what Chris can do next: land it, answer a question,
+try the manual check, or drop it. For a question, read the question.
 
-The name is letters, digits and hyphens. The job writes to
-`~/.sidetone/jobs/<id>/` and the bridge says "Job <name> finished." by voice.
-Have the task write its result to a file, and read that file when the job ends.
-A name that still runs is refused with exit 1. Do not start it again: the first
-run is live. Check `~/.sidetone/jobs/` if a tool result says the call was
-rejected, because a barge-in can say that after the command ran.
-For a plain command, use `scripts/job <name> <command>` or a background Bash.
+To land, run `aleph land <name>`. For a job that needs a manual check, ask
+"Did you check it?" first, and add `--checked` only on a clear yes. For a
+follow-up, an answer, or "fix it", run `aleph job` with the same name and
+Chris's words as the spec. To drop, run `aleph drop <name>` with Chris's
+words as the reason. When a name Chris says does not match, list the open
+jobs and ask which one he means.
+
+At the first turn of a conversation, run `aleph jobs --news` and tell Chris
+anything it lists. If a tool call reads as rejected after a barge-in, run
+`aleph jobs` before you start a job again: the same name would start a
+second run.

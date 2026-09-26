@@ -72,7 +72,7 @@ describe("pairing, the boundary (12.1, ADR 0005)", () => {
 });
 
 describe("the routes for this machine only (12.1)", () => {
-  for (const [method, path] of [["GET", "/diagnostics"], ["POST", "/say"], ["POST", "/play"], ["POST", "/setup"]] as const) {
+  for (const [method, path] of [["GET", "/diagnostics"], ["POST", "/say"], ["POST", "/tell"], ["POST", "/play"], ["POST", "/setup"]] as const) {
     test(`${method} ${path} is not found from the tailnet`, async () => {
       const s = site();
       const response = method === "GET" ? await s.get(path, TAILNET) : await s.post(path, { text: "x", file: "/x" }, TAILNET);
@@ -115,6 +115,23 @@ describe("/say is one announcement (17.17)", () => {
     const s = site();
     expect((await s.post("/say", { text: "  " })).status).toBe(400);
     expect(s.told).toEqual([]);
+  });
+});
+
+describe("/tell is job news for the agent (14.10.6)", () => {
+  test("the line goes to the agent as a turn, marked as news, and not to the voice", async () => {
+    const s = site();
+    const response = await s.post("/tell", { text: " sidetone/app-queue passed " });
+    expect(response.status).toBe(202);
+    await wait(50);
+    expect(s.agent.calls.some((call) => call.startsWith("ask ") && call.endsWith("[job news] sidetone/app-queue passed"))).toBe(true);
+    expect(s.told).not.toContainEqual(expect.objectContaining({ kind: "narration", announce: true }));
+  });
+
+  test("an empty line is refused", async () => {
+    const s = site();
+    expect((await s.post("/tell", { text: "  " })).status).toBe(400);
+    expect(s.agent.calls.filter((call) => call.startsWith("ask "))).toEqual([]);
   });
 });
 

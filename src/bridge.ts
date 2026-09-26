@@ -61,6 +61,13 @@ export interface Bridge {
    */
   announce(text: string): void;
   /**
+   * One line of job news from aleph, for the agent, not for the voice. The
+   * lines wait while a turn runs; at idle they go in as one turn, each marked
+   * `[job news]`. The queue lives in memory: `aleph jobs --news` recovers what
+   * a restart lost.
+   */
+  tell(text: string): void;
+  /**
    * 18.15 push the phone an audio setup, or send it back to the one in its
    * code. The message, the journal line and the record event go together, so
    * the record always says which setup was asked for; the phone's own word on
@@ -222,8 +229,17 @@ export function assemble(
   const watch = setInterval(() => channel.silence(ear.silence()), SILENCE_MS / 3);
   // 14.10 whether the agent works, said to the client whatever the audio does
   const working = new Working(() => conversation.busy, parts.jobs ?? (() => jobsRunning()), (on) => channel.tell({ kind: "working", on }));
+  // aleph's job news waits here for an idle moment, then goes in as one turn
+  const news: string[] = [];
+  const deliver = () => {
+    if (news.length === 0 || conversation.busy) return;
+    const lines = news.splice(0).map((line) => `[job news] ${line}`).join("\n");
+    channel.journal(`the bridge gave the agent job news: ${lines}`);
+    void conversation.turn(lines);
+  };
   const work = setInterval(() => {
     working.tick();
+    deliver();
     for (const line of screenshots.expire()) channel.journal(line);
   }, 1_000);
 
@@ -233,6 +249,10 @@ export function assemble(
       mouth.announce(text, () => !conversation.busy);
       // 17.17 the words reach the app at once, which notifies them when it is not in front
       channel.tell({ kind: "narration", text, announce: true });
+    },
+    tell(text: string) {
+      news.push(text);
+      deliver();
     },
     setup(message: Setup) {
       channel.tell(message);

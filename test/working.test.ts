@@ -70,7 +70,7 @@ describe("what the bridge says about work (14.10)", () => {
 });
 
 describe("which jobs are running (14.10.4)", () => {
-  /** A jobs directory, as `scripts/job` leaves it: pid while it runs, exit when it ends. */
+  /** A jobs directory, as aleph leaves it: pid while it runs, exit when it ends. */
   function jobs(spec: Record<string, { pid?: string; exit?: string }>) {
     const dir = mkdtempSync(join(tmpdir(), "sidetone-jobs-"));
     for (const [id, files] of Object.entries(spec)) {

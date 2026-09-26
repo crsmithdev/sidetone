@@ -7,15 +7,15 @@
  * keeps arriving, so a bridge that is stuck does not look like one that works.
  *
  * Two things are work. A turn is one (`Conversation.busy`). A detached job is
- * the other: `scripts/job` writes a directory for each job, and the bridge
- * reads it. It measures and says; it decides nothing.
+ * the other: aleph writes a directory for each job run, and the bridge reads
+ * it. It measures and says; it decides nothing.
  */
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-/** `scripts/job` writes one directory here for each job. */
-export const JOBS_DIR = join(homedir(), ".sidetone", "jobs");
+/** aleph writes one directory here for each run: `aleph job`, `aleph run` and `aleph land`. */
+export const JOBS_DIR = join(homedir(), ".aleph", "jobs");
 
 /** 14.10.2 how often the bridge repeats "on" while the work lasts. The app trusts the sign for three of these. */
 export const HEARTBEAT_MS = 5_000;

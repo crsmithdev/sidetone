@@ -4,7 +4,8 @@
  * room. `serve.ts` joins the room and hands the requests here.
  *
  * The routes decide nothing about sound. /say is `Bridge.announce` and /play
- * is `Mouth.play`: the mouth is the one owner of the audio source.
+ * is `Mouth.play`: the mouth is the one owner of the audio source. /tell is
+ * `Bridge.tell`, which gives the agent job news, not the voice.
  */
 import { wavFromFile } from "./audio.ts";
 import type { Bridge } from "./bridge.ts";
@@ -179,9 +180,8 @@ export function routes(site: Site): (request: Request, ip: string | undefined) =
       return Response.json({ playing: file }, { status: 202 });
     }
     /**
-     * Say one line when the bridge is free: `scripts/job` tells Chris here
-     * that a detached job ended. The same guard as /play: a shell on this
-     * machine only.
+     * Say one line when the bridge is free. The same guard as /play: a shell
+     * on this machine only.
      */
     if (url.pathname === "/say" && request.method === "POST") {
       if (!isLocal(ip)) return new Response("not found", { status: 404 });
@@ -190,6 +190,19 @@ export function routes(site: Site): (request: Request, ip: string | undefined) =
       if (!text) return Response.json({ error: "text must be a line to say" }, { status: 400 });
       console.log(`[to say when free: ${text}]`);
       bridge.announce(text);
+      return Response.json({ queued: text }, { status: 202 });
+    }
+    /**
+     * 14.10.6 one line of job news for the agent: aleph POSTs here when a job
+     * run ends. The same body and the same guard as /say.
+     */
+    if (url.pathname === "/tell" && request.method === "POST") {
+      if (!isLocal(ip)) return new Response("not found", { status: 404 });
+      const body = await request.json().catch(() => ({})) as { text?: string };
+      const text = body.text?.trim() ?? "";
+      if (!text) return Response.json({ error: "text must be one line of news" }, { status: 400 });
+      console.log(`[job news: ${text}]`);
+      bridge.tell(text);
       return Response.json({ queued: text }, { status: 202 });
     }
     /**

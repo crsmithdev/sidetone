@@ -490,9 +490,11 @@ project bridge stays in place.
 
 14.10.3 The audio has no effect on the message. The bridge sends it with the audio on and with the audio off (11.12).
 
-14.10.4 A detached job is a job that `scripts/job` started. For each job, the script writes a directory in `~/.sidetone/jobs/`. The directory holds a `pid` file while the job runs, and an `exit` file when it ends. The bridge reads the directories every 2 seconds. A job runs when its directory has a `pid` file and no `exit` file, and the process with that pid has the directory in its command line. A job that was killed and left no `exit` file does not run. The script refuses a name whose job runs by this same test, with exit 1, so one job cannot start two times. The bridge does not see other background work, such as a background tool call of the agent.
+14.10.4 A detached job is a run that aleph started: `aleph job`, `aleph run` or `aleph land`. For each run, aleph writes a directory in `~/.aleph/jobs/`. The directory holds a `pid` file while the run lives, and an `exit` file when it ends. The bridge reads the directories every 2 seconds. A run lives when its directory has a `pid` file and no `exit` file, and the process with that pid has the directory in its command line. A run that was killed and left no `exit` file does not live. aleph uses this same test to refuse a second run of a job that runs. The bridge does not see other background work, such as a background tool call of the agent.
 
 14.10.5 The bridge does not keep the message for the history (14.8). A client that joins while the agent works gets the state at the next heartbeat. The web client ignores the message.
+
+14.10.6 aleph gives the agent job news through `/tell`. The body is `{"text": "<line>"}`, as for `/say`, and the route has the same guard: a shell on this machine only. The bridge keeps the lines in a queue. When no turn runs, it starts a turn through the same path as a spoken utterance. The turn holds one line for each queued item, and each line starts with `[job news]`. Items that arrive while a turn runs wait, and go in together. The voice does not say the line; the agent reads it and tells Chris. The queue lives in memory, so a restart loses it. `aleph jobs --news` gives the agent what it lost.
 
 14.11 The client sends its screen log (17.12) to the bridge as it grows, and the bridge appends it to disk. The agent cannot see the phone, and the file lets it read what the app showed.
 

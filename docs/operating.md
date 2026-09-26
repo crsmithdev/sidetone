@@ -507,18 +507,19 @@ a detached job starts, and again every 5 seconds while the work lasts. It sends
 "stalled". That means the bridge stopped sending, and it is the one sign that
 the bridge is stuck.
 
-A detached job is a `scripts/job` job. The script writes `pid` in the job
-directory, and `exit` when the job ends. The bridge counts a directory with a
-`pid`, no `exit`, and a process at that pid that has the directory in its
-command line:
+A detached job is an aleph run: `aleph job`, `aleph run` or `aleph land`.
+aleph writes `pid` in the run directory, and `exit` when the run ends. The
+bridge counts a directory with a `pid`, no `exit`, and a process at that pid
+that has the directory in its command line:
 
 ```bash
-ls ~/.sidetone/jobs/*/pid
+aleph jobs
+ls ~/.aleph/jobs/*/pid
 ```
 
-A background tool call of the agent is not a `scripts/job` job. The bridge does
-not see it, so the sign does not show it. A job that an older `scripts/job`
-started has no `pid` file and does not show.
+A background tool call of the agent is not an aleph run. The bridge does not
+see it, so the sign does not show it. When a run ends, aleph POSTs one line to
+`/tell`, and the bridge gives it to the agent as a `[job news]` turn at idle.
 
 ### The screen log
 
