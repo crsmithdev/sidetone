@@ -32,6 +32,8 @@ export interface Script {
   deltas?: string[];
   text?: string;
   rateLimit?: { fiveHour: number; sevenDay: number };
+  /** 8.9 the fill as a fraction of the compaction threshold; unset, claude reported none */
+  context?: number;
   /** what the agent does before it answers, such as reaching the checkpoint */
   during?: (hooks: SessionHooks) => void;
   /** a turn that is still running: it answers when this resolves */
@@ -69,7 +71,7 @@ export function scripted(script: Script = {}) {
     running: true,
     turns: 1,
     rateLimit: script.rateLimit ?? { fiveHour: 0, sevenDay: 0 },
-    contextFraction: () => null,
+    contextFraction: () => script.context ?? null,
     totalCostUsd: () => 0.5,
   };
   const make: MakeAgent = (made, config) => { hooks = made; given = config; return agent; };

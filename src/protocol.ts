@@ -1,7 +1,7 @@
 /**
  * Claude Code's stream-json output, reduced to what the bridge acts on.
  *
- * Shapes confirmed against claude 2.1.267 with
+ * Shapes confirmed against claude 2.1.267, and the result again against 2.1.283, with
  *   -p --verbose --input-format stream-json --output-format stream-json
  * Anything unrecognised still counts as activity, which is the point: the
  * silence detector must not go blind when a new event type appears.
@@ -57,7 +57,12 @@ export type Event =
   | { kind: "toolStart"; id: string; tool: string; parentId: string | null }
   | { kind: "toolEnd"; id: string; parentId: string | null }
   | { kind: "compaction" }
-  | { kind: "result"; text: string; costUsd: number; usage: Usage; isError: boolean }
+  /**
+   * `usage` sums every request of the turn. `request` is the last request
+   * alone, which is what the context holds now (8.9). `window` and
+   * `maxOutput` are the main model's, or 0 when the result names no model.
+   */
+  | { kind: "result"; text: string; costUsd: number; usage: Usage; request: Usage; window: number; maxOutput: number; isError: boolean }
   | { kind: "other"; type: string };
 
 function num(value: unknown, fallback = 0): number {
@@ -74,9 +79,31 @@ function usageOf(raw: unknown): Usage {
   };
 }
 
-/** The tokens that count against the context window: everything the model read, plus what it wrote. */
+/** 8.9 the fill: the tokens one request read, cached or not. */
 export function contextTokens(usage: Usage): number {
-  return usage.inputTokens + usage.cacheReadTokens + usage.cacheCreationTokens + usage.outputTokens;
+  return usage.inputTokens + usage.cacheReadTokens + usage.cacheCreationTokens;
+}
+
+/**
+ * 8.9 the token count at which claude 2.1.283 compacts: the window, less the
+ * output it keeps free (at most 20,000), less a margin of 13,000. This is
+ * claude's own rule, read from its code (`B4` and `P7`), not a field.
+ */
+export function compactionThreshold(window: number, maxOutput: number): number {
+  return window - Math.min(maxOutput, 20_000) - 13_000;
+}
+
+/**
+ * 8.9 the main model of a result: the entry of `modelUsage` that read the most.
+ * A side call on a small model can share the result, and reads less.
+ */
+function mainModel(raw: unknown): { window: number; maxOutput: number } {
+  let best = { read: -1, window: 0, maxOutput: 0 };
+  for (const entry of Object.values((raw ?? {}) as Record<string, Record<string, unknown>>)) {
+    const read = num(entry?.inputTokens) + num(entry?.cacheReadInputTokens) + num(entry?.cacheCreationInputTokens);
+    if (read > best.read) best = { read, window: num(entry?.contextWindow), maxOutput: num(entry?.maxOutputTokens) };
+  }
+  return { window: best.window, maxOutput: best.maxOutput };
 }
 
 /** One line of NDJSON becomes zero or more events; one assistant message can carry both text and a tool call. */
@@ -110,11 +137,16 @@ export function parseLine(line: string): Event[] {
     return [{ kind: "init", sessionId: String(raw.session_id ?? ""), model: String(raw.model ?? "") }];
   }
   if (type === "result") {
+    const usage = (raw.usage ?? {}) as Record<string, unknown>;
+    // measured on 2.1.283: `iterations` holds only the last request of the turn
+    const last = Array.isArray(usage.iterations) ? usage.iterations.at(-1) : undefined;
     return [{
       kind: "result",
       text: typeof raw.result === "string" ? raw.result : "",
       costUsd: num(raw.total_cost_usd),
-      usage: usageOf(raw.usage),
+      usage: usageOf(usage),
+      request: usageOf(last ?? usage),
+      ...mainModel(raw.modelUsage),
       isError: raw.is_error === true,
     }];
   }

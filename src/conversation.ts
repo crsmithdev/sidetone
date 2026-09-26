@@ -110,6 +110,8 @@ export class Conversation {
   private checkpointOpen = false;
   /** 13.2 the usage warning was spoken, and use has not dropped below the level since */
   private usageWarned = false;
+  /** 8.9 the context warning was spoken, and the fill has not dropped below the level since */
+  private contextWarned = false;
   private lastReply = "";
   /**
    * 11.9 whether a question that lands mid-answer stops the answer or is
@@ -529,6 +531,13 @@ export class Conversation {
       else if (!this.usageWarned) {
         this.usageWarned = true;
         this.reply(`A heads up: rate limit use is at ${Math.round(worst * 100)} percent.`);
+      }
+      // 8.9 the soft warning, once per crossing; a compaction drops the fill and resets it
+      const context = this.agent.contextFraction();
+      if (context === null || context < this.config.contextWarnFraction) this.contextWarned = false;
+      else if (!this.contextWarned) {
+        this.contextWarned = true;
+        this.reply(`A heads up: the context is at ${Math.round(context * 100)} percent of the compaction threshold.`);
       }
     } catch (error) {
       if (!mine()) return;

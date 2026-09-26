@@ -229,7 +229,7 @@ project bridge stays in place.
 
 8.8 The bridge lets Chris clear the context with a spoken command.
 
-8.9 The bridge reads the context from Claude Code. This replaces the estimate of the earlier revisions, which 16.2 no longer supports. Claude Code sends an `autocompact_state` event with the window size and the compaction threshold, and the result of each turn carries the token counts. The bridge divides the counts by the threshold. The bridge gives a soft warning when the number gets high and a definite warning when it sees a compaction.
+8.9 The bridge reads the context from Claude Code. It does not estimate the fill. The fill is the input, cache-read and cache-creation tokens of the last request of the latest turn: the last entry of `usage.iterations` in the result. The totals of `usage` add up every request of the turn, so they are not the fill. On 26 September a turn of three requests on claude 2.1.283 read 27,737 tokens in its last request, and its totals said 81,193. The window is `contextWindow` of the main model in the result's `modelUsage`: the entry that read the most tokens. The threshold is the window less the smaller of `maxOutputTokens` and 20,000, less 13,000. Claude Code 2.1.283 compacts at this number (the functions `B4` and `P7` in its code), but no event states it, so a later version can change the rule without a sign in the stream. Haiku gives 200,000 and 167,000; Sonnet gives 1,000,000 and 967,000. When an `autocompact_state` event arrives, its window and threshold win over the result. The bridge divides the fill by the threshold. It gives a soft warning once, after the turn, when the number reaches the context warning level, and again only after the number drops below the level. It gives a definite warning when it sees a compaction.
 
 8.10 The bridge lets Chris select the model with a spoken command.
 
@@ -621,7 +621,7 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 
 16.1 Other projects do voice for the Claude command-line tool. The nearest is claude-voice, which does speech-to-text, then the Claude command-line tool, then text-to-speech, with barge-in and a phone client. The telephony project claude-phone is the call-based method that this product does not use. Other projects are Happy Coder, Paseo, VoiceMode, and Voicebox. Learn from these projects. Read their code for the plumbing. Do not adopt one as the product. None of them do the gating, the wake commands, the car resilience, or the aleph memory split that this product needs.
 
-16.2 Claude Code does expose the context to an outside tool, measured against version 2.1.267. The `autocompact_state` event gives the window size and the compaction threshold, and the result of each turn gives the input, output, cache-read and cache-creation tokens. The earlier revisions of this document said the opposite and called for an estimate. The estimate is not needed. Confirm this again after a Claude Code upgrade, because it is not a promised interface. `bun scripts/protocol-check.ts --runs 3` measures this fact, the facts of 11.9.9 and 16.6, and the permission request of 10.7 again.
+16.2 Claude Code does expose the context to an outside tool, but not in one fixed field. Version 2.1.267 sent an `autocompact_state` event with the window size and the compaction threshold. Version 2.1.283 sends no such event, on Haiku or on Sonnet, on the first turn or a later one (26 September, `bun scripts/protocol-check.ts --runs 3`: 0 of 12). Its result gives `contextWindow` and `maxOutputTokens` for each model in `modelUsage`, and the tokens of the last request in `usage.iterations`. 8.9 says how the bridge reads the fill and derives the threshold from these fields. Confirm this again after a Claude Code upgrade, because it is not a promised interface. `bun scripts/protocol-check.ts --runs 3` measures these fields as its fact 5, the facts of 11.9.9 and 16.6, and the permission request of 10.7 again.
 
 16.6 Claude Code also reports the rate-limit use directly, in a `rate_limit_event` with the five-hour and seven-day numbers. The usage command of 9.4.4 and the warning of 13.2 read these numbers. They do not estimate.
 
@@ -964,7 +964,7 @@ The same line also gives where the agent's time to the first word went, from its
 | Compaction-loop limit | 3 messages | 8.5.2 |
 | Compaction-loop window | 5 minutes | 8.5.2 |
 | Process-memory recycle limit | 4 gigabytes | 8.7.2 |
-| Context warning level | soft, then on compaction | 8.9 |
+| Context warning level | soft at 80 percent of the compaction threshold, then definite on compaction | 8.9 |
 | Claude Code command and flags | `claude -p --verbose`, stream-json both ways | 16.7 |
 | Model | Sonnet | 8.11 |
 | Wake word | "sidetone" | 9.2 |

@@ -9,7 +9,7 @@ import { appendFileSync, readFileSync } from "node:fs";
 import type { Subprocess } from "bun";
 import type { Config } from "./config.ts";
 import { Narrator } from "./narrator.ts";
-import { contextTokens, linesOf, parseLine, type Event, type Usage } from "./protocol.ts";
+import { compactionThreshold, contextTokens, linesOf, parseLine, type Event, type Usage } from "./protocol.ts";
 import { Supervisor, type Action } from "./supervisor.ts";
 
 export interface Turn {
@@ -144,8 +144,13 @@ export class Session {
   private injection: { text: string; heard: boolean; replied: boolean } | null = null;
   /** 10.7 the requests the current process waits on, by id, with the input an allow hands back */
   private asked = new Map<string, Record<string, unknown>>();
-  /** 8.9 the window and the compaction threshold, once claude reports them */
+  /**
+   * 8.9 the window and the compaction threshold, once claude reports them.
+   * An `autocompact_state` event wins; 2.1.283 sends none, so each result
+   * gives the window and the threshold is derived from it.
+   */
   contextWindow = 0;
+  private compactReported = false;
   contextThreshold = 0;
   contextUsed = 0;
   rateLimit: { fiveHour: number; sevenDay: number } = { fiveHour: 0, sevenDay: 0 };
@@ -216,16 +221,23 @@ export class Session {
       case "permission": this.asked.set(event.id, event.input); this.hooks.onPermission?.({ id: event.id, tool: event.tool, input: event.input }); break;
       case "permissionCancel": if (this.asked.delete(event.id)) this.hooks.onPermissionCancel?.(event.id); break;
       case "controlResponse": this.hooks.onInterrupt?.(event.ok ? "the process took the interrupt" : "the process refused the interrupt"); break;
-      case "context": this.contextWindow = event.window; this.contextThreshold = event.threshold; break;
+      case "context": this.compactReported = true; this.contextWindow = event.window; this.contextThreshold = event.threshold; break;
       case "rateLimit": this.rateLimit = { fiveHour: event.fiveHour, sevenDay: event.sevenDay }; break;
-      case "result": this.finish(event.text, event.costUsd, event.usage, event.isError, now); break;
+      case "result":
+        if (!this.compactReported && event.window) {
+          this.contextWindow = event.window;
+          this.contextThreshold = compactionThreshold(event.window, event.maxOutput);
+        }
+        this.finish(event.text, event.costUsd, event.request, event.isError, now);
+        break;
       default: break;
     }
   }
 
-  private finish(text: string, costUsd: number, usage: Usage, isError: boolean, now: number): void {
+  /** `request` is the last request of the turn: what the context holds now (8.9) */
+  private finish(text: string, costUsd: number, request: Usage, isError: boolean, now: number): void {
     this.costUsd += costUsd;
-    this.contextUsed = contextTokens(usage);
+    this.contextUsed = contextTokens(request);
     // Item 4, measured 24 September: a message written while the agent writes
     // its last text does not cut in. That answer ends with a result of its
     // own, and the message then runs as a second turn with a second result.

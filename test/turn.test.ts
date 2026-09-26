@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { decodeWav, encodeWav } from "../src/audio.ts";
 import { DEFAULTS, type Config } from "../src/config.ts";
 import type { Outgoing } from "../src/messages.ts";
-import type { SessionHooks } from "../src/session.ts";
+import { Session, type SessionHooks, type Spawn } from "../src/session.ts";
 import { Working } from "../src/working.ts";
 import { bridge, type Music, type Script } from "./harness.ts";
 
@@ -218,6 +218,51 @@ describe("the rate-limit warning (13.2)", () => {
     await r.c.turn("do something");
     await r.c.turn("do something else");
     expect(r.said.filter((line) => line.startsWith("A heads up"))).toHaveLength(1);
+  });
+});
+
+/**
+ * 8.9 the soft warning, at the fill of a real 2.1.283 turn: the fixture goes
+ * through a real session, and its fraction goes to the conversation. The last
+ * request read 27,737 tokens of a 167,000 threshold, so 17 percent.
+ */
+describe("the context warning (8.9)", () => {
+  async function fraction(): Promise<number> {
+    const path = new URL("./fixtures/stream-context.ndjson", import.meta.url).pathname;
+    const lines = (await Bun.file(path).text()).split("\n").filter((line) => line.trim());
+    const spawn: Spawn = () => ({
+      pid: undefined,
+      lines: (async function* () { for (const line of lines) yield line; })(),
+      write: () => {},
+      kill: () => {},
+      exited: new Promise(() => {}),
+    });
+    const s = new Session("/tmp", { ...DEFAULTS }, {}, spawn);
+    await s.ask("run echo one and echo two");
+    s.stop();
+    const reported = s.contextFraction();
+    if (reported === null) throw new Error("the session read no context");
+    return reported;
+  }
+
+  test("a fill at the level speaks the soft warning, once", async () => {
+    const r = room({ deltas: ["Done."], context: await fraction() }, { contextWarnFraction: 0.16 });
+    await r.c.turn("do something");
+    expect(r.said.at(-1)).toBe("A heads up: the context is at 17 percent of the compaction threshold.");
+    await r.c.turn("do something else");
+    expect(r.said.filter((line) => line.includes("the context is at"))).toHaveLength(1);
+  });
+
+  test("a fill under the level says nothing", async () => {
+    const r = room({ deltas: ["Done."], context: await fraction() }, { contextWarnFraction: 0.17 });
+    await r.c.turn("do something");
+    expect(r.said).toEqual(["Done."]);
+  });
+
+  test("with no context reported it says nothing", async () => {
+    const r = room({ deltas: ["Done."] }, { contextWarnFraction: 0 });
+    await r.c.turn("do something");
+    expect(r.said).toEqual(["Done."]);
   });
 });
 

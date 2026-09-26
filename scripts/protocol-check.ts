@@ -127,14 +127,11 @@ async function inTemp<T>(body: (dir: string) => Promise<T>): Promise<T> {
   try { return await body(dir); } finally { rmSync(dir, { recursive: true, force: true }); }
 }
 
-/** Fact 5, on any process: the fields 16.2 and 16.6 name. */
+/** Fact 5, on any process: the fields 8.9, 16.2 and 16.6 name. */
 function fields(lines: Line[]): string | null {
   const init = lines.find((line) => line.type === "system" && line.subtype === "init");
   if (init?.claude_code_version) version = init.claude_code_version;
   const missing: string[] = [];
-  const compact = lines.find((line) => line.type === "autocompact_state");
-  if (!compact) missing.push("no autocompact_state");
-  else for (const key of ["effective_window", "threshold", "enabled"]) if (compact.value?.[key] === undefined) missing.push(`autocompact_state.value.${key}`);
   const limit = lines.find((line) => line.type === "rate_limit_event");
   if (!limit) missing.push("no rate_limit_event");
   else {
@@ -146,8 +143,19 @@ function fields(lines: Line[]): string | null {
   }
   const result = lines.find(isResult);
   if (!result) missing.push("no result");
-  else for (const key of ["input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens"]) {
-    if (typeof result.usage?.[key] !== "number") missing.push(`result.usage.${key}`);
+  else {
+    // 8.9 the fill is the last request of the turn; 2.1.283 sends no autocompact_state
+    const last = result.usage?.iterations?.at(-1);
+    if (!last) missing.push("result.usage.iterations");
+    for (const key of ["input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens"]) {
+      if (typeof last?.[key] !== "number") missing.push(`result.usage.iterations[-1].${key}`);
+    }
+    // 8.9 the window and the output reserve the threshold is derived from
+    const models = Object.entries(result.modelUsage ?? {}) as Array<[string, Line]>;
+    if (!models.length) missing.push("result.modelUsage");
+    for (const [name, entry] of models) {
+      for (const key of ["contextWindow", "maxOutputTokens"]) if (typeof entry[key] !== "number") missing.push(`modelUsage.${name}.${key}`);
+    }
   }
   return missing.length ? missing.join(", ") : null;
 }
@@ -233,7 +241,7 @@ const FACTS: Record<number, string> = {
   2: "the echo comes before the requesting that carries it (11.9.9)",
   3: "message during the last text is a second turn with its own result (11.9.9)",
   4: "two messages during the last text: one second turn, one echo joined by a newline (11.9.9)",
-  5: "autocompact_state, rate_limit_event and result usage carry their fields (16.2, 16.6)",
+  5: "result usage.iterations, modelUsage contextWindow and rate_limit_event carry their fields (8.9, 16.2, 16.6)",
   6: "git push --force reaches the bridge as a stdio permission request (10.7)",
 };
 const tally: Record<number, { pass: number; total: number }> = Object.fromEntries(Object.keys(FACTS).map((n) => [n, { pass: 0, total: 0 }]));

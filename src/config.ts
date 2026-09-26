@@ -224,6 +224,8 @@ export interface Config {
   holdMusicFadeInMs: number;
   /** 13.2 the reported rate-limit use that earns a spoken warning */
   usageWarnFraction: number;
+  /** 8.9 the fill, as a fraction of the compaction threshold, that earns a spoken soft warning */
+  contextWarnFraction: number;
   /**
    * 14.1 how long to keep trying livekit at startup. On a boot the unit is
    * ordered after docker, and docker being up does not mean the container
@@ -382,6 +384,7 @@ export const DEFAULTS: Config = {
   holdMusicFadeMs: 300,
   holdMusicFadeInMs: 150,
   usageWarnFraction: 0.8,
+  contextWarnFraction: 0.8,
   livekitUrl: process.env.LIVEKIT_URL ?? "",
   livekitApiKey: process.env.LIVEKIT_API_KEY ?? "",
   livekitApiSecret: process.env.LIVEKIT_API_SECRET ?? "",

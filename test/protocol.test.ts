@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { LineSplitter, contextTokens, parseLine } from "../src/protocol.ts";
+import { LineSplitter, compactionThreshold, contextTokens, parseLine } from "../src/protocol.ts";
 
 // captured from claude 2.1.267, trimmed to the fields the bridge reads
 const INIT = '{"type":"system","subtype":"init","session_id":"a7e0","model":"claude-sonnet-5"}';
@@ -36,8 +36,24 @@ describe("protocol", () => {
   });
   test("the result carries the reply, the cost and the usage", () => {
     const [event] = parseLine(RESULT);
-    expect(event).toEqual({ kind: "result", text: "pong", costUsd: 0.0385, isError: false, usage: { inputTokens: 2, outputTokens: 4, cacheReadTokens: 32936, cacheCreationTokens: 7744 } });
-    if (event.kind === "result") expect(contextTokens(event.usage)).toBe(40686);
+    const usage = { inputTokens: 2, outputTokens: 4, cacheReadTokens: 32936, cacheCreationTokens: 7744 };
+    // 2.1.267 gave no iterations and no modelUsage: the request is the whole usage, and there is no window
+    expect(event).toEqual({ kind: "result", text: "pong", costUsd: 0.0385, isError: false, usage, request: usage, window: 0, maxOutput: 0 });
+    if (event.kind === "result") expect(contextTokens(event.request)).toBe(40682);
+  });
+  // 8.9 captured from claude 2.1.283, haiku, 26 September: three requests in one turn
+  test("the result gives the last request and the window of the main model", () => {
+    const line = '{"type":"result","usage":{"input_tokens":26,"cache_read_input_tokens":68151,"cache_creation_input_tokens":13016,"output_tokens":334,"iterations":[{"input_tokens":8,"output_tokens":58,"cache_read_input_tokens":27579,"cache_creation_input_tokens":150,"type":"message"}]},"modelUsage":{"claude-haiku-4-5-20251001":{"inputTokens":26,"outputTokens":334,"cacheReadInputTokens":68151,"cacheCreationInputTokens":13016,"contextWindow":200000,"maxOutputTokens":32000},"claude-side":{"inputTokens":400,"contextWindow":50000,"maxOutputTokens":8000}}}';
+    const [event] = parseLine(line);
+    if (event?.kind !== "result") throw new Error("no result");
+    expect(contextTokens(event.usage)).toBe(81193);
+    expect(contextTokens(event.request)).toBe(27737);
+    expect([event.window, event.maxOutput]).toEqual([200000, 32000]);
+  });
+  test("8.9 the threshold is claude's own rule: the window less the output reserve less 13,000", () => {
+    expect(compactionThreshold(200_000, 32_000)).toBe(167_000);
+    expect(compactionThreshold(1_000_000, 128_000)).toBe(967_000);
+    expect(compactionThreshold(200_000, 8_000)).toBe(179_000);
   });
   test("the reply streams as text deltas, and only the whole message counts as text", () => {
     expect(parseLine(DELTA)).toEqual([{ kind: "delta", text: "hello" }]);

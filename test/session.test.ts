@@ -603,3 +603,43 @@ describe("speech written into a running turn (item 4)", () => {
     s.stop();
   });
 });
+
+/**
+ * 8.9 a turn of three requests, as claude 2.1.283 printed it on haiku, 26
+ * September, with the bridge's flags. Trimmed as the pong run was: the init
+ * line's lists and paths, and the hook lines. 2.1.283 sends no
+ * `autocompact_state`, so the window comes from the result's `modelUsage`.
+ */
+describe("the context of a 2.1.283 run (8.9)", () => {
+  const path = new URL("./fixtures/stream-context.ndjson", import.meta.url).pathname;
+
+  async function replayed(first: string[] = []) {
+    const lines = [...first, ...(await Bun.file(path).text()).split("\n").filter((line) => line.trim())];
+    const spawn: Spawn = () => ({
+      pid: undefined,
+      lines: (async function* () { for (const line of lines) yield line; })(),
+      write: () => {},
+      kill: () => {},
+      exited: new Promise(() => {}),
+    });
+    const s = new Session("/tmp", config, {}, spawn);
+    await s.ask("run echo one and echo two");
+    s.stop();
+    return s;
+  }
+
+  test("the window comes from the result, and the fill is the last request, not the sum of three", async () => {
+    const s = await replayed();
+    expect(s.contextWindow).toBe(200_000);
+    expect(s.contextThreshold).toBe(167_000);
+    expect(s.contextUsed).toBe(27_737);
+    expect(s.contextFraction()).toBeCloseTo(27_737 / 167_000, 6);
+  });
+
+  test("an autocompact_state event, when one arrives, wins over the result", async () => {
+    const s = await replayed(['{"type":"autocompact_state","value":{"enabled":true,"effective_window":180000,"threshold":150000}}']);
+    expect(s.contextWindow).toBe(180_000);
+    expect(s.contextThreshold).toBe(150_000);
+    expect(s.contextUsed).toBe(27_737);
+  });
+});
