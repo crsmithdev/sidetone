@@ -229,10 +229,13 @@ export function assemble(
   const watch = setInterval(() => channel.silence(ear.silence()), SILENCE_MS / 3);
   // 14.10 whether the agent works, said to the client whatever the audio does
   const working = new Working(() => conversation.busy, parts.jobs ?? (() => jobsRunning()), (on) => channel.tell({ kind: "working", on }));
-  // aleph's job news waits here for an idle moment, then goes in as one turn
+  // aleph's job news waits here for an idle moment, then goes in as one turn.
+  // 14.10.6 idle is no turn and nothing Chris is saying: news that started a
+  // turn under his words would get his question refused (11.9).
+  const idle = () => !conversation.busy && !ear.hearing;
   const news: string[] = [];
   const deliver = () => {
-    if (news.length === 0 || conversation.busy) return;
+    if (news.length === 0 || !idle()) return;
     const lines = news.splice(0).map((line) => `[job news] ${line}`).join("\n");
     channel.journal(`the bridge gave the agent job news: ${lines}`);
     void conversation.turn(lines);
@@ -246,7 +249,7 @@ export function assemble(
   return {
     conversation, ear, mouth, channel, measures, stt, tts, ready,
     announce(text: string) {
-      mouth.announce(text, () => !conversation.busy);
+      mouth.announce(text, idle);
       // 17.17 the words reach the app at once, which notifies them when it is not in front
       channel.tell({ kind: "narration", text, announce: true });
     },

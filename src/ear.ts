@@ -65,6 +65,8 @@ export class Ear {
    * amount; otherwise Chris went on talking and it is thrown away.
    */
   private early: { speechMs: number; text: Promise<string | null> } | null = null;
+  /** 14.10.6 how many utterances are ended and still being read into words */
+  private reading = 0;
 
   constructor(
     private readonly to: Ears,
@@ -106,6 +108,16 @@ export class Ear {
    */
   get sinceSound(): number | null {
     return this.frameAt === 0 ? null : Date.now() - this.soundAt;
+  }
+
+  /**
+   * 14.10.6 whether Chris is saying something the conversation has not had
+   * yet: an utterance is recording, or an ended one is still being read. The
+   * news waits for this, so it never starts a turn that his words then find
+   * running.
+   */
+  get hearing(): boolean {
+    return this.utterances.active || this.reading > 0;
   }
 
   /** When the barge-in was noticed, for saying how late the speech stopped. */
@@ -239,8 +251,15 @@ export class Ear {
     const readAt = Date.now();
     try {
       // the guess was right when nothing was said after it: the text is on its way already
-      const guessed = early && early.speechMs === utterance.speechMs ? await early.text : null;
-      const text = guessed ?? await this.transcribe(utterance);
+      this.reading += 1;
+      let guessed: string | null;
+      let text: string;
+      try {
+        guessed = early && early.speechMs === utterance.speechMs ? await early.text : null;
+        text = guessed ?? await this.transcribe(utterance);
+      } finally {
+        this.reading -= 1;
+      }
       this.measures.transcribed();
       const transcribeMs = Date.now() - readAt;
       this.measures.utterance(utterance, text, transcribeMs);

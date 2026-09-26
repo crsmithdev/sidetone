@@ -92,7 +92,7 @@ A track the bridge plays while a long turn runs and the voice has been silent fo
 _Avoid_: elevator music, a background track, a cue (a cue is a click that says what the bridge is doing).
 
 **A long turn**:
-A turn that calls a tool. The turn is long from the moment the tool call starts. Only a long turn gets hold music.
+A turn whose reply starts with the marker `[long]`. The agent writes the marker when it expects to run tools or think hard. The bridge removes it from the text. Only a long turn gets hold music.
 _Avoid_: a slow turn, a long-running turn.
 
 **A round trip**:

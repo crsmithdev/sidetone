@@ -134,6 +134,28 @@ describe("the bridge, assembled as the car assembles it", () => {
     expect(asks()[1].endsWith("[job news] sidetone/alpha passed\n[job news] cloudchamber/beta needs-you question")).toBe(true);
   });
 
+  test("job news waits while Chris talks, and his question is not refused (14.10.6, 11.9)", async () => {
+    const r = bridge();
+    let read!: () => void;
+    const reading = new Promise<void>((resolve) => { read = resolve; });
+    r.stt.transcribe = async () => { await reading; return "what time is it"; };
+    const asks = () => r.agent.calls.filter((call) => call.startsWith("ask "));
+    r.talk();
+    r.tell("sidetone/alpha passed");
+    r.announce("Job research finished.");
+    r.hush();
+    // the utterance has ended and is still being read; a tick of the news clock passes
+    await Bun.sleep(1_100);
+    expect(asks()).toHaveLength(0);
+    expect(r.said).toEqual([]);
+    read();
+    await until(() => asks().length === 2, 3_000);
+    expect(asks()[0]).toEndWith("what time is it");
+    expect(asks()[1]).toEndWith("[job news] sidetone/alpha passed");
+    expect(r.said.some((line) => line.startsWith("I am still on the last one"))).toBe(false);
+    await until(() => r.said.includes("Job research finished."), 2_000);
+  });
+
   test("a setting a client sends does what the spoken command does (9.4.9)", async () => {
     const r = bridge();
     r.channel.receive({ kind: "setting", patch: { holdMusic: true } });

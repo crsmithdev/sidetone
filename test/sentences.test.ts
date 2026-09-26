@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { KEPT_LINES } from "../src/mouth.ts";
-import { SentenceCollector, speakable } from "../src/sentences.ts";
+import { LongMarker, SentenceCollector, speakable, withoutMarker } from "../src/sentences.ts";
 
 describe("sentence collector (5.6)", () => {
   test("a sentence is ready as soon as its end is certain", () => {
@@ -44,6 +44,75 @@ describe("sentence collector (5.6)", () => {
     expect(c.push("well.")).toEqual([]);
     expect(c.push("..")).toEqual([]);
     expect(c.push(" maybe. ")).toEqual(["well...", "maybe."]);
+  });
+});
+
+describe("the long marker (15.7.4)", () => {
+  /** the words the deltas give, and whether the reply was long, once the reply ends */
+  function run(deltas: string[]) {
+    const marker = new LongMarker();
+    let text = "";
+    for (const delta of deltas) text += marker.push(delta);
+    text += marker.end();
+    return { text, long: marker.long };
+  }
+
+  test("the marker and the space after it are taken off the start", () => {
+    expect(run(["[long] Checking the logs."])).toEqual({ text: "Checking the logs.", long: true });
+  });
+  test("the marker alone is a long reply with no words", () => {
+    expect(run(["[long]"])).toEqual({ text: "", long: true });
+  });
+  test("a marker split at any point is still the marker", () => {
+    const whole = "[long] Checking the logs.";
+    for (let at = 1; at < whole.length; at++) {
+      expect(run([whole.slice(0, at), whole.slice(at)])).toEqual({ text: "Checking the logs.", long: true });
+    }
+    expect(run([...whole])).toEqual({ text: "Checking the logs.", long: true });
+  });
+  test("the space after the marker can arrive in a delta of its own", () => {
+    const marker = new LongMarker();
+    expect(marker.push("[long]")).toBe("");
+    expect(marker.push(" ")).toBe("");
+    expect(marker.push("\nGo on.")).toBe("Go on.");
+    expect(marker.push(" More.")).toBe(" More.");
+  });
+  test("a reply with no marker is not long, and comes out whole", () => {
+    expect(run(["Checking the logs."])).toEqual({ text: "Checking the logs.", long: false });
+  });
+  test("the start of a reply that only looks like the marker comes out whole", () => {
+    expect(run(["[lo", "gged in] is the state."])).toEqual({ text: "[logged in] is the state.", long: false });
+    expect(run(["[", "1] is the first."])).toEqual({ text: "[1] is the first.", long: false });
+  });
+  test("a marker after the start is left in the text", () => {
+    expect(run(["Checking. ", "[long] More."])).toEqual({ text: "Checking. [long] More.", long: false });
+    expect(run(["Checking [long] the logs."])).toEqual({ text: "Checking [long] the logs.", long: false });
+  });
+  test("a marker with a word in front of it is not at the start", () => {
+    expect(run([" [long] Checking."])).toEqual({ text: " [long] Checking.", long: false });
+  });
+  test("a start that ends the reply is given back", () => {
+    const marker = new LongMarker();
+    expect(marker.push("[lo")).toBe("");
+    expect(marker.end()).toBe("[lo");
+    expect(marker.long).toBe(false);
+  });
+  test("ending the start early, as a tool call does, stops the look for the marker", () => {
+    const marker = new LongMarker();
+    expect(marker.end()).toBe("");
+    expect(marker.push("[long] Done.")).toBe("[long] Done.");
+    expect(marker.long).toBe(false);
+  });
+  test("the finished text of a reply loses the marker the same way", () => {
+    expect(withoutMarker("[long] Checking the logs.")).toBe("Checking the logs.");
+    expect(withoutMarker("Checking. [long] More.")).toBe("Checking. [long] More.");
+  });
+  test("the collector never sees the marker", () => {
+    const marker = new LongMarker();
+    const c = new SentenceCollector(240);
+    const said = ["[lo", "ng] Checking. ", "Done."].flatMap((delta) => c.push(marker.push(delta)));
+    expect(said).toEqual(["Checking."]);
+    expect(c.flush()).toBe("Done.");
   });
 });
 

@@ -199,9 +199,9 @@ export interface Config {
   audioCueEveryMs: number;
   /**
    * 15.7 how long a long turn may be silent before the hold music plays. A
-   * long turn is one that calls a tool (15.7.5). The silence is measured from
-   * the later of the hand-over to the agent and the end of the last sentence.
-   * Zero turns the music off.
+   * long turn is one whose reply starts with `[long]` (15.7.4). The silence is
+   * measured from the later of the hand-over to the agent and the end of the
+   * last sentence. Zero turns the music off.
    */
   holdMusicAfterMs: number;
   /** 15.7.3 whether the hold music plays at all, so it can be turned off by voice */
@@ -345,6 +345,10 @@ export const DEFAULTS: Config = {
     // 18.4 the first sentence is on the critical path: the voice cannot start
     // until the collector has one, and a long opening sentence is a long wait.
     "Begin every answer with one short sentence, so the voice can start at once.",
+    // 21 September: the bridge used to guess from the silence that a turn was
+    // long, and the guess came after the wait. The agent knows before it
+    // starts, so it says so, and the bridge strips the marker (15.7.4).
+    "If you will run tools or think hard, start your reply with [long] before your first sentence. If you expect a quick answer, write no marker.",
     "If this project's instructions ask for something to be read aloud in full, or if you are asked to, read it in full.",
     // 11.9 a turn that runs for minutes is a voice that cannot be talked to:
     // the microphone is open the whole time and nothing said into it can be
