@@ -27,6 +27,18 @@ describe("the bridge, assembled as the car assembles it", () => {
     expect(r.tts.sampleRate).toBeGreaterThan(0);
   });
 
+  test("14.16 a client that joins while the engines warm is told the bridge starts, then that it is ready", async () => {
+    let warm = () => {};
+    const r = bridge({ warm: new Promise<void>((resolve) => { warm = resolve; }) });
+    r.channel.joined();
+    await tick();
+    expect(r.told.filter((m) => m.kind === "starting")).toEqual([{ kind: "starting", on: true }]);
+    warm();
+    await r.ready;
+    await tick();
+    expect(r.told.filter((m) => m.kind === "starting")).toEqual([{ kind: "starting", on: true }, { kind: "starting", on: false }]);
+  });
+
   test("Chris speaking over the answer holds the rest of it (11.3, 11.9)", async () => {
     const r = bridge({ script: { deltas: ["One. ", "Two. ", "Three. "] }, overrides: { graceMs: 20 } });
     const turn = r.c.turn("say three sentences");

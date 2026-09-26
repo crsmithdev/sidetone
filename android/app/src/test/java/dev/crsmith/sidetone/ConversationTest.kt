@@ -116,7 +116,7 @@ class ConversationTest {
         assertEquals(listOf("earlier", "earlier question", "now"), texts())
         // 17.11.10 a room that opens again inside one conversation, after a leave or a drop, keeps its
         // lines, and the history the bridge sends it holds the turns those lines already show
-        c.roomEnded(2_000, 2_000)
+        c.bridgeGone(2_000, 2_000)
         send("""{"kind":"history","turns":[{"kind":"heard","text":"later question","at":6}]}""")
         assertEquals(listOf("earlier", "earlier question", "now"), texts())
     }
@@ -256,11 +256,29 @@ class ConversationTest {
         send("""{"kind":"heard","text":"what is two plus two"}""")
         send("""{"kind":"protocol","endTurn":"end turn"}""")
         send("""{"kind":"working","on":true}""", since = 20_000)
-        c.roomEnded(20_500, 20_500)
+        c.bridgeGone(20_500, 20_500)
         assertNull(c.endTurn)
         assertEquals(Sign.OFF, c.sign)
         // the lines stay: what the screen shows belongs to the conversation, not to the room
         assertEquals(listOf("what is two plus two"), texts())
+    }
+
+    /**
+     * 17.11.11 a bridge that restarts stops its heartbeat because it is gone,
+     * not stuck. A new bridge that says it starts takes the old word about work
+     * with it, so an idle new bridge does not go "stalled" 15 s after it is ready.
+     */
+    @Test
+    fun aBridgeThatStartsAgainIsNotStalled() {
+        send("""{"kind":"working","on":true}""", since = 10_000)
+        send("""{"kind":"protocol","endTurn":"end turn"}""", since = 12_000)
+        assertEquals(listOf(Conversation.Effect.Starting(true)), send("""{"kind":"starting","on":true}""", since = 12_000))
+        assertEquals(Sign.OFF, c.sign)
+        // the protocol just before is the new bridge's own
+        assertEquals("end turn", c.endTurn)
+        assertEquals(listOf(Conversation.Effect.Starting(false)), send("""{"kind":"starting","on":false}""", since = 30_000))
+        c.tick(60_000, 60_000)
+        assertEquals(Sign.OFF, c.sign)
     }
 
     @Test

@@ -231,6 +231,9 @@ class MessagesTest {
         assertTrue(Incoming.Setup(SetupNames("normal", "media", "none", "software", noiseSuppression = true, autoGainControl = true)) in decoded)
         assertTrue(Incoming.Setup(null) in decoded)
         assertTrue(Incoming.Working(true) in decoded)
+        // 14.16 the bridge says it loads, and that it has loaded
+        assertTrue(Incoming.Starting(true) in decoded)
+        assertTrue(Incoming.Starting(false) in decoded)
         assertTrue(Incoming.Screenshot("1789999559000", "pending") in decoded)
         assertTrue(Incoming.Screenshot("1789999559000", "sent") in decoded)
         val history = decoded.filterIsInstance<Incoming.History>().last()

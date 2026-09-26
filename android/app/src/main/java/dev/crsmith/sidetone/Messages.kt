@@ -72,6 +72,9 @@ sealed interface Incoming {
     /** 14.10 the agent works (`on`), or does not. The bridge repeats "on" every few seconds while the work lasts. */
     data class Working(val on: Boolean) : Incoming
 
+    /** 14.16 the bridge loads its speech workers (`on`), or has loaded them and hears. */
+    data class Starting(val on: Boolean) : Incoming
+
     /**
      * A kind this app does not know, which means the two ends have drifted
      * apart. It is shown rather than dropped: dropping it is how the drift
@@ -133,6 +136,7 @@ fun decode(payload: ByteArray): Incoming? {
         return Incoming.Settings(on, words, numbers, message.long("seq"))
     }
     if (kind == "working") return Incoming.Working(message.bool("on") ?: return null)
+    if (kind == "starting") return Incoming.Starting(message.bool("on") ?: return null)
     if (kind == "sentence") {
         val text = message.string("text") ?: return null
         return Incoming.Sentence(text, message.int("answer"))

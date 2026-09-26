@@ -30,7 +30,7 @@ class JoiningTest {
 
     private fun opened() {
         on(Event.Opening)
-        on(Event.Connected)
+        on(Event.Connected())
     }
 
     @Test
@@ -38,9 +38,52 @@ class JoiningTest {
         assertEquals(Status.IDLE, joining.status)
         assertEquals(emptyList<Effect>(), on(Event.Opening))
         assertEquals(Status.CONNECTING, joining.status)
-        assertEquals(emptyList<Effect>(), on(Event.Connected))
+        assertEquals(emptyList<Effect>(), on(Event.Connected()))
         assertEquals(Status.LISTENING, joining.status)
         assertNull(joining.error)
+    }
+
+    /**
+     * 17.11.11 a restart of the bridge leaves the phone's room up: only the
+     * bridge leaves it. The app used to watch only its own link, so it said
+     * "listening" until the heartbeat stopped, then "stalled". The order now is
+     * waiting, starting, listening.
+     */
+    @Test
+    fun aBridgeRestartIsWaitingThenStartingThenListening() {
+        opened()
+        assertEquals(Status.LISTENING, joining.status)
+        on(Event.BridgeLeft)
+        assertEquals(Status.WAITING, joining.status)
+        on(Event.BridgeArrived)
+        assertEquals(Status.STARTING, joining.status)
+        on(Event.Starting(true))
+        assertEquals(Status.STARTING, joining.status)
+        on(Event.Starting(false))
+        assertEquals(Status.LISTENING, joining.status)
+    }
+
+    /** 14.16 a phone that joins while the bridge is away, or while it loads, does not say "listening". */
+    @Test
+    fun aRoomWithNoReadyBridgeIsNotListening() {
+        on(Event.Opening)
+        on(Event.Connected(bridgeHere = false))
+        assertEquals(Status.WAITING, joining.status)
+        on(Event.Opening)
+        on(Event.Connected())
+        on(Event.Starting(true))
+        assertEquals(Status.STARTING, joining.status)
+        // the link going and coming back by itself keeps what the bridge said
+        on(Event.Reconnecting)
+        assertEquals(Status.RECONNECTING, joining.status)
+        on(Event.Reconnected)
+        assertEquals(Status.STARTING, joining.status)
+        // a `starting` that arrives during the join is not undone by the join
+        on(Event.Opening)
+        on(Event.Starting(true))
+        assertEquals(Status.CONNECTING, joining.status)
+        on(Event.Connected())
+        assertEquals(Status.STARTING, joining.status)
     }
 
     @Test
@@ -75,7 +118,7 @@ class JoiningTest {
         for (reason in reasons) {
             val joining = Joining()
             joining.on(Event.Opening, now)
-            joining.on(Event.Connected, now)
+            joining.on(Event.Connected(), now)
             val effects = joining.on(Event.Ended(reason), now)
             assertEquals("$reason should be tried again", listOf(Effect.Open(now + Joining.RETRY_MS)), effects)
             assertEquals(Status.UNREACHABLE, joining.status)
@@ -112,7 +155,7 @@ class JoiningTest {
             at = ended("websocket failure: Failed to connect to /100.64.12.9:7880")!!
             assertEquals(now + Joining.RETRY_MS, at)
         }
-        on(Event.Connected)
+        on(Event.Connected())
         assertEquals(Status.LISTENING, joining.status)
         assertNull(joining.error)
         // the first try at or after the server is back, and not a try later
@@ -170,7 +213,7 @@ class JoiningTest {
         // the word stays until the room is back, so a rejoin does not read as a drop
         on(Event.Opening)
         assertEquals(Status.REJOINING, joining.status)
-        on(Event.Connected)
+        on(Event.Connected())
         assertEquals(Status.LISTENING, joining.status)
     }
 
@@ -232,7 +275,7 @@ class JoiningTest {
         assertNull(joining.error)
         on(Event.Opening)
         assertEquals(Status.CONNECTING, joining.status)
-        on(Event.Connected)
+        on(Event.Connected())
         assertEquals(Status.LISTENING, joining.status)
     }
 

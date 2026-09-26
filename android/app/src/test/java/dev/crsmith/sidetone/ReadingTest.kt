@@ -27,6 +27,8 @@ class ReadingTest {
             "connecting" to Light.AMBER,
             "rejoining" to Light.AMBER,
             "reconnecting" to Light.AMBER,
+            "waiting" to Light.AMBER,
+            "starting" to Light.AMBER,
             "disconnected" to Light.RED,
             "signal lost" to Light.RED,
             "stalled" to Light.RED,
@@ -80,6 +82,8 @@ class ReadingTest {
                 Status.REJOINING to "rejoining",
                 Status.UNREACHABLE to "disconnected",
                 Status.LEFT to "left",
+                Status.WAITING to "waiting",
+                Status.STARTING to "starting",
             ),
             words,
         )
@@ -110,6 +114,9 @@ class ReadingTest {
         assertEquals(Reading(Light.AMBER, "rejoining", pulse = true), reading(Status.REJOINING, "good", Sign.WORKING))
         // 17.11.10 a room Chris left by hand is not a room that is being got back
         assertEquals(Reading(Light.GREY, "left", pulse = false), reading(Status.LEFT, "excellent", Sign.WORKING))
+        // 17.11.11 a bridge that is gone or starts sends no heartbeat, so no "stalled" and no pulse of work
+        assertEquals(Reading(Light.AMBER, "waiting", pulse = true), reading(Status.WAITING, "excellent", Sign.SILENT))
+        assertEquals(Reading(Light.AMBER, "starting", pulse = true), reading(Status.STARTING, "excellent", Sign.SILENT))
     }
 
     /** The transport holds the room and LiveKit says the phone's media is lost. "stalled" would blame the bridge. */

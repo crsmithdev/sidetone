@@ -28,6 +28,8 @@ class Conversation(val transcript: Transcript = Transcript()) {
         data object Device : Effect
         /** 18.15 run with this setup, or with the one in the code for null: keep it, and rejoin the room with it. */
         data class Setup(val names: SetupNames?) : Effect
+        /** 14.16 the bridge loads its speech workers, or has loaded them: the status row says which (17.11.11). */
+        data class Starting(val on: Boolean) : Effect
     }
 
     val lines: List<Line> get() = transcript.lines
@@ -131,6 +133,15 @@ class Conversation(val transcript: Transcript = Transcript()) {
                 workingAt = since
                 tick(since)
             }
+            is Incoming.Starting -> {
+                // a bridge that starts is a new process: the word about work was the old one's.
+                // The protocol came just before this, from the new one, so it stays.
+                if (message.on) {
+                    workingOn = false
+                    tick(since, at)
+                }
+                return listOf(Effect.Starting(message.on))
+            }
             is Incoming.Unknown -> transcript.onLines("unknown", at, Line(Line.Kind.NOTE, "(unknown message: ${message.kind})"))
             is Incoming.History -> {
                 if (historyShown) return emptyList()
@@ -159,8 +170,12 @@ class Conversation(val transcript: Transcript = Transcript()) {
     /** 4.3.1 something the app records and does not show, such as a microphone cut. */
     fun record(kind: String, text: String, at: Long) = transcript.onEvent(kind, text, at)
 
-    /** The room is gone: its protocol and its last word about work went with it. */
-    fun roomEnded(since: Long, at: Long = System.currentTimeMillis()) {
+    /**
+     * The bridge is gone, or the room with it: its protocol and its last word
+     * about work went with it. 17.11.11 a bridge that left does not go
+     * "stalled": it stopped sending because it is not there.
+     */
+    fun bridgeGone(since: Long, at: Long = System.currentTimeMillis()) {
         workingOn = false
         endTurn = null
         tick(since, at)

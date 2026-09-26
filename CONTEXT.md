@@ -45,8 +45,16 @@ _Avoid_: the sink, the audio output.
 What a client knows about the conversation and what one message does to it: the lines, the log of them, the words of the Stop button, whether the history has been shown, and the working sign. It needs no room, and a message either changes it or asks the room for something. In the app it is one module of that name, beside the transcript.
 _Avoid_: the view model, the state, the store.
 
+**Starting**:
+The bridge is in the room and loads its speech workers, so it does not hear Chris yet: about 20 seconds from a cold start. The bridge says so with the `starting` message, and the app's status word is "starting", on an amber dot.
+_Avoid_: booting, warming (the warm of `bun src/main.ts warm` makes the kept lines), loading.
+
+**Waiting**:
+The phone is in the room and the bridge is not, as during a restart of the bridge. The app's status word is "waiting", on an amber dot. It is not "stalled": a bridge that left sends nothing because it is not there.
+_Avoid_: bridge down, gone, offline.
+
 **The client's joining**:
-What the app does about the room: the status word it shows, whether it waits and asks again after a room ends, and whether the bridge asked for a new microphone track. It gives up on one end only, a refused pairing; every other end it tries again. It holds no room, so it is read by a test. In the app it is one module of that name, beside the conversation.
+What the app does about the room: the status word it shows, whether it waits and asks again after a room ends, whether the bridge asked for a new microphone track, and whether the bridge is in the room and ready. The phone's room and the bridge are two things: a restart of the bridge leaves the phone's room up, and the word is then "waiting", then "starting", then "listening". It gives up on one end only, a refused pairing; every other end it tries again. It holds no room, so it is read by a test. In the app it is one module of that name, beside the conversation.
 _Avoid_: the connection, the socket, the retry loop.
 
 **The control channel**:
@@ -130,7 +138,7 @@ The bridge makes no sound: no voice, no cue and no hold music. The words carry o
 _Avoid_: voice off, mute (mute is the bridge that listens and acts on nothing), silence.
 
 **The working sign**:
-A slow pulse of the green dot in the app's status row that the agent works: a turn runs, or a detached job runs. It follows a message from the bridge, so it shows with the audio off. When the bridge stops sending that message, the dot is red and the status word is "stalled". It shows only while the room is live.
+A slow pulse of the green dot in the app's status row that the agent works: a turn runs, or a detached job runs. It follows a message from the bridge, so it shows with the audio off. When the bridge stops sending that message while it is in the room, the dot is red and the status word is "stalled". A bridge that left the room is "waiting", not "stalled". It shows only while the room is live and the bridge is in it.
 _Avoid_: the spinner, the busy light, the status.
 
 **The reading**:
@@ -143,7 +151,7 @@ _Avoid_: the options menu (it was a menu until 24 September), the settings scree
 
 **Leave, Rejoin, Quit**:
 Leave: the app goes out of the room and stays open, with the transcript as history and the word "left" in the status row; the phone's audio is released, so the car's music comes back (spec 17.11.10). Rejoin: the button that takes the app back into the room with the pairing it has. Quit: leave and close the app.
-_Avoid_: exit, disconnect (the status word for a bridge the app cannot reach), sign out, log out.
+_Avoid_: exit, disconnect (the status word for a room the phone cannot reach), sign out, log out.
 
 **The hold music volume**:
 How loud the hold music is, as a factor on the file from 0 to 1: the `holdMusicGain` setting. Only the options screen changes it. No spoken command does.

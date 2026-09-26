@@ -56,6 +56,10 @@ export class Channel {
   /** whether the phone says its microphone is open; the bridge only warns about one it claims to have */
   private micOn = true;
   private saidSilent = false;
+  /** 14.16 whether the speech workers are warm, so the bridge hears Chris */
+  private warm = false;
+  /** 14.16 whether a client was told that the bridge starts, and so is owed the end of it */
+  private toldStarting = false;
 
   constructor(
     private readonly config: Config,
@@ -104,8 +108,19 @@ export class Channel {
    */
   joined(apk?: Apk): void {
     this.send(protocolMessage(this.config, apk));
+    this.send({ kind: "starting", on: !this.warm });
+    if (!this.warm) this.toldStarting = true;
     this.settings();
     this.send({ kind: "history", turns: this.missed() });
+  }
+
+  /**
+   * 14.16 the speech workers are warm. A client that was told the bridge
+   * starts hears it now; a client that joins later hears it in `joined`.
+   */
+  ready(): void {
+    this.warm = true;
+    if (this.toldStarting) this.send({ kind: "starting", on: false });
   }
 
   /**

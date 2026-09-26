@@ -49,6 +49,12 @@ export type Outgoing =
   /** 14.10 a turn runs or a detached job runs; sent when it changes, and again every few seconds while it holds */
   | { kind: "working"; on: boolean }
   /**
+   * 14.16 the bridge is in the room and loads its speech workers: `on` is true
+   * until they are warm. Sent to each client that joins, and once more when
+   * the load ends.
+   */
+  | { kind: "starting"; on: boolean }
+  /**
    * 9.4.9 the settings in force. A client that can show a setting has to be
    * able to read one: before this a client could set a setting by sending the
    * words of the command, and had no way at all to know what it was now.

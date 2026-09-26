@@ -37,6 +37,8 @@ export function decode(message) {
     case "rejoin":
     // 14.10 the app shows a sign that the agent works. The page shows nothing.
     case "working":
+    // 14.16 the app shows that the bridge loads. The page shows nothing.
+    case "starting":
     // 17.15.5 a new build of the app. The page is not the app.
     case "apk":
     // 14.12.7 the app shows the mark on the thumbnail of its screenshot. The page sends none.

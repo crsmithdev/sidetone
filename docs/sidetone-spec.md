@@ -17,6 +17,7 @@ The crash report (14.14, 17.20) added 23 September 2026.
 The spoken sentence in the bubbles (17.21) added 23 September 2026.
 The failed microphone open (17.10.4), and the caught errors and the exit records in the crash report (17.20.3 to 17.20.5), from 24 September 2026.
 The light by colour and pulse, the stalled state and the legend by colour (17.11, 17.11.3, 17.11.6, 17.11.9), and the options screen (17.22), from 24 September 2026.
+The bridge that starts and the bridge that is away (14.16, 17.11.11) from 26 September 2026.
 
 This document is the complete specification for Sidetone. It
 includes the background, the settled design decisions, the reasoning behind
@@ -553,6 +554,14 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 
 14.15.3 The app's menu shows the first 12 characters of its build, so Chris can compare it with the journal.
 
+14.16 The bridge tells the client when it starts. From a cold start the bridge takes about 20 seconds to load its speech workers, and more with chatterbox. Until they load, it does not hear Chris. The message is `starting`, with `on` set to true while the workers load and to false after.
+
+14.16.1 The bridge joins the room while the workers load, and its web server answers from its first second (12). So a phone reaches the bridge through the room during the load, and the message can tell it. The phone does not use the web server after it pairs.
+
+14.16.2 The bridge sends the message to each client that joins, after `protocol` (4.3). When the workers have loaded, it sends `on` set to false once, if it told a client that it starts. A client that joins later gets false at the join.
+
+14.16.3 A new process of the bridge sends `on` set to true. The client takes this as a new bridge: what the old one said about work (14.10) is gone. The bridge does not keep the message for the history (14.8). The web client ignores the message.
+
 ## 15. AUDIBLE STATE
 
 15.1 The bridge does not leave silence when it cannot answer. Silence is ambiguous.
@@ -666,15 +675,15 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 
 17.11.2 Working. The dot pulses slowly. The sign adds no word to the row. This is the state after a message with `on` set to true, while a `working` message arrives at least every 15 seconds.
 
-17.11.3 Stalled. The bridge said that the agent works, and no `working` message has arrived for 15 seconds. The dot is red and does not move. The status word is "stalled". This is three heartbeats (14.10.2). It means that the bridge has stopped sending. The room is live when the sign shows (17.11.6), so the bridge is stuck. The next message ends this state. The 15 seconds is a constant of the app, because the app has no settings file. A bridge that sends no heartbeat probably does not hear Chris, so the colour is red. Until 24 September the dot stayed green and blinked fast.
+17.11.3 Stalled. The bridge said that the agent works, and no `working` message has arrived for 15 seconds. The dot is red and does not move. The status word is "stalled". This is three heartbeats (14.10.2). It means that the bridge has stopped sending. The room is live and the bridge is in it when the sign shows (17.11.6, 17.11.11), so the bridge is stuck. A bridge that left the room is not stuck: the status word is then "waiting". The next message ends this state. The 15 seconds is a constant of the app, because the app has no settings file. A bridge that sends no heartbeat probably does not hear Chris, so the colour is red. Until 24 September the dot stayed green and blinked fast.
 
 17.11.4 The sign follows the messages of the bridge. It does not follow the sound. It shows with the audio cut (17.10), when the voice, the tones and the hold music give no sign of the work.
 
 17.11.5 The app has no setting for the sign.
 
-17.11.6 The status row shows one state, not readings that can disagree. The row is one dot. The colour of the dot says whether the bridge hears Chris. Green: it hears him, and the status word is "listening". Amber: not now, and the app gets the room back: "connecting", "rejoining" or "reconnecting". Red: not now, and nothing fixes it: "disconnected", "signal lost" or "stalled". Grey: Chris is out of the room by his own hand (17.11.10). A slow pulse of the dot says that work is in progress: by the agent on a green dot (17.11.2), by the app on an amber dot, and by the app on the red dot of "disconnected", because the app tries again every 5 seconds. Every other dot does not move. The working sign shows only while the status word is "listening" or "stalled". In any other state no message can come, and the row shows no sign. The notification (17.16) follows the same rule for the sign. When the status is "listening" and LiveKit says the connection of the phone is lost, the room is not live: the status word is "signal lost", and the dot is red and does not move. The connection quality shows only as this word. Until 24 September a ring around the dot showed the quality, and "signal lost" was amber. One function in the app gives this reading, and a test tries every input.
+17.11.6 The status row shows one state, not readings that can disagree. The row is one dot. The colour of the dot says whether the bridge hears Chris. Green: it hears him, and the status word is "listening". Amber: not now, and the app gets the room back: "connecting", "rejoining", "reconnecting", "waiting" or "starting" (17.11.11). Red: not now, and nothing fixes it: "disconnected", "signal lost" or "stalled". Grey: Chris is out of the room by his own hand (17.11.10). A slow pulse of the dot says that work is in progress: by the agent on a green dot (17.11.2), by the app on an amber dot, and by the app on the red dot of "disconnected", because the app tries again every 5 seconds. Every other dot does not move. The working sign shows only while the status word is "listening" or "stalled". In any other state no message can come, and the row shows no sign. The notification (17.16) follows the same rule for the sign. When the status is "listening" and LiveKit says the connection of the phone is lost, the room is not live: the status word is "signal lost", and the dot is red and does not move. The connection quality shows only as this word. Until 24 September a ring around the dot showed the quality, and "signal lost" was amber. One function in the app gives this reading, and a test tries every input.
 
-17.11.7 The row shows the status word beside the dot in every state: "connecting", "listening", "rejoining", "reconnecting", "signal lost", "disconnected", "stalled" or "left". The colour alone does not say which amber state the room is in. Until 23 September the row showed a word only for "reconnecting", "disconnected" and "signal lost". These states last seconds, so Chris never saw a word. The notification (17.16) starts with the same word.
+17.11.7 The row shows the status word beside the dot in every state: "connecting", "listening", "rejoining", "reconnecting", "waiting", "starting", "signal lost", "disconnected", "stalled" or "left". The colour alone does not say which amber state the room is in. Until 23 September the row showed a word only for "reconnecting", "disconnected" and "signal lost". These states last seconds, so Chris never saw a word. The notification (17.16) starts with the same word.
 
 17.11.8 The "Leave" button is not in the row. It is on the options screen (17.22), which opens from the gear at the end of the row. It leaves the room and keeps the app open (17.11.10). Until 24 September it quit the app; "Quit" does that now (17.22.4).
 
@@ -691,6 +700,22 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 17.11.10.4 The bridge needs no change. To the bridge a phone that left is a phone in a tunnel (14.8): the conversation carries on. A turn that runs when Chris leaves runs to its end: the agent finishes, the voice speaks to a room with no one in it, and the bridge keeps the turn (14.8). After 30 seconds with no frames the bridge writes the line of 18.9.2 once and sends a `rejoin` that no phone gets. The `mic` message of 9.5 is not sent, so what the microphone had half recorded stays in the bridge's ear until the next sound, as after a drop.
 
 17.11.10.5 The bridge sends the history when the app rejoins. The app keeps the lines it has and shows the history once for each conversation, so a room that opens again inside one conversation does not show it a second time. This is the rule the app has for a drop. The words of a turn that ended while the app was out do not reach the screen until a later change shows only the turns the app missed; "restate" (14.6) says them again by voice.
+
+17.11.11 The app follows the bridge in the room, not only its own link. LiveKit runs apart from the bridge, so a restart of the bridge does not end the phone's room: only the bridge leaves it. Until 26 September the app watched only its own link. On a restart it said "listening" with no bridge in the room. The old bridge's last `working` true stayed, and a new bridge with no work sends no `working` message, because it sends only on a change (14.10.2). So 15 seconds after the last heartbeat the row said "stalled" (17.11.3), and it stayed so. It did not show "reconnecting" or "disconnected", because the phone's link did not change. A replay of a real restart of 26 September through the app's code showed both.
+
+17.11.11.1 The app knows the bridge by its identity in the room, which starts with `bridge`. The link up, the status word is:
+
+| Bridge | Word | Dot |
+| --- | --- | --- |
+| Not in the room | "waiting" | amber, slow pulse |
+| In the room, and it said `starting` true (14.16) | "starting" | amber, slow pulse |
+| In the room, and ready | "listening", or "stalled" or "signal lost" (17.11.6) | green or red |
+
+17.11.11.2 A bridge that joins the room is "starting" until it says it is ready. A bridge that is in the room when the phone joins is taken as ready until it says that it starts. When the last bridge leaves the room, the app drops what the bridge said about work and the words of the Stop button, as when the room ends. So a restart shows "waiting", then "starting", then "listening". A bridge that stops and does not come back shows "waiting" for as long as it is away. The app writes `bridge` events to the screen log (17.12) when a bridge joins and leaves the room.
+
+17.11.11.3 "disconnected" shows when the phone's own room ends or does not open: LiveKit is not there (the container stops or restarts, or the machine or its network is down), the phone's network is gone for longer than LiveKit's own reconnect, or the connect fails for another reason. The app then tries again every 5 seconds (17.11.6). A restart of the bridge alone does not show it.
+
+17.11.11.4 A restart by the service manager sends SIGTERM, and the bridge leaves the room at once: on 26 September the phone saw it leave in less than 0.1 seconds. A bridge that is killed does not leave. It stays in the room until LiveKit drops it, and the row can say "stalled" until then. The time LiveKit takes is not measured.
 
 17.12 The app keeps a screen log: what it showed, in the order it showed it. Each change of a line on the screen is one entry. The log is in the memory of the app process. It ends when Chris quits the app (17.22.4). A leave (17.11.10) keeps it, as it keeps the lines, and the leave and the rejoin are two events in it (4.3.1).
 

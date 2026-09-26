@@ -188,6 +188,10 @@ export function assemble(
     },
   }, say);
 
+  // 14.16 the app shows "starting" until the workers are warm. A failed load
+  // is serve's to report: it stops the bridge.
+  ready.then(() => channel.ready(), () => {});
+
   const conversation: Conversation = new Conversation(dir, config, mouth, channel, {
     // 9.4 the file is for the next run; the live copy is what /diagnostics and
     // the health line report now; the record says when it changed

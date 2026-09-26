@@ -38,6 +38,9 @@ async function scenes(): Promise<Outgoing[]> {
     r.channel.joined({ url: "https://bridge:3100/sidetone.apk", sha256: "ab12" });
     // 17.15.5 a build ends while the client is in the room
     r.channel.tell({ kind: "apk", apk: { url: "https://bridge:3100/sidetone.apk", sha256: "cd34" } });
+    // 14.16 the engines are warm
+    await r.ready;
+    await until(() => r.told.some((m) => m.kind === "starting" && !m.on));
 
     // 14.9 a turn in two blocks, split by a tool call, with the narration between
     script.during = (hooks) => {
@@ -104,7 +107,7 @@ describe("the control channel fixture (4.3, ADR 0007)", () => {
     expect(sent).toEqual(await read());
     // every kind the bridge may send is in it, so no decoder can skip one
     const kinds = new Set(sent.map((m) => m.kind));
-    const every: Array<Outgoing["kind"]> = ["heard", "sentence", "turn", "blockStart", "delta", "blockEnd", "narration", "error", "history", "rejoin", "working", "protocol", "settings", "speaking", "apk", "screenshot", "setup"];
+    const every: Array<Outgoing["kind"]> = ["heard", "sentence", "turn", "blockStart", "delta", "blockEnd", "narration", "error", "history", "rejoin", "working", "starting", "protocol", "settings", "speaking", "apk", "screenshot", "setup"];
     expect([...kinds].sort()).toEqual([...every].sort());
   }, 10_000);
 

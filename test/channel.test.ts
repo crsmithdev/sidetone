@@ -42,11 +42,30 @@ describe("what a client is told (4.3, 14.7)", () => {
     sent.length = 0;
     c.joined();
     expect(sent[0]).toMatchObject({ kind: "protocol", endTurn: `${config.wakeWord} end the turn` });
+    // 14.16 whether the bridge still loads, so the app does not show "listening" too soon
+    expect(sent[1]).toEqual({ kind: "starting", on: true });
     // 9.4.9 a client that shows a setting is told what is in force before the history
-    expect(sent[1]).toMatchObject({ kind: "settings" });
-    expect(sent[2]?.kind).toBe("history");
-    const turns = sent[2]?.kind === "history" ? sent[2].turns : [];
+    expect(sent[2]).toMatchObject({ kind: "settings" });
+    expect(sent[3]?.kind).toBe("history");
+    const turns = sent[3]?.kind === "history" ? sent[3].turns : [];
     expect(turns.map((t) => `${t.kind} ${t.text}`)).toEqual(["heard what is two plus two", "turn Four."]);
+  });
+
+  test("14.16 a client hears that the bridge loads, and hears once when the load ends", () => {
+    const { c, sent } = channel();
+    // no client was told the bridge starts, so no client is owed the end of it
+    const quiet = channel();
+    quiet.c.ready();
+    expect(quiet.sent).toEqual([]);
+    c.joined();
+    expect(sent.filter((m) => m.kind === "starting")).toEqual([{ kind: "starting", on: true }]);
+    sent.length = 0;
+    c.ready();
+    expect(sent).toEqual([{ kind: "starting", on: false }]);
+    sent.length = 0;
+    // a client that joins after the load is told at once that it is over
+    c.joined();
+    expect(sent.filter((m) => m.kind === "starting")).toEqual([{ kind: "starting", on: false }]);
   });
 
   test("each settings message has a larger seq than the last, so the app can drop an old one (9.4.9.1)", () => {

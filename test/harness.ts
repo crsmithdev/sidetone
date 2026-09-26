@@ -95,6 +95,8 @@ export interface Options {
   kept?: string[];
   /** 18.16 the turn detector; unset, it is off */
   turn?: TurnDetector;
+  /** 14.16 the speech workers are warm when this resolves; unset, at once */
+  warm?: Promise<void>;
 }
 
 const built: Bridge[] = [];
@@ -160,7 +162,7 @@ export function bridge(options: Options = {}) {
 
   const agent = scripted(options.script);
   const parts: Parts = {
-    stt: { start: async () => {}, warmupSeconds: 1, transcribe: async () => "", transcribeWords: async () => ({ text: "", words: [] }), stop: () => {} },
+    stt: { start: async () => { await options.warm; }, warmupSeconds: 1, transcribe: async () => "", transcribeWords: async () => ({ text: "", words: [] }), stop: () => {} },
     turn: options.turn,
     tts: { start: async () => {}, sampleRate: RATE, synthesize: async (_text, wav) => wav, switchable: true, use: () => {}, voice: "test", stop: () => {} },
     made: {

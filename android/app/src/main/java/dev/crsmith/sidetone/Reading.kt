@@ -40,6 +40,10 @@ fun reading(status: Status, quality: String?, sign: Sign): Reading = when (statu
     }
     Status.IDLE, Status.CONNECTING -> Reading(Light.AMBER, "connecting", pulse = true)
     Status.RECONNECTING -> Reading(Light.AMBER, "reconnecting", pulse = true)
+    // 17.11.11 the phone is in the room and the bridge is not, as during a restart: the bridge is gone, not stuck
+    Status.WAITING -> Reading(Light.AMBER, "waiting", pulse = true)
+    // 14.16 the bridge is back and loads its speech workers, about 20 seconds from cold
+    Status.STARTING -> Reading(Light.AMBER, "starting", pulse = true)
     // 18.9 a rejoin shows in the light, not in a note
     Status.REJOINING -> Reading(Light.AMBER, "rejoining", pulse = true)
     // the app tries again every Joining.RETRY_MS, which is work in progress
@@ -81,6 +85,8 @@ val LEGEND: List<LegendRow> = listOf(
             reading(Status.CONNECTING, null, Sign.OFF) to null,
             reading(Status.REJOINING, null, Sign.OFF) to null,
             reading(Status.RECONNECTING, null, Sign.OFF) to null,
+            reading(Status.WAITING, null, Sign.OFF) to null,
+            reading(Status.STARTING, null, Sign.OFF) to null,
         ),
     ),
     LegendRow(

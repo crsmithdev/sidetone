@@ -261,7 +261,8 @@ object Bridge {
             room.connect(credentials.url, credentials.token)
             // 4.2.2.1 a setup with no focus picks its output device itself, once the room's audio is up
             Audio.pickRoute(app, setup)?.let { Log.i(TAG, "route picked: $it") }
-            link(Joining.Event.Connected)
+            // 17.11.11 the phone can be in the room while the bridge is not, as during a restart
+            link(Joining.Event.Connected(bridgeHere = room.remoteParticipants.values.any { isBridge(it.identity?.value) }))
             if (_state.value.micOn) micLock.withLock { openMic(room) }
             sendCrashes(room)
             ended.await()
@@ -275,7 +276,7 @@ object Bridge {
             watch.cancel()
             stream.cancel()
             // the protocol, the last reading and the last word about work belonged to a room that is gone
-            conversation.roomEnded(SystemClock.elapsedRealtime(), now())
+            conversation.bridgeGone(SystemClock.elapsedRealtime(), now())
             _state.update { it.copy(quality = null, endTurn = conversation.endTurn, sign = conversation.sign) }
             this@Bridge.room = null
             mic = null
@@ -299,6 +300,19 @@ object Bridge {
             is RoomEvent.Reconnecting -> link(Joining.Event.Reconnecting)
             is RoomEvent.Reconnected -> link(Joining.Event.Reconnected)
             is RoomEvent.Disconnected -> ended.complete(event.error?.message ?: reasonWord(event.reason))
+            // 17.11.11 a restart of the bridge leaves the phone's room up: only the bridge leaves it
+            is RoomEvent.ParticipantConnected -> if (isBridge(event.participant.identity?.value)) {
+                record("bridge", "the bridge joined the room")
+                link(Joining.Event.BridgeArrived)
+            }
+            is RoomEvent.ParticipantDisconnected -> {
+                if (!isBridge(event.participant.identity?.value)) return
+                record("bridge", "the bridge left the room")
+                if (room.remoteParticipants.values.any { it != event.participant && isBridge(it.identity?.value) }) return
+                conversation.bridgeGone(SystemClock.elapsedRealtime(), now())
+                shown()
+                link(Joining.Event.BridgeLeft)
+            }
             // N.1.4 the phone reads its own uplink and tells the bridge
             is RoomEvent.ConnectionQualityChanged -> {
                 if (event.participant != room.localParticipant) return
@@ -316,6 +330,7 @@ object Bridge {
                     is Conversation.Effect.Rejoin -> rejoin(ended)
                     is Conversation.Effect.Device -> sendDevice(room)
                     is Conversation.Effect.Setup -> applySetup(effect.names, ended)
+                    is Conversation.Effect.Starting -> link(Joining.Event.Starting(effect.on))
                 }
             }
             else -> Unit
