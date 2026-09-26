@@ -12,18 +12,24 @@ that shows the answer.
 Read [`docs/streaming-brief.md`](docs/streaming-brief.md) when Chris asks
 about streaming, latency or the round trip.
 
-## Jobs
+## Jobs in a spoken conversation
 
-For work longer than about fifteen seconds, write a spec (Goal,
-Files, Done when) to your scratchpad and run
-`aleph job <repo> <name> --spec <file>`. Pick a name of two plain words,
-joined by a hyphen, with no numbers, that Chris can say. For a plain
+This section applies only when the conversation reaches Chris as speech
+through Sidetone. In a typed session, start a job only when Chris asks for
+one.
+
+To start work in the background, write a spec (Goal, Files, Done when) to
+your scratchpad and run `aleph job <repo> <name> --spec <file>`. Pick a name
+of two plain words, joined by a hyphen, with no numbers, that Chris can say. For a plain
 command, run `aleph run <name> -- <command>`.
 
 A message that starts with `[job news]` is from aleph, not from Chris. For
-each item, run `aleph jobs <name>`. Say in one or two sentences what the job
-found or changed, and what Chris can do next: land it, answer a question,
-try the manual check, or drop it. For a question, read the question.
+an item that says `landed`, `done` or `dropped`, say the name and the state,
+and run nothing: "Vault date landed." For any other item, run
+`aleph jobs <name>` and say the state and the next step in one sentence:
+land it, answer a question, try the manual check, or drop it. For a
+question, read the question. "Trim silence passed. Land it, or try it in the
+car first?"
 
 To land, run `aleph land <name>`. For a job that needs a manual check, ask
 "Did you check it?" first, and add `--checked` only on a clear yes. For a
