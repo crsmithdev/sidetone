@@ -841,6 +841,16 @@ export class Conversation {
   }
 
   /**
+   * 15.7.6 the hold music delay, from the app's options screen. Like the volume
+   * it has no spoken command and no answer. A turn reads it when it starts, so
+   * the next turn waits the new time. Zero is not taken: the music button turns
+   * the music off (17.10.3).
+   */
+  private setMusicDelay(ms: number): void {
+    this.onSetting?.({ holdMusicAfterMs: ms });
+  }
+
+  /**
    * Item 44 a threshold of the ear, from the app's options screen. Like the
    * volume it has no spoken command and no answer. It is checked by the rule
    * the file is checked by: a value the bridge took live is written to the
@@ -864,8 +874,9 @@ export class Conversation {
    * command does, the voice's answer included, so tapping a switch and saying
    * the words cannot end anywhere different. A key it does not know is ignored:
    * a client may not reach the settings the car has no command for. The hold
-   * music volume (item 28), from 0 to 1, and the three thresholds of the ear
-   * (item 44) are the exceptions: each has a control and no command.
+   * music volume (item 28), from 0 to 1, the hold music delay (15.7.6), and the
+   * three thresholds of the ear (item 44) are the exceptions: each has a
+   * control and no command.
    */
   set(patch: Record<string, unknown>): void {
     if (typeof patch.tones === "boolean") this.setTones(patch.tones);
@@ -874,6 +885,7 @@ export class Conversation {
     if (patch.voice === "female" || patch.voice === "male") this.switchVoice(patch.voice);
     if (VERBOSITIES.includes(patch.verbosity as Verbosity)) this.setVerbosity(patch.verbosity as Verbosity);
     if (typeof patch.holdMusicGain === "number" && patch.holdMusicGain >= 0 && patch.holdMusicGain <= 1) this.setMusicGain(patch.holdMusicGain);
+    if (typeof patch.holdMusicAfterMs === "number" && patch.holdMusicAfterMs > 0) this.setMusicDelay(patch.holdMusicAfterMs);
     for (const key of THRESHOLDS) {
       if (typeof patch[key] === "number") this.setThreshold(key, patch[key]);
     }

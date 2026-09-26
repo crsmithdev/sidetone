@@ -44,6 +44,9 @@ import kotlin.math.roundToInt
 /** 9.4.10 the levels of the verbosity, shortest first. */
 private val LEVELS = listOf("brief", "normal", "full")
 
+/** 17.22.7 the hold music delays on offer, in seconds. Zero, the music off, is the music button's (17.10.3). */
+private val DELAYS_S = listOf(3, 5, 8, 12)
+
 /** 17.22.6 the end-of-turn pause moves one step a tap, between these two. */
 private const val PAUSE_STEP_MS = 100
 private const val PAUSE_MIN_MS = 500
@@ -84,6 +87,7 @@ fun OptionsScreen(
         Tones(settings.on["tones"])
         HorizontalDivider()
         Level("Hold music volume", "holdMusicGain", settings.numbers["holdMusicGain"], 0f..1f, sent)
+        MusicDelay(settings.numbers["holdMusicAfterMs"])
         Level("Barge-in level", "bargeInLevel", settings.numbers["bargeInLevel"], 0f..0.2f, sent)
         Level("Quietest speech peak", "minSpeechPeak", settings.numbers["minSpeechPeak"], 0f..0.5f, sent)
         Pause(settings.numbers["endOfTurnPauseMs"])
@@ -125,6 +129,30 @@ private fun Verbosity(level: String?) {
                     modifier = Modifier.heightIn(min = 56.dp),
                     enabled = level != null,
                 ) { Text(each, style = MaterialTheme.typography.titleSmall) }
+            }
+        }
+    }
+}
+
+/**
+ * 17.22.7 the hold music delay, `holdMusicAfterMs` on the bridge (15.7.6): a
+ * selector of a few times, as the verbosity is. A value the bridge holds that
+ * is not on offer selects none of them.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MusicDelay(ms: Double?) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Hold music after", style = MaterialTheme.typography.titleMedium)
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            DELAYS_S.forEachIndexed { index, seconds ->
+                SegmentedButton(
+                    selected = ms?.roundToInt() == seconds * 1_000,
+                    onClick = { Bridge.change(Outgoing.musicDelay(seconds)) },
+                    shape = SegmentedButtonDefaults.itemShape(index, DELAYS_S.size),
+                    modifier = Modifier.heightIn(min = 56.dp),
+                    enabled = ms != null,
+                ) { Text("$seconds s", style = MaterialTheme.typography.titleSmall) }
             }
         }
     }

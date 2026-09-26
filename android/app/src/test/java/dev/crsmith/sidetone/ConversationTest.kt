@@ -183,12 +183,14 @@ class ConversationTest {
 
     @Test
     fun theSettingsInForceArriveAndAreKept() {
-        send("""{"kind":"settings","settings":{"holdMusic":true,"tones":false,"ttsVoice":"som_00295","holdMusicGain":0.4}}""")
+        send("""{"kind":"settings","settings":{"holdMusic":true,"tones":false,"ttsVoice":"som_00295","holdMusicGain":0.4,"holdMusicAfterMs":8000}}""")
         assertEquals(mapOf("holdMusic" to true, "tones" to false), c.settingsOn)
         assertEquals("som_00295", c.settingWords["ttsVoice"])
         // item 28 a number is neither a switch nor a word: the volume slider reads it
         assertEquals(null, c.settingsOn["holdMusicGain"])
         assertEquals(0.4, c.settingNumbers["holdMusicGain"])
+        // 15.7.6 the hold music delay selector reads the milliseconds
+        assertEquals(8000.0, c.settingNumbers["holdMusicAfterMs"])
     }
 
     @Test
@@ -229,6 +231,11 @@ class ConversationTest {
         assertEquals(
             """{"kind":"setting","patch":{"endOfTurnPauseMs":1600}}""",
             Outgoing.setting("endOfTurnPauseMs", 1600).decodeToString(),
+        )
+        // 15.7.6 the hold music delay is chosen in seconds and goes as the bridge's milliseconds
+        assertEquals(
+            """{"kind":"setting","patch":{"holdMusicAfterMs":5000}}""",
+            Outgoing.musicDelay(5).decodeToString(),
         )
     }
 

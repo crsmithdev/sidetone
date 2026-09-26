@@ -251,6 +251,22 @@ describe("the bridge, assembled as the car assembles it", () => {
     expect(bridge({ overrides: { audio: false } }).mouth.audioOn).toBe(false);
   });
 
+  test("the hold music delay from the options screen is kept, read back, and not answered (15.7.6)", async () => {
+    const r = bridge();
+    r.channel.receive({ kind: "setting", patch: { holdMusicAfterMs: 5_000 } });
+    expect(r.patches).toEqual([{ holdMusicAfterMs: 5_000 }]);
+    expect(r.config.holdMusicAfterMs).toBe(5_000);
+    const settings = r.told.flatMap((message) => (message.kind === "settings" ? [message.settings] : []));
+    expect(settings.at(-1)?.holdMusicAfterMs).toBe(5_000);
+    // zero is the music off, which is the music button's, and a word is not a time
+    r.channel.receive({ kind: "setting", patch: { holdMusicAfterMs: 0 } });
+    r.channel.receive({ kind: "setting", patch: { holdMusicAfterMs: -3_000 } });
+    r.channel.receive({ kind: "setting", patch: { holdMusicAfterMs: "longer" } });
+    await until(() => true);
+    expect(r.patches).toEqual([{ holdMusicAfterMs: 5_000 }]);
+    expect(r.said).toEqual([]);
+  });
+
   test("what Chris says arrives through the channel as a turn (14.11)", async () => {
     const r = bridge({ script: { deltas: ["Four."] } });
     r.channel.receive({ kind: "said", text: "what is two plus two" });

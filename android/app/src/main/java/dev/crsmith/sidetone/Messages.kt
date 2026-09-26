@@ -318,6 +318,9 @@ object Outgoing {
         put("patch", buildJsonObject { put(name, number) })
     })
 
+    /** 15.7.6 the hold music delay from the options screen, in seconds, sent as the bridge's milliseconds. */
+    fun musicDelay(seconds: Int): ByteArray = setting("holdMusicAfterMs", seconds * 1_000)
+
     /** 9.4 which of the two voices speaks: "female" or "male". */
     fun voice(which: String): ByteArray = encode(buildJsonObject {
         put("kind", "setting")
