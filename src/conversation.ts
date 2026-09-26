@@ -109,6 +109,8 @@ export class Conversation {
   private verbosity: Verbosity;
   private turnRunning = false;
   private checkpointOpen = false;
+  /** 13.2 the usage warning was spoken, and use has not dropped below the level since */
+  private usageWarned = false;
   private lastReply = "";
   /**
    * 11.9 whether a question that lands mid-answer stops the answer or is
@@ -524,7 +526,12 @@ export class Conversation {
       this.onTurn?.(turn);
       // 13.2 the warning uses the number claude reports, never an estimate (16.6)
       const worst = Math.max(this.agent.rateLimit.fiveHour, this.agent.rateLimit.sevenDay);
-      if (worst >= this.config.usageWarnFraction) this.reply(`A heads up: rate limit use is at ${Math.round(worst * 100)} percent.`);
+      // once per crossing, not after every turn
+      if (worst < this.config.usageWarnFraction) this.usageWarned = false;
+      else if (!this.usageWarned) {
+        this.usageWarned = true;
+        this.reply(`A heads up: rate limit use is at ${Math.round(worst * 100)} percent.`);
+      }
     } catch (error) {
       if (!mine()) return;
       this.reply("That turn did not finish.");

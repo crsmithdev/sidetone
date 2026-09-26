@@ -261,6 +261,13 @@ describe("the rate-limit warning (13.2)", () => {
     await r.c.turn("do something");
     expect(r.said).toEqual(["Done."]);
   });
+
+  test("two turns over the threshold give one warning", async () => {
+    const r = room({ deltas: ["Done."], rateLimit: { fiveHour: 0.92, sevenDay: 0.1 } }, { usageWarnFraction: 0.8 });
+    await r.c.turn("do something");
+    await r.c.turn("do something else");
+    expect(r.said.filter((line) => line.startsWith("A heads up"))).toHaveLength(1);
+  });
 });
 
 describe("the checkpoint (8.6.3)", () => {
