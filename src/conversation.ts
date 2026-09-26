@@ -908,7 +908,7 @@ type Threshold = typeof THRESHOLDS[number];
  * Item 37 the one line at the head of every turn's prompt. It names the level
  * and says what it means, because the agent reads it and nothing else does.
  */
-const VERBOSITY_LINES: Record<Verbosity, string> = {
+export const VERBOSITY_LINES: Record<Verbosity, string> = {
   brief: "[From the bridge, not from Chris: verbosity is brief. Answer in one or two sentences, and give only the result.]",
   normal: "[From the bridge, not from Chris: verbosity is normal. Answer as you usually do.]",
   full: "[From the bridge, not from Chris: verbosity is full. Give your reasoning and more detail.]",

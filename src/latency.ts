@@ -49,7 +49,11 @@ export interface AgentTimes {
   inputTokens?: number;
   cacheReadTokens?: number;
   cacheCreationTokens?: number;
-  /** the thinking estimate before the first word, over every message */
+  /**
+   * the thinking of every message up to the one that holds the first word,
+   * that one included: the exact count of each message that ended before the
+   * round closed, and the estimate of one that still ran
+   */
   thinkingTokens?: number;
   /** what the first block held: "text", "tool_use" or "thinking" */
   firstEvent?: string;
@@ -73,6 +77,8 @@ export class Latency {
     endedAt: number; noticedAt: number; transcribedAt: number; firstDeltaAt: number; firstSentenceAt: number; synthesisMs: number; worker?: WorkerTimes;
     /** 18.4.1 the stream from the first request after the round opened to the first word */
     requestedAt: number; spoke: boolean; agent: AgentTimes;
+    /** the thinking: exact for the messages that ended, estimated for the one that runs; `counted` once either came */
+    thinking: { exact: number; estimate: number; counted: boolean; done: boolean };
   } | null = null;
   private readonly rounds: Round[] = [];
   /**
@@ -89,7 +95,7 @@ export class Latency {
    * engine's share must not be charged for a wait that a setting decides.
    */
   speechEnded(endedAt: number, noticedAt = Date.now()): void {
-    this.open = { endedAt, noticedAt, transcribedAt: 0, firstDeltaAt: 0, firstSentenceAt: 0, synthesisMs: 0, requestedAt: 0, spoke: false, agent: {} };
+    this.open = { endedAt, noticedAt, transcribedAt: 0, firstDeltaAt: 0, firstSentenceAt: 0, synthesisMs: 0, requestedAt: 0, spoke: false, agent: {}, thinking: { exact: 0, estimate: 0, counted: false, done: false } };
   }
 
   /** The recording is text. */
@@ -104,15 +110,25 @@ export class Latency {
 
   /**
    * 18.4.1 an event of the agent's stream. Only the stream from the first
-   * request after the round opened to the first word counts.
+   * request after the round opened to the first word counts, and the end of
+   * the message that holds the first word, which gives its exact thinking.
    */
   agent(event: Event, at = Date.now()): void {
     const open = this.open;
-    if (!open || open.spoke) return;
+    if (!open || open.thinking.done) return;
     if (!open.requestedAt) {
       if (event.kind === "requesting") open.requestedAt = at;
       return;
     }
+    const thinking = open.thinking;
+    if (event.kind === "messageEnd") {
+      thinking.exact += event.thinkingTokens;
+      thinking.estimate = 0;
+      thinking.counted = true;
+      thinking.done = open.spoke;
+      return;
+    }
+    if (open.spoke) return;
     const times = open.agent;
     switch (event.kind) {
       case "messageStart":
@@ -123,7 +139,7 @@ export class Latency {
         times.requestMs = at - open.requestedAt;
         times.toolsBeforeText = 0;
         break;
-      case "thinking": times.thinkingTokens = (times.thinkingTokens ?? 0) + event.tokens; break;
+      case "thinking": thinking.estimate += event.tokens; thinking.counted = true; break;
       case "blockStart":
         times.firstEvent ??= event.type;
         if (event.type === "tool_use") times.toolsBeforeText = (times.toolsBeforeText ?? 0) + 1;
@@ -164,6 +180,7 @@ export class Latency {
       synthesisMs: open.synthesisMs,
       ...open.worker,
       ...open.agent,
+      ...(open.thinking.counted ? { thinkingTokens: open.thinking.exact + open.thinking.estimate } : {}),
     };
     this.rounds.push(round);
     if (this.rounds.length > KEEP) this.rounds.shift();

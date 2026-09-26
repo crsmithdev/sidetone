@@ -42,6 +42,13 @@ export type Event =
    */
   | { kind: "thinking"; tokens: number }
   /**
+   * 18.4.1 a message of the agent ends, with the thinking it wrote, counted
+   * exactly (`output_tokens_details.thinking_tokens`, measured on 2.1.283
+   * 26 September). It arrives after the message's last word, so the estimate
+   * above is all there is while a message still runs.
+   */
+  | { kind: "messageEnd"; thinkingTokens: number }
+  /**
    * Item 4 `--replay-user-messages` prints a user message again when the
    * process puts it into the conversation, not when it reads it. Queued
    * messages that go in together come back as one, joined by a newline.
@@ -167,6 +174,11 @@ export function parseLine(line: string): Event[] {
     if (event.type === "message_start") {
       const message = (event.message ?? {}) as Record<string, unknown>;
       return [{ kind: "messageStart", usage: usageOf(message.usage) }];
+    }
+    if (event.type === "message_delta") {
+      const usage = (event.usage ?? {}) as Record<string, unknown>;
+      const details = (usage.output_tokens_details ?? {}) as Record<string, unknown>;
+      return [{ kind: "messageEnd", thinkingTokens: num(details.thinking_tokens) }];
     }
     return [{ kind: "other", type: `stream_event.${String(event.type ?? "")}` }];
   }

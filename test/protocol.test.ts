@@ -113,6 +113,10 @@ describe("the agent's timings (18.4.1)", () => {
   test("a message begins with the usage of its request", () => {
     expect(parseLine(MESSAGE_START)).toEqual([{ kind: "messageStart", usage: { inputTokens: 2, outputTokens: 3, cacheReadTokens: 10221, cacheCreationTokens: 16037 } }]);
   });
+  test("a message ends with its exact thinking", () => {
+    const line = '{"type":"stream_event","event":{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":135,"output_tokens_details":{"thinking_tokens":120}}}}';
+    expect(parseLine(line)).toEqual([{ kind: "messageEnd", thinkingTokens: 120 }]);
+  });
   test("the thinking estimate gives what it grew by", () => {
     expect(parseLine(THINKING_TOKENS)).toEqual([{ kind: "thinking", tokens: 132 }]);
   });

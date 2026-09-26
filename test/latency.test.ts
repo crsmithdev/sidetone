@@ -115,25 +115,47 @@ describe("the agent's timings (18.4.1)", () => {
   const at = (name: string, match: string) =>
     readFileSync(new URL(`./fixtures/${name}`, import.meta.url), "utf8").split("\n").filter(Boolean).findIndex((line) => line.includes(match));
 
+  // the estimates in these streams were 182 and 242; the exact counts are 76 and 0 + 137
   test("a turn that thinks, runs a tool, then speaks", () => {
     const round = replay("stream-think-tool.ndjson");
     const requestMs = (at("stream-think-tool.ndjson", '"message_start"') - at("stream-think-tool.ndjson", '"requesting"')) * 10;
     expect(round).toMatchObject({
       inputTokens: 2, cacheReadTokens: 10221, cacheCreationTokens: 16037,
-      thinkingTokens: 182, firstEvent: "thinking", toolsBeforeText: 1, requestMs,
+      thinkingTokens: 76, firstEvent: "thinking", toolsBeforeText: 1, requestMs,
     });
   });
 
   test("the thinking of every message before the first word counts, and the usage is the first request's", () => {
     const round = replay("stream-inject-tool.ndjson");
-    expect(round).toMatchObject({ cacheReadTokens: 8253, cacheCreationTokens: 15879, thinkingTokens: 242, firstEvent: "tool_use", toolsBeforeText: 1 });
+    expect(round).toMatchObject({ cacheReadTokens: 8253, cacheCreationTokens: 15879, thinkingTokens: 137, firstEvent: "tool_use", toolsBeforeText: 1 });
   });
 
-  test("a turn that speaks at once has no thinking estimate, not a zero", () => {
+  test("a turn that speaks at once thinks zero tokens, counted, not left out", () => {
     const round = replay("stream-pong.ndjson");
-    expect(round).toMatchObject({ firstEvent: "text", toolsBeforeText: 0 });
+    expect(round).toMatchObject({ firstEvent: "text", toolsBeforeText: 0, thinkingTokens: 0 });
     expect(round.cacheReadTokens).toBeGreaterThan(0);
-    expect("thinkingTokens" in round).toBe(false);
+  });
+
+  test("a message still running when the round closes gives its estimate, and one that ended its exact count", () => {
+    const latency = new Latency();
+    latency.speechEnded(0, 1_500);
+    latency.agent({ kind: "requesting" }, 2_000);
+    latency.agent({ kind: "thinking", tokens: 180 }, 2_100);
+    latency.agent({ kind: "messageEnd", thinkingTokens: 70 }, 2_200);
+    latency.agent({ kind: "thinking", tokens: 50 }, 2_300);
+    latency.agent({ kind: "delta", text: "Yes." }, 2_400);
+    expect(latency.answered(2_500)?.thinkingTokens).toBe(120);
+  });
+
+  test("the end of the message that holds the first word is counted, and nothing after it", () => {
+    const latency = new Latency();
+    latency.speechEnded(0, 1_500);
+    latency.agent({ kind: "requesting" }, 2_000);
+    latency.agent({ kind: "thinking", tokens: 50 }, 2_100);
+    latency.agent({ kind: "delta", text: "Yes." }, 2_200);
+    latency.agent({ kind: "messageEnd", thinkingTokens: 20 }, 2_300);
+    latency.agent({ kind: "messageEnd", thinkingTokens: 900 }, 2_400);
+    expect(latency.answered(2_500)?.thinkingTokens).toBe(20);
   });
 
   test("a round with no stream, such as a command's reply, has none of them", () => {
