@@ -162,6 +162,60 @@ the same turn.
 with no retry. The record has a `track` event for the file that says it
 finished.
 
+## 16. Open microphone: turn detector data, and the names
+
+The shadow turn detector (spec 18.16) writes a `turnGuess` line at each
+tentative end, but it cannot learn from a release. Since it landed, 45 of 47
+utterances ended on a hold to talk release, and only 2 ended on a pause. A
+decision needs about 100 ends on a pause.
+
+The same drive checks the vocabulary prompt of b139674: the speech to text
+model gets the names in `sttVocabulary` as its initial prompt.
+
+**Do.** Restart the unit first; `turnDetector` is `shadow` by default. Leave
+the microphone open for the whole drive and never touch hold to talk. Talk
+naturally, with the hesitations, the "um"s and the pauses mid-thought, and
+let each turn end on a pause. Say things that contain the names: Sidetone,
+aleph, Cloud Chamber, Beamline, Voiceover, LiveKit, Kokoro, Chatterbox,
+worktree. For example: "check the worktree for the Beamline job", "is
+LiveKit or Kokoro slower", "what did aleph land in Cloud Chamber today".
+
+**Look.** The `turnGuess` lines, counted by outcome and `endedBy`, then for
+each threshold: `cutOff` is resumed guesses at or above it (Chris would have
+been cut off), and `caught` is ended guesses at or above it (an early end
+caught).
+
+```
+jq -sc '[.[] | select(.kind=="turnGuess")] as $g
+ | ($g | group_by([.outcome, .endedBy]) | map({outcome: .[0].outcome, endedBy: .[0].endedBy, n: length})),
+   ([0.5, 0.8, 0.9, 0.95][] as $t | {at: $t,
+     cutOff: ($g | map(select(.outcome=="resumed" and .probability >= $t)) | length),
+     caught: ($g | map(select(.outcome=="ended" and .probability >= $t)) | length)})' ~/.sidetone/record.jsonl
+```
+
+The baseline before this drive, 26 September:
+
+```
+[{"outcome":"ended","endedBy":"flush","n":2},{"outcome":"ended","endedBy":"pause","n":1},{"outcome":"resumed","endedBy":null,"n":45}]
+{"at":0.5,"cutOff":8,"caught":3}
+{"at":0.8,"cutOff":7,"caught":2}
+{"at":0.9,"cutOff":6,"caught":2}
+{"at":0.95,"cutOff":4,"caught":2}
+```
+
+The `heard` texts of the drive, to check the names. Set `-3 hours` to the
+start of the drive:
+
+```
+jq -r --argjson since "$(date -d '-3 hours' +%s000)" 'select(.kind=="heard" and .at >= $since) | "\(.at/1000|localtime|strftime("%H:%M")) \(.endedBy) \(.text)"' ~/.sidetone/record.jsonl
+```
+
+**Settles.** When the `ended`/`pause` count nears 100, whether a threshold
+exists with few `cutOff` and most `caught`: that decides if the detector
+ends turns. The heard texts settle the vocabulary prompt: each name spelled
+as in the list passes; a name heard as something else ("side tone", "Alf",
+"live kit") fails, and the text goes into the vault note.
+
 ## 8. Does the app come back after a restart? (last)
 
 Run this one last: it ends this session, and everything learned above goes
