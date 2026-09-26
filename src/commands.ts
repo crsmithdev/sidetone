@@ -177,7 +177,25 @@ function found(targets: string[], words: string[], exact: boolean, taken: number
   if (targets.length === 0) return true;
   const [want, ...rest] = targets as [string, ...string[]];
   const allowed = exact ? 0 : tolerance(want);
-  return words.some((word, i) => !taken.includes(i) && editDistance(word, want) <= allowed && found(rest, words, exact, [...taken, i]));
+  const next = rest[0];
+  const joined = next !== undefined && joins(want, next) ? want + next : null;
+  const joinedAllowed = exact || !next ? 0 : Math.min(tolerance(want), tolerance(next));
+  return words.some((word, i) => !taken.includes(i) && (
+    (editDistance(word, want) <= allowed && found(rest, words, exact, [...taken, i]))
+    || (joined !== null && editDistance(word, joined) <= joinedAllowed && found(rest.slice(1), words, exact, [...taken, i]))
+  ));
+}
+
+/**
+ * 9.3 the engine runs two words of a command together: "verbosityful" for
+ * "verbosity full". One spoken word may stand for two adjacent words of a form,
+ * forgiven by the smaller tolerance of the two. Short words do not join: a
+ * two-letter word forgives a letter, so "good" and "soon" would be "go on",
+ * and "theres" would be "the rest". This rule adds no word of the system
+ * dictionary to any command.
+ */
+function joins(first: string, second: string): boolean {
+  return first.length >= 3 && second.length >= 3 && first.length + second.length >= 8;
 }
 
 /**

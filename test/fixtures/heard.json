@@ -5,279 +5,228 @@
    "said": "sidetone, unmute",
    "want": "unmute",
    "heard": [
-    "Saitone on mute.",
-    "Side tone on mute.",
-    "Side tone unmute.",
-    "Side tone, unmute."
-   ]
-  },
-  {
-   "said": "sidetone, mute",
-   "want": "mute",
-   "heard": [
-    "Cytone Mute",
-    "Cytone mute.",
-    "Sight tone mute.",
-    "Sight-tone mute.",
-    "Site on mute."
-   ]
-  },
-  {
-   "said": "sidetone, stop listening",
-   "want": "mute",
-   "heard": [
-    "Cytone stop listening.",
-    "SideTone stop listening.",
-    "SideTone, stop listening.",
-    "SideTones stop listening."
-   ]
-  },
-  {
-   "said": "sidetone, clear the context",
-   "want": "clearContext",
-   "heard": [
-    "Side don't clear the context.",
-    "Side tone clear the context.",
-    "so I don't clear the context."
-   ]
-  },
-  {
-   "said": "sidetone, report the usage",
-   "want": "usage",
-   "heard": [
-    "SideTone report the usage.",
-    "Sigh tone report the usage."
-   ]
-  },
-  {
-   "said": "sidetone, say again",
-   "want": "restate",
-   "heard": [
-    "Cytone say again.",
-    "Side tone, say again.",
-    "SideTones say again.",
-    "Sitone say again."
-   ]
-  },
-  {
-   "said": "sidetone, recap",
-   "want": "where",
-   "heard": [
-    "Side Tone Recap.",
-    "Side tone recap."
-   ]
-  },
-  {
-   "said": "sidetone, end turn",
-   "want": "endTurn",
-   "heard": [
-    "Cytone in turn.",
-    "Side tone and turn.",
-    "Side tone in turn.",
-    "Sight tone and turn.",
-    "Sitem in turn."
-   ]
-  },
-  {
-   "said": "sidetone, never mind",
-   "want": "endTurn",
-   "heard": [
-    "Cytone never mind.",
-    "Sigh tone never mind.",
-    "Sigh tone, never mind.",
-    "Sight tone, never mind."
-   ]
-  },
-  {
-   "said": "sidetone, tones off",
-   "want": "tonesOff",
-   "heard": [
-    "Side tone tones off.",
-    "SideTone tones off."
-   ]
-  },
-  {
-   "said": "sidetone, tones on",
-   "want": "tonesOn",
-   "heard": [
-    "Side tone tones on.",
-    "SideTone Tones On.",
-    "SideTone tones on."
-   ]
-  },
-  {
-   "said": "sidetone, audio off",
-   "want": "audioOff",
-   "heard": [
-    "Side-tone audio off.",
-    "SideTone Audio Off.",
-    "SideTone Audio off."
-   ]
-  },
-  {
-   "said": "sidetone, audio on",
-   "want": "audioOn",
-   "heard": [
-    "SITONE Audio On.",
-    "SideTone Audio On.",
-    "SideTone Audio on."
+    "Sidetone on mute.",
+    "Sidetone, unmute."
    ]
   },
   {
    "said": "sidetone, music off",
    "want": "musicOff",
    "heard": [
-    "Side tone music off.",
-    "Side-tone music off."
+    "Sidetone music off."
    ]
   },
   {
    "said": "sidetone, music on",
    "want": "musicOn",
    "heard": [
-    "Side Tone Music On",
-    "Side Tone Music On.",
-    "SideTone Music On.",
-    "Sigh Tone Music On."
+    "Sidetone Music On"
    ]
   },
   {
-   "said": "sidetone, stats",
-   "want": "stats",
+   "said": "sidetone, mute",
+   "want": "mute",
    "heard": [
-    "Side Tone Stats",
-    "Side tone stats.",
-    "SideTome stats.",
-    "Sigh tone stats."
+    "Sidetone mute"
    ]
   },
   {
-   "said": "sidetone, latency",
-   "want": "stats",
+   "said": "sidetone, stop listening",
+   "want": "mute",
    "heard": [
-    "Cytome Latency",
-    "Cytome latency.",
-    "Cytone latency.",
-    "Side Tone Latency",
-    "Side Tone Latency."
+    "Sidetone stop listening.",
+    "Sidetone, stop listening."
    ]
   },
   {
-   "said": "sidetone, carry on",
-   "want": "carryOn",
+   "said": "sidetone, clear the context",
+   "want": "clearContext",
    "heard": [
-    "Side tone carry on."
+    "Sidetone clear the context.",
+    "Sidetone, clear the context."
+   ]
+  },
+  {
+   "said": "sidetone, report the usage",
+   "want": "usage",
+   "heard": [
+    "Sidetone report the usage.",
+    "Sidetone, report the usage."
+   ]
+  },
+  {
+   "said": "sidetone, say again",
+   "want": "restate",
+   "heard": [
+    "Sidetone say again.",
+    "Sidetone, say again."
+   ]
+  },
+  {
+   "said": "sidetone, recap",
+   "want": "where",
+   "heard": [
+    "Sidetone recap",
+    "Sidetone recap."
+   ]
+  },
+  {
+   "said": "sidetone, tones off",
+   "want": "tonesOff",
+   "heard": [
+    "Sidetone tones off."
+   ]
+  },
+  {
+   "said": "sidetone, tones on",
+   "want": "tonesOn",
+   "heard": [
+    "Sidetone tones on.",
+    "Sidetone, tones on",
+    "Sidetone, tones on."
+   ]
+  },
+  {
+   "said": "sidetone, audio off",
+   "want": "audioOff",
+   "heard": [
+    "Sidetone Audio Off",
+    "Sidetone audio off.",
+    "Sidetone, audio off."
+   ]
+  },
+  {
+   "said": "sidetone, audio on",
+   "want": "audioOn",
+   "heard": [
+    "Sidetone Audio On",
+    "Sidetone Audio on."
    ]
   },
   {
    "said": "sidetone, interrupt off",
    "want": "interruptOff",
    "heard": [
-    "Side tone interrupt off."
+    "Sidetone interrupt off.",
+    "Sidetone, interrupt off."
    ]
   },
   {
    "said": "sidetone, interrupt on",
    "want": "interruptOn",
    "heard": [
-    "SITONE interrupt on.",
-    "Side Tone Interrupt On.",
-    "Side tone interrupt on.",
-    "SideTone Interrupt On."
+    "Sidetone interrupt on.",
+    "Sidetone, Interrupt On.",
+    "Sidetone, interrupt on."
+   ]
+  },
+  {
+   "said": "sidetone, end turn",
+   "want": "endTurn",
+   "heard": [
+    "Sidetone and turn.",
+    "Sidetone in turn",
+    "Sidetone in turn."
+   ]
+  },
+  {
+   "said": "sidetone, never mind",
+   "want": "endTurn",
+   "heard": [
+    "Sidetone, nevermind"
+   ]
+  },
+  {
+   "said": "sidetone, stats",
+   "want": "stats",
+   "heard": [
+    "Sidetone stats",
+    "Sidetone stats."
+   ]
+  },
+  {
+   "said": "sidetone, latency",
+   "want": "stats",
+   "heard": [
+    "Sidetone latency"
+   ]
+  },
+  {
+   "said": "sidetone, carry on",
+   "want": "carryOn",
+   "heard": [
+    "Sidetone carry on.",
+    "Sidetone carry-on."
    ]
   },
   {
    "said": "sidetone, verbosity brief",
    "want": "verbosityBrief",
    "heard": [
-    "Side Tone Verbosity Brief.",
-    "Side Tone Vibosity Brief.",
-    "Side Tone, Verbosity Brief.",
-    "Sigh tone, verbosity brief."
+    "Sidetone, verbosity brief",
+    "Sidetone, verbosity brief."
    ]
   },
   {
    "said": "sidetone, verbosity normal",
    "want": "verbosityNormal",
    "heard": [
-    "Side Tone Verbosity Normal.",
-    "Side Tone, Verbosity Normal."
+    "Sidetone, verbosity normal",
+    "Sidetone, verbosity normal."
    ]
   },
   {
    "said": "sidetone, verbosity full",
    "want": "verbosityFull",
    "heard": [
-    "Side Tone Verbosity Full",
-    "Side Tone Verbosity Full.",
-    "Side Tone Vibosity Full.",
-    "Sigh tone verbosity full.",
-    "Sigh-tone verbosity full."
+    "Sidetone, verbosity full.",
+    "Sidetone, verbosityful"
    ]
   },
   {
    "said": "sidetone, shorter",
    "want": "shorter",
    "heard": [
-    "Side tone shorter.",
-    "Sigh tone shorter.",
-    "side tone shorter."
+    "Sidetone shorter",
+    "Sidetone shorter."
    ]
   },
   {
    "said": "sidetone, longer",
    "want": "longer",
    "heard": [
-    "SITONE LONGER",
-    "SideTone longer.",
-    "Sigh Tone Longer.",
-    "Sigh tone longer.",
-    "side tone longer."
+    "Sidetone longer",
+    "Sidetone longer."
    ]
   },
   {
    "said": "sidetone, female voice",
    "want": "femaleVoice",
    "heard": [
-    "Side Tone Female Voice.",
-    "Side tone female voice.",
-    "Side tone, female voice.",
-    "Side-tone female voice.",
-    "side-tone female voice."
+    "Sidetone, female voice."
    ]
   },
   {
    "said": "sidetone, male voice",
    "want": "maleVoice",
    "heard": [
-    "Side tone male voice.",
-    "Side-tone male voice.",
-    "Sigh-tone male voice.",
-    "Sitone male voice.",
-    "side tone male voice.",
-    "side-tone male voice."
+    "Sidetone, male voice",
+    "Sidetone, male voice."
    ]
   },
   {
    "said": "sidetonemute",
    "want": "mute",
    "heard": [
-    "Saito Mute.",
-    "Side don't mute.",
-    "Side-toe mute.",
-    "Site on mute.",
-    "Site-Dome-Ute.",
-    "Site-to-mute."
+    "Sidetone Mute",
+    "Sidetone mute"
    ]
   },
   {
    "said": "sidetone, wobble",
    "want": "unclear",
    "heard": [
-    "Cytone Wobble.",
-    "Side Tone Wobble",
-    "Side Tone Wobble.",
-    "Sigh Tone Wobble."
+    "Sidetone Wobble"
    ]
   },
   {
@@ -314,6 +263,7 @@
    "said": "Side note, the tests pass now.",
    "want": null,
    "heard": [
+    "Side note, the test's passed now.",
     "Side note, the tests pass now."
    ]
   },
@@ -321,8 +271,7 @@
    "said": "Set that aside and move on.",
    "want": null,
    "heard": [
-    "Set that aside and move on.",
-    "set that aside and move on."
+    "Set that aside and move on."
    ]
   }
  ]

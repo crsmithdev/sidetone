@@ -335,3 +335,20 @@ describe("the clashes the review found, the rest of the table (item 36)", () => 
     }
   });
 });
+
+describe("two words of a command run together (9.3)", () => {
+  test("one word stands for two adjacent words of a form", () => {
+    expect(commandIn("verbosityful")).toBe("verbosityFull");
+    expect(commandIn("verbositynormal")).toBe("verbosityNormal");
+    expect(commandIn("tonesoff")).toBe("tonesOff");
+    expect(match("Sidetone, verbosityful.", WAKE, false, MUTED)).toEqual({ kind: "command", name: "verbosityFull" });
+  });
+  test("a joined word that is not a command stays unclear", () => {
+    // "go on", "the rest" and "interrupt on" would take these with the forgiveness of one long word
+    for (const said of ["sidetone good", "sidetone soon", "sidetone theres", "sidetone interruption", "sidetone interrupted", "sidetone sounds"]) {
+      expect(match(said, WAKE, false, MUTED)).toEqual({ kind: "unclear" });
+    }
+    // and in the wake-word hold a joined word must be exact
+    expect(read("verbosityful", DEFAULTS, false, true)).toEqual({ kind: "speech", agreed: false });
+  });
+});

@@ -27,12 +27,14 @@ function reached(heard: string): string {
  * "sidetone" is one word, and at -5 dB the engine sometimes hears another
  * one: "so I don't", "Sitem". Those are recorded here and not reachable
  * without a variant that would fire on ordinary speech. The corpus of 20
- * September has 93 spellings and 5 such misses, 4 of them on the run-together
- * phrase, which is spoken with no pause at all. The rule is: ordinary speech
- * never wakes it, every command reaches its name in at least half of its
- * spellings, and the misses are counted, so a change that adds one shows up.
+ * September had 93 spellings and 5 such misses. The corpus of 26 September,
+ * read with the vocabulary prompt, has 63 spellings and none: the prompt
+ * steadies the engine, and "verbosityful" is matched as two words. The rule
+ * is: ordinary speech never wakes it, every command reaches its name in at
+ * least half of its spellings, and the misses are counted, so a change that
+ * adds one shows up.
  */
-const MISSES_ALLOWED = 5;
+const MISSES_ALLOWED = 0;
 
 describe("what the engine wrote, and what the bridge made of it (9.3)", () => {
   for (const phrase of phrases) {
