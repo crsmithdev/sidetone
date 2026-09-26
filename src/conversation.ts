@@ -42,7 +42,6 @@ import type { Measures } from "./measures.ts";
 import type { Mouth } from "./mouth.ts";
 import { Network } from "./network.ts";
 import { ASK_RULES, gatedAction } from "./gated.ts";
-import { withoutMarker } from "./sentences.ts";
 import { Session, type Permission, type SessionHooks, type Turn } from "./session.ts";
 
 export type { CueName };
@@ -505,9 +504,8 @@ export class Conversation {
     const stopCue = this.cueWhileWaiting();
     const stopMusic = this.musicWhileWaiting(mine, () => answer.long);
     try {
-      const result = await this.agent.ask([VERBOSITY_LINES[this.verbosity], note, said].filter(Boolean).join("\n\n"));
+      const turn = await this.agent.ask([VERBOSITY_LINES[this.verbosity], note, said].filter(Boolean).join("\n\n"));
       if (!mine()) return;
-      const turn = { ...result, text: withoutMarker(result.text) };
       answer.end();
       await this.mouth.drained();
       // 15.15 the true end of the speech: the result is back, so no sentence
@@ -575,12 +573,9 @@ export class Conversation {
   }
 
   /**
-   * 15.7 hold music. The agent decides ahead of time (15.7.4): a reply that
-   * starts with the marker `[long]` makes the turn a long turn, and only a
-   * long turn gets music. A turn with no marker gets none, unless it calls a
-   * tool (15.7.5): a tool call is proof enough on its own, so a turn is long
-   * the moment one starts, marker or not. `long` is read on every look,
-   * because the marker arrives with the first words, after the hand-over.
+   * 15.7 hold music. A turn is long the moment it calls a tool (15.7.5), and
+   * only a long turn gets music. `long` is read on every look, because the
+   * tool call comes after the hand-over.
    *
    * In a long turn the bridge measures the silence: once the room has heard no
    * bridge voice for `holdMusicAfterMs`, the track plays. The silence runs from
@@ -605,7 +600,7 @@ export class Conversation {
       const wait = since + after - Date.now();
       // not silent long enough yet, or this stretch has had its track: look again then
       let next = wait > 0 ? wait : after;
-      // 15.11 not while an answer is wanted, or while the bridge is muted; 15.7.3 nor while the music is off; 15.7.4 nor in a turn that is not long
+      // 15.11 not while an answer is wanted, or while the bridge is muted; 15.7.3 nor while the music is off; 15.7.5 nor in a turn that is not long
       const wanted = this.checkpointOpen || this.gate !== null || this.muted || !this.holdMusic || !long();
       if (wait <= 0 && played !== since && !wanted) {
         // refused: a cue or a sentence is on the source, so ask again soon
@@ -750,7 +745,7 @@ export class Conversation {
     if (!answer) return;
     this.answering = null;
     answer.end();
-    this.channel.tell({ kind: "turn", number: turn.number, text: withoutMarker(turn.text.trim()), costUsd: this.agent.totalCostUsd(), answer: answer.id });
+    this.channel.tell({ kind: "turn", number: turn.number, text: turn.text.trim(), costUsd: this.agent.totalCostUsd(), answer: answer.id });
     // 15.15 a report is news, and it ends as a turn does: after its last
     // sentence has played, unless a question took the mouth first.
     await this.mouth.drained();

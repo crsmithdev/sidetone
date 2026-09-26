@@ -5,12 +5,10 @@
  * cannot tell the two apart until the voice treats them differently.
  */
 import type { Channel } from "./channel.ts";
-import { LongMarker, SentenceCollector } from "./sentences.ts";
+import { SentenceCollector } from "./sentences.ts";
 
 export class Answer {
   private readonly sentences: SentenceCollector;
-  // 15.7.4 the marker is taken off before the words go anywhere
-  private readonly marker = new LongMarker();
   // 14.9 the blocks of this answer that hold text, counted here: the stream's index restarts with each message
   private block = 0;
   // 14.9.2 the deltas of the current block, counted so the app can put them in order
@@ -36,19 +34,19 @@ export class Answer {
     this.sentences = new SentenceCollector(sentenceMaxChars);
   }
 
-  /** 15.7.4 and 15.7.5 whether the agent said the answer is long, or showed it with a tool call. */
-  get long(): boolean { return this.marker.long; }
+  /** 15.7.5 whether the agent called a tool, which makes the answer long. */
+  long = false;
 
   delta(text: string): void {
     if (!this.live()) return;
     if (this.firstWord) { this.firstWord = false; this.onFirstWord(); }
-    this.words(this.marker.push(text));
+    this.words(text);
   }
 
   blockStart(type: string): void {
     if (!this.live()) return;
-    // 15.7.5 a tool call is proof enough that the turn is long, marker or not
-    if (type === "tool_use") { this.words(this.marker.end()); this.endSentence(); this.marker.long = true; }
+    // 15.7.5 a tool call makes the turn long
+    if (type === "tool_use") { this.endSentence(); this.long = true; }
     if (type !== "text") return;
     this.open = true;
     this.seq = 0;
@@ -67,10 +65,9 @@ export class Answer {
     this.hushed = true;
   }
 
-  /** The stream is over: what the marker and the collector still hold goes out. */
+  /** The stream is over: what the collector still holds goes out. */
   end(): void {
     if (!this.live()) return;
-    this.words(this.marker.end());
     this.endSentence();
   }
 
