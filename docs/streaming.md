@@ -1,6 +1,6 @@
 # Streaming between the stages of a voice pipeline
 
-Research for Sidetone (`/home/crsmi/sidetone`) and the caller (`/home/crsmi/caller`). Date: 18 September 2026. No file in either repo was changed.
+Research for Sidetone (`/home/crsmi/sidetone`) and the caller (`/home/crsmi/voiceover`, then named caller). Date: 18 September 2026. No file in either repo was changed.
 
 ## 1. The bridge today
 
@@ -26,7 +26,7 @@ What it does overlap: synthesis of N+1 with playback of N.
 
 What it does not overlap:
 
-- Synthesis of the first sentence with anything. The first sentence is fully on the critical path: about 120-160 ms with kokoro, about 2.5-3 s with chatterbox (`docs/next.md`, `speech/chatterbox_worker.py`).
+- Synthesis of the first sentence with anything. The first sentence is fully on the critical path: about 120-160 ms with kokoro, about 2.5-3 s with chatterbox (`docs/next.md` at `ade0bde`, `speech/chatterbox_worker.py`).
 - Audio inside a sentence. Each wav is complete before its first frame goes out.
 - Sentence N+2. The engine is serial, so N+2 waits for N+1 to finish, not for N to finish playing.
 - Transcription with the pause. `stt.transcribe` starts only when the 1500 ms pause has elapsed.
@@ -90,14 +90,14 @@ What you could not verify: any published number for whisper streaming below 500 
 
 - LiveKit: "Preemptive generation speculatively starts an LLM response before the user's end of turn is confirmed"; "Only the LLM runs preemptively — TTS waits until the turn is confirmed"; discarded if context or tools change; costs tokens. https://docs.livekit.io/agents/build/audio/
 - A third party measured `preemptiveLeadTime: 318` ms and reports "TTFT drops by 150-350ms", discards "below 5 percent of turns". This is a GitHub issue, not a vendor benchmark. https://github.com/mastra-ai/mastra/issues/22873
-- Claude Code: a second user message on stdin during a turn "queues and runs as a second full turn after the first". https://github.com/anthropics/claude-code/issues/51078. The interrupt control request works in about 10 ms and ends the turn with `error_during_execution` (`docs/next.md`, measured 9 September).
+- Claude Code: a second user message on stdin during a turn "queues and runs as a second full turn after the first". https://github.com/anthropics/claude-code/issues/51078. The interrupt control request works in about 10 ms and ends the turn with `error_during_execution` (`docs/next.md` at `ade0bde`, measured 9 September).
 
 ### 3.3 Streaming LLM tokens into TTS at sentence or clause boundaries
 
 - Pipecat: SENTENCE mode is the default; TOKEN mode "stream tokens directly for lower latency". https://docs.pipecat.ai/pipecat/learn/text-to-speech
 - ElevenLabs websocket input buffers by `chunk_length_schedule` default `[120, 160, 250, 290]` characters before the first audio. https://elevenlabs.io/docs/api-reference/text-to-speech/v-1-text-to-speech-voice-id-stream-input
 - Cartesia websocket: `continue` flag per chunk, `max_buffer_delay_ms` default 3000, `cancel` per context. https://docs.cartesia.ai/api-reference/tts/tts
-- The caller's own measurement of the gap between first token and first sentence: Haiku 4.5 186 ms, Sonnet 5 727 ms; Haiku first sentence 868 ms median (`/home/crsmi/caller/docs/spec.md` 15.3).
+- The caller's own measurement of the gap between first token and first sentence: Haiku 4.5 186 ms, Sonnet 5 727 ms; Haiku first sentence 868 ms median (`/home/crsmi/voiceover/docs/spec.md` 15.3).
 - Twilio's budget: STT 350 ms, LLM first token 375 ms, TTS first byte 100 ms, 1115 ms mouth to ear; "Speech synthesis can begin as soon as the first tokens are received." https://www.twilio.com/en-us/blog/developers/best-practices/guide-core-latency-ai-voice-agents
 
 ### 3.4 TTS that accepts streamed text or streams audio out
@@ -114,7 +114,7 @@ What you could not verify: any published number for whisper streaming below 500 
 - Pipecat: an interruption frame propagates and each processor cancels; `MinWordsInterruptionStrategy` (now `MinWordsUserTurnStartStrategy`). https://docs.pipecat.ai/server/utilities/interruption-strategies (page moved; the reference is https://reference-server.pipecat.ai/en/latest/api/pipecat.audio.interruptions.min_words_interruption_strategy.html)
 - Vocode: `interrupt_sensitivity` low ignores backchannels; Deepgram endpointing `vad_threshold_ms` 500, `utterance_cutoff_ms` 1000. https://docs.vocode.dev/open-source/conversation-mechanics
 - OpenAI Realtime: `interrupt_response`, server VAD example `silence_duration_ms: 500`, semantic VAD `eagerness`. https://developers.openai.com/api/docs/guides/realtime-vad
-- The bridge already stops playback 5-6 ms after it notices a barge-in and holds the sentences (`docs/next.md`). Its detector needs 400 ms above 0.05 with a 200 ms gap tolerance, close to LiveKit's 500 ms.
+- The bridge already stops playback 5-6 ms after it notices a barge-in and holds the sentences (`docs/next.md` at `ade0bde`). Its detector needs 400 ms above 0.05 with a 200 ms gap tolerance, close to LiveKit's 500 ms.
 
 ### 3.6 Turn detection
 

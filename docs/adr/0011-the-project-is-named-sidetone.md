@@ -31,7 +31,7 @@ credential keys (the browser pairs again), the checkout `~/sidetone`, the
 GitHub repository `crsmithdev/sidetone`.
 
 The wake word is the single word "sidetone". "hey bridge" was settled
-(`docs/next.md`), but the name is the wake word now, and one word is quicker
+(`docs/next.md` at `ade0bde`), but the name is the wake word now, and one word is quicker
 in a car. The corpus was rerun for it: small.en writes "side tone" a third of
 the time, and "cytone", "sigh tone", "sight tone", "sitone" when the /d/ goes
 under road noise, so those are the variants. 93 spellings, 5 not reached, 4 of
