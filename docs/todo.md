@@ -824,3 +824,36 @@ assistant's own habit in a spoken turn. Fix: before each step of a
 multi-step check, not only the first, say in one short sentence what runs
 next. No code to write; a habit to hold to. Done when a multi-step check in
 the car gets a line before each step, not just the first.
+
+## 58. The gate does not see a command piped into a shell
+
+Noted 27 September 2026, from the architectural review of 25 September
+(section 6.1). `shell` in `src/gated.ts:89` scans only `bash -c` and `sh -c`.
+A shell that reads its commands from a pipe or a file is not scanned:
+`gatedAction` returns `null` for `echo … | base64 -d | sh`, `curl … | bash`
+and `sh < script.sh`. The ask rules send only `rm`, `git push`, DROP and
+TRUNCATE to the bridge (ADR 0009), so the bridge sees these only when the
+text holds one of those words. Decide whether a shell with no `-c` and no
+script it can read is `UNREADABLE`, which fails closed. Done when that
+decision is written into the spec at 10.7 and a test holds it.
+
+## 59. Send screenshots over HTTP, not the control channel
+
+Noted 27 September 2026, from the architectural review of 25 September
+(section 6.4). A screenshot goes to the bridge as chunks on the control
+channel (`ClientRoom.kt:371`), the same channel as the words of an answer. On
+a weak mobile connection a screenshot can hold back the deltas behind it. The
+review proposes a POST to the bridge's HTTP server for the image, with only a
+short note on the control channel. Done when there is a measurement: one
+screenshot sent during an answer on a slow link, with the delay of the
+deltas before and after the change.
+
+## 60. Set the level for speech from the noise in the car
+
+Noted 27 September 2026, from the architectural review of 25 September
+(section 7, long term). The levels that decide speech and silence in
+`src/ear.ts` are fixed numbers, measured at the desk and in the car. The
+review proposes that the bridge measure the noise when nobody speaks and set
+the level from it. Done when the record of a drive shows whether the
+noise changes enough between roads to need this: the level of the quiet
+frames, over one drive, by minute.
