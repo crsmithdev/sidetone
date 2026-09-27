@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 /**
  * Where the agent's time to the first word goes, one variant of its command
- * line against another (docs/round-trip-plan.md, phase 1).
+ * line against another (docs/todo.md, item 55).
  *
  *   bun scripts/first-word.ts                 5 rounds of the prompts, every variant
  *   bun scripts/first-word.ts --runs 2 --only baseline,haiku --dir ~/sidetone

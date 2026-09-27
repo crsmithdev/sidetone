@@ -631,6 +631,65 @@ Done when a test shows the first samples of a started track rise from zero over
 the setting, spec 15.10 and the defaults table name it, and Chris has heard it
 in the car.
 
+## 54. End a turn before the 1.5 s pause
+
+Noted 26 September 2026, from the round trip plan of 25 September and the
+voice bridge field survey (vault: Voice Bridge Field Survey 2026-09-26). The
+plan file is gone; this item holds what is left of it.
+
+The end of turn pause (`endOfTurnPauseMs`, 1,500 ms) is the largest part of
+the round trip. A plain shorter pause cuts too many turns: from 19 to 26
+September, 278 of 530 utterances (52%) held a quiet of 400 ms or more that
+Chris talked through.
+
+Done so far: the Smart Turn v3 detector runs in shadow (f040436, spec 18.16,
+`speech/turn_worker.py`). At each tentative end it writes a `turnGuess` line
+and ends nothing. On 26 September it had 48 guesses, but 45 of 47 utterances
+ended on a hold to talk release, so only 2 ended on a pause. At 0.5 it would
+have cut 8 of 45 pauses Chris talked through.
+
+### a. Let the detector end a turn
+
+1. Drive with an open microphone until about 100 utterances end on a pause:
+   `docs/drive.md` section 16 (fd68793). It also checks the vocabulary prompt
+   of b139674.
+2. If a threshold exists with few `cutOff` and most `caught`, add a third
+   `turnDetector` value that ends the utterance at the tentative end
+   (`endedBy: "detector"`). The pause stays as the backstop.
+3. Check that `pauseMs` on the `answered` line is the pause that happened
+   (400 ms when the detector ends a turn), not the setting.
+4. Drive again and read the round trip.
+
+### b. A retract and join window
+
+From duck_talk. When a turn ends early and Chris goes on talking, retract the
+turn and join the two utterances into one. It is the safety net for a short
+end in part a, or the alternative if no good threshold exists. Wait for the
+shadow data of part a.
+
+Done when the drive of part a gives a verdict, and the chosen part is on
+`main` with a drive that shows a shorter pause and no more cut-off turns than
+today.
+
+## 55. About a second of the agent's time is not the model
+
+Noted 26 September 2026, from the first word bench (vault: Agent First Word
+Bench 2026-09-26, `scripts/first-word.ts`, 8791a00).
+
+On a warm process with the bridge's own arguments, Sonnet 5 gives its first
+text delta in 0.62 s at the median. The `agentMs` median from drives is 1.6 s.
+`--effort low` and a short `--tools` list change nothing measurable. Haiku is
+slower (0.94 s) because it always thinks first. Those levers are closed.
+
+Find where the other second goes. Candidates, none measured: the larger
+context of a real session (records show 88k or more cache reads), the note
+that the bridge puts in front of a turn, cache misses between consecutive
+turns, and turns that start with a tool call. The `answered` line now has the
+exact thinking count and the cache counts to split them.
+
+Done when the record splits the median `agentMs` into its parts, and each part
+either has a fix or a reason to leave it.
+
 ## Done
 
 One line for each item that shipped: the number, the title, the date, the
