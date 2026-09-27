@@ -796,3 +796,31 @@ commit, and any finding that lived only in the item.
   playing, now under 500; and "Audio off." waited on the whole queue, so the
   held answer played on behind it. `frames()` clears the source on a cut, and
   `Mouth.quietAfter` turns the audio off when its own line ends.
+
+## 56. Can correct audio arrive distorted, from the connection or the transport rather than the render?
+
+Noted 27 September 2026, from a question in the car: is there a condition,
+poor connection or otherwise, where the wav rendered on the server is
+correct but what plays on the phone is garbled anyway? Two precedents look
+similar but are not this: item 33 found chatterbox itself renders some
+sentences garbled, nothing lost after; item 43 found chat text arriving
+scrambled was a data-message ordering bug (`Dispatchers.Default`), not the
+connection, fixed with a `seq`. Neither checked the audio frames themselves
+end to end. Research thread, not scoped: whether LiveKit's Opus path drops
+or reorders frames under loss, whether the app's playback buffer can starve
+or glitch under jitter, and whether anything short of a full resend (a
+sequence number on frames, a checksum, forward error correction) is worth
+adding. Done when there is a finding, matching item 39b's shape: a file
+under `~/.sidetone/findings/`, from the code and LiveKit's own behavior,
+naming what can go wrong between a correct render and what Chris hears.
+
+## 57. Say what a long check is doing before each step, not only the first
+
+Noted 27 September 2026, from a question in the car: during the drive-test
+verdict check of 27 September, the assistant ran several `journalctl` and
+config reads in a row with no word between them, so Chris heard silence for
+a stretch he had not expected. This is not about the bridge; it is about the
+assistant's own habit in a spoken turn. Fix: before each step of a
+multi-step check, not only the first, say in one short sentence what runs
+next. No code to write; a habit to hold to. Done when a multi-step check in
+the car gets a line before each step, not just the first.
