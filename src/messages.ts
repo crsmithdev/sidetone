@@ -84,6 +84,55 @@ export type Outgoing =
   | Setup;
 
 /**
+ * Everything a client may send the bridge, and nothing else. The app's
+ * `Outgoing` in `Messages.kt` writes `test/fixtures/from-app.jsonl` from its
+ * own encoders, and `test/incoming.test.ts` reads it here, as ADR 0007 does
+ * for the other direction.
+ */
+export type Incoming =
+  /** a thing Chris said, typed rather than spoken; 9.4.8 the Stop button sends the end-turn phrase */
+  | { kind: "said"; text: string }
+  /** ADR 0008 the microphone opened or cut. 9.5.1 `hold` is a hold to talk press, and 9.5.2 `release` its let go */
+  | { kind: "mic"; on: boolean; hold?: boolean; release?: boolean }
+  /** 11.12 the audio on or off; the kind keeps the name it had when the voice was all the audio */
+  | { kind: "voice"; on: boolean }
+  /** 9.4.9 a setting a client changed, in the same words the config uses */
+  | { kind: "setting"; patch: Record<string, unknown> }
+  /** 17.10 the hold music on or off (15.7.3) */
+  | { kind: "music"; on: boolean }
+  /** N.1.4 the phone's own reading of its uplink: a name, or LiveKit's number; `qualityOf` reads either */
+  | { kind: "quality"; quality: unknown }
+  /**
+   * 14.11, 14.12, 14.14, 14.15 the module that owns each of these reads the
+   * rest of the message, and says in the journal when it is not readable.
+   */
+  | { kind: "screen" | "screenshot" | "crash" | "device"; [field: string]: unknown };
+
+/**
+ * A client's message, read, or null for one the bridge does not know. The
+ * checks are the ones `Channel.receive` made by hand before this: an `on`
+ * that is not false is on, and a `hold` or `release` that is not true is not.
+ */
+export function decodeIncoming(value: unknown): Incoming | null {
+  if (typeof value !== "object" || value === null) return null;
+  const message = value as Record<string, unknown>;
+  switch (message.kind) {
+    case "said": return typeof message.text === "string" ? { kind: "said", text: message.text } : null;
+    case "mic": return { kind: "mic", on: message.on !== false, hold: message.hold === true, release: message.release === true };
+    case "voice":
+    case "music": return { kind: message.kind, on: message.on !== false };
+    case "setting":
+      return message.patch && typeof message.patch === "object" ? { kind: "setting", patch: message.patch as Record<string, unknown> } : null;
+    case "quality": return { kind: "quality", quality: message.quality };
+    case "screen":
+    case "screenshot":
+    case "crash":
+    case "device": return { ...message, kind: message.kind };
+    default: return null;
+  }
+}
+
+/**
  * 18.15 the phone's audio setup in names, so no Android constant crosses the
  * wire. `Audio.kt` maps each name to its constant, because 4.2.2 keeps the
  * setup in one place. The capture source is not here: VOICE_COMMUNICATION is

@@ -14,7 +14,7 @@
  * conversation's, the ear's and the mouth's, which it reaches through `Ends`.
  */
 import { settingsInForce, type Config } from "./config.ts";
-import { protocolMessage, type Apk, type Kept, type Outgoing } from "./messages.ts";
+import { decodeIncoming, protocolMessage, type Apk, type Kept, type Outgoing } from "./messages.ts";
 import { qualityOf, type Quality, type Side } from "./network.ts";
 
 /** What a client's message does, in the modules that own it. */
@@ -132,62 +132,53 @@ export class Channel {
     return this.kept.filter((entry) => now - entry.at <= this.config.historyMaxAgeMs);
   }
 
-  /** One message from a client. A kind this end does not know is dropped. */
+  /**
+   * One message from a client. A message this end does not read is dropped,
+   * and the journal says so, as it does for a part it cannot read (14.11).
+   */
   receive(value: Record<string, unknown>): void {
-    if (value.kind === "said" && typeof value.text === "string") { void this.ends.heard(value.text); return; }
-    if (value.kind === "mic") {
-      this.micOn = value.on !== false;
-      this.saidSilent = false;
-      // 9.5.1 an open says `hold`, and 9.5.2 a cut says `release`
-      const hold = this.micOn ? value.hold === true : value.release === true;
-      const release = !this.micOn && hold;
-      this.ends.microphone(this.micOn, hold);
-      this.say(`[the phone ${this.micOn ? "opened" : "cut"} its microphone${release ? " and ended the utterance" : ""}]`);
+    const message = decodeIncoming(value);
+    if (!message) {
+      this.journal(`a message of kind ${JSON.stringify(value?.kind ?? null)} from a client was not readable`);
       return;
     }
-    if (value.kind === "voice") {
-      const on = value.on !== false;
-      this.ends.voice(on);
-      // 4.3.1 the app shows its own state; the note said it a second time
-      this.journal(on ? "the audio is on" : "the audio is off; the words carry on in the transcript");
-      return;
-    }
-    // 9.4.9 a setting a client changed. It does what the spoken command does.
-    if (value.kind === "setting" && value.patch && typeof value.patch === "object") {
-      this.ends.setting(value.patch as Record<string, unknown>);
-      return;
-    }
-    if (value.kind === "music") {
-      const on = value.on !== false;
-      this.ends.music(on);
-      // 4.3.1 the button shows its own state
-      this.journal(on ? "the hold music is on" : "the hold music is off");
-      return;
-    }
-    if (value.kind === "screen") {
+    switch (message.kind) {
+      case "said": void this.ends.heard(message.text); return;
+      case "mic": {
+        this.micOn = message.on;
+        this.saidSilent = false;
+        // 9.5.1 an open says `hold`, and 9.5.2 a cut says `release`
+        const hold = this.micOn ? message.hold === true : message.release === true;
+        const release = !this.micOn && hold;
+        this.ends.microphone(this.micOn, hold);
+        this.say(`[the phone ${this.micOn ? "opened" : "cut"} its microphone${release ? " and ended the utterance" : ""}]`);
+        return;
+      }
+      case "voice":
+        this.ends.voice(message.on);
+        // 4.3.1 the app shows its own state; the note said it a second time
+        this.journal(message.on ? "the audio is on" : "the audio is off; the words carry on in the transcript");
+        return;
+      // 9.4.9 a setting a client changed. It does what the spoken command does.
+      case "setting": this.ends.setting(message.patch); return;
+      case "music":
+        this.ends.music(message.on);
+        // 4.3.1 the button shows its own state
+        this.journal(message.on ? "the hold music is on" : "the hold music is off");
+        return;
       // 14.11 the log streams, so where it goes is the journal's business, not a note
-      for (const line of this.ends.screen(value)) this.journal(line);
-      return;
-    }
-    if (value.kind === "screenshot") {
+      case "screen": for (const line of this.ends.screen(message)) this.journal(line); return;
       // 14.12 the same as the screen log: the journal, not a note
-      for (const line of this.ends.screenshot(value)) this.journal(line);
-      return;
-    }
-    if (value.kind === "crash") {
+      case "screenshot": for (const line of this.ends.screenshot(message)) this.journal(line); return;
       // 14.14 the same as the screenshot: the journal, not a note
-      this.journal(this.ends.crash(value));
-      return;
-    }
-    if (value.kind === "device") {
+      case "crash": this.journal(this.ends.crash(message)); return;
       // 14.15 the same as the crash report: the journal, not a note
-      void this.ends.device(value).then((line) => this.journal(line));
-      return;
+      case "device": void this.ends.device(message).then((line) => this.journal(line)); return;
+      // N.1.4 the phone's own reading of its uplink. It is the same signal this
+      // end sees, arriving twice, and it is kept because it is the one that
+      // survives a link the bridge has stopped hearing from.
+      case "quality": this.quality("phone", message.quality); return;
     }
-    // N.1.4 the phone's own reading of its uplink. It is the same signal this
-    // end sees, arriving twice, and it is kept because it is the one that
-    // survives a link the bridge has stopped hearing from.
-    if (value.kind === "quality") this.quality("phone", value.quality);
   }
 
   /** N.1 a reading of the connection from either end, said when it changes. */

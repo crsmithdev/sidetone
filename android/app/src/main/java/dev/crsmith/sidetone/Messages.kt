@@ -275,7 +275,7 @@ private fun JsonObject.bool(key: String): Boolean? = (this[key] as? kotlinx.seri
 
 private fun JsonObject.int(key: String): Int? = (this[key] as? kotlinx.serialization.json.JsonPrimitive)?.intOrNull
 
-/** 4.3 messages to the bridge. `src/serve.ts` reads each kind. */
+/** 4.3 messages to the bridge. `decodeIncoming` in `src/messages.ts` reads each kind; `MessagesTest` writes them all to `test/fixtures/from-app.jsonl` (ADR 0007). */
 object Outgoing {
     fun said(text: String): ByteArray = encode(buildJsonObject { put("kind", "said"); put("text", text) })
 

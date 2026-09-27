@@ -296,6 +296,44 @@ class MessagesTest {
         assertEquals("""{"kind":"music","on":false}""", Outgoing.music(false).decodeToString())
     }
 
+    /**
+     * ADR 0007 the other direction: every message this app can send, from its own
+     * encoders, written to `test/fixtures/from-app.jsonl`. The bridge's
+     * `test/incoming.test.ts` reads each line, so a kind or a field changed here and
+     * not there shows as a diff in that file and fails the bridge's test.
+     */
+    @Test
+    fun writesEverythingTheAppSends() {
+        val setup = SetupNames("call", "voice", "gain", "hardware", noiseSuppression = true, autoGainControl = true)
+        val sent = listOf(
+            Outgoing.said("sidetone end the turn"),
+            // 9.5 a plain cut and open, a hold to talk press, and its let go
+            Outgoing.mic(false),
+            Outgoing.mic(true),
+            Outgoing.mic(true, hold = true),
+            Outgoing.mic(false, release = true),
+            Outgoing.quality("good"),
+            Outgoing.audio(false),
+            Outgoing.audio(true),
+            Outgoing.music(false),
+            Outgoing.music(true),
+            // 9.4.9 each shape of setting the options screen sends
+            Outgoing.setting("tones", false),
+            Outgoing.setting("verbosity", "brief"),
+            Outgoing.setting("holdMusicGain", 0.25),
+            Outgoing.setting("endOfTurnPauseMs", 900),
+            Outgoing.musicDelay(20),
+            Outgoing.voice("male"),
+            *screenParts(listOf(Shown(0, "delta", 1, 1, 0, "Four.", "Four.")), "log-1", zone = ZoneOffset.UTC).map { it.message }.toTypedArray(),
+            *screenshotParts(byteArrayOf(1, 2, 3), "1789999559000").toTypedArray(),
+            Outgoing.dropScreenshot("1789999559000"),
+            Outgoing.crash("crash-1", "java.lang.IllegalStateException: boom"),
+            Outgoing.device("Pixel 8", true, "software", "speaker", "ab12", setup, pushed = false),
+            Outgoing.device("Pixel 8", false, "hardware", "bluetooth", null, setup, pushed = true),
+        )
+        File("../../test/fixtures/from-app.jsonl").writeText(sent.joinToString("") { it.decodeToString() + "\n" })
+    }
+
     @Test
     fun theJoinMessageCarriesTheServedApp() {
         assertEquals(

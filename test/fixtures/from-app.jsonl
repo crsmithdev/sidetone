@@ -1,0 +1,22 @@
+{"kind":"said","text":"sidetone end the turn"}
+{"kind":"mic","on":false}
+{"kind":"mic","on":true}
+{"kind":"mic","on":true,"hold":true}
+{"kind":"mic","on":false,"release":true}
+{"kind":"quality","quality":"good"}
+{"kind":"voice","on":false}
+{"kind":"voice","on":true}
+{"kind":"music","on":false}
+{"kind":"music","on":true}
+{"kind":"setting","patch":{"tones":false}}
+{"kind":"setting","patch":{"verbosity":"brief"}}
+{"kind":"setting","patch":{"holdMusicGain":0.25}}
+{"kind":"setting","patch":{"endOfTurnPauseMs":900}}
+{"kind":"setting","patch":{"holdMusicAfterMs":20000}}
+{"kind":"setting","patch":{"voice":"male"}}
+{"kind":"screen","id":"log-1","part":1,"of":1,"entries":[{"at":0,"time":"00:00:00.000","kind":"delta","answer":1,"block":1,"bubble":0,"got":"Four.","text":"Four."}]}
+{"kind":"screenshot","id":"1789999559000","part":1,"of":1,"data":"AQID"}
+{"kind":"screenshot","id":"1789999559000","drop":true}
+{"kind":"crash","id":"crash-1","text":"java.lang.IllegalStateException: boom"}
+{"kind":"device","model":"Pixel 8","aec":true,"canceller":"software","route":"speaker","apk":"ab12","setup":{"mode":"call","output":"voice","focus":"gain","canceller":"hardware","noiseSuppression":true,"autoGainControl":true},"pushed":false}
+{"kind":"device","model":"Pixel 8","aec":false,"canceller":"hardware","route":"bluetooth","setup":{"mode":"call","output":"voice","focus":"gain","canceller":"hardware","noiseSuppression":true,"autoGainControl":true},"pushed":true}
