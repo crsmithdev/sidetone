@@ -741,18 +741,19 @@ Chris heard a burst of hold music in its place.
 So `/play` can report success and drop the request (`src/routes.ts`,
 `Mouth.play`). The tests of 15.12 in `test/turn.test.ts` pass.
 
-Find what cut the first track and what dropped the second. Candidates, none
-checked:
+The second clip is fixed. `Mouth.play` took the track off its queue before
+`speaker.track` answered, and the hold music held the source, so the track
+was lost. Now a refused track stays first in the queue, and a waiting track
+fades the hold music out and keeps it from starting. Two tests in
+`test/turn.test.ts` hold it (item 61).
 
-- `Mouth.play` takes the track off its queue before `speaker.track` answers.
-  When `speaker.track` refuses, for example because the hold music has the
-  source, the track is lost with no retry and no record line.
-- `cutOff` stops a track when Chris talks or the audio goes off, so speech or
-  noise in the car can cut the first track.
+The first track was not a fault. The record has a `barged` line at
+11:36:41.558, 14 ms before the track stopped: Chris asked for "a shorter
+one", and his speech cut the track as 15.10.3 says.
 
-Done when a test holds the cause, and `docs/drive.md` test 15 passes in the
-car: the track and the sentence both play in full, with a `track` event for
-the file that says it finished.
+Done when `docs/drive.md` test 15 passes in the car: the track and the
+sentence both play in full, with a `track` event for the file that says it
+finished.
 
 ## Done
 

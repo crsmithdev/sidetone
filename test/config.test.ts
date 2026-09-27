@@ -142,8 +142,11 @@ describe("settings that arrive already checked", () => {
     expect(() => loadConfig(write({ minSpeechPeak: 0.01 }))).toThrow(/minSpeechPeak/);
   });
 
-  test("a fade in under zero is refused, and zero is kept (item 52)", () => {
+  test("a hold music time under zero is refused, and zero is kept (item 52)", () => {
     expect(() => loadConfig(write({ holdMusicFadeInMs: -1 }))).toThrow(/holdMusicFadeInMs/);
+    expect(() => loadConfig(write({ holdMusicAfterMs: -1 }))).toThrow(/holdMusicAfterMs/);
+    expect(() => loadConfig(write({ holdMusicFadeMs: "300" }))).toThrow(/holdMusicFadeMs/);
+    expect(loadConfig(write({ holdMusicAfterMs: 0, holdMusicFadeMs: 0 })).holdMusicFadeMs).toBe(0);
     expect(loadConfig(write({ holdMusicFadeInMs: 0 })).holdMusicFadeInMs).toBe(0);
   });
 

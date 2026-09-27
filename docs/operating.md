@@ -272,8 +272,7 @@ The units assume two paths. Edit the units if yours are different:
 | assumption | units |
 |---|---|
 | the checkout is at `~/sidetone` (`WorkingDirectory=%h/sidetone`) | `sidetone`, `sidetone-cert`, `sidetone-card` |
-| bun is at `/home/crsmi/.bun/bin/bun` | `sidetone`, `sidetone-cert` |
-| bun is at `~/.bun/bin/bun` (`%h/.bun/bin/bun`) | `sidetone-card` |
+| bun is at `~/.bun/bin/bun` (`%h/.bun/bin/bun`) | `sidetone`, `sidetone-cert`, `sidetone-card` |
 
 ```bash
 loginctl enable-linger $USER

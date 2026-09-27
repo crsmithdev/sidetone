@@ -1103,6 +1103,20 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
       };
     }
 
+    test("a track asked for fades the hold music out, then plays (item 61)", async () => {
+      const r = music({}, { holdMusicFadeMs: 20 });
+      await r.play();
+      const hold = r.tracks[0]!;
+      // the hold music has the source, as in the car
+      r.source.taken = true;
+      r.mouth.play(new Uint8Array(64));
+      await until(() => hold.stopped);
+      expect(hold.stopped).toBe(true);
+      r.source.taken = false;
+      await until(() => r.tracks.length > 1);
+      expect(r.tracks).toHaveLength(2);
+    });
+
     test("the tracks play in file-name order, one a stretch, and wrap around", async () => {
       const r = music();
       for (let i = 0; i < 3; i++) { await r.play(); await r.cut(); }
@@ -1287,6 +1301,17 @@ describe("a track asked for (15.12)", () => {
     r.talk();
     await until(() => r.tracks[0]?.stopped === true);
     expect(r.tracks[0]?.stopped).toBe(true);
+  });
+
+  test("a track the source refuses waits for the source, and is not lost (item 61)", async () => {
+    const r = room({}, {}, { folder: "/nowhere" });
+    r.source.taken = true;
+    r.mouth.play(wav);
+    await wait(600);
+    expect(r.tracks).toHaveLength(0);
+    r.source.taken = false;
+    await until(() => r.tracks.length > 0);
+    expect(r.tracks).toHaveLength(1);
   });
 
   test("with the audio off it plays nothing at all (11.12)", async () => {

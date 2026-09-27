@@ -489,8 +489,9 @@ export class Mouth {
   /**
    * 15.7 the hold music, one track, once. True when it started; the caller
    * does not wait for the end. It goes nowhere near a sentence, a cue or a
-   * barge-in. A sentence fades it out (15.10.2); Chris talking, the audio
-   * going off and `stop`, the caller's own, cut it at once.
+   * barge-in. A sentence or a waiting /play track fades it out (15.10.2);
+   * Chris talking, the audio going off and `stop`, the caller's own, cut it
+   * at once.
    *
    * 15.10.1 each start plays the next track in file-name order, and the last
    * is followed by the first. A track that was stopped plays on from
@@ -501,7 +502,8 @@ export class Mouth {
    */
   async music(stop: () => boolean): Promise<boolean> {
     const { music } = this.settings;
-    if (!music || !this.audio || this.occupied()) return false;
+    // item 61 a track asked for through /play goes first
+    if (!music || !this.audio || this.occupied() || this.tracks.length > 0) return false;
     this.holdTracks ??= listTracks(music.folder, this.settings.say);
     if (this.holdTracks.length === 0) return false;
     const track = this.holdTracks[this.nextHoldTrack % this.holdTracks.length]!;
@@ -518,7 +520,7 @@ export class Mouth {
     // the first decode takes seconds: a sentence may have come since
     if (!this.audio || this.occupied() || stop()) return false;
     const from = track.at;
-    const playing = this.speaker.track(encodeWav(fadeIn(samples.subarray(from), music.rate * music.fadeInMs / 1_000), music.rate), () => this.cutOff() || stop(), { when: () => this.busy, ms: music.fadeMs });
+    const playing = this.speaker.track(encodeWav(fadeIn(samples.subarray(from), music.rate * music.fadeInMs / 1_000), music.rate), () => this.cutOff() || stop(), { when: () => this.busy || this.tracks.length > 0, ms: music.fadeMs });
     if (playing) {
       this.nextHoldTrack++;
       const startedAt = Date.now();
@@ -542,15 +544,17 @@ export class Mouth {
     this.tracks.push({ wav, fadeMs });
     this.trackTimer ??= setInterval(() => {
       if (this.holding || this.occupied() || !this.audio) return;
-      const next = this.tracks.shift();
+      const next = this.tracks[0];
       if (next) {
         const playing = this.speaker.track(next.wav, this.cutOff, { when: () => false, ms: next.fadeMs });
-        if (playing) {
-          // 15.12 a sentence waits for the track rather than cutting it: an
-          // answer about a track that ends the track is the fault this fixed.
-          this.track = playing;
-          void playing.finally(() => { this.track = null; void this.pump(); });
-        }
+        // item 61 a source that a cue or the hold music holds refuses the
+        // track: it stays first in the queue and the next poll asks again
+        if (!playing) return;
+        this.tracks.shift();
+        // 15.12 a sentence waits for the track rather than cutting it: an
+        // answer about a track that ends the track is the fault this fixed.
+        this.track = playing;
+        void playing.finally(() => { this.track = null; void this.pump(); });
         this.started("file", playing);
       }
       if (this.tracks.length > 0) return;

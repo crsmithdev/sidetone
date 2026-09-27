@@ -495,8 +495,11 @@ export function checkConfig(merged: Config): Config {
   if (!Number.isInteger(merged.warmTries) || merged.warmTries < 1) {
     throw new Error(`warmTries (${String(merged.warmTries)}) must be a whole number of at least one`);
   }
-  if (typeof merged.holdMusicFadeInMs !== "number" || !(merged.holdMusicFadeInMs >= 0)) {
-    throw new Error(`holdMusicFadeInMs (${String(merged.holdMusicFadeInMs)}) must be zero or a positive number of milliseconds`);
+  // zero is a real value for each: a delay of 0 turns the music off (15.7), a fade of 0 is none
+  for (const key of ["holdMusicAfterMs", "holdMusicFadeMs", "holdMusicFadeInMs"] as const) {
+    if (typeof merged[key] !== "number" || !(merged[key] >= 0)) {
+      throw new Error(`${key} (${String(merged[key])}) must be zero or a positive number of milliseconds`);
+    }
   }
   if (merged.turnDetector !== "off" && merged.turnDetector !== "shadow") {
     throw new Error(`turnDetector must be off or shadow, not ${String(merged.turnDetector)}`);

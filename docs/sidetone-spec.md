@@ -612,7 +612,7 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 
 15.11 The hold music does not play when no turn is running, when the turn is not long (15.7.5), when the bridge is muted, when the audio is off (11.12), or when a track from the /play route is playing. It does not play while the bridge waits for the agreement word, because the bridge has asked Chris a question (8.6.3, 10.1).
 
-15.12 The /play route hands the file to the mouth, which owns the room's one audio source. The track waits until nothing is being said, then plays. A sentence that arrives while it plays fades it out (15.10.2). Chris talking and the audio going off cut it at once (15.10.3). The route answers 202 as soon as the file is decoded, so the agent can ask for a track and say a sentence about it in the same turn.
+15.12 The /play route hands the file to the mouth, which owns the room's one audio source. The track waits until nothing is being said, then plays. While it waits, the hold music does not start, and hold music that plays fades out. A track the source refuses stays first in the queue, and the mouth asks again at the next poll. A sentence that arrives while it plays fades it out (15.10.2). Chris talking and the audio going off cut it at once (15.10.3). The route answers 202 as soon as the file is decoded, so the agent can ask for a track and say a sentence about it in the same turn.
 
 15.13 The record says when a track started and when it stopped, for the hold music and for a file from /play, with how long it ran and whether it reached its end. With these, a report such as "it came on late" can be checked after a drive (commit 912e3ae).
 

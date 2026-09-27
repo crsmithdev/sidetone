@@ -14,4 +14,4 @@ After=tailscaled.service
 Type=oneshot
 EnvironmentFile=%h/.sidetone/env
 WorkingDirectory=%h/sidetone
-ExecStart=/home/crsmi/.bun/bin/bun scripts/renew-cert.ts
+ExecStart=%h/.bun/bin/bun scripts/renew-cert.ts

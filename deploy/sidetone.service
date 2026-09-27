@@ -23,7 +23,7 @@ StartLimitBurst=10
 Type=simple
 EnvironmentFile=%h/.sidetone/env
 WorkingDirectory=%h/sidetone
-ExecStart=/home/crsmi/.bun/bin/bun src/main.ts serve ${SIDETONE_DIR}
+ExecStart=%h/.bun/bin/bun src/main.ts serve ${SIDETONE_DIR}
 Restart=always
 RestartSec=3
 # back off rather than hammer: 3 seconds, then longer, to a minute

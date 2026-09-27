@@ -5,10 +5,13 @@
  * running bridge. Chromium takes a wav file as its microphone, so this drives
  * the whole thing with no human and no phone.
  *
- *   docker run -d --network host livekit/livekit-server --dev --bind 0.0.0.0
- *   bun src/main.ts serve /tmp                       # prints the pairing code
+ * It uses the LiveKit server that `bun src/main.ts livekit` set up, and a
+ * bridge of its own on another port:
+ *
+ *   echo '{ "servePort": 3102, "room": "check" }' > /tmp/check.json
+ *   SIDETONE_CONFIG=/tmp/check.json bun src/main.ts serve /tmp   # prints the pairing code
  *   sox question.wav mic.wav pad 1 25                # silence, so the loop does not repeat
- *   bun scripts/browser-check.ts http://127.0.0.1:3100 <code> mic.wav
+ *   bun scripts/browser-check.ts http://127.0.0.1:3102 <code> mic.wav
  *
  * Add PHONE=1 to check it at phone width, which is the size that matters.
  */
@@ -19,7 +22,7 @@ const [base, code, micWav] = process.argv.slice(2);
 // There is one long-lived room in normal use, and it is somebody's actual
 // conversation. A check that points at it joins that conversation, is given its
 // transcript, and speaks a test question into it. Point at a bridge of your own.
-if (!process.env.LIVE && /3100|lightbox2/.test(base ?? "")) {
+if (!process.env.LIVE && /:3100\b|lightbox2/.test(base ?? "")) {
   console.error("that looks like the live bridge. Start one of your own, or set LIVE=1 to say you meant it.");
   process.exit(2);
 }
