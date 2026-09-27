@@ -1,11 +1,11 @@
 # The project is named Sidetone
 
 The project was called "voice bridge", a description rather than a name. On
-18 September 2026 Chris asked for a name in the register of Cloud Chamber and
-Beamline: a noun that names the mechanism. Sidetone is the tone a telephone
-feeds back into the earpiece so the line never sounds dead. The program exists
-so a long turn never sounds like a dropped call, which is the same job. Chosen
-20 September 2026.
+18 September 2026 Chris asked for a name in the register of his other
+projects, Cloud Chamber and Beamline: a noun that names the mechanism.
+Sidetone is the tone a telephone feeds back into the earpiece so the line
+never sounds dead. The program exists so a long turn never sounds like a
+dropped call, which is the same job. Chosen 20 September 2026.
 
 ## Considered options
 
@@ -34,6 +34,7 @@ The wake word is the single word "sidetone". "hey bridge" was settled
 (`docs/next.md` at `ade0bde`), but the name is the wake word now, and one word is quicker
 in a car. The corpus was rerun for it: small.en writes "side tone" a third of
 the time, and "cytone", "sigh tone", "sight tone", "sitone" when the /d/ goes
-under road noise, so those are the variants. 93 spellings, 5 not reached, 4 of
+under road noise, so those were the first variants (the current list is
+`wakeWordVariants` in `src/config.ts`). 93 spellings, 5 not reached, 4 of
 them on the run-together phrase. "hey bridge" reached 74 of 74. A drive says
 whether that gap is felt.

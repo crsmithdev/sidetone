@@ -3,10 +3,10 @@
 `Measures` (`src/measures.ts`) is told each fact about a turn once, and it
 passes the fact on to `Latency` (the round trip for the spoken report) and
 `Diagnostics` (the events for the record and `/diagnostics`). Most of its
-methods only pass a call on, so an architecture review on 26 September 2026
-proposed to delete it: the callers would write typed events to the record,
-and the round trip would be read back from those events, as the scorecard
-reads a drive. We keep `Measures` (27 September 2026).
+methods only pass a call on. So an architecture review on 26 September 2026
+proposed to delete it. The callers would write typed events to the record.
+The round trip would come from those events, as the scorecard reads a drive.
+We keep `Measures` (27 September 2026).
 
 ## Considered options
 

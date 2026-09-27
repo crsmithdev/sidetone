@@ -8,6 +8,8 @@ decisions behind them are in [`docs/adr/`](docs/adr).
 
 ## Language
 
+Each entry gives one word, what it means here, and the words to avoid for it.
+
 ### The parts
 
 **Sidetone**:
@@ -34,7 +36,7 @@ Where the bridge and the client meet, and what carries audio between them.
 _Avoid_: the call, the session, the channel, the connection.
 
 **The mouth**:
-The part of the bridge between a sentence and the sound of it: the queues, the hold, and what carry on says. It is the same at the desk and in the room.
+The part of the bridge between a sentence and the sound of it: the queues, the hold, and what carry on says. It is the same in the room and in a test.
 _Avoid_: the output, the player, the speech queue.
 
 **The speaker**:
@@ -46,7 +48,7 @@ What a client knows about the conversation and what one message does to it: the 
 _Avoid_: the view model, the state, the store.
 
 **Starting**:
-The bridge is in the room and loads its speech workers, so it does not hear Chris yet: about 20 seconds from a cold start. The bridge says so with the `starting` message, and the app's status word is "starting", on an amber dot.
+The bridge is in the room and loads its speech workers, so it does not hear Chris yet. Chatterbox alone takes 28.2 seconds from a cold start (todo item 5). The bridge says so with the `starting` message, and the app's status word is "starting", on an amber dot.
 _Avoid_: booting, warming (the warm of `bun src/main.ts warm` makes the kept lines), loading.
 
 **Waiting**:
@@ -54,7 +56,9 @@ The phone is in the room and the bridge is not, as during a restart of the bridg
 _Avoid_: bridge down, gone, offline.
 
 **The client's joining**:
-What the app does about the room: the status word it shows, whether it waits and asks again after a room ends, whether the bridge asked for a new microphone track, and whether the bridge is in the room and ready. The phone's room and the bridge are two things: a restart of the bridge leaves the phone's room up, and the word is then "waiting", then "starting", then "listening". It gives up on one end only, a refused pairing; every other end it tries again. It holds no room, so it is read by a test. In the app it is one module of that name, beside the conversation.
+What the app does about the room: the status word it shows, whether it waits and asks again after a room ends, whether the bridge asked for a new microphone track, and whether the bridge is in the room and ready.
+
+The phone's room and the bridge are two things: a restart of the bridge leaves the phone's room up, and the word is then "waiting", then "starting", then "listening". It gives up on one end only, a refused pairing; every other end it tries again. It holds no room, so it is read by a test. In the app it is one module of that name, beside the conversation.
 _Avoid_: the connection, the socket, the retry loop.
 
 **The client's room**:
@@ -92,11 +96,11 @@ The sentence the voice reached last, as the `speaking` message names it. The app
 _Avoid_: the highlight, the current sentence, the lit line.
 
 **A cue**:
-A click rather than speech, which says what the bridge is doing while it does it.
+A click rather than speech, which says what the bridge is doing while it does it. The older name is "tones": the `tones` setting, the `tones on` and `tones off` commands and the options screen still use it.
 _Avoid_: a beep, a tone, a sound effect, a notification.
 
 **The narration**:
-What the bridge says about a tool the agent is running, so a long turn does not sound like a dropped call.
+A note the bridge sends on the control channel about a tool the agent is running, so a long turn does not look like a dropped call. It is not speech (spec 11.13).
 _Avoid_: a progress update, a status message.
 
 **Hold music**:
@@ -134,7 +138,7 @@ _Avoid_: a confirmation, an approval, a prompt.
 _Avoid_: the confirmation word, the safe word.
 
 **Muted**:
-The bridge keeps listening and keeps transcribing, but acts on nothing except unmute.
+The bridge keeps listening and keeps transcribing, but acts only on the commands in `mutedCommands`: by default mute, unmute, tones on and tones off.
 _Avoid_: paused, deafened, off.
 
 **Audio off**:
@@ -150,8 +154,8 @@ What the app's status row says about the room: the colour of the dot, the status
 _Avoid_: the status (the status is one input), the indicator.
 
 **The options screen**:
-The screen behind the gear at the end of the app's status row. It fills the window under the row, and the gear or a back gesture closes it. It holds the verbosity, the tones, the hold music volume, the three thresholds of the ear, "Leave" and "Quit". Each control changes a setting by the path of the spoken command, and shows what the bridge sends back (spec 17.22).
-_Avoid_: the options menu (it was a menu until 24 September), the settings screen (the settings are what the bridge sends back), the preferences.
+The screen behind the gear at the end of the app's status row. It fills the window under the row, and the gear or a back gesture closes it. It holds the verbosity, the hold music delay (`holdMusicAfterMs`), the tones, the hold music volume, the three thresholds of the ear, "Leave" and "Quit". Each control changes a setting by the path of the spoken command, and shows what the bridge sends back (spec 17.22).
+_Avoid_: the options menu (the old name), the settings screen (the settings are what the bridge sends back), the preferences.
 
 **Leave, Rejoin, Quit**:
 Leave: the app goes out of the room and stays open, with the transcript as history and the word "left" in the status row; the phone's audio is released, so the car's music comes back (spec 17.11.10). Rejoin: the button that takes the app back into the room with the pairing it has. Quit: leave and close the app.
@@ -188,7 +192,7 @@ _Avoid_: mute the mic, disable audio.
 ### Joining, and what is kept
 
 **Pairing**:
-The one time a client proves it may join, with a three-word code the bridge prints. Afterwards the client keeps a token and does not ask again.
+The one time a client proves it may join, with a three-word code the bridge prints. Afterwards the client keeps a token and does not ask again until the token expires (`tokenDays`, 30).
 _Avoid_: login, authentication, onboarding.
 
 **The token**:
@@ -222,3 +226,33 @@ _Avoid_: the test plan, the checklist.
 **The scorecard**:
 What a drive's record is reduced to: the handful of figures that say whether a build is better than the one before it.
 _Avoid_: the metrics, the report.
+
+### Words the other docs use
+
+**A tentative end**:
+The moment an utterance has had 400 ms of quiet (`earlyTranscribeMs`). The bridge starts to transcribe there, before the utterance ends.
+_Avoid_: an early end, a soft end.
+
+**A false end**:
+A tentative end that Chris then talks through. The journal counts them on each line that starts with `>`.
+_Avoid_: a false stop, a cut-off.
+
+**The turn detector**:
+The part that guesses at each tentative end whether Chris has finished. It runs in shadow and writes a `turnGuess` line to the record (spec 18.16).
+_Avoid_: the endpointer, the end-of-speech model.
+
+**A kept line**:
+A short line the bridge makes once, checks, and keeps on disk under `~/.sidetone/spoken/`. `bun src/main.ts warm` makes each kept line that is missing.
+_Avoid_: a cached clip, a canned phrase.
+
+**An opener**:
+A short kept line, such as "Okay.", that plays at the start of an answer while the bridge makes the first sentence (`openers`).
+_Avoid_: a filler, an acknowledgement.
+
+**The supervisor**:
+The part of the bridge that watches the agent process and restarts it when it stops, loops on compaction or runs too long (spec section 8).
+_Avoid_: the watchdog, the monitor.
+
+**The journal**:
+The systemd journal of `sidetone.service`, which `journalctl --user -u sidetone.service` reads. It holds what the bridge prints, not the record.
+_Avoid_: the console, the log (the record is the bridge's own file).

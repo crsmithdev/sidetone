@@ -1,11 +1,13 @@
 # Every voice decision lives in the bridge, not in the agent
 
-The agent reads and writes text and knows nothing about audio, so Claude Code
-needs no change to be driven by voice, and a voice decision can change without
-touching the agent. The one piece that looked like an exception, the narration
-that fills the silence while a tool runs, was specified as a hook inside aleph;
-Claude Code puts every tool call on the stream the bridge already reads, so the
-hook was deleted rather than built and the narration is the bridge's.
+The agent reads and writes text and knows nothing about audio. So Claude Code
+needs no change to work by voice, and a voice decision can change without a
+change to the agent. One piece looked like an exception: the narration that
+fills the silence while a tool runs. The first spec put it in a hook inside
+aleph, Chris's Claude Code plugin that holds the agent's identity, skills and
+hooks. But Claude Code puts every tool call on the stream that the bridge
+already reads. So we deleted the hook before we built it, and the bridge owns
+the narration.
 
 ## Consequences
 

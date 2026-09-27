@@ -11,143 +11,114 @@ and its measurements, and `adb` (at `~/Android/Sdk/platform-tools/adb`, not on
 the PATH) reaches the phone once it is paired over wireless debugging. Never
 ask Chris for something a command answers.
 
-Write each verdict into `[[Voice Bridge Car Test 4]]` in the vault as it lands.
+Write each verdict into the vault page "Voice Bridge Car Test 4" as it lands.
 The drive ends when every test below has a verdict, or a reason it was skipped.
 
-The commits of 19 September add six more tests, numbered 9 to 14, in
-[`drive-tests-19-september.md`](drive-tests-19-september.md).
+## What is open
 
-## This drive, 27 September
+The drive of 27 September passed tests 2, 3, 5 and 8, and most of 1 and 4.
+Test 15 failed. The vault page has each verdict. These are open:
 
-Read this section first. The vault note has one verdict (test 1, half), so
-every other test below is open. The record has 1,272 utterances from 21 to 23
-September with no verdicts written from them.
-
-The bridge runs `ade0bde`, the latest commit, since 07:48: do not restart it
-before the drive. The app needs the new APK, built at 07:42, before Chris
-leaves. It holds three refactors of the app's room code (`fe3e62f`,
-`9312076`, `ea27362`) and one of the bridge's settings (`4876973`). Check
-these first, in this order. None of them is a numbered test:
-
-| Check | Pass |
+| Test | What is left |
 |---|---|
-| Join, then one ordinary turn | the app says "listening" and the bridge answers |
-| "interrupt on", "music off", then `/diagnostics` | the settings in force show both |
-| "Leave" in the gear menu, then "Rejoin" | the dot goes grey on leave; the next turn is heard after rejoin |
-| a screenshot, with the app on the screen | `screenshot at` in the journal, and `screen log at` |
+| 1 | "sidetone, end the turn" during a replay |
+| 4 | an answer with a tool call: two bubbles |
+| 7 | the Mic button and Android Auto's voice input |
+| 9 to 14 | all, in [`drive-tests-19-september.md`](drive-tests-19-september.md) |
+| 6 | only if Android Auto's audio stays blocked after the app leaves the room |
+| 15 | a rerun after to-do item 61 lands |
+| 16 | a drive with the microphone open, for the turn detector and the names |
 
-Then the tests below in this order: 1 (only "sidetone, end the turn" during a
-replay is left), 3, 4, 15 (the `/play` one), 5, 6, 7, 2, and 8 last. Tests 9
-to 14 are in [`drive-tests-19-september.md`](drive-tests-19-september.md)
-and have no verdicts either.
-
-Test 16 needs the microphone open for the whole drive with no hold to talk,
-and that changes how tests 1 and 3 behave. Ask Chris at the start: run test
-16 on the way back, or on another drive.
+Run them in this order: 1, 4, 7, then 10, 11, 12 and 14, then the restart of
+test 8 with test 13 last. Test 16 changes how test 1 behaves, so ask Chris at
+the start: run test 16 on the way back, or on another drive.
 
 ## Before the car
 
-The Android Auto fault (test 6) needs `adb` on the phone. Pair wireless
-debugging from the phone's developer settings before leaving, and check:
+The live unit runs the code it was started with. Restart it when the running
+commit is not HEAD, that is, when the last commit on `main` is newer than the
+start time:
+
+```
+systemctl --user show sidetone.service -p ExecMainStartTimestamp
+git -C ~/sidetone log -1 --format=%ci main
+systemctl --user restart sidetone.service
+```
+
+Test 6 needs `adb` on the phone. Pair wireless debugging from the phone's
+developer settings before leaving, and check:
 
 ```
 ~/Android/Sdk/platform-tools/adb devices
 ```
 
-The live unit runs the code it was started with. Restart it before the drive,
-or the drive tests yesterday's build:
-
-```
-systemctl --user restart sidetone.service
-```
-
-## New since the last drive
-
-| Say or see | What it does |
-|---|---|
-| a question over the answer, with "interrupt on" | stops the answer, answers the question; "carry on" says the rest, and the rest can now be stopped |
-| "sidetone, end the turn" during "carry on" | stops the replay: "Stopped." |
-| "sidetone, stats" | says the round trip and how it split: the agent, the first sentence, the voice |
-| "interrupt on", "tones off", "male voice" | kept in the config file now; a restart no longer forgets them |
-| "sidetone, music off", "sidetone, music on" | the hold music off or on: "Music off." or "Music on."; kept in the config file as `holdMusic`, and shown in `/diagnostics` and the record. Not on the muted list. Steps 10 and 11 of the card |
-| the same three, then `/diagnostics` or the record | say the setting in force now, not the one the bridge started with; the record carries a `setting` line at the moment of the change |
-| the phone's screen | the app shows the answer word by word in one bubble for each block, with the clock time; the web page shows it a sentence at a time |
-| "working" beside the connection state, in the app | a slow pulse while a turn or an aleph job runs, with the audio cut too. Red "stalled" means the bridge sent nothing for 15 seconds while it said it worked. It is off when the agent is idle (spec 17.11) |
-| The screen log, sent by the app on its own | appends what the app showed to `~/.sidetone/screen/<id>.jsonl`, one file for each conversation. Read it with `jq -c '{time,kind,bubble,text}' ~/.sidetone/screen/latest.jsonl`. The journal has `screen log at` (spec 14.11, 17.12) |
-| a screenshot with the power and volume-down keys, with the app on the screen | the app sends the image; the bridge writes it to `~/.sidetone/screenshots/<id>.jpg`, and `latest.jpg` links to the newest. The journal has `screenshot at`. Say what it shows as usual (spec 14.12, 17.18) |
-| the journal, `begun at the tentative end` | the transcription started during the pause, so the round trip no longer waits for it |
-| the journal, `N false ends` on a `> ` line | a quiet of 400 ms that you then talked through. Each one is where a shorter pause would have cut you off; the total decides whether a turn detector is worth building |
-| swiping the app away | leaves the room; the bridge logs `[the room lost a microphone track]` |
-| "Leave" in the gear menu | leaves the room and keeps the app open: the dot goes grey, the word is "left", the transcript stays, and the car's own music should come back. "Rejoin" is where the hold to talk button was. The bridge logs `[the room lost a microphone track]`, and after 30 s the line of spec 18.9.2 once (spec 17.11.10) |
-
 ## 1. Can the replay be stopped?
 
-This was the worst fault of the last drive: after "carry on", nothing could
-stop the rest of the answer, and every "Stopped." queued behind it.
+The barge-in and the replay parts passed on 27 September. One part is left.
 
-**Do.** With "interrupt on", ask for a long answer. Talk over it with a real
-question; it should stop and answer you. Then say "sidetone, carry on".
-While the rest plays, say "okay, that's enough".
+**Do.** With "interrupt on", ask for a long answer. Talk over it, then say
+"sidetone, carry on". While the rest plays, say "sidetone, end the turn".
 
-**Pass.** The replay stops at once, your words start a new turn, and nothing
-is said twice.
+**Pass.** "Stopped." is the next thing said, and nothing is said twice.
 
-**Evidence.** `[stopped: Chris started talking]`,
-then `[turn N]` within a few seconds, and a `not spoken:` narration naming the
-rest. No sentence appears twice in the journal.
-
-**Then.** Say "sidetone, carry on" again, barge in, and say "sidetone,
-end the turn". Pass is "Stopped." as the next thing said.
-
-## 2. Is the interrupt mode still on after a restart?
-
-**Do.** Say "sidetone, interrupt on". Later, when the drive restarts the
-service (test 8), talk over an answer.
-
-**Pass.** It interrupts, and `~/.sidetone/config.json` holds
-`"interruptOnSpeech": true`.
-
-## 3. Where does the round trip go?
-
-**Do.** After a few ordinary turns, say "sidetone, stats".
-
-**Pass.** It says the last round trip, the pause, and then the agent, the
-first sentence and the voice, in seconds. `~/.sidetone/record.jsonl` has
-the same on each `answered` line as `agentMs`, `sentenceMs`, `synthesisMs`.
-
-**Then.** Count the journal's `begun at the tentative end` against the
-`> ` lines. That fraction is how often the pause guess was right in a car;
-at the desk it was every time.
+**Evidence.** The journal has a `[stopped: ...]` line after the command. On
+20 September "that's enough" ended a replay with no `[stopped: ...]` line, so
+this phrase is not confirmed yet.
 
 ## 4. Does the answer arrive on the screen ahead of the voice?
 
-**Do.** Ask something that takes a few sentences, and watch the phone. Then
-ask for something that needs a tool, such as "what is in the todo file", and
-watch again.
+The plain answer passed on 27 September. The tool call case is left.
 
-**Pass.** In the app the answer grows word by word, ahead of the voice. When
-the voice is done the same text stands once, not twice. The words before the
-tool call and the words after it are two bubbles, and each shows its time. On
-the web page the answer grows a sentence at a time in one line.
+**Do.** Ask for something that needs a tool, such as "what is in the todo
+file", and watch the phone.
 
-## 5. Does the app let go of the room when it is swiped away?
+**Pass.** The words before the tool call and the words after it are two
+bubbles, and each shows its time. When the voice is done, the text stands
+once, not twice.
 
-**Do.** With the app in a room, swipe it out of Recents.
+**Evidence.** `jq -c '{time,kind,bubble,text}' ~/.sidetone/screen/latest.jsonl`
+shows two bubble numbers for the one turn.
 
-**Pass.** The journal shows `[the room lost a microphone track, TR_...]`
-within seconds, and Android Auto's own voice input works again.
+## 7. Does cutting the microphone leave the conversation usable?
 
-**Evidence.** If the track is gone and Android Auto still cannot hear, the
-room was not what held it: go to test 6.
+**Do.** Tap Mic, use Android Auto's voice input, tap Mic again, speak.
+
+**Pass.** Android Auto hears you while the microphone is cut, and the bridge
+hears you after it is open again: `[the room has a microphone track, TR_...]`
+and then a `> ` line.
+
+## 8. Does the app come back after a restart? (last)
+
+Passed on 27 September. Run it again last, because test 13 needs the
+restart. It ends this session, and everything learned above goes with it
+unless it is already written down.
+
+**Do.** With the app open, `systemctl --user restart sidetone.service`.
+
+**Pass.** The app returns to "listening" without scanning a code, and the
+next thing Chris says is heard.
+
+**Fail.** If the app needs a touch, note the time and the status word on the
+screen: "reconnecting", "disconnected" or "listening". That tells which
+restart case the app misses: the service comes back on the same address, or
+the session is lost.
+
+**Evidence.** LiveKit runs in Docker apart from the bridge, so a bridge
+restart does not end the phone's room. The app keeps the same room and sees
+no disconnect. `JoiningTest` plays both restarts on its own clock: after a
+LiveKit restart the app tries every 5 s and keeps the pairing, and after a
+bridge restart nothing is tried. A refused pairing is the one end the app
+gives up after. This test is the watched restart that `JoiningTest` cannot
+give.
 
 ## 6. What holds Android Auto's audio? (needs adb)
 
-The app took both the car's voice input and its media output on the last
-drive, and leaving the app did not give them back. The suspect is the room
-itself: LiveKit joins it as a phone call (`MODE_IN_COMMUNICATION`), and a
-car in a call parks its own assistant and media.
+Run this only if the fault returns. In call mode the car parks its own media
+while the app is in the room (to-do item 27); that is expected. The fault is
+Android Auto's voice input or media still blocked after the app leaves the
+room. Test 5 passed on 27 September, so the fault did not show then.
 
-**Do.** With the app in a room and the fault showing:
+**Do.** With the app out of the room and the fault showing:
 
 ```
 adb shell dumpsys audio | grep -iE "mode|focus|usage"
@@ -155,33 +126,16 @@ adb shell am force-stop dev.crsmith.sidetone
 adb shell dumpsys audio | grep -iE "mode|focus|usage"
 ```
 
-**Pass.** The first reading shows `MODE_IN_COMMUNICATION` and a focus holder
-`dev.crsmith.sidetone`; the second shows `NORMAL` and no holder, and the
-car's audio is back. That confirms the suspect, and the change is one line
-(`AudioType.MediaAudioType` in `LiveKit.create`), built after the drive.
-
-**Fail.** Mode `NORMAL` and no holder while the fault shows means the room is
-not it; write down everything the first reading said.
-
-## 7. Does cutting the microphone leave the conversation usable?
-
-Carried over: last time the track went away and Android Auto still could not
-hear. Repeat after test 6 has an answer.
-
-**Do.** Tap "Cut the microphone", use Android Auto's voice input, reopen it,
-speak.
-
-**Pass.** Android Auto hears you while it is cut, and the bridge hears you
-after it is reopened: `[the room has a microphone track]` and then a `> `
-line.
+**Settles.** A mode of `MODE_IN_COMMUNICATION` or a focus holder
+`dev.crsmith.sidetone` in the first reading means the app did not let go.
+Write both readings into the vault page.
 
 ## 15. Can the agent play a file and talk about it in the same turn?
 
-`/play` used to fight the agent's own speech and the hold music. On 22
-September a track stopped a second in, when the agent said one sentence about
-it. A second try met `the bridge is speaking or playing` for two minutes. Since
-912e3ae and 1ec210b, `Mouth.play` waits for a free source, and a sentence waits
-for the track. Only a live try is left.
+**Failed, 27 September.** `POST /play` returned 202 for two files. The first
+stopped at 26 s (`"whole":false`). The second has no `track` event: it never
+played. The route reports success and drops the request. To-do item 61 holds
+the fix. Rerun this test after it lands.
 
 **Do.** Ask the agent to play a short file and to say one sentence about it in
 the same turn.
@@ -193,20 +147,19 @@ finished.
 ## 16. Open microphone: turn detector data, and the names
 
 The shadow turn detector (spec 18.16) writes a `turnGuess` line at each
-tentative end, but it cannot learn from a release. Since it landed, 45 of 47
-utterances ended on a hold to talk release, and only 2 ended on a pause. A
+tentative end. A guess is `resumed` when Chris talked through the pause, and
+`ended` when the utterance ended, on a pause or on a release (`flush`). A
 decision needs about 100 ends on a pause.
 
 The same drive checks the vocabulary prompt of b139674: the speech to text
 model gets the names in `sttVocabulary` as its initial prompt.
 
-**Do.** Restart the unit first; `turnDetector` is `shadow` by default. Leave
-the microphone open for the whole drive and never touch hold to talk. Talk
-naturally, with the hesitations, the "um"s and the pauses mid-thought, and
-let each turn end on a pause. Say things that contain the names: Sidetone,
-aleph, Cloud Chamber, Beamline, Voiceover, LiveKit, Kokoro, Chatterbox,
-worktree. For example: "check the worktree for the Beamline job", "is
-LiveKit or Kokoro slower", "what did aleph land in Cloud Chamber today".
+**Do.** Leave the microphone open for the whole drive and never touch hold to
+talk. Talk naturally, with the hesitations, the "um"s and the pauses
+mid-thought, and let each turn end on a pause. Say things that contain the
+names: Sidetone, aleph, Cloud Chamber, Beamline, Voiceover, LiveKit, Kokoro,
+Chatterbox, worktree. For example: "check the worktree for the Beamline job",
+"is LiveKit or Kokoro slower", "what did aleph land in Cloud Chamber today".
 
 **Look.** The `turnGuess` lines, counted by outcome and `endedBy`, then for
 each threshold: `cutOff` is resumed guesses at or above it (Chris would have
@@ -221,14 +174,15 @@ jq -sc '[.[] | select(.kind=="turnGuess")] as $g
      caught: ($g | map(select(.outcome=="ended" and .probability >= $t)) | length)})' ~/.sidetone/record.jsonl
 ```
 
-The baseline before this drive, 26 September:
+The output at 15:35 on 27 September. The drive of that day added 88 ends on
+a pause, so the count is 89 of about 100:
 
 ```
-[{"outcome":"ended","endedBy":"flush","n":2},{"outcome":"ended","endedBy":"pause","n":1},{"outcome":"resumed","endedBy":null,"n":45}]
-{"at":0.5,"cutOff":8,"caught":3}
-{"at":0.8,"cutOff":7,"caught":2}
-{"at":0.9,"cutOff":6,"caught":2}
-{"at":0.95,"cutOff":4,"caught":2}
+[{"outcome":"ended","endedBy":"flush","n":2},{"outcome":"ended","endedBy":"pause","n":89},{"outcome":"resumed","endedBy":null,"n":104}]
+{"at":0.5,"cutOff":31,"caught":69}
+{"at":0.8,"cutOff":26,"caught":60}
+{"at":0.9,"cutOff":21,"caught":54}
+{"at":0.95,"cutOff":17,"caught":48}
 ```
 
 The `heard` texts of the drive, to check the names. Set `-3 hours` to the
@@ -240,75 +194,17 @@ jq -r --argjson since "$(date -d '-3 hours' +%s000)" 'select(.kind=="heard" and 
 
 **Settles.** When the `ended`/`pause` count nears 100, whether a threshold
 exists with few `cutOff` and most `caught`: that decides if the detector
-ends turns. The heard texts settle the vocabulary prompt: each name spelled
-as in the list passes; a name heard as something else ("side tone", "Alf",
-"live kit") fails, and the text goes into the vault note.
-
-## 8. Does the app come back after a restart? (last)
-
-Run this one last: it ends this session, and everything learned above goes
-with it unless it is already written down.
-
-**Do.** With the app open, `systemctl --user restart sidetone.service`.
-
-**Pass.** The app returns to "listening" without scanning a code, and the
-next thing Chris says is heard. Passed on the last drive in five seconds; this
-time also check test 2.
-
-## 15. Does the canceller hold with the app as media? (branch `focus`)
-
-The branch plays the bridge as media and takes no audio focus (to-do item
-27). Barge-in depends on the echo canceller, and the car is the doubtful case.
-
-**Do.** At the desk, with the branch installed and the phone on its
-loudspeaker at full media volume, say "sidetone, mute" and run the check.
-Then do the same in the car, on Bluetooth. Then play music from another app
-and talk over an answer.
-
-```
-bun scripts/echo-check.ts
-```
-
-**Pass.** `PASS` both times, the other app's music keeps playing while the
-bridge is in the room, and a barge-in still stops the answer.
-
-**Evidence.** The check's output; `echo` lines in the record
-(`jq -c 'select(.kind=="echo")' ~/.sidetone/record.jsonl`).
-
-**Answered, 23 and 24 September 2026.** Media mode: no. In the car the
-microphone brought the whole passage back, 14.9 s of it at peak 0.54. Call
-mode: yes. The next morning the same check over Bluetooth SCO to the car, at
-full volume, with the microphone open and the capture live, brought nothing
-back, and Chris heard the passage. Call mode routes the voice as a call and the
-car's own canceller does the work.
-
-Run `bun scripts/echo-check.ts` in the car again before anything about the
-audio setup changes. `bun scripts/audio-setup.ts` changes it without a build
-now, and the record names which setup each reading was taken with.
-
-**If it fails.** Tap "Update the app" in the app: the bridge serves the build
-from `main`, which is still in call mode.
-
-**Fail.** If the app needs a touch, note the time and the status word on the
-screen: `RECONNECTING`, `UNREACHABLE` or `LISTENING`. That tells which restart
-case the app misses: the service comes back on the same address, or the
-session is lost.
-
-**Evidence.** LiveKit runs in Docker apart from the bridge, so a bridge
-restart does not end the phone's room. The app keeps the same room and sees no
-disconnect. On 21 September no restart after 07:35 needed a touch.
-`JoiningTest` plays both restarts on its own clock: after a LiveKit restart
-the app tries every 5 s and keeps the pairing, and after a bridge restart
-nothing is tried. A refused pairing is the one end the app gives up after.
-This test is the watched restart that `JoiningTest` cannot give.
+ends turns (to-do item 54). The heard texts settle the vocabulary prompt:
+each name spelled as in the list passes; a name heard as something else
+("side tone", "Alf", "live kit") fails, and the text goes into the vault
+page.
 
 ## If it goes wrong mid-drive
 
 | Trouble | What works |
 |---|---|
 | The bridge stops hearing | close the app and open it again, so it publishes a new track |
-| An answer will not stop | "sidetone, sharp" |
-| A replay will not stop | "sidetone, end the turn" — and that is a fail for test 1, write it down |
+| An answer or a replay will not stop | "sidetone, end the turn", or its one-word form "sidetone, sharp" |
 | Interrupting feels wrong | "sidetone, interrupt off" |
 | Nothing at all reaches him | the typing box still works; the conversation is the same one |
 

@@ -3,7 +3,7 @@
 A web page cannot hold the microphone open when the screen is locked, so the web
 client only works with the screen on. The Android app exists for that one
 reason: a foreground service of type microphone keeps the conversation while the
-screen is off. It is installed by side-load and never published, so there is no
+screen is off. Chris side-loads it and never publishes it, so there is no
 developer account, no store review and no release signing.
 
 ## Consequences

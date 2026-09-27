@@ -9,8 +9,8 @@ differences are the point of each:
 | | `warm` | `assemble` |
 |---|---|---|
 | Start | one engine at a time, because the GPU is shared with a bridge that may be running | all together, with the cues |
-| Kept lines | `cut: clipCutter(stt)`: a line no take says cleanly alone is cut out of its carrier (11.6.3, item 33) | checked only; `SpokenAhead.carry` runs only from `warm` |
-| Sent clips | none | a copy of each clip sent (18.14) |
+| Kept lines | `cut: clipCutter(stt)`: a line no take says cleanly alone is cut out of its carrier (spec 11.6.3, to-do item 33) | checked only; `SpokenAhead.carry` runs only from `warm` |
+| Sent clips | none | a copy of each clip sent (spec 18.14) |
 | Cues | none | built |
 
 ## Considered options

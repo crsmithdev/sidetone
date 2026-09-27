@@ -1,10 +1,15 @@
 # LiveKit over WebRTC for the room
 
-The audio path has to keep the microphone open while the bridge speaks, cancel
-the echo that causes, survive a connection that drops and hands between towers
-in a car, and work the same in a browser and in a native app. WebRTC is built
-for that and LiveKit is the proven framework over it, so the transport is not
-hand-built and the echo cancellation is the framework's, at the client.
+The audio path has to:
+
+- keep the microphone open while the bridge speaks;
+- cancel the echo that this causes;
+- survive a connection that drops and hands between towers in a car;
+- work the same in a browser and in a native app.
+
+WebRTC is built for that, and LiveKit is a framework over WebRTC. So we do not
+build the transport, and the framework does the echo cancellation, at the
+client.
 
 ## Considered options
 

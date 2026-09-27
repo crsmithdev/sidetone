@@ -1,35 +1,17 @@
-# Sidetone — Product Specification
+# Sidetone specification
 
 Written in ASD-STE100 Simplified Technical English.
-Feature level only. No code.
+Features and the wire protocol; not the implementation.
+Section numbers are stable: code cites them.
 
-Date: 9 September 2026. Open points resolved. The narration hook of 7.1 is removed.
-Blocks, bubbles and times (14.9, 17.8, 17.9) added 21 September 2026.
-The working sign and the screen log (14.10, 14.11, 17.11 to 17.13) added 21 September 2026.
-Text selection in the transcript (17.14) added 21 September 2026.
-The screenshot (14.12, 17.18) added 22 September 2026.
-Formatted text in the bubbles (17.19) added 22 September 2026.
-The status row shows one state (17.11.6) from 22 September 2026.
-The status row is one dot (17.11.6) from 23 September 2026.
-The status word in every state, the legend of the light (17.11.7, 17.11.9) and the gear (17.22) from 23 September 2026.
-The pending screenshot (14.12.5 to 14.12.7, 17.18.5) added 23 September 2026.
-The crash report (14.14, 17.20) added 23 September 2026.
-The spoken sentence in the bubbles (17.21) added 23 September 2026.
-The failed microphone open (17.10.4), and the caught errors and the exit records in the crash report (17.20.3 to 17.20.5), from 24 September 2026.
-The light by colour and pulse, the stalled state and the legend by colour (17.11, 17.11.3, 17.11.6, 17.11.9), and the options screen (17.22), from 24 September 2026.
-The bridge that starts and the bridge that is away (14.16, 17.11.11) from 26 September 2026.
+This document specifies Sidetone: the background, the design decisions and
+the reasons for them, the features, the technology choices, the lessons from
+prior art, and the configuration.
 
-This document is the complete specification for Sidetone. It
-includes the background, the settled design decisions, the reasoning behind
-them, the full feature set, the technology choices, the build order, the
-lessons from prior art, the risks, and the configuration. The document is
-complete on its own. A builder can start from this document.
+This repository is Sidetone. The earlier project bridge is on the
+`project-bridge` branch (2.7).
 
-Sidetone is a new product. Sidetone is not this repository.
-The bridge in this repository is the project bridge of Section 2.7. The
-project bridge stays in place.
-
-## 1. PURPOSE
+## 1. Purpose
 
 1.1 Sidetone lets Chris drive a Claude Code session by voice from his phone.
 
@@ -41,13 +23,13 @@ project bridge stays in place.
 
 1.5 The product is not tied to one project. The product works with any project on the machine.
 
-## 2. BACKGROUND AND REASONING
+## 2. Background and reasoning
 
 2.1 The first question was whether Sidetone and the cross-session memory belong inside aleph. The answer is that the memory is already aleph, and Sidetone is mostly not aleph.
 
 2.2 The vault is already the memory. Aleph writes the vault. A hook adds the map and the standing context at the start of each session. This covers memory across sessions on the machine. The gap is memory across surfaces. A plain chat on the phone cannot read the vault. A Cowork session in the cloud cannot read the vault.
 
-2.3 Sidetone splits into parts. The part that captures speech and holds a warm Claude Code process cannot live in aleph, because this part starts Claude Code. A plugin runs inside Claude Code, not around it. This part belongs in its own repository. One small part does belong in aleph. That part is the tracing, which already works. The narration is not an aleph part. Claude Code puts each tool call on the stream that the bridge reads. A terminal session also shows its tool calls on the screen. Only a spoken session has silence to fill. The narration is therefore a bridge part. See 3.4 and 6.5.
+2.3 Sidetone splits into parts. The part that captures speech and holds a warm Claude Code process cannot live in aleph, because this part starts Claude Code. A plugin runs inside Claude Code, not around it. This part belongs in its own repository. One small part does belong in aleph. That part is the tracing, which already works. The narration is not an aleph part. Claude Code puts each tool call on the stream that the bridge reads. A terminal session also shows its tool calls on the screen. Only a spoken session has silence to fill. The narration is therefore a bridge part. See 3.4, 6.5 and 11.13.
 
 2.4 Decision one: this product does not need a telephone call. The earlier plan used telephony because Apple does not let a web page keep the microphone open when the screen is locked. If the screen stays on, this limit does not apply, and the call gives no benefit. Voice mode with the screen on is the target. A later native app removes the screen-on limit by a different method (see Section 17).
 
@@ -55,7 +37,7 @@ project bridge stays in place.
 
 2.6 Decision three: the product is not tied to one project. The project bridge is generic in its mechanism, but it needs a hand-written verb list for each project, and it cannot help a project that has no command-line tool. One bridge that starts Claude Code in any directory is the better answer. This bridge needs nothing for each project, because the instructions file of each project already holds its rules.
 
-2.7 The general bridge takes the repository of the project bridge. Chris decided this on 9 September 2026, against the earlier rule in this paragraph. The project bridge is not deleted: it stays on the `project-bridge` branch and continues to work for the story pipeline.
+2.7 The general bridge takes the repository of the project bridge. Chris decided this on 9 September 2026. The project bridge is not deleted: it stays on the `project-bridge` branch and continues to work for the story pipeline.
 
 2.8 The story pipeline moves to the general bridge later. The pipeline has a command-line tool, and 6.1 says the bridge starts Claude Code in the project directory, so the pipeline needs no verb list. Three points need an answer first, and 2.8.1 is the only one that needs code.
 
@@ -65,7 +47,7 @@ project bridge stays in place.
 
 2.8.3 Work in flight must survive a restart. The agent asks the command-line tool what is in flight; the agent does not hold this in its context.
 
-## 3. SYSTEM PARTS
+## 3. System parts
 
 3.1 The client is a page or an app on the phone. The client opens the microphone. The client sends audio to the bridge. The client plays audio from the bridge.
 
@@ -77,19 +59,23 @@ project bridge stays in place.
 
 3.5 Two results follow. First, Claude Code needs no change to work by voice. Second, each voice decision lives in the bridge, where it can change without a change to the agent.
 
-## 4. TECHNOLOGY CHOICES
+## 4. Technology choices
 
 4.1 Transport and real-time audio use LiveKit over WebRTC. Do not build the transport by hand. Do not use plain websockets. WebRTC is made for an open microphone during playback, for barge-in, and for a connection that drops and hands off between towers in a car. LiveKit is the proven framework over WebRTC for real-time voice agents.
 
 4.2 LiveKit gives the echo cancellation at the framework level, across the browser and the native app. The bridge does not build its own echo cancellation.
 
+4.2.1 This item is removed.
+
 4.2.2 The app sets up the phone's audio in one place: the audio mode, how the bridge's audio plays, the audio focus, the microphone's capture source and the echo canceller. The echo canceller depends on each of these. A change to any of them is a change to barge-in, and 18.13 decides whether it ships. The bridge can push a setup for a test without a build (18.15); the one place maps its names to the constants, and says which setup runs (14.15.1).
 
-4.2.2.1 A setup that asks for no audio focus routes the audio itself. LiveKit's handler selects the output device in the same call that asks for focus, so a setup with no focus leaves the phone to choose, and on 24 September the phone chose the earpiece in the car: the voice left the car, and Chris heard nothing. Once the room is up, the app picks from the phone's communication devices in this order: Bluetooth SCO, a Bluetooth LE headset, a wired or USB headset, then the loudspeaker. Never the earpiece: the app is used in a car and on a desk, never against an ear. When nothing in that list is present, the app sets no device and the route stays where the phone put it. The app clears its choice when it leaves the room, so the phone is left as it was found. A setup that asks for focus, which is what ships, is not touched by this rule.
+4.2.2.1 A setup that asks for no audio focus routes the audio itself. LiveKit's handler selects the output device in the same call that asks for focus, so a setup with no focus leaves the phone to choose, and the phone can choose the earpiece. Then Chris hears nothing in the car. Once the room is up, the app picks from the phone's communication devices in this order: Bluetooth SCO, a Bluetooth LE headset, a wired or USB headset, then the loudspeaker. Never the earpiece: the app is used in a car and on a desk, never against an ear. When nothing in that list is present, the app sets no device and the route stays where the phone put it. The app clears its choice when it leaves the room, so the phone is left as it was found. A setup that asks for focus, which is what ships, is not touched by this rule.
 
 4.3 LiveKit separates the control channel from the audio channel. Control events do not compete with audio frames.
 
-4.3.1 A note in the transcript is for something Chris must know and cannot see elsewhere. A change that a control or the status light already shows gets no note. The bridge writes it to the journal, and the app writes it to the screen log (17.12) as an event with no bubble. These are events: the audio cut and resumed (11.12), the microphone cut and opened by the button, the words that an interrupt left unspoken (11.10), a silent microphone and the rejoin (18.9), and where the screen log goes (14.11).
+4.3.1 A note in the transcript is for something Chris must know and cannot see elsewhere. A change that a control or the reading (17.11.6) already shows gets no note. The bridge writes it to the journal, and the app writes it to the screen log (17.12) as an event with no bubble. These are events: the audio cut and resumed (11.12), the microphone cut and opened by the button, the words that an interrupt left unspoken (11.10), a silent microphone and the rejoin (18.9), and where the screen log goes (14.11).
+
+4.3.2 The `protocol` message is the first message the bridge sends to a client that joins. The bridge also sends it at its own start to each client already in the room, because a restart of the bridge does not end the phone's room. It has `endTurn`, the words of the end turn command (9.4.8): the wake word, then "end the turn". A client sends these words as a typed utterance when Chris taps a Stop or "End turn" button, because the bridge takes commands only as words. It has `apk` when the bridge has an app to serve (17.15.1). The app answers each `protocol` message with `device` (14.15.1).
 
 4.4 LiveKit has a native Android SDK. The same transport, the same framework, and the same echo cancellation carry over from the web client to the Android app. The bridge does not change when the client changes.
 
@@ -101,7 +87,7 @@ project bridge stays in place.
 
 4.8 The speech-to-text engine and the text-to-speech engine are both replaceable parts. Each engine sits behind an interface. The interface accepts local engines only. Do not add a cloud engine, and do not add a cloud fallback for a local engine that fails or gives a bad result.
 
-4.9 The builder selects the first working local voice and does not wait for a decision. Chris changes the voice later with a setting.
+4.9 Three local engines can speak. `ttsEngine` selects one, and `ttsVoice` names the voice in the names of that engine. Chatterbox clones a voice from a recording, on the GPU. It is the default, with the voice `som_00295`. Kokoro runs on the GPU and is about twenty times faster than chatterbox for each sentence. Piper runs on the CPU. `voiceChoices` names the female and the male voice that the voice commands select (9.4.13). For chatterbox these are `sof_01208` and `som_00295`. Each engine has its own defaults, in `src/speech.ts`.
 
 4.10 The GPU budget for the voice path is eight gigabytes. This is the whole GPU. The speech-to-text model and the text-to-speech model must fit together in this budget and leave headroom. Select each model against this budget.
 
@@ -109,7 +95,7 @@ project bridge stays in place.
 
 4.12 The local-only constraint of 4.5 makes the GPU a hard dependency, and 4.11 is the condition that makes this safe. If the machine later does other GPU work, there is no cloud path to fall back on, and the models of 4.6 and 4.9 must get smaller instead.
 
-## 5. SIGNAL CHAIN
+## 5. Signal chain
 
 5.1 The client opens the microphone.
 
@@ -131,41 +117,33 @@ project bridge stays in place.
 
 5.9 The client plays the speech.
 
-## 6. SETTLED DESIGN DECISIONS
+## 6. Settled design decisions
 
 6.1 A project declares nothing. The bridge starts Claude Code in the project directory. The instructions file of the project gives the agent its rules. Do not keep verb lists.
 
-6.2 The agent works in a separate work tree. The agent does not work on the main checkout.
+6.2 The agent works in a separate work tree and not on the main checkout, when the instructions file of the project says so. This rule comes from the instructions file, not from the bridge. The bridge starts the agent in the project directory and does not make a work tree (12.6).
 
 6.3 The agent is permissive by default. A small set of actions are gated. A gated action needs spoken agreement.
 
-6.4 The system uses two memory stores. Claude memory holds pointers and current state. The vault holds the full notes. A test confirmed that Claude memory works across surfaces.
+6.4 The vault at `~/.aleph/vault` is the only memory store. The agent reads and writes its notes there. The agent writes nothing to Claude Code's auto-memory.
 
 6.5 The voice instruction lives in the bridge. The voice instruction does not live in the aleph identity file. This keeps behavioral modes out of aleph.
 
 6.6 The voice instruction tells the agent that it is in a spoken conversation. The agent does not read a diff aloud. The agent does not read code aloud. The agent does not read secrets aloud. The agent gives a summary instead. This rule does not bend.
 
-6.6.2 The agent names a file by its path from the project root, for example src/audio.ts. The agent does not speak an absolute path unless Chris asks for one. This is a default and not an absolute, because the agent answers a direct question either way and a rule that is routinely broken weakens the rules beside it. This is measured, not a preference: spoken and transcribed back, the relative path takes three seconds and is understood, and the absolute path it came from takes six and a half and arrives as a run of the word "slash".
-
 6.6.1 The voice instruction also tells the agent to be brief. This is a separate rule and it is a default, not an absolute. If the instructions file of the project asks for something to be read aloud in full, or if Chris asks, the agent reads it in full. 6.6 still holds while it does.
 
-6.7 Every value that this document gives as a default is a setting. Section 21 lists the settings. A builder does not write a value of this kind into the code as a constant.
+6.6.2 The agent names a file by its path from the project root, for example src/audio.ts. The agent does not speak an absolute path unless Chris asks for one. This is a default and not an absolute, because the agent answers a direct question either way and a rule that is routinely broken weakens the rules beside it. This is measured, not a preference: spoken and transcribed back, the relative path takes three seconds and is understood, and the absolute path it came from takes six and a half and arrives as a run of the word "slash".
 
-## 7. BUILD ORDER
+6.7 Every value that this document gives as a default is a setting. `src/config.ts` lists the settings and their defaults (21.2). A builder does not write a value of this kind into the code as a constant.
 
-7.1 The narration hook is removed. Earlier revisions made it the first step. The step numbers do not change, because other sections point to them. Claude Code puts each tool call on the stream that the bridge reads, subagent calls included. The bridge therefore needs no hook to say which tool runs. See 2.3.
+## 7. Build order
 
-7.2 Build the text round trip first. Test the full loop in text. The text loop is useful even if voice does not come.
-
-7.3 Build voice second. Add voice on top of the text loop.
-
-7.4 Build the screen-on web client as the first phone client. Accept that the screen must stay on.
+7.1 to 7.4 are done and removed. Code cites them by these names: 7.1 the narration hook, which the bridge does not need (2.3); 7.2 the text round trip, `bun src/main.ts chat <dir>`; 7.3 voice on top of the text loop; 7.4 the screen-on web client.
 
 7.5 Build a private native Android app last. The app supports screen-off voice with a foreground service. Do not publish the app.
 
-7.6 The build starts now. The measurements of Section 18 do not block the build. Make each measurement during the build.
-
-## 8. PROCESS MANAGEMENT
+## 8. Process management
 
 8.1 The bridge keeps the Claude Code process stable. Stability is a top priority.
 
@@ -235,7 +213,7 @@ project bridge stays in place.
 
 8.11 The default model is Sonnet. This default is final. The model is a setting.
 
-## 9. VOICE COMMANDS
+## 9. Voice commands
 
 9.1 A voice command starts with a wake word. The wake word separates a command from normal speech.
 
@@ -263,7 +241,7 @@ project bridge stays in place.
 
 9.4.8 End the turn. Chris uses this command if the automatic detection is wrong.
 
-9.4.9 A client can read the settings in force and change one. The bridge sends a settings message when a client joins and again whenever a setting changes, however it changed. A client changes a setting by sending one, and the bridge does exactly what the spoken command does, the voice's answer included: a switch on a screen and the words spoken aloud cannot end anywhere different. The bridge acts only on the settings it has a spoken command for — the tones, the hold music, interrupting, which of the two voices speaks, and the verbosity — and on the hold music volume (17.22.3), the hold music delay (17.22.7) and the three thresholds of the ear (17.22.5, 17.22.6). It ignores any other name. Before this a client could change a setting only by sending the words of the command, and had no way at all to read one back, so a settings screen would have shown values it could not verify.
+9.4.9 A client can read the settings in force and change one. The bridge sends a settings message when a client joins and again whenever a setting changes, however it changed. A client changes a setting by sending one, and the bridge does exactly what the spoken command does, the voice's answer included: a switch on a screen and the words spoken aloud cannot end anywhere different. The bridge acts only on the settings it has a spoken command for — the tones, the hold music, interrupting, which of the two voices speaks, and the verbosity — and on the hold music volume (17.22.3), the hold music delay (17.22.7) and the three thresholds of the ear (17.22.5, 17.22.6). It ignores any other name.
 
 9.4.9.1 Each settings message has a `seq`: the bridge's clock in milliseconds, or one more than the last `seq` when that is larger. So `seq` grows across restarts of the bridge. The app can get two data messages out of order. It ignores a settings message whose `seq` is not larger than the last one it used. A new room starts the count again.
 
@@ -292,7 +270,7 @@ project bridge stays in place.
 | `interruptOff` | "interrupt off", "interrupting off" | Holds the answer and refuses a question mid-turn | no | 11.9 |
 | `interruptOn` | "interrupt on", "interrupting on" | Gives a question mid-turn to the agent | no | 11.9 |
 | `endTurn` | "end turn", "in turn", "stop", "cancel", "never mind", "nevermind", "sharp" | Stops the turn, or a replay of "carry on". Drops a held answer | no | 9.4.8 |
-| `stats` | "stats", "steph", "status", "latency", "diagnostics", "how fast" | Says the round-trip times and the state of the network | no | none |
+| `stats` | "stats", "steph", "status", "latency", "diagnostics", "how fast" | Says the round-trip times and the state of the network | no | 9.4.14 |
 | `carryOn` | "carry on", "go on", "the rest" | Says the rest of an answer that a barge-in cut | no | 11.10 |
 | `verbosityBrief` | "verbosity brief" | Sets the verbosity to brief | no | 9.4.10 |
 | `verbosityNormal` | "verbosity normal" | Sets the verbosity to normal | no | 9.4.10 |
@@ -301,6 +279,8 @@ project bridge stays in place.
 | `longer` | "longer" | Moves the verbosity one level up | no | 9.4.10 |
 | `femaleVoice` | "female", "woman" | Speaks in the female voice | no | 4.9 |
 | `maleVoice` | "male", "mail" | Speaks in the male voice | no | 4.9 |
+
+9.4.14 Report the round trip. The bridge says the time of the last answer, and the median and the worst time when there is more than one. It says how much of the last answer was the end-of-turn pause (11.5), and how long the agent, the first sentence and the voice took. It says the count of barge-ins, and how many of them heard nothing. It then says the quality of the connection at the phone and at the bridge. When the phone was poor or lost for a second or more in this session, it says for how long. `/diagnostics` gives the same numbers as data (12.7).
 
 9.5 By default, four commands work when the bridge is muted: mute, unmute, tones on and tones off. All other commands do not work when the bridge is muted, unless the setting of 9.6 adds them.
 
@@ -312,7 +292,7 @@ project bridge stays in place.
 
 9.7 If the bridge hears only a part of a command, the bridge asks Chris to say the command again.
 
-## 10. GATED ACTIONS
+## 10. Gated actions
 
 10.1 A gated action needs a spoken agreement before the bridge does it.
 
@@ -326,7 +306,7 @@ project bridge stays in place.
 
 10.6 A gated action is atomic. An interruption does not leave the action half done.
 
-10.7 Four actions of the agent are gated:
+10.7 Four actions of the agent are gated. The list is code, in `src/gated.ts`, and not a setting:
 
 10.7.1 A force push: `git push` with `--force`, `--force-with-lease`, `-f`, or a refspec that starts with `+`.
 
@@ -338,7 +318,7 @@ project bridge stays in place.
 
 10.7.5 One of the four inside another command is gated the same way. The bridge looks inside the string of `bash -c`, `sh -c` and `eval`, and inside `$(...)` and backticks. `xargs rm -rf` is gated, because the paths come from its input. `find` with `-delete`, or with `-exec rm -rf`, is gated on a start path that is not in the project.
 
-10.7.6 A command that the bridge cannot read is gated. Examples are a quote or a `$(` that does not close, `bash -c` or `eval` of a variable, and a command name that the shell expands. The readback says that the bridge cannot read the command.
+10.7.6 A command that the bridge cannot read is gated. Examples are a quote or a `$(` that does not close, `bash -c` or `eval` of a variable, and a command name that the shell expands. The readback says that the bridge cannot read the command. A gap stays open: the bridge does not read a shell that gets its commands from a pipe, a redirect or a script file. So `sh` or `bash` with no `-c` is not gated, and `curl … | sh`, `echo … | base64 -d | sh` and `sh < script.sh` pass. To-do item 58 decides whether such a shell counts as a command that the bridge cannot read.
 
 10.8 The bridge starts the agent with `--permission-prompt-tool stdio` and with ask rules in `--settings`. The rules make the agent send a permission request for each `git push`, `rm`, `bash`, `sh`, `eval`, `xargs` and `find`, and for each command that holds DROP, Drop, drop, TRUNCATE, Truncate or truncate. The rules match case, so each case form needs its own rule. The bridge reads back the actions of 10.7 and allows every other request. Measured 24 September on claude 2.1.282: in auto mode with no ask rules, three force pushes of three ran and sent no request. With the rules, each one sent a request. With the first rules, `bash -c`, `sh -c`, `eval`, `find -delete`, `find -exec rm -rf` and `Drop table` sent no request, and a force push inside `sh -c` ran. With the rules above, each one sent a request.
 
@@ -348,7 +328,7 @@ project bridge stays in place.
 
 10.11 The journal records each answer to the agent: allowed or denied, and the reason.
 
-## 11. INTERRUPTION AND TURN-TAKING
+## 11. Interruption and turn-taking
 
 11.1 The bridge supports live barge-in. Chris can talk while the bridge speaks.
 
@@ -362,25 +342,27 @@ project bridge stays in place.
 
 11.6 The target feel is the Claude app voice mode. The bridge waits a short time. The bridge does not cut in. The bridge does not feel slow.
 
-11.6.1 The bridge keeps its own fixed replies, such as "Muted.", on disk after it makes them once, so a reply to a command plays at once. The speech worker transcribes each reply before the bridge keeps it. A reply whose words do not match its text (18.14.2) plays that one time and is not kept. The warm command also checks each reply that is already kept, and makes a refused reply again, up to a set number of times (21.2), 100 by default. A take of a short reply costs about a second of the GPU, once, offline. The cloning voice garbles a reply of one word most of the time: on 23 September "Muted." came out clean in 2 takes of 12, and on 24 September in 1 of 5. Before this check the bridge kept the first take, and a garbled "Muted." and "Listening." played on every mute from 18 September.
+11.6.1 The bridge keeps its own fixed replies, such as "Muted.", on disk after it makes them once, so a reply to a command plays at once. The speech worker transcribes each reply before the bridge keeps it. A reply whose words do not match its text (18.14.2) plays that one time and is not kept. The warm command also checks each reply that is already kept, and makes a refused reply again, up to `warmTries` times, 100 by default. A take of a short reply costs about a second of the GPU, once, offline. The cloning voice garbles a reply of one word most of the time: on 23 September "Muted." came out clean in 2 takes of 12, and on 24 September in 1 of 5.
+
+11.6.2 This item is removed.
 
 11.6.3 A reply that no take says cleanly alone is cut out of a carrier. A carrier is a sentence the voice says cleanly that ends with the reply's own words in the reply's own sense, so the words close a statement in the falling tone of an acknowledgement: "The answer has stopped." carries "Stopped.". The warm command makes a take of the carrier, the speech worker gives the time of each word it heard, and the bridge cuts the reply's words out by those times. The cut passes the same check as any take (11.6.1), or it is not kept. The carrier gets the same number of takes as the reply alone. Every reply of one or two words has a carrier; a reply of three words or more came out clean in every take measured on 24 September. The wording of a reply does not change for the voice: on 24 September "Stopped." came out clean in no take of 5 alone, and it is the answer to a barge-in, so it is the reply least able to wait for a synthesis.
 
-11.6.4 The bridge makes the next sentence while the current sentence plays. When a barge-in cuts a sentence and what Chris said resumes the answer, the bridge plays the clip of the cut sentence again and keeps the next sentence it made. The engine gets no second request for either. The bridge deletes each clip when it takes a different sentence. After a discard, the next sentence deletes the cut clip and the clip made ahead. A fixed reply that the check refused (11.6.1) is made again, because a new take can be clean. Until 24 September a resume deleted both clips and made the cut sentence again, behind the next one: a whole synthesis, about 2.2 s at the median, after every hold.
+11.6.4 The bridge makes the next sentence while the current sentence plays. When a barge-in cuts a sentence and what Chris said resumes the answer, the bridge plays the clip of the cut sentence again and keeps the next sentence it made. The engine gets no second request for either. The bridge deletes each clip when it takes a different sentence. After a discard, the next sentence deletes the cut clip and the clip made ahead. A fixed reply that the check refused (11.6.1) is made again, because a new take can be clean.
 
 11.6.5 An answer to Chris starts with an opener, a short kept line such as "Okay." or "Let me see.". The opener plays at once, while the engine makes the first sentence, so the answer is not silent for the 2.2 s of that synthesis. The openers are a list in the config file. The default is "Okay.", "Right.", "Sure.", "Got it.", "Alright.", "Let me see." and "One moment.". An empty list turns the openers off. The bridge chooses at random among the openers that have a kept clip on disk. It never chooses the opener of the last answer. The bridge never makes an opener with the engine, because a synthesis is the delay that the opener hides. If no opener has a clip, no opener plays. The warm command makes the openers with the fixed replies, with the same takes, check and carrier (11.6.1, 11.6.3). Each opener has a carrier, such as "I heard the question. Okay.". An opener plays before the first sentence of a new turn and of the reply after words that Chris said into a turn (11.9). It does not play before a fixed reply, before an answer that the agent began unasked (11.11), before a first sentence that is itself a kept clip, with the audio off (11.12), or while the bridge is muted. It plays once for each answer: a first sentence that a barge-in cut resumes with no opener. The first sentence plays as soon as it is made and the opener has ended, so the opener never delays it. The opener counts as sound: the delay of the thinking cue (15.5) starts again when the opener ends. The `answered` line of the record names the opener that played, or null for none. "Mm-hm." is not a default: the check and the carrier cut compare words, and the speech worker has no one spelling for it.
 
-11.7 A cue marks the end of the bridge's speaking (15.15). Until 24 September it was an option for later.
+11.7 A cue marks the end of the bridge's speaking (15.15).
 
 11.8 The product is for one user. The product does not need to separate the voices of more than one person.
 
 11.9 A question that arrives while a turn runs has one of two treatments, and which one is a setting. Holding keeps the answer and refuses the question. Interrupting stops the voice at once and gives the question to the agent, which is the feel of 11.6. Chris changes the setting out loud, because the car is where the answer is found.
 
-11.9.1 Interrupting does not interrupt the agent. Since 24 September (item 4), the bridge writes what Chris said into the turn that runs, as a stream-json user message. An interrupt reaches a subagent and stops it, and this does not. The commands "stop" and "end the turn" still interrupt the turn (9.4.8).
+11.9.1 Interrupting does not interrupt the agent. The bridge writes what Chris said into the turn that runs, as a stream-json user message. An interrupt reaches a subagent and stops it, and this does not. The commands "stop" and "end the turn" still interrupt the turn (9.4.8).
 
 11.9.2 A note from the bridge goes in front of what Chris said. It says what Chris heard last, that the voice stopped, and that he said this while the agent worked. The pending screenshots go with it (14.12.6).
 
-11.9.3 From that moment, the bridge speaks only a message that the agent started after the process took in what Chris said. The process runs with `--replay-user-messages`. It prints the message again at the moment it puts the message into the conversation, and this echo is the mark. The first `message_start` event after the echo starts the reply. The rest of a message that was in progress when Chris spoke goes to the client and not to the voice, and so does a message that starts before the echo. The reply is a new answer (14.7). At first, the first `message_start` after the injection started the reply. A request that had already left then gave a message that did not see Chris's words, and the bridge spoke it as the reply.
+11.9.3 From that moment, the bridge speaks only a message that the agent started after the process took in what Chris said. The process runs with `--replay-user-messages`. It prints the message again at the moment it puts the message into the conversation, and this echo is the mark. The first `message_start` event after the echo starts the reply. The rest of a message that was in progress when Chris spoke goes to the client and not to the voice, and so does a message that starts before the echo. The reply is a new answer (14.7). A request that left before the echo gives a message that did not see Chris's words, so the echo, and not the injection, is the mark.
 
 11.9.4 The turn ends at the first result that comes after the start of such a message. A result that comes before one ends only the message Chris spoke over. The turn goes on, and the bridge does not speak that result as an answer that nobody asked for (11.11).
 
@@ -417,21 +399,45 @@ project bridge stays in place.
 
 11.12.3 The audio is a setting, `audio`. The bridge keeps it across restarts, as it keeps the hold music (15.7.3). The `voice` message and "audio on" and "audio off" set it. A new bridge process starts with the audio as it was.
 
-## 12. SECURITY
+11.13 The narration says which tool the agent runs, so a long turn does not look like a dropped call. It is a note on the control channel. The voice does not say it.
 
-12.1 The bridge endpoint needs authentication. Authentication is the security boundary.
+11.13.1 The bridge reads each tool call from the stream of the agent (2.3), subagent calls included. When a tool call runs for longer than `narrationDelayMs`, 5 seconds by default, the bridge sends one `narration` message for that call. A shorter call gets no narration.
+
+11.13.2 The text is a short phrase for the tool, such as "running a command" or "reading a file". A tool with no phrase is "using" and its name. A call inside a subagent starts with "the subagent is".
+
+11.13.3 The bridge writes the same text to the journal, in brackets. The client shows it as a note. The narration of a turn ends with the turn.
+
+11.13.4 The bridge also sends a `narration` message for its own notes, for example a wake word with no command. A line from `/say` (12.7) is a `narration` message with `announce` set to true (17.17.1).
+
+## 12. Security
+
+12.1 A client joins only after pairing. Pairing is the security boundary.
 
 12.2 The client pairs with the bridge one time. The client keeps a long-lived token.
 
-12.3 The same authentication method works for the web client and the Android app.
+12.3 The same pairing works for the web client and the Android app.
 
 12.4 The method is easy to use. Chris does not log in again and again.
 
 12.5 The bridge does not read secrets aloud.
 
-12.6 The agent runs in a dev container with git work trees. This is the accepted practice for an unattended, permissive agent that has shell access. A work tree alone protects the main checkout but does not isolate the machine. The container isolates the file system and the processes.
+12.6 The agent runs on the host, as Chris's user, in the project directory. No container isolates the file system or the processes. The gate of 10.7 is the only guard that the bridge adds. A work tree, when the instructions file asks for one (6.2), protects the main checkout but does not isolate the machine.
 
-## 13. COST CONTROL
+12.7 The web server of the bridge answers these routes. A local route answers only a caller on this machine (loopback). To any other caller it answers 404, so the tailnet does not reach it.
+
+| Route | Who | What it does |
+| --- | --- | --- |
+| `GET /`, `/livekit-client.mjs`, `/decode.js` | any | The web client (7.4) |
+| `GET /sidetone.apk` | any | The app (17.15) |
+| `POST /pair` | any | Pairing (12.2). A wrong code gets 403. |
+| `GET /health` | any | Whether the bridge works: `ok`, `room`, `agent`, `engines`, `warming`, `audio`, `microphone`, `soundMs` (18.13.2, 18.13.3), `muted`, `network`, `turns` and `upSeconds`. 200 when it works, 503 when not. |
+| `GET /diagnostics` | local | The numbers of the drive: a summary, the settings in force, the round trips (9.4.14), the network and the recent events. `?n=` sets how many events, 40 by default. |
+| `POST /play` | local | Plays a file to the room (15.12). The body is `{"file": "<absolute path>"}`. 202 when the file is decoded, 400 for a path that is not absolute or does not exist, 409 while the audio is off (11.12). |
+| `POST /say` | local | Queues one line for the voice. The body is `{"text": "<line>"}`. The voice says the line when no turn runs and Chris does not talk. The bridge also sends the line to the client at once (17.17.1). 202. |
+| `POST /tell` | local | Queues one line of job news for the agent (14.10.6). The body is as for `/say`. 202. |
+| `POST /setup` | local | Pushes an audio setup to the phone (18.15.5). 202, or 400 for a setup the bridge cannot read. |
+
+## 13. Cost control
 
 13.1 A warm session can spend tokens quickly.
 
@@ -445,7 +451,7 @@ project bridge stays in place.
 
 13.6 The local speech engine has no per-use cost.
 
-## 14. RESILIENCE AND SYNCHRONIZATION
+## 14. Resilience and synchronization
 
 14.1 The connection in a car is not stable. The connection drops. The connection gets weak. The connection moves between towers.
 
@@ -548,7 +554,7 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 
 14.15 The app says what it is each time the bridge greets it. On 23 September the bridge heard its own voice, and the record could not say which echo canceller ran, over which audio route, or which of three builds of the app was in the room.
 
-14.15.1 The `device` message carries `model`, the phone's `Build.MODEL`; `aec`, whether the phone has a hardware echo canceller (`AcousticEchoCanceler.isAvailable()`); `canceller`, `hardware` or `software`, which canceller runs (WebRTC's own runs when the phone's is off or missing); `route`, where the bridge's audio plays, with the name of a Bluetooth device and a note of car mode; `apk`, the SHA-256 of the app's own file in hex; `setup`, the audio setup in force, in the names of 18.15.1; and `pushed`, whether the bridge pushed that setup (true) or it is the one in the app's code (false). The app leaves out `apk` when it cannot read the file. The app sends the message once for each `protocol` message (4.3), and at no other time. The bridge sends `protocol` to a client that joins, and at its own start to each client already in the room: a restart of the bridge does not end the phone's room.
+14.15.1 The `device` message carries `model`, the phone's `Build.MODEL`; `aec`, whether the phone has a hardware echo canceller (`AcousticEchoCanceler.isAvailable()`); `canceller`, `hardware` or `software`, which canceller runs (WebRTC's own runs when the phone's is off or missing); `route`, where the bridge's audio plays, with the name of a Bluetooth device and a note of car mode; `apk`, the SHA-256 of the app's own file in hex; `setup`, the audio setup in force, in the names of 18.15.1; and `pushed`, whether the bridge pushed that setup (true) or it is the one in the app's code (false). The app leaves out `apk` when it cannot read the file. The app sends the message once for each `protocol` message (4.3.2), and at no other time.
 
 14.15.2 The bridge writes one line to the journal: the model, the canceller, the route, the first 12 characters of the build, whether the build is the one the bridge serves now (17.15.1), and the setup with the word `pushed` or `the one in the code`. It writes a `device` event to the record with the same fields and `same`: true, false, or null when either hash is missing. An app from before 18.15 names no setup, and the event then has no `setup` and no `pushed`. A setup with a name the bridge does not know makes the message unreadable. It sends no note (4.3.1). The web client does not send the message.
 
@@ -556,13 +562,13 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 
 14.16 The bridge tells the client when it starts. From a cold start the bridge takes about 20 seconds to load its speech workers, and more with chatterbox. Until they load, it does not hear Chris. The message is `starting`, with `on` set to true while the workers load and to false after.
 
-14.16.1 The bridge joins the room while the workers load, and its web server answers from its first second (12). So a phone reaches the bridge through the room during the load, and the message can tell it. The phone does not use the web server after it pairs.
+14.16.1 The bridge joins the room while the workers load, and its web server answers from its first second (12.7). So a phone reaches the bridge through the room during the load, and the message can tell it. The phone does not use the web server after it pairs.
 
-14.16.2 The bridge sends the message to each client that joins, after `protocol` (4.3). When the workers have loaded, it sends `on` set to false once, if it told a client that it starts. A client that joins later gets false at the join.
+14.16.2 The bridge sends the message to each client that joins, after `protocol` (4.3.2). When the workers have loaded, it sends `on` set to false once, if it told a client that it starts. A client that joins later gets false at the join.
 
 14.16.3 A new process of the bridge sends `on` set to true. The client takes this as a new bridge: what the old one said about work (14.10) is gone. The bridge does not keep the message for the history (14.8). The web client ignores the message.
 
-## 15. AUDIBLE STATE
+## 15. Audible state
 
 15.1 The bridge does not leave silence when it cannot answer. Silence is ambiguous.
 
@@ -584,7 +590,7 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 
 15.7.3 Chris turns the hold music on and off by voice. He says "music on" or "music off" after the wake word. The bridge answers "Music on." or "Music off." The choice is a setting. The bridge keeps it across restarts. The bridge does not play the hold music while the setting is off. The "Music" button of the app sets the same setting (17.10.3). If Chris turns the music off while a track plays, the track stops. The two commands are not in the default muted set (9.6), because the hold music does not play while the bridge is muted (15.11).
 
-15.7.4 This item is removed. Earlier revisions had the agent start a slow reply with the marker `[long]`. The agent also wrote the marker after a tool call, where the bridge did not remove it, and the voice spoke it. A tool call already makes a turn long, so the marker added only a slow turn with no tool call. The item number does not change, because other sections point to it.
+15.7.4 This item is removed. A tool call makes a turn long (15.7.5).
 
 15.7.5 A tool call makes the turn long, the moment the tool call starts. A reply can start with a tool call and no text, or call a tool after text. Either way the turn is long from the tool call on.
 
@@ -592,7 +598,7 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 
 15.8 The tracks are the audio files in a folder. The folder is a setting. The default is `~/.sidetone/hold/`. A new track needs no settings edit. The repository does not hold the audio. The bridge lists the folder once, on first use. If the folder is missing or has no tracks, the bridge writes one line to the log and does not try again in that process. A track that the bridge cannot read gets one line in the log, and the next track plays in its place.
 
-15.9 The hold music is quieter than the voice. The gain is a setting. The default is 0.4. The bridge decodes each track once, on its first use. The bridge applies the gain in that decode and keeps the samples in memory.
+15.9 The hold music is quieter than the voice. The hold music volume is a setting, `holdMusicGain`, a factor on the file. The default is 0.4. The bridge decodes each track once, on its first use. The bridge applies the volume in that decode and keeps the samples in memory.
 
 15.10 The hold music stops when Chris talks, when the bridge has a sentence to say, and when the turn ends. The stop for Chris talking and for a sentence is the stop of the /play route.
 
@@ -604,11 +610,12 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 
 15.10.4 Each start of a track fades in: the first start and each resume. The level rises in a straight line from zero to full. The fade-in time is a setting. The default is 150 milliseconds. The value 0 starts the track at full level. The bridge applies the fade to the samples before it plays them, so the fade costs nothing at play time. A resume starts mid-phrase (15.10.1), and without the fade it cuts in.
 
-15.11 The hold music does not play when no turn is running, when the turn is not long (15.7.4), when the bridge is muted, when the audio is off (11.12), or when a track from the /play route is playing. It does not play while the bridge waits for the agreement word, because the bridge has asked Chris a question (8.6.3, 10.1).
+15.11 The hold music does not play when no turn is running, when the turn is not long (15.7.5), when the bridge is muted, when the audio is off (11.12), or when a track from the /play route is playing. It does not play while the bridge waits for the agreement word, because the bridge has asked Chris a question (8.6.3, 10.1).
 
-15.12 The /play route hands the file to the mouth, which owns the room's one audio source. The track waits until nothing is being said, then plays. A sentence that arrives while it plays fades it out (15.10.2). Chris talking and the audio going off cut it at once (15.10.3). The route answers 202 as soon as the file is decoded, so the agent can ask for a track and say a sentence about it in the same turn. Before this the route wrote to the transport itself and refused, or stopped, whenever the mouth was busy, and the agent's own next sentence ended the track one second in.
+15.12 The /play route hands the file to the mouth, which owns the room's one audio source. The track waits until nothing is being said, then plays. A sentence that arrives while it plays fades it out (15.10.2). Chris talking and the audio going off cut it at once (15.10.3). The route answers 202 as soon as the file is decoded, so the agent can ask for a track and say a sentence about it in the same turn.
 
-15.13 The record says when a track started and when it stopped, for the hold music and for a file from /play, with how long it ran and whether it reached its end. Without those the record said nothing about when the music began, and "it came on late" (see docs/todo.md item 17) could not be checked after a drive.
+15.13 The record says when a track started and when it stopped, for the hold music and for a file from /play, with how long it ran and whether it reached its end. With these, a report such as "it came on late" can be checked after a drive (commit 912e3ae).
+
 15.14 The bridge plays a cue when Chris presses the hold to talk button (9.5.1), and a different cue when he lets go (9.5.2). The press cue is one bright click. The release cue is one dark click. Both are half as long and half as loud as the other cues, because they play on every hold. The app sends the `mic` message with `hold` set when a press opens the microphone, and with `release` set when a release cuts it (9.5.2). A cut or an open from the button that cuts the microphone plays no cue. The two cues follow the same rules as the other cues: they are not played over the voice, and the tones setting turns them off (15.4).
 
 15.15 The bridge plays a cue when it has finished speaking. A pause between two sentences of one answer sounds the same as the end of the answer, and Chris could not tell when it was safe to talk. The cue is two clicks, dark then bright: the thinking cue backwards, so the start and the end of the agent's speaking are one figure, down and then up. It is half as long and half as loud as the thinking cue, because it plays at the end of every answer. The three-click cue for a process that restarts stays as it is; the count keeps the two apart.
@@ -617,15 +624,11 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 
 15.15.2 It plays after every answer that spoke, a report the agent began unasked included (11.11). An answer with no spoken sentence gets nothing. It plays after the rest of an answer that "carry on" says (11.10), because that rest is the end of the answer's speech. It plays after "Stopped." when "end the turn" stops an answer that had spoken. It does not play for an answer that a new question cut short (11.9): the question owns the voice then, and a cue would sound like part of the answer to it. The tones setting turns it off with the others (15.4).
 
-## 16. LESSONS FROM PRIOR ART
+## 16. Lessons from prior art
 
 16.1 Other projects do voice for the Claude command-line tool. The nearest is claude-voice, which does speech-to-text, then the Claude command-line tool, then text-to-speech, with barge-in and a phone client. The telephony project claude-phone is the call-based method that this product does not use. Other projects are Happy Coder, Paseo, VoiceMode, and Voicebox. Learn from these projects. Read their code for the plumbing. Do not adopt one as the product. None of them do the gating, the wake commands, the car resilience, or the aleph memory split that this product needs.
 
 16.2 Claude Code does expose the context to an outside tool, but not in one fixed field. Version 2.1.267 sent an `autocompact_state` event with the window size and the compaction threshold. Version 2.1.283 sends no such event, on Haiku or on Sonnet, on the first turn or a later one (26 September, `bun scripts/protocol-check.ts --runs 3`: 0 of 12). Its result gives `contextWindow` and `maxOutputTokens` for each model in `modelUsage`, and the tokens of the last request in `usage.iterations`. 8.9 says how the bridge reads the fill and derives the threshold from these fields. Confirm this again after a Claude Code upgrade, because it is not a promised interface. `bun scripts/protocol-check.ts --runs 3` measures these fields as its fact 5, the facts of 11.9.9 and 16.6, and the permission request of 10.7 again.
-
-16.6 Claude Code also reports the rate-limit use directly, in a `rate_limit_event` with the five-hour and seven-day numbers. The usage command of 9.4.4 and the warning of 13.2 read these numbers. They do not estimate.
-
-16.7 Claude Code refuses `--output-format stream-json` unless `--verbose` is also given.
 
 16.3 Auto-compaction can thrash. The context can refill at once after a compaction, and the loop repeats. This is the reason for the compaction-loop detector in 8.5.
 
@@ -633,7 +636,11 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 
 16.5 The metric that matters for speed is the time to the first audio, measured from the phone. The backend completion time is not the right metric. There is no portable number. Set a target from the real setup (see Section 18).
 
-## 17. THE ANDROID APP
+16.6 Claude Code also reports the rate-limit use directly, in a `rate_limit_event` with the five-hour and seven-day numbers. The usage command of 9.4.4 and the warning of 13.2 read these numbers. They do not estimate.
+
+16.7 Claude Code refuses `--output-format stream-json` unless `--verbose` is also given.
+
+## 17. The Android app
 
 17.1 The app is private. Chris installs the app by side-load. Chris does not publish the app.
 
@@ -667,7 +674,7 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 
 17.10.5 The app keeps the microphone cut on the phone. A new process of the app, after a death, a kill or an update, starts with the cut as Chris left it. So a room opens the microphone only when Chris left it open. A quit (17.22.4) ends the conversation and keeps the cut. A hold to talk press is not a cut: the app keeps the state from before the press.
 
-17.10.6 "Audio" and "Music" show the bridge's settings `audio` and `holdMusic` from the last settings message (9.4.9). A tap sends the message, and the button changes when the bridge sends the settings back. So a change by voice changes the button too. Each button is disabled until the bridge sends its setting. Before this, the app kept its own copy of both, and the copy and the bridge could disagree.
+17.10.6 "Audio" and "Music" show the bridge's settings `audio` and `holdMusic` from the last settings message (9.4.9). A tap sends the message, and the button changes when the bridge sends the settings back. So a change by voice changes the button too. Each button is disabled until the bridge sends its setting. The app keeps no copy of its own, so the button and the bridge cannot disagree.
 
 17.11 The app shows a working sign in its status row, as a slow pulse of the green status dot (17.11.6). The sign says that the agent works (14.10). It has three states.
 
@@ -675,19 +682,19 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 
 17.11.2 Working. The dot pulses slowly. The sign adds no word to the row. This is the state after a message with `on` set to true, while a `working` message arrives at least every 15 seconds.
 
-17.11.3 Stalled. The bridge said that the agent works, and no `working` message has arrived for 15 seconds. The dot is red and does not move. The status word is "stalled". This is three heartbeats (14.10.2). It means that the bridge has stopped sending. The room is live and the bridge is in it when the sign shows (17.11.6, 17.11.11), so the bridge is stuck. A bridge that left the room is not stuck: the status word is then "waiting". The next message ends this state. The 15 seconds is a constant of the app, because the app has no settings file. A bridge that sends no heartbeat probably does not hear Chris, so the colour is red. Until 24 September the dot stayed green and blinked fast.
+17.11.3 Stalled. The bridge said that the agent works, and no `working` message has arrived for 15 seconds. The dot is red and does not move. The status word is "stalled". This is three heartbeats (14.10.2). It means that the bridge has stopped sending. The room is live and the bridge is in it when the sign shows (17.11.6, 17.11.11), so the bridge is stuck. A bridge that left the room is not stuck: the status word is then "waiting". The next message ends this state. The 15 seconds is a constant of the app, because the app has no settings file. A bridge that sends no heartbeat probably does not hear Chris, so the colour is red.
 
 17.11.4 The sign follows the messages of the bridge. It does not follow the sound. It shows with the audio cut (17.10), when the voice, the tones and the hold music give no sign of the work.
 
 17.11.5 The app has no setting for the sign.
 
-17.11.6 The status row shows one state, not readings that can disagree. The row is one dot. The colour of the dot says whether the bridge hears Chris. Green: it hears him, and the status word is "listening". Amber: not now, and the app gets the room back: "connecting", "rejoining", "reconnecting", "waiting" or "starting" (17.11.11). Red: not now, and nothing fixes it: "disconnected", "signal lost" or "stalled". Grey: Chris is out of the room by his own hand (17.11.10). A slow pulse of the dot says that work is in progress: by the agent on a green dot (17.11.2), by the app on an amber dot, and by the app on the red dot of "disconnected", because the app tries again every 5 seconds. Every other dot does not move. The working sign shows only while the status word is "listening" or "stalled". In any other state no message can come, and the row shows no sign. The notification (17.16) follows the same rule for the sign. When the status is "listening" and LiveKit says the connection of the phone is lost, the room is not live: the status word is "signal lost", and the dot is red and does not move. The connection quality shows only as this word. Until 24 September a ring around the dot showed the quality, and "signal lost" was amber. One function in the app gives this reading, and a test tries every input.
+17.11.6 The status row shows one state, not readings that can disagree. The row is one dot. The colour of the dot says whether the bridge hears Chris. Green: it hears him, and the status word is "listening". Amber: not now, and the app gets the room back: "connecting", "rejoining", "reconnecting", "waiting" or "starting" (17.11.11). Red: not now, and nothing fixes it: "disconnected", "signal lost" or "stalled". Grey: Chris is out of the room by his own hand (17.11.10). A slow pulse of the dot says that work is in progress: by the agent on a green dot (17.11.2), by the app on an amber dot, and by the app on the red dot of "disconnected", because the app tries again every 5 seconds. Every other dot does not move. The working sign shows only while the status word is "listening" or "stalled". In any other state no message can come, and the row shows no sign. The notification (17.16) follows the same rule for the sign. When the status is "listening" and LiveKit says the connection of the phone is lost, the room is not live: the status word is "signal lost", and the dot is red and does not move. The connection quality shows only as this word. One function in the app gives this reading, and a test tries every input.
 
-17.11.7 The row shows the status word beside the dot in every state: "connecting", "listening", "rejoining", "reconnecting", "waiting", "starting", "signal lost", "disconnected", "stalled" or "left". The colour alone does not say which amber state the room is in. Until 23 September the row showed a word only for "reconnecting", "disconnected" and "signal lost". These states last seconds, so Chris never saw a word. The notification (17.16) starts with the same word.
+17.11.7 The row shows the status word beside the dot in every state: "connecting", "listening", "rejoining", "reconnecting", "waiting", "starting", "signal lost", "disconnected", "stalled" or "left". The colour alone does not say which amber state the room is in. The notification (17.16) starts with the same word.
 
-17.11.8 The "Leave" button is not in the row. It is on the options screen (17.22), which opens from the gear at the end of the row. It leaves the room and keeps the app open (17.11.10). Until 24 September it quit the app; "Quit" does that now (17.22.4).
+17.11.8 The "Leave" button is not in the row. It is on the options screen (17.22), which opens from the gear at the end of the row. It leaves the room and keeps the app open (17.11.10). "Quit" closes the app (17.22.4).
 
-17.11.9 A tap on the dot opens a legend. The legend has one row for each colour, in this order: green, amber, red, grey. Each row shows the dot as the status row draws it, with the pulse. A colour that has a solid dot and a pulsing dot shows both. Each row says what the colour means to Chris, and lists the words that the colour can show. Red gives one short line for each of its three words, because each asks something different of Chris. Below the rows, one line says that a slow pulse means work is in progress: by the agent when the dot is green, by the app when it is amber or red. A tap anywhere closes the legend. The app makes the legend from the same function as the row (17.11.6), and a test checks that each state is in it. Until 24 September the legend had one row for each word, and four of the rows were amber.
+17.11.9 A tap on the dot opens a legend. The legend has one row for each colour, in this order: green, amber, red, grey. Each row shows the dot as the status row draws it, with the pulse. A colour that has a solid dot and a pulsing dot shows both. Each row says what the colour means to Chris, and lists the words that the colour can show. Red gives one short line for each of its three words, because each asks something different of Chris. Below the rows, one line says that a slow pulse means work is in progress: by the agent when the dot is green, by the app when it is amber or red. A tap anywhere closes the legend. The app makes the legend from the same function as the row (17.11.6), and a test checks that each state is in it.
 
 17.11.10 Chris can leave the room and keep the app open. While the app is in the room the phone is in a call, as far as the car is concerned (4.2.2), and the car parks its own music for the whole call. The echo canceller needs the call mode, so the app does not change the mode. Chris leaves the room to listen to music and rejoins when he wants to talk.
 
@@ -695,13 +702,13 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 
 17.11.10.2 A leave releases the phone's audio, so the car stops treating the phone as being in a call and its music comes back. The app ends its session: the room ends, LiveKit disposes the microphone track with the room, its audio handler gives back the audio mode and the audio focus, and the app clears the communication device it picked when the setup asked for no focus (4.2.2.1). This is the path a quit and a swipe away take, which the drive of 18 September checked: the bridge writes `[the room lost a microphone track]`. Only the car shows that its music comes back.
 
-17.11.10.3 A "Rejoin" button takes the place and the size of the hold to talk button (9.5.1) while the app is out of the room, because out of the room there is no one to talk to, and that button is the one his thumb already reaches for. One tap joins the room again with the pairing the app has: no code to scan and no new pairing. The row says "connecting" until the room is up. The bridge greets the app as it greets any client that joins (4.3), and the app answers with `device` (14.15). The microphone opens again if it was open. The app does not join by itself while it is left, even when the screen is built again.
+17.11.10.3 A "Rejoin" button takes the place and the size of the hold to talk button (9.5.1) while the app is out of the room, because out of the room there is no one to talk to, and that button is the one his thumb already reaches for. One tap joins the room again with the pairing the app has: no code to scan and no new pairing. The row says "connecting" until the room is up. The bridge greets the app as it greets any client that joins (4.3.2), and the app answers with `device` (14.15). The microphone opens again if it was open. The app does not join by itself while it is left, even when the screen is built again.
 
 17.11.10.4 The bridge needs no change. To the bridge a phone that left is a phone in a tunnel (14.8): the conversation carries on. A turn that runs when Chris leaves runs to its end: the agent finishes, the voice speaks to a room with no one in it, and the bridge keeps the turn (14.8). After 30 seconds with no frames the bridge writes the line of 18.9.2 once and sends a `rejoin` that no phone gets. The `mic` message of 9.5 is not sent, so what the microphone had half recorded stays in the bridge's ear until the next sound, as after a drop.
 
 17.11.10.5 The bridge sends the history when the app rejoins. The app keeps the lines it has and shows the history once for each conversation, so a room that opens again inside one conversation does not show it a second time. This is the rule the app has for a drop. The words of a turn that ended while the app was out do not reach the screen until a later change shows only the turns the app missed; "restate" (14.6) says them again by voice.
 
-17.11.11 The app follows the bridge in the room, not only its own link. LiveKit runs apart from the bridge, so a restart of the bridge does not end the phone's room: only the bridge leaves it. Until 26 September the app watched only its own link. On a restart it said "listening" with no bridge in the room. The old bridge's last `working` true stayed, and a new bridge with no work sends no `working` message, because it sends only on a change (14.10.2). So 15 seconds after the last heartbeat the row said "stalled" (17.11.3), and it stayed so. It did not show "reconnecting" or "disconnected", because the phone's link did not change. A replay of a real restart of 26 September through the app's code showed both.
+17.11.11 The app follows the bridge in the room, not only its own link. LiveKit runs apart from the bridge, so a restart of the bridge does not end the phone's room: only the bridge leaves it. An app that watches only its own link says "listening" through a restart, with no bridge in the room, and then "stalled" (17.11.3), because a new bridge with no work sends no `working` message (14.10.2).
 
 17.11.11.1 The app knows the bridge by its identity in the room, which starts with `bridge`. The link up, the status word is:
 
@@ -725,7 +732,7 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 | --- | --- |
 | `at` | The time the message arrived, in milliseconds since 1970. |
 | `time` | The same time on the 24-hour clock of the phone, with seconds and milliseconds. |
-| `kind` | What arrived: `heard` (Chris said it), `sentence`, `turn`, `block` (a block starts), `delta` (words of a block), `note` (a note from the bridge or from the app), `history`, `unknown`, or `working` (the sign changed). |
+| `kind` | What arrived or changed: `heard` (Chris said it), `sentence`, `turn`, `block` (a block starts), `delta` (words of a block), `note` (a note from the bridge or from the app), `history`, `unknown`, `working` (the sign changed), `screenshot` (14.12.7), `bridge` (a bridge joined or left, 17.11.11.2), `rejoin` (18.9), `setup` (18.15.3), `leave` (17.11.10), `microphone`, `audio` or `music` (a button changed it, 17.10.2). |
 | `answer`, `block` | The numbers the message named (14.9.3), or null. |
 | `bubble` | The place of the line in the transcript, from 0. It counts every line, notes and hidden bubbles too. It is null when no line changed. |
 | `got` | The text the message carried, or null. |
@@ -742,7 +749,7 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 
 17.15 The app updates itself from the bridge. The bridge serves the app at `/sidetone.apk` (17).
 
-17.15.1 The `protocol` message (4.3) carries an `apk` field when the bridge has an app to serve. The field holds `url`, the address of the app, and `sha256`, the SHA-256 of the file in hex. The bridge computes the hash again when the file changes.
+17.15.1 The `protocol` message (4.3.2) carries an `apk` field when the bridge has an app to serve. The field holds `url`, the address of the app, and `sha256`, the SHA-256 of the file in hex. The bridge computes the hash again when the file changes.
 
 17.15.2 The app computes the SHA-256 of its own installed file once for each process. When the two hashes differ, the app shows the button "Update the app" under the status row. When they are the same, or the field is missing, the app shows no button. The app uses no version number.
 
@@ -764,7 +771,7 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 
 17.17 The app posts an alerting notification for two events, while the app is not on the screen. A tap opens the app and clears the notification.
 
-17.17.1 A line that the bridge queued to say. A `/say` request (14.10.4) also sends the line to the client as a `narration` with `announce` set to true. The app shows it as a note, and notifies it. The end of a detached job is such a line.
+17.17.1 A line that the bridge queued to say. A `/say` request (12.7) also sends the line to the client as a `narration` with `announce` set to true. The app shows it as a note, and notifies it. The end of a detached job is such a line.
 
 17.17.2 A reply that the voice did not play, because the audio is cut (17.10). The notification holds the words of the reply.
 
@@ -811,7 +818,8 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 17.21.3 A `turn` does not move the spoken sentence, because the voice can still say the answer after it arrives. A barge-in cuts a sentence and the bridge says it again (14.13), so the grey stays after the cut until that message repeats.
 
 17.21.4 The formatting of 17.19 stays. The grey starts at the length of the words up to the end of the sentence, once formatted. A sentence that ends inside a bold or code span can show a slightly wrong edge.
-17.22 The options screen opens from the gear at the end of the status row. Its accessibility name is "Options". The screen fills the window under the status row. The same tap on the gear or a back gesture closes it and shows the conversation again. The gear shows as selected while the screen is open. The controls are large for a moving car: each row fills the width, and each slider has a large thumb and a thick track. Until 24 September the options were a small menu under the gear. The screen holds the verbosity, the tones, the hold music volume, the hold music delay, the barge-in level, the quietest speech peak, the end-of-turn pause, "Leave", "Quit" and the build line (14.15), in that order. "Leave" shows only while the app is in the room. The voice choice and the audio switch are not in it, because each already has a command or a button.
+
+17.22 The options screen opens from the gear at the end of the status row. Its accessibility name is "Options". The screen fills the window under the status row. The same tap on the gear or a back gesture closes it and shows the conversation again. The gear shows as selected while the screen is open. The controls are large for a moving car: each row fills the width, and each slider has a large thumb and a thick track. The screen holds the verbosity, the tones, the hold music volume, the hold music delay, the barge-in level, the quietest speech peak, the end-of-turn pause, "Leave", "Quit" and the build line (14.15), in that order. "Leave" shows only while the app is in the room. The voice choice and the audio switch are not in it, because each already has a command or a button.
 
 17.22.1 Each control sends the `setting` message (9.4.9). The bridge does what the spoken command does, the voice's answer included. The control does not change when it is tapped. It shows the value in the next `settings` message, so the screen shows only what the bridge holds. Until the bridge sends its settings, each control is disabled.
 
@@ -827,7 +835,7 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 
 17.22.7 The hold music delay is a selector of four times: 3, 5, 8 and 12 seconds. It sets `holdMusicAfterMs` (15.7.6), and no spoken command sets it. A tap sends the time in milliseconds. The bridge gives no answer and keeps the time across restarts. When the bridge holds a time that is not one of the four, no choice shows as selected. The selector does not offer 0, because the "Music" button turns the music off (17.10.3).
 
-## 18. MEASUREMENTS TO MAKE
+## 18. Measurements and diagnostics
 
 18.1 No measurement blocks the build. Make each measurement during the build. Change a setting from Section 21 with the result.
 
@@ -841,7 +849,7 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 
 The same line also gives where the agent's time to the first word went, from its stream. The bridge reads the stream from the first request after the round opens to the first text delta. `inputTokens`, `cacheReadTokens` and `cacheCreationTokens` are the usage of that first request, from its `message_start`. `requestMs` is the time from the `requesting` status to that `message_start`, which is the network and the queue, not the generation. `thinkingTokens` is the thinking of every message up to the one that holds the first text delta, that one included. A message that ended before the line is written gives its exact count, `output_tokens_details.thinking_tokens` from its `message_delta`. A message that still runs gives the sum of its `thinking_tokens` estimates. The estimate is about twice the exact count, and a short thinking block gives none. A record from before 26 September has the estimate only. `firstEvent` is the type of the first block: `text`, `tool_use` or `thinking`. `toolsBeforeText` is the count of tool calls before the first text delta. A field that the stream does not give is not in the record; it is not zero. A command's reply has none of these fields. A record from before 25 September has none of these fields.
 
-18.4.2 The pause in an `answered` line, `pauseMs`, is the quiet that ended the utterance. The round trip starts when Chris stopped, which is that quiet before the bridge could tell. An utterance that ends on a pause has the pause in force, and a client can change the pause while the bridge runs (17.22.6). A hold to talk release ends the utterance at once (9.5.2), so its pause is the quiet before the release, often none. Until 25 September every line had the pause setting, whatever ended the utterance.
+18.4.2 The pause in an `answered` line, `pauseMs`, is the quiet that ended the utterance. The round trip starts when Chris stopped, which is that quiet before the bridge could tell. An utterance that ends on a pause has the pause in force, and a client can change the pause while the bridge runs (17.22.6). A hold to talk release ends the utterance at once (9.5.2), so its pause is the quiet before the release, often none. A line from before 25 September has the pause setting, whatever ended the utterance.
 
 18.5 The speed numbers in the earlier plan came from a different machine, a cloud sandbox, a small model, and a one-line prompt. The numbers are the right shape but they are not a promise. Confirm the speed numbers on Chris's machine.
 
@@ -865,7 +873,7 @@ The same line also gives where the agent's time to the first word went, from its
 
 18.9.6 The web client ignores the message. The page has no rule to renew its own track.
 
-18.9.7 The ear listens to one microphone track for each participant: the newest one that the bridge subscribed to. When a newer track arrives from the same participant, the older track stops feeding the ear. The bridge stays subscribed to the older track and drops its frames. The journal says so in one line that names both tracks: `[a newer microphone track from <identity>: <new> feeds the ear, <old> no longer does]`. When the newest track goes, the next newest feeds the ear again, and the journal says `[<track> from <identity> feeds the ear again]`. When an older track goes, nothing changes and the journal says nothing. On 23 September a track outlived the app's cut and stayed in the room for an hour. Each later press published a second track. The bridge fed both tracks into one ear, and the dead track put a silent frame beside each live frame. The barge-in permits a short gap, so it fired. The recording needs 50 ms of loud frames in a row, so it never started.
+18.9.7 The ear listens to one microphone track for each participant: the newest one that the bridge subscribed to. When a newer track arrives from the same participant, the older track stops feeding the ear. The bridge stays subscribed to the older track and drops its frames. The journal says so in one line that names both tracks: `[a newer microphone track from <identity>: <new> feeds the ear, <old> no longer does]`. When the newest track goes, the next newest feeds the ear again, and the journal says `[<track> from <identity> feeds the ear again]`. When an older track goes, nothing changes and the journal says nothing. Two tracks in one ear put a silent frame from the dead track beside each live frame. The barge-in permits a short gap, so it fires. The recording needs 50 ms of loud frames in a row, so it never starts.
 
 18.9.8 A hold to talk press that gives a barge-in and no utterance writes one line to the journal: `[a barge-in and no utterance: the press recorded nothing]`. On 23 September four presses gave a barge-in each and no other line, so the journal did not show that the bridge heard nothing. With the microphone open, nothing releases: a barge-in that has no recording for one end-of-turn pause writes `[a barge-in and no utterance: the open microphone recorded nothing]`, once. A barge-in on noise that the ear records and then drops writes no such line, because the drop has its own line: `too quiet` or `(nothing)`. A plain cut of the microphone is not a press, and writes no press line.
 
@@ -873,11 +881,11 @@ The same line also gives where the agent's time to the first word went, from its
 
 18.10.1 The bridge records the echo and writes it to the journal. It drops the utterance only when the utterance began while the voice played or within 1 s after it stopped, and the utterance is not a command. A dropped echo takes the path of an utterance with no words, so a held passage resumes, and the journal names the utterance and the sentence it matched. An echo at another time is only recorded, because Chris may read a sentence back. The scorecard counts the echoes of a drive.
 
-18.10.3 One utterance may cover a run of sentences. The ear ends an utterance on a pause, and a passage played into a room has none the microphone hears, so a run of sentences comes back as one line and no single sentence holds seven words in ten of it. The bridge therefore compares the utterance with the run of recent sentences joined, as well as with each one. The car of 23 September brought back four sentences at once, and the echo check called it somebody talking.
-
 18.10.2 This exists because of the volume slider of 21 September, which was never wrong in the barge-in logic: it made the phone play loudly enough to defeat its own echo cancellation, and the bridge barged in on itself. Nothing in the code could see it, and a drive is what found it. An echo in the record is the first minute of a device run finding it instead.
 
-18.11 The scorecard counts the utterances the room made rather than Chris: a filler, or one of the engine's own silence tokens, with nothing else in it. Measured over two hours in a coffee shop on 22 September: of 503 utterances heard, 74 carried any words, 63 of those were three words or fewer, and 70 turns were taken. "Thank you." alone appeared 22 times. Neither existing guard saw any of it. The peaks ran from 0.16 to 0.53, well above the 0.15 speech floor, and the invented count is relative to the session's own median, which a noisy session raises. The words are what separate them, so the count is by words.
+18.10.3 One utterance may cover a run of sentences. The ear ends an utterance on a pause, and a passage played into a room has none the microphone hears, so a run of sentences comes back as one line and no single sentence holds seven words in ten of it. The bridge therefore compares the utterance with the run of recent sentences joined, as well as with each one. The car of 23 September brought back four sentences at once, and the echo check called it somebody talking.
+
+18.11 The scorecard counts the utterances the room made rather than Chris: a filler, or one of the engine's own silence tokens, with nothing else in it. Measured over two hours in a coffee shop on 22 September: of 503 utterances heard, 74 carried any words, 63 of those were three words or fewer, and 70 turns were taken. "Thank you." alone appeared 22 times. Neither existing guard saw any of it. The peaks ran from 0.16 to 0.53, well above the quietest speech peak of 0.15 (`minSpeechPeak`), and the invented count is relative to the session's own median, which a noisy session raises. The words are what separate them, so the count is by words.
 
 18.11.1 The count is a measurement and not a gate. The bridge still sends every utterance to the agent. Whether to stop a short filler reaching the agent at all is a separate decision, and this number is what it should be decided on.
 
@@ -929,72 +937,33 @@ The same line also gives where the agent's time to the first word went, from its
 
 18.16.5 Measured on 25 September, on 328 recorded utterances from the bridge's scratch folders, with a busy machine: the worker loads in 0.14 to 0.2 seconds. One guess costs 58 ms in the worker, median, and 74 ms at the 90th percentile: the model takes most of it. The bridge spends under 1 ms, median, to copy the samples. 222 of the 328 were tentative ends that Chris spoke on after. The detector gave 0.5 or more to 38 in 100 of those, which is where a cut at 0.5 would have cut him off. The other 106 were mostly whole utterances, and it gave 0.5 or more to 57 in 100 of those. This is a first reading of mixed data, not a verdict. A drive with the record decides.
 
-## 19. POINT STATUS
+## 19 and 20. Removed
 
-19.1 Muted command subset. Mute, unmute, and the two commands that turn the tones on and off. The set is a list in the settings, so Chris adds more later. The tone commands are on it because Chris mutes when the car is loud, and the tones are the next noise he wants gone; silencing them asks nothing of the microphone. See 9.5 and 9.6.
+Section 19 repeated decisions that other sections hold. Section 20 recorded two tests that are done.
 
-19.2 Default model. Sonnet. This is final. The model stays a setting. See 8.11.
+## 21. Configuration
 
-19.3 Lock-screen controls. Deferred to the design of the app. See 17.5.
+21.1 The bridge reads one settings file, `~/.sidetone/config.json`, or the file that `$SIDETONE_CONFIG` names. A setting in the file replaces the default. A missing file gives every default. The bridge does not need a rebuild for a change to a setting.
 
-19.4 Turn limit. Two separate limits, not one. The silence limit is one minute of no output on any channel; a busy turn does not trip it. The hard ceiling is a separate limit on turn length, set at ten minutes, and it escalates: it speaks and asks, then interrupts the turn, then restarts the process only if the interrupt does not work. See 8.4 and 8.6.
-
-19.5 Text-to-speech voice. Take the first working local voice. Do not wait for a decision. The engine is replaceable and the voice is a setting, but each replacement is also local: the voice path is local only, with no cloud engine and no cloud fallback. See 4.5 and 4.8.
-
-19.6 Wake word. "sidetone". Test it in live use, not in a separate test before the build. See 18.8.
-
-## 20. TWO CHEAP TESTS BEFORE THE BUILD
-
-20.1 The first test takes one minute. In a plain chat on the phone, not inside a project, ask what is in the memory about the Claude Code setup. If the chat reads back a real file, then the memory of Claude already works across surfaces. This test passed.
-
-20.2 The second test takes two hours at the desk. Install a desktop voice tool. Hold a real spoken conversation with Claude Code. This shows how bad read-aloud code is. This shapes the instruction that stops it.
-
-## 21. CONFIGURATION
-
-21.1 The bridge reads one settings file. The bridge does not need a rebuild for a change to a setting.
-
-21.2 Each setting has the default that follows. A default is a start value, not a fixed value.
+21.2 `DEFAULTS` in `src/config.ts` is the list of the settings and their defaults. `bun src/main.ts config` prints the path of the file and each setting in force, and marks each value that the file sets. A default is a start value, not a fixed value. Where a section gives a default, that section explains it. The table explains the defaults that no section gives:
 
 | Setting | Default | Section |
 | --- | --- | --- |
-| Silence time before a restart | 1 minute | 8.4.3 |
-| Hard ceiling for a turn | 10 minutes | 8.6.9 |
-| Checkpoint window at the ceiling | 15 seconds | 8.6.9 |
-| Grace time before a restart | 30 seconds | 8.6.9 |
-| Compaction-loop limit | 3 messages | 8.5.2 |
-| Compaction-loop window | 5 minutes | 8.5.2 |
-| Process-memory recycle limit | 4 gigabytes | 8.7.2 |
-| Context warning level | soft at 80 percent of the compaction threshold, then definite on compaction | 8.9 |
-| Claude Code command and flags | `claude -p --verbose`, stream-json both ways | 16.7 |
-| Model | Sonnet | 8.11 |
-| Wake word | "sidetone" | 9.2 |
-| Commands that work when muted | mute, unmute | 9.5 |
-| Agreement word | "continue" | 10.2 |
-| Gated action list | to set at 7.2 | 10.1 |
-| End-of-turn pause | 1.5 seconds | 11.5 |
-| A question mid-answer | holds and refuses; interrupting is the other way | 11.9 |
-| Usage warning level | 80 percent of the reported rate limit | 13.2 |
-| Audio cue delay | 4 seconds, then every 6 seconds | 15.5 |
-| Hold music: silence before it plays, in a long turn | 8 seconds, 0 turns it off | 15.7 |
-| Audio: on or off | on; "audio on", "audio off" and the app's button change it | 11.12.3 |
-| Hold music: on or off | on; "music on" and "music off" change it | 15.7.3 |
-| Hold music: tracks | every audio file in `~/.sidetone/hold/` | 15.8 |
-| Hold music: gain | 0.4 | 15.9 |
-| Hold music: fade out | 300 milliseconds, 0 cuts at once | 15.10.2 |
-| Hold music: fade in | 150 milliseconds, 0 starts at full level | 15.10.4 |
-| GPU budget for the voice path | 8 gigabytes, the whole GPU | 4.10 |
-| Speech-to-text engine and model | faster-whisper, `small.en`, local only | 4.6 |
-| Text-to-speech engine and voice | piper, `en_US-lessac-medium`, local only | 4.9 |
-| Project directory list | none, any directory | 6.1 |
-| Wake word forms the engine also writes | "side tone", "sigh tone", "sight tone", "cytone", "sitone", "site on", "side don't" | 9.3 |
-| Speech onset before recording starts | 50 milliseconds | 11.5 |
-| Level that counts as speech | 2 percent | 11.5 |
-| Settle time before listening again | 300 milliseconds | 11.2 |
-| Longest run of text spoken as one piece | 240 characters | 5.6 |
-| Narration delay | 5 seconds | 2.3 |
-| Keep a copy of each clip sent | on, the last 100, in `~/.sidetone/sent/` | 18.14 |
-| Takes of a fixed reply before warm gives up | 100, alone and again in the carrier | 11.6.1 |
+| `claudeArgs` | `-p --verbose --input-format stream-json --output-format stream-json --include-partial-messages --replay-user-messages`. The bridge adds `--model`, `--append-system-prompt` with the voice instruction, `--permission-prompt-tool stdio` and `--settings` with the ask rules. | 10.8, 11.9.3, 16.7 |
+| `ttsEngine`, `ttsVoice`, `voiceChoices` | chatterbox, `som_00295`; female `sof_01208`, male `som_00295`. Local only. | 4.9 |
+| `sttModel` | faster-whisper `small.en`, local only | 4.6 |
+| `wakeWordVariants` | "side tone", "sigh tone", "sight tone", "cytone", "sitone", "site on", "side don't" | 9.3 |
+| `endOfTurnPauseMs` | 1.5 seconds | 11.5 |
+| `speechLevel` | 0.02 of full scale: the level that counts as speech | 11.5 |
+| `speechOnsetMs` | 50 milliseconds of speech before recording starts | 11.5 |
+| `minSpeechPeak` | 0.15 of full scale: the quietest speech peak | 17.22.5 |
+| `interruptOnSpeech` | false: a question mid-answer holds the answer and is refused | 11.9 |
+| `sentenceMaxChars` | 240 characters: the longest run of text spoken as one piece | 5.6 |
+| `narrationDelayMs` | 5 seconds | 11.13 |
+| `audioCueDelayMs`, `audioCueEveryMs` | 4 seconds, then every 6 seconds | 15.5 |
+| `usageWarnFraction` | 0.8 of the reported rate limit | 13.2 |
+| `contextWarnFraction` | 0.8 of the compaction threshold, then a definite warning on compaction | 8.9 |
 
-21.3 A setting with the value "to set at" gets its first value at the build step named. The builder does not wait for this value before that step. The three such settings got their first values at 7.3.
+21.3 This item is removed.
 
 21.4 A new setting follows the same rule. A value that a builder wants to change during a test is a setting, not a constant.

@@ -12,8 +12,8 @@ Part a waits for Chris to decide.
 
 ### a. Keep subagents alive through an interrupt
 
-Measured 21 September. Chris speaks while a turn runs. After
-`interruptAfterMs` (5 s) the bridge sends an interrupt. The interrupt stops
+Measured 21 September. Chris speaks while a turn runs. At that time the bridge
+sent an interrupt after `interruptAfterMs` (5 s). The interrupt stops
 every running subagent. Two research agents died at the second of an interrupt.
 An interrupt after the turn ends kills nothing, but Chris cannot tell by ear
 which case he is in.
@@ -27,13 +27,14 @@ interrupt message 3 s after the work started:
 | `Agent` with `run_in_background` | It stops at once. | Nothing. |
 
 So a subagent does not survive an interrupt. Background `Bash` survives it. The
-workaround is in `CLAUDE.md` since 23 September (eea4839): long work runs
-detached with `scripts/job`, never as a subagent. The bridge speaks a `result`
-that arrives with no question in front of it (`Conversation.unprompted`).
+workaround is in `CLAUDE.md`: long work runs detached with `aleph job`, never as
+a subagent. `aleph job` replaced `scripts/job` in 2225aeb. The bridge speaks a
+`result` that arrives with no question in front of it
+(`Conversation.unprompted`).
 
-The interrupt has a second cost, found under item 38: a barge-in during a
-`scripts/job` tool call makes Claude Code report the call "rejected" after the
-command has run, and the agent runs it again.
+The interrupt has a second cost, found under item 38: a barge-in during a job
+tool call makes Claude Code report the call "rejected" after the command has
+run, and the agent runs it again.
 
 Chris decided on 21 September 2026 to change nothing yet and to log first.
 Each time Chris speaks over a running turn, `~/.sidetone/record.jsonl` gets a
@@ -46,23 +47,29 @@ and "end the turn" still interrupt. Measured first, 3 of 3 each: a message sent
 during a tool call joins the turn at the next tool boundary (one result); one
 sent during the last text runs as a second turn (two results). The bridge
 speaks only text from a message that started after the injection. Not yet used
-in the car. Open: the race between a request and its `message_start`, two
-injections in the text shape, and removing the unread `interruptAfterMs`.
+in the car.
 
-Since then (731ca2c, f80dca6): the bridge runs Claude Code with
-`--replay-user-messages` and takes the reply to be the first message after the
-echo of Chris's words (8 of 8 runs), which closes the race. Two utterances
-during the last text merge into one turn (6 of 6). The note in front of his
-words says they are his and not tool output: the agent obeyed in 18 of 20
-runs, against 7 of 10 before. Chris chose that over a voice instruction line
-that gave 10 of 10 by telling the agent to trust any text of that shape.
+Since then (731ca2c, f80dca6): `interruptAfterMs` is removed. The bridge runs
+Claude Code with `--replay-user-messages` and takes the reply to be the first
+message after the echo of Chris's words (8 of 8 runs), which closes the race.
+Two utterances during the last text merge into one turn (6 of 6). The note in
+front of his words says they are his and not tool output: the agent obeyed in
+18 of 20 runs, against 7 of 10 before. Chris chose that over a voice
+instruction line that gave 10 of 10 by telling the agent to trust any text of
+that shape.
 
 Done when it has been used in the car and a correction mid-turn reached the
 agent with no re-run of a job.
 
 ## 5. Faster speech from the good voices
 
-Noted 21 September 2026. Step one measured 21 September. Nothing built since.
+Noted 21 September 2026. Step one measured 21 September. Two parts built 24
+September 2026:
+
+- eebbd2b: a resume plays the clip that a barge-in cut, and the record has the
+  worker's times.
+- c0f4f83 (spec 11.6.5): an answer opens with a kept opener while the engine
+  makes its first sentence.
 
 The good voices are the chatterbox ones, and chatterbox is the default engine.
 Its first sentence costs about 2.5 s, on every answer and on every resume after
@@ -92,10 +99,9 @@ Nobody has listened to it yet. The runs, the wavs and the gaps are in
 `~/.sidetone/jobs/turbo-0921-1211/result.md`.
 
 Still to do: listen to Turbo, and decide whether its voice is good enough to
-carry the stream. Look for cheaper ideas too, on the speech end: a shorter
-first sentence, or a kept line that plays while the first sentence is made.
-Measure each one with `kind: "answered"` in `~/.sidetone/record.jsonl`, not by
-ear.
+carry the stream. Look for cheaper ideas too, on the speech end, such as a
+shorter first sentence. Measure each one with `kind: "answered"` in
+`~/.sidetone/record.jsonl`, not by ear.
 
 Done when the first sound of a chatterbox answer comes in under a second, or a
 written reason says what it costs and Chris has said no.
@@ -239,7 +245,7 @@ Chris to weigh:
 
 | What happened | Would a test have caught it? |
 |---|---|
-| `/play` fought the voice and the hold music (item 24) | Yes: a mouth test with a sentence that arrives while a track plays. `test/routes.test.ts` plays a track through `/play`; no mouth test of the clash exists. |
+| `/play` fought the voice and the hold music (22 September) | In part: `test/turn.test.ts` (15.12) tests a track and a sentence that wait for each other. The drive of 27 September found a fault that the tests do not catch: item 61. |
 | The voice came out garbled from the pre-rendered replies (item 32) | Covered since 23 September: a kept line is kept only when the speech worker hears its text (11.6.1, item 33). |
 | The voice said ".ts" about twelve times (item 34) | Covered since 24 September: a path is spelled for the voice, with a test (item 33 c). |
 | All of the bridge's audio was lost after an app or bridge change (21 September) | A `scripts/fake-phone.ts` run after each bridge change hears what the bridge says, so it catches a loss on the bridge side. Nothing catches one in the app except the phone. |
@@ -248,8 +254,9 @@ Chris to weigh:
 | Synthesis took 22 to 24 s a sentence while another job held the GPU (22 September) | No: it is load, not code. An alarm on the synthesis time would show it. None exists. |
 | A barge-in stopped the background subagents (item 4) | No: it is Claude Code's behaviour, outside this repo. |
 
-Done when Chris has weighed the two open rows, the `/play` clash and the
-synthesis alarm, and each has a test or a written reason none is practical.
+Done when Chris has weighed the open row, the synthesis alarm, and it has a
+test or a written reason that none is practical. Item 61 holds the `/play`
+fault.
 
 ## 28. A proper options menu in the Android app
 
@@ -275,15 +282,17 @@ Still to do:
   files. On 24 September the folder holds nine tracks.
 - Not checked on the phone: the look of the menu, the slider inside a dropdown,
   and the volume heard in the car.
-- Item 49 renames "Leave" to "Quit" in this menu and gives "Leave" a new job.
+- Item 49 (4d15b13) renamed "Leave" to "Quit" in this menu and gave "Leave" a
+  new job.
 
 Done when the menu has been used on the phone once.
 
 ## 35. Permissions stop the agent, and the spoken confirm word may not exist
 
 Noted 23 September 2026. Investigated 23 September 2026,
-`~/.sidetone/findings/permissions-35.md`. Nothing built. The finding answers
-both questions.
+`~/.sidetone/findings/permissions-35.md`. The finding answers both questions.
+The gate is built (f388a42, b17463f, 1560391). What is left is one use by
+voice in the room.
 
 On 23 September 2026 the permission check refused a headless `claude -p
 --dangerously-skip-permissions` job that earlier jobs had run without trouble.
@@ -329,50 +338,38 @@ Decided 23 September 2026:
   only as the answer to a question the agent just asked, not at any other time.
 - Build it on the `agreementWord` path, not a second one (spec 9.4.12).
 
-Done since: `CLAUDE.md` (eea4839) tells the agent to run long work as
-`scripts/job <name> env -u CLAUDECODE claude -p ...`, with `scripts/job` as the
-first word, so the allow rule matches.
+Points 1 to 5 of the work:
 
-Still to do:
-
-1. A rule in `autoMode.allow` in `~/.claude/settings.json` for headless jobs
-   started through `scripts/job`, in the form of the systemd rule already there.
-   Checked 24 September: not there. Fix or move the `autoMode.environment`
-   block: it still describes `imagegen`. Both are outside the repo.
-2. Test: from a bridge-run agent, start three jobs, and check the transcripts
-   for a classifier refusal.
+1. Closed. An `autoMode.allow` rule for `scripts/job`. `aleph job` replaced
+   `scripts/job` in 2225aeb, so the rule has nothing to match.
+2. Closed. A test of three jobs started through `scripts/job`, for the same
+   reason. The done line below tests `aleph job` instead.
 3. Built 24 September 2026 (f388a42, spec 10.7-10.11). The bridge passes
    `--permission-prompt-tool stdio` and `permissions.ask` rules in `--settings`,
    because auto mode let 3 of 3 force pushes through with no request when the
    prompt tool was alone. `src/gated.ts` picks the four out; each waits for
    "continue", and every other asked command is allowed. Not yet used live.
-4. The agreement word matches anywhere in an utterance (`plain.includes` in
-   `src/commands.ts`), so "do not continue" agrees. The decision above says
-   "continue" counts only as the answer to the question. Now that it gates a
-   force push, this matters more.
-5. The matcher does not see `bash -c`, `$(…)`, `xargs rm -rf` or
-   `find -delete`. Auto mode still judges those.
+4. Done 24 September 2026 (b17463f). The agreement word agrees only alone or
+   beside a plain yes, so "do not continue" does not agree.
+5. Done 24 September 2026 (1560391). The matcher looks inside `bash -c`,
+   `eval`, `$(…)`, `xargs` and `find`, and gates a command it cannot read.
+   Item 58 holds a shell that reads from a pipe.
 
-On hold 24 September 2026: Chris plans to move the execution engine into
-aleph, which may make points 1 and 2 (the settings for `scripts/job`) moot.
-Points 3 to 5 are built or recorded and stay.
-
-Done when a job started by `scripts/job` does not stop on a permission, and
-a gated action has been agreed and refused once by voice in the room.
+Done when a job started by `aleph job` from a spoken turn does not stop on a
+permission, and a gated action has been agreed and refused once by voice in
+the room.
 
 ## 38. A screenshot from the phone does not reach the agent, and the status shows twice
 
 Noted 23 September 2026. Part 2 built and landed 23 September 2026 (ad48d25,
 spec 14.12.5 to 14.12.7, 17.18.5), not tried on the phone. Part 1 answered 23
-September 2026, `~/.sidetone/findings/double-status-38.md`. The guard it asks
-for landed 24 September 2026 (aa328c2): `scripts/job` refuses a name whose job
-directory has a live pid and no exit.
+September 2026, `~/.sidetone/findings/double-status-38.md`.
 
 Part 1, answered. The double was the job lines, not the status row. The
 screenshot shows four lines under the 11:29 answer: "Job wake-review
 finished." and "Job status-dot finished.", each twice. The bridge and the app
 did the correct thing four times: the agent started each job twice. A barge-in
-during the `scripts/job` tool call made Claude Code report the call "rejected"
+during the job tool call made Claude Code report the call "rejected"
 after the command had run. Chris said "Start them both", and the agent ran the
 same command again. The four job directories have the same `command.txt` in
 pairs, and each exited 0.
@@ -398,8 +395,9 @@ Part 2, what was built:
 
 Still to do:
 
-1. Done (aa328c2, `test/job.test.ts`). `scripts/job` refuses a name that
-   already runs in `~/.sidetone/jobs/`.
+1. Closed. `scripts/job` refused a name that already ran (aa328c2), and went
+   in 2225aeb. `aleph job` starts a second run under the same name, so
+   `CLAUDE.md` tells the agent to run `aleph jobs` first.
 2. On the phone: the thumbnail, the mark and the tap, and one turn where the
    agent opens a file the turn named.
 3. A known limit: the bridge forgets the pending screenshots when it restarts,
@@ -435,7 +433,7 @@ Part 2, the findings:
 | StrictMode and vitals | Neither exists. Play vitals do not apply to a side-loaded app; `getHistoricalProcessExitReasons` does | gap |
 
 Items 1 and 2 below built and landed 24 September 2026 (9c1e5a3). The three
-follow-ups are a job on 24 September.
+follow-ups landed 24 September 2026 (37bfd3e).
 
 Still to do, in this item:
 
@@ -449,10 +447,9 @@ Still to do, in this item:
    bad message is dropped and the room goes on.
 3. The forced crash on the phone that the done line asks for.
 
-Follow-ups the finding names, each its own item if Chris wants them: StrictMode
-in the debug build with `detectAll()` and `penaltyLog()`; keep the three cuts
-across a process death in `SharedPreferences`; move `sendScreenLog` off the
-main thread and count while the parts are built.
+The three follow-ups the finding names, done (37bfd3e): the debug build runs
+StrictMode, the three cuts outlive a process death, and the screen log builds
+off the main thread.
 
 Done when a forced crash on the phone gives a file in `~/.sidetone/crashes/`
 with the stack trace, the exit reasons are sent, and the Mic button cannot end
@@ -472,7 +469,7 @@ cuts across a process death since 37bfd3e, which removes the trigger.
 Still to do: reproduce on the phone or an emulator how the track outlived
 `closeMic` (tap Mic off within 200 ms of the publish, twenty times, and list
 the room's tracks). The finding says the likely path is an unpublish before the
-server had the publish. There is no `adb` on this machine yet.
+server had the publish. `adb` is at `~/Android/Sdk/platform-tools/adb`.
 
 The text below is the item as it was noted.
 
@@ -529,13 +526,9 @@ scripts/audio-setup.ts --canceller software` is the whole cost of an echo
 experiment now. `AudioTest` still guards the setup written in the code, which
 is what ships.
 
-Bridge half, as it was before 60d137f. A client could set six keys, through
-`Conversation.set` in `src/conversation.ts`: `tones`, `holdMusic`,
-`interruptOnSpeech`, `voice`, `verbosity` and `holdMusicGain`. The thresholds
-are not among them: `minSpeechPeak`, `bargeInLevel`, the pause length, the echo
-drop. Start with a list of every setting in the bridge config, and mark each
-one as fixed, applied at the next turn, or applied at once. Reuse the `setting`
-message and the config file; add no new channel.
+Bridge half: `Conversation.set` in `src/conversation.ts` takes the keys a
+client may change. `Settings` in `src/settings.ts` checks each change and
+applies it.
 
 Done when Chris changes one bridge threshold from a menu or a command, and the
 next turn uses the new value with no restart.
@@ -548,14 +541,15 @@ item takes over what was left of item 27.
 
 Item 27 closed with a workaround: while the app is in a room the car sees a
 call and parks its media, so Chris leaves the room to play music and rejoins to
-talk. Today "Leave" quits the app, which is a heavy thing to do at the wheel.
+talk. Before 4d15b13, "Leave" quit the app, which is a heavy thing to do at the
+wheel.
 
-"Leave" ends the room and the app stays open and in front, showing the
-conversation it had, with a control large enough for a thumb to rejoin. The
-pairing is kept, so there is no code to scan. Leaving releases the phone's
-audio: the microphone track goes, the room connection ends, and the
+What was built. "Leave" ends the room, and the app stays open and in front. It
+shows the conversation it had, with a control large enough for a thumb to
+rejoin. The pairing is kept, so there is no code to scan. Leaving releases the
+phone's audio: the microphone track goes, the room connection ends, and the
 communication device is cleared, so the car stops treating the phone as being
-in a call. "Quit" moves into the gear menu (item 28).
+in a call. "Quit" is in the gear menu (item 28).
 
 The bridge needs no change: a phone out of the room is the case of a phone in a
 tunnel (14.8), and the history arrives when it comes back.
@@ -590,46 +584,27 @@ the bridge hears him, a slow pulse says work is in progress, "stalled" is solid
 red, the ring is gone, and the legend draws each dot with its pulse. Not yet
 seen on the phone.
 
-Four of the seven states are amber: connecting, signal lost, reconnecting and
-rejoining (`Reading.kt`). The colour therefore says almost nothing, and the
-legend that item 45 added lists four rows that look the same. Green is
-listening, red is disconnected, grey is left by hand.
+Before the design, four of the seven states were amber, so the colour said
+almost nothing. Spec 17.11 now holds the design and `Reading.kt` draws it.
 
-Look at the light and the legend together, as one design rather than two:
-
-- What the colour should carry, and how many colours that needs. A reader in a
-  car has a glance, not a reading.
-- Whether the four amber states are four states to a person, or one state
-  ("not hearing you, working on it") with detail in the word beside the light.
-- The word beside the light, which item 45 made always visible (17.11.7): it may
-  be doing more of the work than the colour now.
-- The ring, which carries the connection quality, and the motion, which carries
-  work in progress: with a word and a colour, whether they are still worth the
-  space.
-- The legend's shape, now that it has a row for each state: what a person who
-  taps the light actually wants to know.
-
-Done when the light says at a glance which of the states that matter it is in,
-the legend reads as one idea rather than a table of four ambers, and both are in
-the spec.
+Done when Chris has read the light and the legend on the phone.
 
 ## 52. The hold music fades in
 
-Noted 24 September 2026, from Chris. A job started the same evening.
+Noted 24 September 2026, from Chris. Built and landed 24 September 2026
+(e782b4c, spec 15.10.4). What is left is for Chris to hear it in the car.
 
 A hold track starts at full level, and after a resume it starts two seconds
 before where it stopped (15.10.1), so it cuts in mid-phrase. It fades out over
 `holdMusicFadeMs` (300 ms, 15.10.2) but never fades in.
 
-Fade each start in with a straight line from zero, shorter than the fade out:
-a new setting `holdMusicFadeInMs`, default 150 ms, where 0 starts at full
-level. It applies to every start of a track, the first and each resume. The
-fade is done on the samples before `speaker.track` gets them, so it costs
-nothing at play time.
+What was built. Each start fades in with a straight line from zero, shorter
+than the fade out: the setting `holdMusicFadeInMs`, default 150 ms, where 0
+starts at full level. It applies to every start of a track, the first and each
+resume. The fade is done on the samples before `speaker.track` gets them, so it
+costs nothing at play time.
 
-Done when a test shows the first samples of a started track rise from zero over
-the setting, spec 15.10 and the defaults table name it, and Chris has heard it
-in the car.
+Done when Chris has heard it in the car.
 
 ## 54. End a turn before the 1.5 s pause
 
@@ -644,15 +619,17 @@ Chris talked through.
 
 Done so far: the Smart Turn v3 detector runs in shadow (f040436, spec 18.16,
 `speech/turn_worker.py`). At each tentative end it writes a `turnGuess` line
-and ends nothing. On 26 September it had 48 guesses, but 45 of 47 utterances
-ended on a hold to talk release, so only 2 ended on a pause. At 0.5 it would
-have cut 8 of 45 pauses Chris talked through.
+and ends nothing. The open microphone drive of 27 September added 147 guesses.
+The whole record now holds 195: 89 on utterances that ended on a pause, 2 on a
+flush, and 104 on pauses that Chris talked through. At 0.5 the detector would
+have caught 69 ends and cut 31 of the 104 pauses. At 0.95 it would have caught
+48 and cut 17.
 
 ### a. Let the detector end a turn
 
 1. Drive with an open microphone until about 100 utterances end on a pause:
    `docs/drive.md` section 16 (fd68793). It also checks the vocabulary prompt
-   of b139674.
+   of b139674. At 89 after 27 September.
 2. If a threshold exists with few `cutOff` and most `caught`, add a third
    `turnDetector` value that ends the utterance at the tentative end
    (`endedBy: "detector"`). The pause stays as the backstop.
@@ -690,16 +667,97 @@ exact thinking count and the cache counts to split them.
 Done when the record splits the median `agentMs` into its parts, and each part
 either has a fix or a reason to leave it.
 
+## 56. Can correct audio arrive distorted from the connection or the transport?
+
+Noted 27 September 2026, from a question in the car. Not scoped.
+
+Chris asked: can a wav that the server renders correctly still play garbled on
+the phone, from a poor connection or another cause? Two faults look similar
+but are not this one:
+
+- Item 33: chatterbox itself renders some sentences garbled. Nothing is lost
+  after the render.
+- Item 43: chat text arrived scrambled because of the order of data messages
+  (`Dispatchers.Default`), not the connection. A `seq` fixed it.
+
+Neither checked the audio frames from end to end. Questions to research:
+
+- Does the LiveKit Opus path drop or reorder frames under loss?
+- Can the app's playback buffer starve or glitch under jitter?
+- Is anything short of a full resend worth adding: a sequence number on
+  frames, a checksum, or forward error correction?
+
+Done when there is a finding in the shape of item 39 part 2: a file under
+`~/.sidetone/findings/`, from the code and LiveKit's own behaviour, that names
+what can go wrong between a correct render and what Chris hears.
+
+## 58. The gate does not see a command piped into a shell
+
+Noted 27 September 2026, from the architectural review of 25 September
+(section 6.1). `shell` in `src/gated.ts:89` scans only `bash -c` and `sh -c`.
+A shell that reads its commands from a pipe or a file is not scanned:
+`gatedAction` returns `null` for `echo … | base64 -d | sh`, `curl … | bash`
+and `sh < script.sh`. `ASK_RULES` sends a request for a command that starts
+with `bash`, `sh`, `eval`, `xargs` or `find` (ADR 0009), but `gatedAction`
+lets a shell with no `-c` through. Decide whether a shell with no `-c` and no
+script it can read is `UNREADABLE`, which fails closed. Done when that
+decision is written into the spec at 10.7 and a test holds it.
+
+## 59. Send screenshots over HTTP, not the control channel
+
+Noted 27 September 2026, from the architectural review of 25 September
+(section 6.4). A screenshot goes to the bridge as chunks on the control
+channel (`ClientRoom.kt:371`), the same channel as the words of an answer. On
+a weak mobile connection a screenshot can hold back the deltas behind it. The
+review proposes a POST to the bridge's HTTP server for the image, with only a
+short note on the control channel. Done when there is a measurement: one
+screenshot sent during an answer on a slow link, with the delay of the
+deltas before and after the change.
+
+## 60. Set the level for speech from the noise in the car
+
+Noted 27 September 2026, from the architectural review of 25 September
+(section 7, long term). The levels that decide speech, `speechLevel` and
+`bargeInLevel` in `src/config.ts`, are fixed numbers. The
+review proposes that the bridge measure the noise when nobody speaks and set
+the level from it. Done when the record of a drive shows whether the
+noise changes enough between roads to need this: the level of the quiet
+frames, over one drive, by minute.
+
+## 61. `/play` says it plays a file and then drops it
+
+Noted 27 September 2026, from `docs/drive.md` test 15 in the car (vault: Voice
+Bridge Car Test 4). The test failed.
+
+At 11:36 the agent asked `/play` for a hold track (Soulful Strut). The route
+answered 202 and the record has a `track` event for the file. The track
+stopped after 26 s with `"whole": false`, so it did not play to the end.
+
+A second `/play` call asked for the short kept clip `interrupting-on.wav`. The
+route answered 202, and the journal says `[playing ... when the mouth is
+free]`. The record has no `track` event for it, so the clip never played.
+Chris heard a burst of hold music in its place.
+
+So `/play` can report success and drop the request (`src/routes.ts`,
+`Mouth.play`). The tests of 15.12 in `test/turn.test.ts` pass.
+
+Find what cut the first track and what dropped the second. Candidates, none
+checked:
+
+- `Mouth.play` takes the track off its queue before `speaker.track` answers.
+  When `speaker.track` refuses, for example because the hold music has the
+  source, the track is lost with no retry and no record line.
+- `cutOff` stops a track when Chris talks or the audio goes off, so speech or
+  noise in the car can cut the first track.
+
+Done when a test holds the cause, and `docs/drive.md` test 15 passes in the
+car: the track and the sentence both play in full, with a `track` event for
+the file that says it finished.
+
 ## Done
 
 One line for each item that shipped: the number, the title, the date, the
 commit, and any finding that lived only in the item.
-
-- **36. Review every wake-word command.** Closed 24 September 2026. The review
-  is `~/.sidetone/findings/wake-36.md`. The clashes landed in 59343d6 and
-  e066b4c; in the wake-word hold, a command now needs its exact words. Spec
-  9.4.13 is a table of all 24 commands, and 9.5 names the four that work while
-  muted. `stats` has no section of its own.
 
 - **1. The volume of the phone audio path**, with item 25 merged in. Closed 24
   September 2026, answered by the echo work of 23 and 24 September (15ed8e8,
@@ -732,7 +790,7 @@ commit, and any finding that lived only in the item.
   car. Call mode over Bluetooth SCO passes the echo check, but the car hears an
   HFP call and parks its own media for the whole time the app is in the room.
   Media mode over A2DP lets music play, but the canceller fails: in the car the
-  whole passage came back, 14.9 s at peak 0.54 (drive.md test 15). Releasing
+  whole passage came back, 14.9 s at peak 0.54 (drive.md test 15 at ea9d252). Releasing
   the focus changes nothing, and in LiveKit 2.28.2 the routing and the focus
   are one flag, so no focus meant the earpiece; the app now routes a no-focus
   setup itself (spec 4.2.2.1). Chris rejected a mode switch per turn: a second
@@ -757,6 +815,11 @@ commit, and any finding that lived only in the item.
   garbled in 30 of 50 takes and looped in 14, and "src" comes out as "erks";
   a path spelled in upper case with spaces was clean in 30 of 30. The next
   report of garbled speech is settled from `bun scripts/sent-check.ts`.
+- **36. Review every wake-word command.** Closed 24 September 2026. The review
+  is `~/.sidetone/findings/wake-36.md`. The clashes landed in 59343d6 and
+  e066b4c; in the wake-word hold, a command now needs its exact words. Spec
+  9.4.13 is a table of all 24 commands, and 9.5 names the four that work while
+  muted. `stats` has no section of its own.
 - **37. A verbosity setting, as a command and in the app.** Bridge landed 23
   September 2026 (c621b40, spec 9.4.10), the app selector with item 28
   (010a92d). Three levels, one line at the head of each turn's prompt, saved
@@ -796,64 +859,6 @@ commit, and any finding that lived only in the item.
   playing, now under 500; and "Audio off." waited on the whole queue, so the
   held answer played on behind it. `frames()` clears the source on a cut, and
   `Mouth.quietAfter` turns the audio off when its own line ends.
-
-## 56. Can correct audio arrive distorted, from the connection or the transport rather than the render?
-
-Noted 27 September 2026, from a question in the car: is there a condition,
-poor connection or otherwise, where the wav rendered on the server is
-correct but what plays on the phone is garbled anyway? Two precedents look
-similar but are not this: item 33 found chatterbox itself renders some
-sentences garbled, nothing lost after; item 43 found chat text arriving
-scrambled was a data-message ordering bug (`Dispatchers.Default`), not the
-connection, fixed with a `seq`. Neither checked the audio frames themselves
-end to end. Research thread, not scoped: whether LiveKit's Opus path drops
-or reorders frames under loss, whether the app's playback buffer can starve
-or glitch under jitter, and whether anything short of a full resend (a
-sequence number on frames, a checksum, forward error correction) is worth
-adding. Done when there is a finding, matching item 39b's shape: a file
-under `~/.sidetone/findings/`, from the code and LiveKit's own behavior,
-naming what can go wrong between a correct render and what Chris hears.
-
-## 57. Say what a long check is doing before each step, not only the first
-
-Noted 27 September 2026, from a question in the car: during the drive-test
-verdict check of 27 September, the assistant ran several `journalctl` and
-config reads in a row with no word between them, so Chris heard silence for
-a stretch he had not expected. This is not about the bridge; it is about the
-assistant's own habit in a spoken turn. Fix: before each step of a
-multi-step check, not only the first, say in one short sentence what runs
-next. No code to write; a habit to hold to. Done when a multi-step check in
-the car gets a line before each step, not just the first.
-
-## 58. The gate does not see a command piped into a shell
-
-Noted 27 September 2026, from the architectural review of 25 September
-(section 6.1). `shell` in `src/gated.ts:89` scans only `bash -c` and `sh -c`.
-A shell that reads its commands from a pipe or a file is not scanned:
-`gatedAction` returns `null` for `echo … | base64 -d | sh`, `curl … | bash`
-and `sh < script.sh`. The ask rules send only `rm`, `git push`, DROP and
-TRUNCATE to the bridge (ADR 0009), so the bridge sees these only when the
-text holds one of those words. Decide whether a shell with no `-c` and no
-script it can read is `UNREADABLE`, which fails closed. Done when that
-decision is written into the spec at 10.7 and a test holds it.
-
-## 59. Send screenshots over HTTP, not the control channel
-
-Noted 27 September 2026, from the architectural review of 25 September
-(section 6.4). A screenshot goes to the bridge as chunks on the control
-channel (`ClientRoom.kt:371`), the same channel as the words of an answer. On
-a weak mobile connection a screenshot can hold back the deltas behind it. The
-review proposes a POST to the bridge's HTTP server for the image, with only a
-short note on the control channel. Done when there is a measurement: one
-screenshot sent during an answer on a slow link, with the delay of the
-deltas before and after the change.
-
-## 60. Set the level for speech from the noise in the car
-
-Noted 27 September 2026, from the architectural review of 25 September
-(section 7, long term). The levels that decide speech, `speechLevel` and
-`bargeInLevel` in `src/config.ts`, are fixed numbers. The
-review proposes that the bridge measure the noise when nobody speaks and set
-the level from it. Done when the record of a drive shows whether the
-noise changes enough between roads to need this: the level of the quiet
-frames, over one drive, by minute.
+- **57. Say what a long check does before each step, not only the first.**
+  Closed 27 September 2026 as a rule in `CLAUDE.md`, under the spoken
+  conversation. No code: it is the agent's habit in a spoken turn.

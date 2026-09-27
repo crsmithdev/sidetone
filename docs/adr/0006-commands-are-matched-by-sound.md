@@ -3,8 +3,8 @@
 A speech engine returns a word that sounded like the one Chris said, not the one
 he said: "male voice" comes back as *Mail Voice*, "end the turn" elides to *in
 the turn*, "never mind" arrives as one word. Matching the spelling ships
-commands that are broken in the car and nowhere else, so the matcher forgives
-spelling, and each command is checked against a recorded corpus of what the
+commands that are broken in the car and nowhere else, so the matcher accepts
+near spellings, and each command is checked against a recorded corpus of what the
 model that ships actually wrote for that phrase under noise.
 
 ## Consequences
