@@ -33,7 +33,7 @@ const AFTER_SENTENCE_MS = 400;
  * peaks in the record run 0.4 to 0.55, and the echo of 23 September peaked at
  * 0.543 before the canceller and the car had anything more to say.
  */
-export const VOICE_LEVEL = 0.5;
+const VOICE_LEVEL = 0.5;
 
 /** The harmonics of a voiced sound, loudest first; a tone with one would be a beep. */
 const HARMONICS = [1, 0.6, 0.4, 0.25, 0.15];

@@ -13,7 +13,7 @@ import { appendFileSync, mkdirSync, rmSync, symlinkSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-export const SCREEN_DIR = join(homedir(), ".sidetone", "screen");
+const SCREEN_DIR = join(homedir(), ".sidetone", "screen");
 
 /** The id becomes a file name, so it is one plain word. */
 const ID = /^[A-Za-z0-9-]{1,64}$/;

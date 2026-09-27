@@ -413,7 +413,7 @@ export const DEFAULTS: Config = {
  * was not in it. `test/config.test.ts` now fails when a setting is added to
  * this list of names and not to the type, or the other way round.
  */
-export const IN_FORCE = [
+const IN_FORCE = [
   "speechLevel", "speechOnsetMs", "endOfTurnPauseMs", "earlyTranscribeMs", "turnDetector",
   "bargeInLevel", "bargeInMs", "bargeInGapMs",
   "minSpeechPeak", "wakeHoldMs", "interruptOnSpeech",

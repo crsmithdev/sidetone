@@ -15,7 +15,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 /** aleph writes one directory here for each run: `aleph job`, `aleph run` and `aleph land`. */
-export const JOBS_DIR = join(homedir(), ".aleph", "jobs");
+const JOBS_DIR = join(homedir(), ".aleph", "jobs");
 
 /** 14.10.2 how often the bridge repeats "on" while the work lasts. The app trusts the sign for three of these. */
 export const HEARTBEAT_MS = 5_000;
@@ -28,7 +28,7 @@ function read(path: string): string | null {
 }
 
 /** The command line of a process, or null when it is gone. */
-export const commandLine = (pid: number): string | null => read(`/proc/${pid}/cmdline`);
+const commandLine = (pid: number): string | null => read(`/proc/${pid}/cmdline`);
 
 /**
  * 14.10.4 how many detached jobs run now. A job runs when it has a pid, has no

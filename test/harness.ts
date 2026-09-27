@@ -46,7 +46,7 @@ export interface Script {
 }
 
 /** The agent, scripted: no Claude Code process anywhere near a turn. */
-export function scripted(script: Script = {}) {
+function scripted(script: Script = {}) {
   const calls: string[] = [];
   /** 10.7 each answer to a permission request, as the process would read it */
   const answers: Array<{ id: string; allow: boolean; message?: string }> = [];

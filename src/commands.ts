@@ -101,7 +101,7 @@ function normalize(text: string): string {
   return text.toLowerCase().replace(/[^a-z\s]/g, " ").replace(/\s+/g, " ").trim();
 }
 
-export function editDistance(a: string, b: string): number {
+function editDistance(a: string, b: string): number {
   let previous = Array.from({ length: b.length + 1 }, (_, i) => i);
   for (let i = 1; i <= a.length; i++) {
     const current = [i];

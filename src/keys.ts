@@ -19,7 +19,7 @@ export interface Keys {
   apiSecret: string;
 }
 
-export function keysPath(): string {
+function keysPath(): string {
   return process.env.SIDETONE_KEYS ?? join(homedir(), ".sidetone", "keys.json");
 }
 
@@ -58,7 +58,7 @@ export function advertiseHost(): string {
 }
 
 /** The name the tailnet knows this machine by, or "" when there is no tailnet. */
-export function tailnetName(): string {
+function tailnetName(): string {
   const status = Bun.spawnSync(["tailscale", "status", "--json"], { stdout: "pipe", stderr: "ignore" });
   if (status.exitCode !== 0) return "";
   try {

@@ -24,7 +24,7 @@ import type { SpeechToText } from "./speech.ts";
  * An answer is 5 to 20 sentences, so this holds the last five or more answers:
  * enough that a report Chris makes a few minutes later still finds the clip.
  */
-export const SENT_KEPT = 100;
+const SENT_KEPT = 100;
 
 /** Where a clip came from: a kept line played from disk (11.6), or made by the engine for this sentence. */
 export type Source = "kept" | "made";

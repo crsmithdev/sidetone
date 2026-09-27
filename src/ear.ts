@@ -47,7 +47,7 @@ export const SILENCE_MS = 30_000;
  * all through the drive, so this sits fifty times above a dead capture and far
  * below any microphone that is really open.
  */
-export const SILENT_LEVEL = 0.0005;
+const SILENT_LEVEL = 0.0005;
 
 export class Ear {
   private readonly utterances: Utterances;

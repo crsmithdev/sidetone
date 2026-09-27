@@ -9,7 +9,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-export const CRASH_DIR = join(homedir(), ".sidetone", "crashes");
+const CRASH_DIR = join(homedir(), ".sidetone", "crashes");
 
 /** The id becomes a file name, so it is one plain word. */
 const ID = /^[A-Za-z0-9-]{1,64}$/;
