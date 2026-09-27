@@ -8,8 +8,8 @@ The words this project uses are in [`CONTEXT.md`](../CONTEXT.md), and the decisi
 behind them are in [`docs/adr/`](adr). The full specification is
 [`docs/sidetone-spec.md`](sidetone-spec.md).
 Section numbers in the source refer to it. Picking this up after a break:
-[`docs/next.md`](next.md) says how far it got, and which parts look
-finished but are not verified.
+[`docs/todo.md`](todo.md) says what is left to build, and
+[`docs/drive.md`](drive.md) which parts still wait for a test in the car.
 
 > The manifest-to-MCP **project bridge** that used to live here is on the
 > `project-bridge` branch. It still runs the story pipeline; nothing about it
@@ -720,4 +720,4 @@ bun run typecheck
 The supervisor takes a clock, so the whole escalation is tested without
 spawning anything. What a clock cannot show — that the interrupt shape is
 right, that a restarted process answers, that the ladder ends a real turn — was
-checked by hand against claude 2.1.267. `docs/next.md` says what was seen.
+checked by hand against claude 2.1.267.

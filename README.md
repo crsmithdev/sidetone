@@ -144,7 +144,7 @@ SIDETONE_GPU=1 bun test speech.smoke   # the real engines, on the GPU
 | [`docs/sidetone-spec.md`](docs/sidetone-spec.md) | the full specification. Section numbers in the source refer to it |
 | [`CONTEXT.md`](CONTEXT.md) | the words this project uses |
 | [`docs/adr/`](docs/adr) | the decisions and the reasons for them |
-| [`docs/next.md`](docs/next.md) | what is done, and what is not verified yet |
+| [`docs/todo.md`](docs/todo.md) | what is left to build; [`docs/drive.md`](docs/drive.md) holds the open car tests |
 
 ## Status
 
