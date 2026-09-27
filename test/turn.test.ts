@@ -3,11 +3,11 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { decodeWav, encodeWav } from "../src/audio.ts";
-import { DEFAULTS, type Config } from "../src/config.ts";
+import type { Config } from "../src/config.ts";
 import type { Outgoing } from "../src/messages.ts";
-import { Session, type SessionHooks, type Spawn } from "../src/session.ts";
+import type { SessionHooks } from "../src/session.ts";
 import { Working } from "../src/working.ts";
-import { bridge, type Music, type Script } from "./harness.ts";
+import { bridge, replay, type Music, type Script } from "./harness.ts";
 
 const config: Partial<Config> = { audioCueDelayMs: 10, audioCueEveryMs: 10 };
 
@@ -223,30 +223,15 @@ describe("the rate-limit warning (13.2)", () => {
 
 /**
  * 8.9 the soft warning, at the fill of a real 2.1.283 turn: the fixture goes
- * through a real session, and its fraction goes to the conversation. The last
- * request read 27,737 tokens of a 167,000 threshold, so 17 percent.
+ * through a real session. The last request read 27,737 tokens of a 167,000
+ * threshold, so 17 percent.
  */
 describe("the context warning (8.9)", () => {
-  async function fraction(): Promise<number> {
-    const path = new URL("./fixtures/stream-context.ndjson", import.meta.url).pathname;
-    const lines = (await Bun.file(path).text()).split("\n").filter((line) => line.trim());
-    const spawn: Spawn = () => ({
-      pid: undefined,
-      lines: (async function* () { for (const line of lines) yield line; })(),
-      write: () => {},
-      kill: () => {},
-      exited: new Promise(() => {}),
-    });
-    const s = new Session("/tmp", { ...DEFAULTS }, {}, spawn);
-    await s.ask("run echo one and echo two");
-    s.stop();
-    const reported = s.contextFraction();
-    if (reported === null) throw new Error("the session read no context");
-    return reported;
-  }
+  const recorded = (turns: number, contextWarnFraction: number) =>
+    bridge({ spawn: replay(Array(turns).fill("stream-context.ndjson")).spawn, overrides: { ...config, contextWarnFraction } });
 
   test("a fill at the level speaks the soft warning, once", async () => {
-    const r = room({ deltas: ["Done."], context: await fraction() }, { contextWarnFraction: 0.16 });
+    const r = recorded(2, 0.16);
     await r.c.turn("do something");
     expect(r.said.at(-1)).toBe("A heads up: the context is at 17 percent of the compaction threshold.");
     await r.c.turn("do something else");
@@ -254,9 +239,9 @@ describe("the context warning (8.9)", () => {
   });
 
   test("a fill under the level says nothing", async () => {
-    const r = room({ deltas: ["Done."], context: await fraction() }, { contextWarnFraction: 0.17 });
+    const r = recorded(1, 0.17);
     await r.c.turn("do something");
-    expect(r.said).toEqual(["Done."]);
+    expect(r.said).toEqual(["DONE."]);
   });
 
   test("with no context reported it says nothing", async () => {
@@ -532,6 +517,87 @@ describe("11.9 a question that lands mid-answer", () => {
     await r.c.heard("sidetone interrupt off");
     await tick();
     expect(r.said).toContain("Interrupting off.");
+  });
+});
+
+/**
+ * 11.9.3 to 11.9.5 through a real session: the runs of test/session.test.ts
+ * (item 4), replayed through the process seam into the whole bridge. The
+ * replay stops where Chris spoke in the recorded run; he speaks there, and
+ * the process echoes what the bridge wrote.
+ */
+describe("11.9 a question that lands mid-answer, through a real session", () => {
+  const PELICAN = "Change of plan: skip anything you have not done yet, and reply only with the word PELICAN.";
+
+  /** the turn asked, and a function that speaks over it at each stop in turn */
+  function recorded(name: string, before: (line: string) => boolean) {
+    const process = replay(name, before);
+    const r = bridge({ spawn: process.spawn, overrides: { ...config, interruptOnSpeech: true } });
+    const turn = r.c.turn("the recorded question");
+    let stops = 0;
+    const speak = async (said: string) => {
+      await process.reached(stops++);
+      r.c.ears.stopSpeaking();
+      await r.c.heard(said);
+    };
+    const shown = () => r.told.flatMap((m) => (m.kind === "sentence" ? [m.text] : []));
+    // a spread reads the harness's `turns` once, so the list is read here as the test asks
+    const turns = () => r.told.filter((m): m is Extract<Outgoing, { kind: "turn" }> => m.kind === "turn");
+    return { ...r, turn, speak, shown, turns, written: process.written };
+  }
+
+  test("during a tool call: the message after the tool is the reply, and it is the one turn", async () => {
+    const r = recorded("stream-inject-tool.ndjson", (line) => line.includes('"task_started"'));
+    await r.speak(PELICAN);
+    await r.turn;
+    // 11.9.2 the note goes in front of his words, into the turn that runs
+    const injected = JSON.parse(r.written[1] as string).message.content as string;
+    expect(injected).toStartWith("[Chris said this aloud while you worked.");
+    expect(injected).toEndWith(`\n\n${PELICAN}`);
+    expect(r.said).toEqual(["PELICAN"]);
+    expect(r.turns()).toMatchObject([{ number: 1, text: "PELICAN" }]);
+    expect(r.cues.filter((cue) => cue === "done")).toHaveLength(1);
+  });
+
+  test("the race: the message a request already made is shown, not spoken", async () => {
+    let results = 0;
+    const r = recorded("stream-inject-race.ndjson", (line) => line.includes('"tool_result"') && ++results === 1);
+    await r.speak(PELICAN);
+    await r.turn;
+    // it began after he spoke, but before the echo: it did not see his words
+    expect(r.shown()).toContain("Output: one.");
+    expect(r.said).toEqual(["PELICAN"]);
+    expect(r.turns()).toMatchObject([{ number: 1, text: "PELICAN" }]);
+  });
+
+  test("during the last text: the story goes to the screen, its result ends nothing, and the reply is spoken", async () => {
+    let words = 0;
+    const r = recorded("stream-inject-text.ndjson", (line) => line.includes('"text_delta"') && ++words === 5);
+    await r.speak("Change of plan: reply only with the word PELICAN.");
+    await r.turn;
+    await tick();
+    expect(r.shown().length).toBeGreaterThan(10);
+    expect(r.said).toEqual(["PELICAN"]);
+    // 11.9.4 and 11.11 the story's result is not a turn of its own
+    expect(r.turns()).toMatchObject([{ number: 1, text: "PELICAN" }]);
+    const [turn] = r.turns();
+    // the turn is what the reply said, under the reply's own answer (14.7)
+    expect(r.told.find((m) => m.kind === "sentence" && m.text === "PELICAN")).toMatchObject({ answer: turn?.answer });
+    expect(r.told.find((m) => m.kind === "sentence" && m.text !== "PELICAN")).not.toMatchObject({ answer: turn?.answer });
+    expect(r.cues.filter((cue) => cue === "done")).toHaveLength(1);
+  });
+
+  test("two questions that went in together get one reply, remembered as one request (11.9.5, 9.4.7)", async () => {
+    let words = 0;
+    const r = recorded("stream-inject-two.ndjson", (line) => line.includes('"text_delta"') && [5, 40].includes(++words));
+    await r.speak("Change of plan: reply only with the word PELICAN.");
+    await r.speak("And also say the word HERON after it.");
+    await r.turn;
+    expect(r.said).toEqual(["PELICAN HERON"]);
+    expect(r.turns()).toMatchObject([{ number: 1, text: "PELICAN HERON" }]);
+    await r.c.heard("sidetone where are we");
+    await tick();
+    expect(r.said.at(-1)).toBe("You asked: Change of plan: reply only with the word PELICAN. And also say the word HERON after it. I said: PELICAN HERON");
   });
 });
 

@@ -11,15 +11,15 @@
  * wants Chris talking makes him talk rather than setting a flag.
  */
 import { afterEach } from "bun:test";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { assemble, type Bridge, type Parts } from "../src/bridge.ts";
 import { DEFAULTS, type Config } from "../src/config.ts";
-import type { Agent, MakeAgent } from "../src/conversation.ts";
+import { claudeCode, type Agent, type MakeAgent } from "../src/conversation.ts";
 import type { Outgoing } from "../src/messages.ts";
 import type { Fade, Speaker } from "../src/mouth.ts";
-import type { SessionHooks, Turn } from "../src/session.ts";
+import type { SessionHooks, Spawn, Turn } from "../src/session.ts";
 import type { TurnDetector } from "../src/speech.ts";
 
 export const RATE = 16_000;
@@ -79,6 +79,69 @@ export function scripted(script: Script = {}) {
   return { make, calls, answers, hooks: () => hooks, config: () => given };
 }
 
+/**
+ * A process that prints what a real run printed (`recorded` in
+ * src/session.ts): one recording for each turn the bridge asks for. The
+ * replay stops after each line `before` picks, and goes on when the bridge
+ * writes the next message, because that is where the recorded one went in.
+ * Each echo carries what the bridge wrote since the last echo, joined as the
+ * process joins messages it took together, so the session knows its own words.
+ */
+export function replay(names: string | string[], before: (line: string) => boolean = () => false) {
+  const recordings = [names].flat().map((name) =>
+    readFileSync(new URL(`./fixtures/${name}`, import.meta.url), "utf8").split("\n").filter((line) => line.trim()));
+  /** every line the process was told */
+  const written: string[] = [];
+  /** the messages the bridge wrote, and how many of them an echo or a stop took */
+  const messages: string[] = [];
+  let echoed = 0;
+  let taken = 0;
+  let wake = () => {};
+  const next = async () => {
+    while (taken >= messages.length) await new Promise<void>((resolve) => { wake = resolve; });
+    taken += 1;
+  };
+  const stops: Array<{ reached: Promise<void>; seen(): void }> = [];
+  const stop = (n: number) => {
+    while (stops.length <= n) {
+      let seen = () => {};
+      stops.push({ reached: new Promise<void>((resolve) => { seen = resolve; }), seen: () => seen() });
+    }
+    return stops[n] as (typeof stops)[number];
+  };
+  const echo = (line: string) => {
+    const value = JSON.parse(line) as { type?: string; isReplay?: boolean; message?: { content?: unknown } };
+    if (value.type !== "user" || !value.isReplay || !value.message) return line;
+    value.message.content = messages.slice(echoed).join("\n");
+    echoed = messages.length;
+    return JSON.stringify(value);
+  };
+  let stopped = 0;
+  const spawn: Spawn = () => ({
+    pid: undefined,
+    lines: (async function* () {
+      for (const lines of recordings) {
+        await next();
+        for (const line of lines) {
+          yield echo(line);
+          if (before(line)) { stop(stopped++).seen(); await next(); }
+        }
+      }
+    })(),
+    write: (line) => {
+      written.push(line);
+      const value = JSON.parse(line) as { type?: string; message?: { content?: string } };
+      if (value.type !== "user") return;
+      messages.push(value.message?.content ?? "");
+      wake();
+    },
+    kill: () => {},
+    exited: new Promise(() => {}),
+  });
+  /** `reached(n)` resolves when the replay waits at its stop n, counted from 0 */
+  return { spawn, written, reached: (n = 0) => stop(n).reached };
+}
+
 /** What a test may do to the hold music's source and to a sentence's length. */
 export interface Music {
   /** 15.8 the folder of tracks */
@@ -99,6 +162,11 @@ export interface Options {
   turn?: TurnDetector;
   /** 14.16 the speech workers are warm when this resolves; unset, at once */
   warm?: Promise<void>;
+  /**
+   * The process a real `Session` runs, such as `replay(...).spawn`. Set, the
+   * turn goes through the session and not the script, and `agent` records nothing.
+   */
+  spawn?: Spawn;
 }
 
 const built: Bridge[] = [];
@@ -176,7 +244,7 @@ export function bridge(options: Options = {}) {
     },
     cues: { file: (name) => name, build: async () => {} },
     record: () => {},
-    makeAgent: agent.make,
+    makeAgent: options.spawn ? claudeCode("/tmp", options.spawn) : agent.make,
     jobs: () => 0,
     // 9.4 a test never writes the config file the car keeps its settings in
     settings: (patch) => { patches.push(patch); },

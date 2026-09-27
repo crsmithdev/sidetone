@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { DEFAULTS, type Config } from "../src/config.ts";
 import { Session, processRssBytes, type Process, type Spawn, type Turn } from "../src/session.ts";
+import { replay } from "./harness.ts";
 
 const config: Config = { ...DEFAULTS };
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -406,38 +407,11 @@ describe("a permission request taken back (10.5)", () => {
  * went in, and goes on once it is written.
  */
 describe("speech written into a running turn (item 4)", () => {
-  function replayed(name: string, before: (line: string, index: number) => boolean) {
-    const path = new URL(`./fixtures/${name}`, import.meta.url).pathname;
-    const written: string[] = [];
+  function replayed(name: string, before: (line: string) => boolean) {
+    const { spawn, written, reached } = replay(name, before);
     /** the hooks in the order they fired: "reply" for a message begun after the injection, else the words */
     const events: string[] = [];
     const unprompted: Turn[] = [];
-    /** one place for each injection: the replay waits there until the test writes it */
-    const stops: Array<{ reached: Promise<void>; seen(): void; go: Promise<void>; release(): void }> = [];
-    const stop = (n: number) => {
-      while (stops.length <= n) {
-        let seen = () => {};
-        let release = () => {};
-        const reached = new Promise<void>((resolve) => { seen = resolve; });
-        const go = new Promise<void>((resolve) => { release = resolve; });
-        stops.push({ reached, seen, go, release });
-      }
-      return stops[n] as (typeof stops)[number];
-    };
-    const spawn: Spawn = () => ({
-      pid: undefined,
-      lines: (async function* () {
-        const lines = (await Bun.file(path).text()).split("\n").filter((line) => line.trim());
-        let n = 0;
-        for (const [index, line] of lines.entries()) {
-          yield line;
-          if (before(line, index)) { const at = stop(n++); at.seen(); await at.go; }
-        }
-      })(),
-      write: (line) => { written.push(line); },
-      kill: () => {},
-      exited: new Promise(() => {}),
-    });
     const s = new Session("/tmp", config, {
       onDelta: (text) => events.push(text),
       onInjectedReply: () => events.push("reply"),
@@ -445,12 +419,7 @@ describe("speech written into a running turn (item 4)", () => {
     }, spawn);
     /** the words the hooks were given after the reply began */
     const reply = () => events.slice(events.indexOf("reply") + 1).join("");
-    let injections = 0;
-    return {
-      s, written, events, unprompted, reply,
-      reached: (n = 0) => stop(n).reached,
-      inject: (text: string) => { const ok = s.inject(text); stop(injections++).release(); return ok; },
-    };
+    return { s, written, events, unprompted, reply, reached, inject: (text: string) => s.inject(text) };
   }
 
   test("during a tool call: the one result ends the turn, and the reply is the message after the tool", async () => {

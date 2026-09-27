@@ -42,14 +42,15 @@ import type { Measures } from "./measures.ts";
 import type { Mouth } from "./mouth.ts";
 import { Network } from "./network.ts";
 import { ASK_RULES, gatedAction } from "./gated.ts";
-import { Session, type Permission, type SessionHooks, type Turn } from "./session.ts";
+import { Session, spawnClaude, type Permission, type SessionHooks, type Spawn, type Turn } from "./session.ts";
 
 export type { CueName };
 
 /**
  * The agent, as the conversation needs it (ADR 0001). `Session` is the one
- * that runs Claude Code; a test gives a scripted one instead, which is the only
- * way a whole turn — deltas, the checkpoint, a restart — can be driven at all.
+ * that runs Claude Code. A test gives it a fake process (`claudeCode` with a
+ * `Spawn`), so a whole turn runs through the real session; or a scripted
+ * agent, which fires the hooks when the test says.
  */
 export interface Agent {
   start(): void;
@@ -76,8 +77,8 @@ export interface Agent {
  */
 export type MakeAgent = (hooks: SessionHooks, config: Config) => Agent;
 
-/** The agent of ADR 0001: one Claude Code process, in the project directory. */
-export const claudeCode = (dir: string): MakeAgent => (hooks, config) => new Session(dir, config, hooks);
+/** The agent of ADR 0001: one Claude Code process, in the project directory. A test gives the process. */
+export const claudeCode = (dir: string, spawn: Spawn = spawnClaude): MakeAgent => (hooks, config) => new Session(dir, config, hooks, spawn);
 
 /** What an utterance does to the sentences a barge-in held. */
 export type Hold = "resume" | "discard" | "keep";
