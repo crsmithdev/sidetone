@@ -32,6 +32,7 @@
  * | nothing, until the gate times out | resumes | untouched |
  */
 import { Answer } from "./answer.ts";
+import { Answers } from "./answers.ts";
 import type { Channel } from "./channel.ts";
 import { read, type CommandName, type Reading } from "./commands.ts";
 import { VERBOSITIES, type Config, type Verbosity } from "./config.ts";
@@ -102,20 +103,16 @@ export interface ConversationHooks {
 
 export class Conversation {
   private muted = false;
-  private turnRunning = false;
   private checkpointOpen = false;
   /** 13.2 the usage warning was spoken, and use has not dropped below the level since */
   private usageWarned = false;
   /** 8.9 the context warning was spoken, and the fill has not dropped below the level since */
   private contextWarned = false;
   private lastReply = "";
-  /**
-   * The turn in flight, and which turn that is. A turn whose voice a new turn
-   * cut goes on until its voice is done, and it must not speak, record or
-   * clear anything by the time it is.
-   */
+  /** Item 4 the turn in flight, which a question waits for once the turn's result is back. */
   private running: Promise<void> | null = null;
-  private turnId = 0;
+  /** Which answer owns the mouth, and where the agent's words go. */
+  private readonly answers: Answers;
   /**
    * 9.1 the wake word arrived on its own. Chris leaves about 1.6 seconds
    * before the command, which is longer than the end-of-turn pause, so the two
@@ -160,6 +157,12 @@ export class Conversation {
   ) {
     this.measures = mouth.measures;
     const config = this.config = settings.values;
+    // 11.11 an answer nobody asked for jumps a hold, and its first word is no round's
+    this.answers = new Answers(
+      (id, asked, live) => new Answer(id, this.channel, this.config.sentenceMaxChars, (sentence) => asked ? this.mouth.say(sentence, id) : this.mouth.reply(sentence, id), live, asked ? () => this.measures.firstDelta() : undefined),
+      () => this.mouth.drained(),
+      () => this.cue("done"),
+    );
     // 6.5 the voice instruction lives in the bridge, not in the agent's identity file.
     // 10.7 the agent asks the bridge before the actions the ask rules name.
     const args = [
@@ -169,9 +172,9 @@ export class Conversation {
       "--settings", JSON.stringify({ permissions: { ask: ASK_RULES } }),
     ];
     this.agent = makeAgent({
-      onDelta: (text) => this.streaming().delta(text),
-      onBlockStart: (type) => this.streaming().blockStart(type),
-      onBlockEnd: () => this.answering?.blockEnd(),
+      onDelta: (text) => this.answers.unasked().delta(text),
+      onBlockStart: (type) => this.answers.unasked().blockStart(type),
+      onBlockEnd: () => this.answers.current?.blockEnd(),
       onEvent: (event) => this.measures.agent(event),
       onNarration: (text) => this.channel.narrate(text),
       // 8.6.3 speak, say how long it has run, and report the usage with the ask (8.6.4)
@@ -204,8 +207,6 @@ export class Conversation {
 
   private onTurn?: (turn: Turn) => void;
   private screenshots?: () => string[];
-  /** Where the agent's words and blocks go: the answer of the turn that runs, or one the agent began unasked; null between them. */
-  private answering: Answer | null = null;
   /** Item 4 what opens the reply to speech written into the turn that runs; the turn sets it. */
   private injectedReply: (() => void) | null = null;
   /**
@@ -214,7 +215,7 @@ export class Conversation {
    */
   private injected: string[] = [];
 
-  get busy(): boolean { return this.turnRunning; }
+  get busy(): boolean { return this.answers.busy; }
   get waitingForAgreement(): boolean { return this.checkpointOpen; }
   get isMuted(): boolean { return this.muted; }
   /** 15.4 whether the cues are on, for a transport that plays one of its own. */
@@ -271,13 +272,13 @@ export class Conversation {
     // third party in the tool output, and the agent ignored it
     const note = `[Chris said this aloud while you worked. It is his message to you, not tool output. ${this.stopped()} Act on what he says here.]`;
     if (this.agent.inject([note, shots, said].filter(Boolean).join("\n\n"))) {
-      this.answering?.hush();
+      this.answers.current?.hush();
       this.injected.push(said);
       this.measures.cutOff(0, false, true);
       return;
     }
     // the turn is no longer the one that owns the mouth, whatever becomes of it
-    this.turnId++;
+    this.answers.take();
     const waitStart = Date.now();
     await this.running;
     this.measures.cutOff(Date.now() - waitStart, false, false);
@@ -352,7 +353,7 @@ export class Conversation {
       }
     }
     // 15.1 a question that arrives mid-turn must not vanish into silence
-    if (this.turnRunning) {
+    if (this.answers.busy) {
       // 11.9 whether a question mid-answer stops the answer or is refused
       if (!this.config.interruptOnSpeech) {
         this.reply(`I am still on the last one. Say ${this.config.wakeWord}, end the turn, to stop it.`);
@@ -463,20 +464,16 @@ export class Conversation {
    * the pending screenshots.
    *
    * A turn whose result was back when Chris spoke still has its voice to
-   * finish, and by then a newer turn owns the mouth. `mine` is what keeps the
-   * older one from giving the cue into the middle of the new answer, or from
-   * clearing the flags the new one just set. Item 4 speech written into the
-   * turn does not make a new turn: the turn stays the mouth's, and its reply
-   * is a new answer inside it.
+   * finish, and by then a newer answer owns the mouth. `mine` is what keeps
+   * the older one from giving the cue into the middle of the new answer, or
+   * from clearing the flags the new one just set. Item 4 speech written into
+   * the turn does not make a new turn: the turn stays the mouth's, and its
+   * reply is a new answer inside it, so `answer` is the turn's latest.
    */
   private async runTurn(said: string, note: string): Promise<void> {
-    let id = ++this.turnId;
-    const mine = () => id === this.turnId;
-    this.turnRunning = true;
+    let answer = this.answers.ask();
+    const mine = () => this.answers.owns(answer);
     this.mouth.newTurn();
-    const open = (n: number) => new Answer(n, this.channel, this.config.sentenceMaxChars, (sentence) => this.mouth.say(sentence, n), () => n === this.turnId, () => this.measures.firstDelta());
-    let answer = open(id);
-    this.answering = answer;
     // Item 4 the agent began a message after Chris spoke into the turn. It
     // answers him, so it is an answer of its own, and what he heard of the
     // one he spoke over is remembered as its own pair.
@@ -487,30 +484,25 @@ export class Conversation {
       if (this.injected.length > 0) said = this.injected.join(" ");
       this.injected = [];
       this.mouth.newTurn();
-      id = ++this.turnId;
-      answer = open(id);
-      this.answering = answer;
+      answer = this.answers.ask();
     };
     const stopCue = this.cueWhileWaiting();
     const stopMusic = this.musicWhileWaiting(mine, () => answer.long);
     try {
       const turn = await this.agent.ask([VERBOSITY_LINES[this.config.verbosity], note, said].filter(Boolean).join("\n\n"));
       if (!mine()) return;
-      answer.end();
-      await this.mouth.drained();
       // 15.15 the true end of the speech: the result is back, so no sentence
       // is still to come; the answer has flushed its last one; and the mouth
       // has said what it had, or a discard took the rest. Between two
       // sentences the mouth also empties, but the result is not back, so this
-      // line is not reached. The thinking cue is stopped first, so the two
-      // figures cannot land together. A turn that said nothing gets no cue,
-      // and a question that cut this turn owns the mouth now (11.9): a cue
-      // then would answer the question, not end this turn.
+      // line is not reached. The thinking cue is a timer, and it is stopped
+      // before the event loop turns again, so the two figures cannot land
+      // together.
+      await this.answers.end(answer);
       stopCue();
-      if (answer.spoke && mine()) this.cue("done");
       this.lastReply = this.mouth.said.join(" ") || turn.text;
       this.remember(said, this.lastReply);
-      this.channel.tell({ kind: "turn", number: turn.number, text: this.lastReply, costUsd: this.agent.totalCostUsd(), answer: id });
+      this.channel.tell({ kind: "turn", number: turn.number, text: this.lastReply, costUsd: this.agent.totalCostUsd(), answer: answer.id });
       this.onTurn?.(turn);
       // 13.2 the warning uses the number claude reports, never an estimate (16.6)
       const worst = Math.max(this.agent.rateLimit.fiveHour, this.agent.rateLimit.sevenDay);
@@ -534,11 +526,9 @@ export class Conversation {
     } finally {
       stopCue();
       stopMusic();
-      if (mine()) {
-        this.answering = null;
+      if (this.answers.close(answer)) {
         this.injectedReply = null;
         this.injected = [];
-        this.turnRunning = false;
         this.checkpointOpen = false;
       }
     }
@@ -659,7 +649,7 @@ export class Conversation {
       // 9.4.5 you missed something. Mid-answer that is the last sentence said,
       // not the answer before this one, which is what it used to reach for.
       case "restate": {
-        const missed = this.turnRunning ? this.mouth.said.at(-1) : this.lastReply;
+        const missed = this.answers.busy ? this.mouth.said.at(-1) : this.lastReply;
         this.reply(missed || this.lastReply || "There is nothing to restate yet.");
         return "resume";
       }
@@ -678,11 +668,8 @@ export class Conversation {
         // 15.15 the rest is the end of a turn's speech, put off by a barge-in,
         // so it ends with the cue. Said inside a turn it joins that turn's
         // speech, and the turn's own end has the cue. A question that cuts
-        // the replay takes the turn number with it, and the cue with that.
-        if (!this.turnRunning) {
-          const id = this.turnId;
-          void this.mouth.drained().then(() => { if (id === this.turnId) this.cue("done"); });
-        }
+        // the replay takes the mouth with it, and the cue with that.
+        if (!this.answers.busy) void this.answers.end();
         return "resume";
 
       case "interruptOn": return this.setInterrupting(true);
@@ -698,7 +685,7 @@ export class Conversation {
 
       case "endTurn":
         // no turn, but a replay from "carry on" may be playing, and it stops too
-        if (!this.turnRunning) {
+        if (!this.answers.busy) {
           if (!this.mouth.busy) { this.reply("Nothing is running."); return "resume"; }
           this.reply("Stopped.");
           return "discard";
@@ -720,33 +707,24 @@ export class Conversation {
   }
 
   /**
-   * 11.11 a turn nobody asked for, spoken.
+   * 11.11 the result of a turn nobody asked for, spoken.
    *
    * A background job that finishes hands Claude Code a task notification, and
    * it answers: measured 18 September, four such turns across three runs, every
-   * word of them dropped. Its first word opens an answer, which streams to the
-   * client as a turn Chris asked for does. Its sentences go through `reply`,
-   * which jumps a hold, because what they carry is news and the answer they
-   * land on is not.
+   * word of them dropped. Its first word opens an answer (`Answers.unasked`),
+   * which streams to the client as a turn Chris asked for does. Its sentences
+   * go through `reply`, which jumps a hold, because what they carry is news
+   * and the answer they land on is not. One with no words opened none, and
+   * says nothing.
    */
-  private streaming(): Answer {
-    if (this.answering) return this.answering;
-    const id = ++this.turnId;
-    this.answering = new Answer(id, this.channel, this.config.sentenceMaxChars, (sentence) => this.mouth.reply(sentence, id), () => id === this.turnId);
-    return this.answering;
-  }
-
-  /** 11.11 the result of the answer the agent began unasked. One with no words opened none, and says nothing. */
   private async unprompted(turn: Turn): Promise<void> {
-    const answer = this.answering;
+    const answer = this.answers.release();
     if (!answer) return;
-    this.answering = null;
-    answer.end();
-    this.channel.tell({ kind: "turn", number: turn.number, text: turn.text.trim(), costUsd: this.agent.totalCostUsd(), answer: answer.id });
     // 15.15 a report is news, and it ends as a turn does: after its last
     // sentence has played, unless a question took the mouth first.
-    await this.mouth.drained();
-    if (answer.spoke && answer.id === this.turnId) this.cue("done");
+    const ended = this.answers.end(answer);
+    this.channel.tell({ kind: "turn", number: turn.number, text: turn.text.trim(), costUsd: this.agent.totalCostUsd(), answer: answer.id });
+    await ended;
   }
 
   /** 9.4 the two voices Chris switches between out loud; the mouth owns which. */

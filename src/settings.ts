@@ -7,6 +7,8 @@
  * hand, and item 44 was a threshold that reached the file and not the ear.
  * The values live in one object now, and this is its only writer. The
  * conversation, the ear, the mouth and the channel read it on each look.
+ * The mouth keeps one copy of `audio` on purpose: "Audio off." must be heard
+ * before the sound stops, so its copy goes off when that line ends (11.12.2).
  *
  * One change is checked by the rules the file is checked by, then taken,
  * kept for the next run, recorded, and sent to every client. A refused change

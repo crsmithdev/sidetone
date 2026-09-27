@@ -7,8 +7,10 @@
  * twice, an utterance twice — and nothing checked that they agreed.
  *
  * They are still the two things inside; they are no longer two things to tell.
- * The ordering that matters lives here: speech ends, then it is text, then the
- * answer starts. A fact out of order is dropped rather than half recorded.
+ * The rule for a round's facts lives in `Latency`, and it is weak: speech
+ * ending opens a round and replaces one that is open; a later fact with no
+ * open round is dropped, and the first write of each fact wins. The order of
+ * the facts inside a round is not checked.
  */
 import type { Utterance } from "./audio.ts";
 import { Diagnostics, type Device, type Event, type TurnGuess } from "./diagnostics.ts";
