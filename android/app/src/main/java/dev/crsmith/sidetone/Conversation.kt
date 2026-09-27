@@ -12,7 +12,7 @@ package dev.crsmith.sidetone
  * drifted away from this one.
  *
  * So the state and the decisions are here, and they are a message in and a new
- * state plus a few [Effect]s out. `Bridge` keeps the room, the microphone and
+ * state plus a few [Effect]s out. [Client] keeps the room, the microphone and
  * the retry, and does the effects.
  */
 class Conversation(val transcript: Transcript = Transcript()) {

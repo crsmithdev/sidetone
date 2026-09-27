@@ -20,7 +20,7 @@ class JoiningTest {
     private fun on(event: Event) = joining.on(event, now)
 
     /**
-     * What `Bridge.join` does with the effects: wait until an [Effect.Open] is
+     * What `Client.loop` does with the effects: wait until an [Effect.Open] is
      * due, then open. Returns the time the next room opens, or null for none.
      */
     private fun ended(reason: String): Long? {

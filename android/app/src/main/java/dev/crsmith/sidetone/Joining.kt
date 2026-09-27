@@ -30,7 +30,7 @@ fun isBridge(identity: String?): Boolean = identity?.startsWith("bridge") == tru
  * So the statuses and the decisions live here, as [Conversation]'s do: an
  * [Event] and the time in, a new status and a list of [Effect]s out. The time
  * is [android.os.SystemClock.elapsedRealtime], so a test gives its own clock.
- * `Bridge` keeps the room, turns the room's events into [Event]s, and does the
+ * [Client] keeps the room, turns the room's events into [Event]s, and does the
  * effects.
  */
 class Joining(private val retryMs: Long = RETRY_MS) {
