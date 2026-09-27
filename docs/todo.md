@@ -851,8 +851,8 @@ deltas before and after the change.
 ## 60. Set the level for speech from the noise in the car
 
 Noted 27 September 2026, from the architectural review of 25 September
-(section 7, long term). The levels that decide speech and silence in
-`src/ear.ts` are fixed numbers, measured at the desk and in the car. The
+(section 7, long term). The levels that decide speech, `speechLevel` and
+`bargeInLevel` in `src/config.ts`, are fixed numbers. The
 review proposes that the bridge measure the noise when nobody speaks and set
 the level from it. Done when the record of a drive shows whether the
 noise changes enough between roads to need this: the level of the quiet
