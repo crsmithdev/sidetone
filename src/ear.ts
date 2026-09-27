@@ -26,8 +26,9 @@ export interface Ears {
 
 /**
  * What the ear reads. The detector's settings, under the names the config
- * gives them, plus the invention guard. A caller spreads the config over this
- * and adds the rate: there is no second copy of the names to keep in step.
+ * gives them, plus the invention guard. The bridge hands it the settings in
+ * force with the rate added: there is no second copy of the names to keep in
+ * step, and no second copy of the values.
  */
 export interface EarOptions extends UtteranceOptions {
   /** 4.6 under this, whisper is writing words for near-silence */
@@ -77,18 +78,10 @@ export class Ear {
     /** 18.16 the turn detector in shadow: told of each tentative end and what came of it */
     private readonly turns?: TurnGuesses,
   ) {
-    // the detector reads the same object on every frame, so `set` reaches it
+    // item 44 the detector and the invention guard read this object on every
+    // frame, so a threshold changed while the bridge runs is used on the next
+    // frame and nothing restarts
     this.utterances = new Utterances(options);
-  }
-
-  /**
-   * Item 44 a threshold changed while the bridge runs. The detector and the
-   * invention guard read their settings on every frame, so the next frame
-   * uses the new value and nothing restarts. A key the ear does not read is
-   * left alone.
-   */
-  set(patch: Partial<EarOptions>): void {
-    Object.assign(this.options, Object.fromEntries(Object.entries(patch).filter(([key]) => key in this.options)));
   }
 
   /**

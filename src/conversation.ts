@@ -34,13 +34,14 @@
 import { Answer } from "./answer.ts";
 import type { Channel } from "./channel.ts";
 import { read, type CommandName, type Reading } from "./commands.ts";
-import { VERBOSITIES, checkConfig, type Config, type Verbosity } from "./config.ts";
+import { VERBOSITIES, type Config, type Verbosity } from "./config.ts";
 import type { CueName } from "./cues.ts";
 import { ECHO_AFTER_MS, echoOf } from "./echo.ts";
 import type { Ears } from "./ear.ts";
 import type { Measures } from "./measures.ts";
 import type { Mouth } from "./mouth.ts";
 import { Network } from "./network.ts";
+import type { Settings } from "./settings.ts";
 import { ASK_RULES, gatedAction } from "./gated.ts";
 import { Session, spawnClaude, type Permission, type SessionHooks, type Spawn, type Turn } from "./session.ts";
 
@@ -95,18 +96,12 @@ interface Outcome {
 
 export interface ConversationHooks {
   onTurn?(turn: Turn): void;
-  /** 9.4 a setting Chris changed out loud, for whoever keeps settings. */
-  onSetting?(patch: Partial<Config>): void;
   /** 14.12.6 the files of the pending screenshots, taken by the turn about to start */
   screenshots?(): string[];
 }
 
 export class Conversation {
   private muted = false;
-  private tones: boolean;
-  private holdMusic: boolean;
-  /** item 37 how much the agent says, named at the head of every turn's prompt */
-  private verbosity: Verbosity;
   private turnRunning = false;
   private checkpointOpen = false;
   /** 13.2 the usage warning was spoken, and use has not dropped below the level since */
@@ -114,12 +109,6 @@ export class Conversation {
   /** 8.9 the context warning was spoken, and the fill has not dropped below the level since */
   private contextWarned = false;
   private lastReply = "";
-  /**
-   * 11.9 whether a question that lands mid-answer stops the answer or is
-   * refused. A setting, and a wake command, because only a drive says which is
-   * right and a restart to change it costs the session.
-   */
-  private interrupting: boolean;
   /**
    * The turn in flight, and which turn that is. A turn whose voice a new turn
    * cut goes on until its voice is done, and it must not speak, record or
@@ -156,10 +145,12 @@ export class Conversation {
   readonly measures: Measures;
   /** N.1 what the connection is doing, which the transport feeds and stats reads. */
   readonly network = new Network();
+  /** 9.4 the settings in force, read on every look; each change goes through `settings.change` */
+  private readonly config: Config;
 
   constructor(
     private readonly dir: string,
-    private readonly config: Config,
+    private readonly settings: Settings,
     /** what the bridge says, from a sentence to the sound of it, in whichever voice */
     private readonly mouth: Mouth,
     /** 4.3 what the client is told, and what a returning one is owed */
@@ -168,6 +159,7 @@ export class Conversation {
     makeAgent: MakeAgent = claudeCode(dir),
   ) {
     this.measures = mouth.measures;
+    const config = this.config = settings.values;
     // 6.5 the voice instruction lives in the bridge, not in the agent's identity file.
     // 10.7 the agent asks the bridge before the actions the ask rules name.
     const args = [
@@ -198,10 +190,6 @@ export class Conversation {
         this.apply("resume");
       },
     }, { ...config, claudeArgs: args });
-    this.tones = config.tones;
-    this.holdMusic = config.holdMusic;
-    this.verbosity = config.verbosity;
-    this.interrupting = config.interruptOnSpeech;
     const self = this;
     this.ears = {
       get isMuted() { return self.muted; },
@@ -211,13 +199,11 @@ export class Conversation {
       heardNothing: () => this.heardNothing(),
     };
     this.onTurn = hooks.onTurn;
-    this.onSetting = hooks.onSetting;
     this.screenshots = hooks.screenshots;
   }
 
   private onTurn?: (turn: Turn) => void;
   private screenshots?: () => string[];
-  private onSetting?: (patch: Partial<Config>) => void;
   /** Where the agent's words and blocks go: the answer of the turn that runs, or one the agent began unasked; null between them. */
   private answering: Answer | null = null;
   /** Item 4 what opens the reply to speech written into the turn that runs; the turn sets it. */
@@ -232,9 +218,9 @@ export class Conversation {
   get waitingForAgreement(): boolean { return this.checkpointOpen; }
   get isMuted(): boolean { return this.muted; }
   /** 15.4 whether the cues are on, for a transport that plays one of its own. */
-  get tonesOn(): boolean { return this.tones; }
+  get tonesOn(): boolean { return this.config.tones; }
   /** 15.7.3 whether the hold music may play. */
-  get musicOn(): boolean { return this.holdMusic; }
+  get musicOn(): boolean { return this.config.holdMusic; }
 
   /**
    * What the ear tells, in the modules that own it. A barge-in holds the
@@ -245,7 +231,7 @@ export class Conversation {
 
   /** Every cue goes through here, so one command can silence all of them (15.4). */
   cue(name: CueName): void {
-    if (this.tones) this.mouth.cue(name);
+    if (this.config.tones) this.mouth.cue(name);
   }
 
   /** One sentence from the bridge itself. It jumps a hold, because you asked now. */
@@ -367,7 +353,8 @@ export class Conversation {
     }
     // 15.1 a question that arrives mid-turn must not vanish into silence
     if (this.turnRunning) {
-      if (!this.interrupting) {
+      // 11.9 whether a question mid-answer stops the answer or is refused
+      if (!this.config.interruptOnSpeech) {
         this.reply(`I am still on the last one. Say ${this.config.wakeWord}, end the turn, to stop it.`);
         return { hold: "resume" };
       }
@@ -507,7 +494,7 @@ export class Conversation {
     const stopCue = this.cueWhileWaiting();
     const stopMusic = this.musicWhileWaiting(mine, () => answer.long);
     try {
-      const turn = await this.agent.ask([VERBOSITY_LINES[this.verbosity], note, said].filter(Boolean).join("\n\n"));
+      const turn = await this.agent.ask([VERBOSITY_LINES[this.config.verbosity], note, said].filter(Boolean).join("\n\n"));
       if (!mine()) return;
       answer.end();
       await this.mouth.drained();
@@ -611,10 +598,10 @@ export class Conversation {
       // not silent long enough yet, or this stretch has had its track: look again then
       let next = wait > 0 ? wait : after;
       // 15.11 not while an answer is wanted, or while the bridge is muted; 15.7.3 nor while the music is off; 15.7.5 nor in a turn that is not long
-      const wanted = this.checkpointOpen || this.gate !== null || this.muted || !this.holdMusic || !long();
+      const wanted = this.checkpointOpen || this.gate !== null || this.muted || !this.config.holdMusic || !long();
       if (wait <= 0 && played !== since && !wanted) {
         // refused: a cue or a sentence is on the source, so ask again soon
-        if (await this.mouth.music(() => over || !mine() || !this.holdMusic)) played = since;
+        if (await this.mouth.music(() => over || !mine() || !this.config.holdMusic)) played = since;
         else next = Math.min(after, 1_000);
       }
       if (!over) timer = setTimeout(check, next);
@@ -706,8 +693,8 @@ export class Conversation {
       case "verbosityNormal": return this.setVerbosity("normal");
       case "verbosityFull": return this.setVerbosity("full");
       // one level either way; at either end it stays where it is
-      case "shorter": return this.setVerbosity(VERBOSITIES[Math.max(VERBOSITIES.indexOf(this.verbosity) - 1, 0)] as Verbosity);
-      case "longer": return this.setVerbosity(VERBOSITIES[Math.min(VERBOSITIES.indexOf(this.verbosity) + 1, VERBOSITIES.length - 1)] as Verbosity);
+      case "shorter": return this.setVerbosity(VERBOSITIES[Math.max(VERBOSITIES.indexOf(this.config.verbosity) - 1, 0)] as Verbosity);
+      case "longer": return this.setVerbosity(VERBOSITIES[Math.min(VERBOSITIES.indexOf(this.config.verbosity) + 1, VERBOSITIES.length - 1)] as Verbosity);
 
       case "endTurn":
         // no turn, but a replay from "carry on" may be playing, and it stops too
@@ -765,7 +752,7 @@ export class Conversation {
   /** 9.4 the two voices Chris switches between out loud; the mouth owns which. */
   private switchVoice(which: "female" | "male"): Hold {
     const { said, voice } = this.mouth.switchVoice(which);
-    if (voice) this.onSetting?.({ ttsVoice: voice });
+    if (voice) this.settings.change({ ttsVoice: voice });
     this.reply(said);
     return "resume";
   }
@@ -784,36 +771,39 @@ export class Conversation {
       this.mouth.quietAfter("Audio off.");
       this.channel.journal("the audio is off; the words carry on in the transcript");
     }
-    this.onSetting?.({ audio: on });
+    this.settings.change({ audio: on });
     return "resume";
   }
 
-  private setTones(on: boolean): Hold {
-    this.tones = on;
-    this.onSetting?.({ tones: on });
-    this.reply(on ? "Tones on." : "Tones off.");
-    return "resume";
+  /** 17.10.1 the audio from the app's button: at once, and with no answer. */
+  setAudio(on: boolean): void {
+    this.mouth.setAudio(on);
+    this.settings.change({ audio: on });
   }
 
   /**
    * 15.7.3 the hold music on or off, kept across restarts. The app's music
    * button (17.10) sets it with no answer, as the audio button does.
    */
-  /** 17.10.1 the audio from the app's button: at once, and with no answer. */
-  setAudio(on: boolean): void {
-    this.mouth.setAudio(on);
-    this.onSetting?.({ audio: on });
+  setMusic(on: boolean): void {
+    this.settings.change({ holdMusic: on });
   }
 
-  setMusic(on: boolean): void {
-    this.holdMusic = on;
-    this.onSetting?.({ holdMusic: on });
+  /**
+   * 9.4 a setting said out loud, or tapped (9.4.9), and said back: silence is
+   * ambiguous (15.1), and the answer carries on.
+   */
+  private answered(patch: Partial<Config>, line: string): Hold {
+    if (this.settings.change(patch)) this.reply(line);
+    return "resume";
+  }
+
+  private setTones(on: boolean): Hold {
+    return this.answered({ tones: on }, on ? "Tones on." : "Tones off.");
   }
 
   private setHoldMusic(on: boolean): Hold {
-    this.setMusic(on);
-    this.reply(on ? "Music on." : "Music off.");
-    return "resume";
+    return this.answered({ holdMusic: on }, on ? "Music on." : "Music off.");
   }
 
   /**
@@ -822,66 +812,25 @@ export class Conversation {
    * and kept, because a restart that forgot it looked like the fault under test.
    */
   private setInterrupting(on: boolean): Hold {
-    this.interrupting = on;
-    this.onSetting?.({ interruptOnSpeech: on });
-    this.reply(on ? "Interrupting on." : "Interrupting off.");
-    return "resume";
+    return this.answered({ interruptOnSpeech: on }, on ? "Interrupting on." : "Interrupting off.");
   }
 
   /** Item 37 kept across restarts, and said back so Chris hears where it landed. */
   private setVerbosity(level: Verbosity): Hold {
-    this.verbosity = level;
-    this.onSetting?.({ verbosity: level });
-    this.reply(`Verbosity ${level}.`);
-    return "resume";
-  }
-
-  /**
-   * Item 28 the hold music volume, from the app's slider. It has no spoken
-   * command and no answer: the slider shows where it landed.
-   */
-  private setMusicGain(gain: number): void {
-    this.mouth.setMusicGain(gain);
-    this.onSetting?.({ holdMusicGain: gain });
-  }
-
-  /**
-   * 15.7.6 the hold music delay, from the app's options screen. Like the volume
-   * it has no spoken command and no answer. A turn reads it when it starts, so
-   * the next turn waits the new time. Zero is not taken: the music button turns
-   * the music off (17.10.3).
-   */
-  private setMusicDelay(ms: number): void {
-    this.onSetting?.({ holdMusicAfterMs: ms });
-  }
-
-  /**
-   * Item 44 a threshold of the ear, from the app's options screen. Like the
-   * volume it has no spoken command and no answer. It is checked by the rule
-   * the file is checked by: a value the bridge took live is written to the
-   * file, and a start that refused it would look like the bridge is broken. A
-   * refused value is not kept, and every client is sent the settings in force
-   * again, so a control that moved under the finger goes back.
-   */
-  private setThreshold(key: Threshold, value: number): void {
-    try {
-      checkConfig({ ...this.config, [key]: value });
-    } catch (error) {
-      this.channel.journal(`refused ${key} ${value}: ${(error as Error).message}`);
-      this.channel.settings();
-      return;
-    }
-    this.onSetting?.({ [key]: value });
+    return this.answered({ verbosity: level }, `Verbosity ${level}.`);
   }
 
   /**
    * 9.4.9 a setting a client changed. It goes through the same paths a spoken
    * command does, the voice's answer included, so tapping a switch and saying
    * the words cannot end anywhere different. A key it does not know is ignored:
-   * a client may not reach the settings the car has no command for. The hold
-   * music volume (item 28), from 0 to 1, the hold music delay (15.7.6), and the
-   * three thresholds of the ear (item 44) are the exceptions: each has a
-   * control and no command.
+   * a client may not reach the settings the car has no command for.
+   *
+   * Each has a control and no command, and no answer: the control shows where
+   * it landed. The hold music volume (item 28), from 0 to 1. The hold music
+   * delay (15.7.6), which a turn reads when it starts; zero is not taken, as
+   * the music button turns the music off (17.10.3). The three thresholds of
+   * the ear (item 44), which `Settings` checks by the rules of the file.
    */
   set(patch: Record<string, unknown>): void {
     if (typeof patch.tones === "boolean") this.setTones(patch.tones);
@@ -889,10 +838,10 @@ export class Conversation {
     if (typeof patch.interruptOnSpeech === "boolean") this.setInterrupting(patch.interruptOnSpeech);
     if (patch.voice === "female" || patch.voice === "male") this.switchVoice(patch.voice);
     if (VERBOSITIES.includes(patch.verbosity as Verbosity)) this.setVerbosity(patch.verbosity as Verbosity);
-    if (typeof patch.holdMusicGain === "number" && patch.holdMusicGain >= 0 && patch.holdMusicGain <= 1) this.setMusicGain(patch.holdMusicGain);
-    if (typeof patch.holdMusicAfterMs === "number" && patch.holdMusicAfterMs > 0) this.setMusicDelay(patch.holdMusicAfterMs);
+    if (typeof patch.holdMusicGain === "number" && patch.holdMusicGain >= 0 && patch.holdMusicGain <= 1) this.settings.change({ holdMusicGain: patch.holdMusicGain });
+    if (typeof patch.holdMusicAfterMs === "number" && patch.holdMusicAfterMs > 0) this.settings.change({ holdMusicAfterMs: patch.holdMusicAfterMs });
     for (const key of THRESHOLDS) {
-      if (typeof patch[key] === "number") this.setThreshold(key, patch[key]);
+      if (typeof patch[key] === "number") this.settings.change({ [key]: patch[key] });
     }
   }
 
@@ -903,7 +852,6 @@ export class Conversation {
 
 /** Item 44 the settings of the ear that the options screen changes, and no command does. */
 const THRESHOLDS = ["bargeInLevel", "minSpeechPeak", "endOfTurnPauseMs"] as const;
-type Threshold = typeof THRESHOLDS[number];
 
 /**
  * Item 37 the one line at the head of every turn's prompt. It names the level

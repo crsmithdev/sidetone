@@ -30,6 +30,7 @@ import type { Outgoing, Setup } from "./messages.ts";
 import { Mouth, keptLines, type Speaker } from "./mouth.ts";
 import { Recorder } from "./record.ts";
 import { Screens } from "./screen.ts";
+import { Settings } from "./settings.ts";
 import { SCREENSHOT_DIR, Screenshots } from "./screenshot.ts";
 import { SentClips, clipChecker } from "./sent.ts";
 import { setupWords } from "./setup.ts";
@@ -139,9 +140,18 @@ export function assemble(
   // 18 the record outlives the process: the scorecard is read after a drive,
   // and a restart in between used to leave nothing to read.
   const write = parts.record ?? recorder(config);
-  const keep = parts.settings ?? saveSettings;
   // 18 one bookkeeper: the spoken report and the record are the same facts
   const measures = new Measures(write);
+  // 9.4 the settings in force: the config is the one copy, and this its one
+  // writer. The file is for the next run; the live values are what
+  // /diagnostics and the health line report now; the record says when it changed.
+  const settings = new Settings(config, {
+    keep: parts.settings ?? saveSettings,
+    record: (patch) => measures.setting(patch),
+    // 9.4.9 every client sees what is in force now, however it was changed
+    broadcast: () => channel.settings(),
+    journal: (line) => channel.journal(line),
+  });
   // 11.3 whether Chris is talking is the ear's word; it stops the frames
   const mouth = new Mouth(speaker, ahead, cues, measures, {
     ...config,
@@ -149,7 +159,8 @@ export function assemble(
     // 11.6.5 no opener while muted
     muted: () => conversation.isMuted,
     // 15.8 the tracks are decoded at the rate the room plays at, so nothing resamples them
-    music: { folder: config.holdMusicFolder, gain: config.holdMusicGain, rate: sampleRate, fadeMs: config.holdMusicFadeMs, fadeInMs: config.holdMusicFadeInMs },
+    // item 28 the gain is the setting in force, read on each start
+    music: { folder: config.holdMusicFolder, get gain() { return config.holdMusicGain; }, rate: sampleRate, fadeMs: config.holdMusicFadeMs, fadeInMs: config.holdMusicFadeInMs },
     // 14.13 a client lights the words as the voice reaches them
     speaking: (sentence) => channel.tell({ kind: "speaking", text: sentence.text, ...(sentence.answer === undefined ? {} : { answer: sentence.answer }) }),
     say,
@@ -192,18 +203,7 @@ export function assemble(
   // is serve's to report: it stops the bridge.
   ready.then(() => channel.ready(), () => {});
 
-  const conversation: Conversation = new Conversation(dir, config, mouth, channel, {
-    // 9.4 the file is for the next run; the live copy is what /diagnostics and
-    // the health line report now; the record says when it changed
-    onSetting: (patch) => {
-      Object.assign(config, patch);
-      // item 44 the ear was built from a copy, so a threshold goes to it by hand
-      ear.set(patch);
-      keep(patch);
-      measures.setting(patch);
-      // 9.4.9 every client sees what is in force now, however it was changed
-      channel.settings();
-    },
+  const conversation: Conversation = new Conversation(dir, settings, mouth, channel, {
     onTurn: (turn) => say(`[turn ${turn.number}, $${conversation.agent.totalCostUsd().toFixed(4)} this session]`),
     // 14.12.6 the pending screenshots join the turn Chris asks for next
     screenshots: () => screenshots.take(),
@@ -221,13 +221,15 @@ export function assemble(
     (error: Error) => say(`[turn detector off: it did not load: ${error.message}]`),
   );
 
+  // item 44 the ear reads the settings in force on every frame; only the rate is its own
+  const earSettings = Object.assign(Object.create(config) as Config, { sampleRate });
   let counter = 0;
   /** 11.5 and 18.4 entire: the listening policy, one module, driven by frames. */
   const ear: Ear = new Ear(conversation.ears, async (utterance) => {
     const wav = join(scratch, `heard-${++counter}.wav`);
     await Bun.write(wav, encodeWav(utterance.samples, sampleRate));
     return stt.transcribe(wav);
-  }, { ...config, sampleRate }, measures, say, guesses);
+  }, earSettings, measures, say, guesses);
 
   conversation.start();
   const watch = setInterval(() => channel.silence(ear.silence()), SILENCE_MS / 3);

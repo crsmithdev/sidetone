@@ -19,8 +19,9 @@ const OPTIONS: EarOptions = {
 function room(transcribe: () => Promise<string>, muted = false) {
   const to = listener(muted);
   const measures = new Measures();
-  // item 44 a threshold can be set on a running ear, so each gets its own copy
-  return { to, measures, ear: new Ear(to, transcribe, { ...OPTIONS }, measures, () => {}) };
+  // item 44 the ear reads its options on every frame, so each ear gets its own object
+  const options = { ...OPTIONS };
+  return { to, measures, options, ear: new Ear(to, transcribe, options, measures, () => {}) };
 }
 
 const kinds = (measures: Measures) => measures.recent().map((event) => event.kind);
@@ -401,8 +402,8 @@ describe("the pause the round trip is charged (18.4)", () => {
   });
 
   test("a pause is charged the pause in force, which a client can change", async () => {
-    const { measures, ear } = room(async () => "what is two plus two");
-    ear.set({ endOfTurnPauseMs: 600 });
+    const { measures, ear, options } = room(async () => "what is two plus two");
+    options.endOfTurnPauseMs = 600;
     for (const f of [...speech(20), ...quiet(40)]) ear.frame(f);
     await new Promise((resolve) => setTimeout(resolve, 0));
     const pause = pauseOf(measures) ?? 0;
@@ -416,8 +417,8 @@ describe("a threshold set while the ear runs (item 44)", () => {
   const quiet = (frames: number) => Array.from({ length: frames }, () => frame(0.001));
 
   test("the next frame reads the new pause", async () => {
-    const { to, ear } = room(async () => "what is two plus two");
-    ear.set({ endOfTurnPauseMs: 300 });
+    const { to, ear, options } = room(async () => "what is two plus two");
+    options.endOfTurnPauseMs = 300;
     // 400 ms of speech and 300 ms of quiet: the pause of 900 the ear was built with is still waiting
     for (const f of [...speech(20), ...quiet(15)]) ear.frame(f);
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -426,8 +427,8 @@ describe("a threshold set while the ear runs (item 44)", () => {
 
   test("the next utterance is judged against the new peak", async () => {
     let asked = 0;
-    const { to, ear } = room(async () => { asked++; return "Thank you."; });
-    ear.set({ minSpeechPeak: 0.5 });
+    const { to, ear, options } = room(async () => { asked++; return "Thank you."; });
+    options.minSpeechPeak = 0.5;
     await ear.said(utterance(0.43));
     expect(asked).toBe(0);
     expect(to.told).toEqual(["nothing"]);

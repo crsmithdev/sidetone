@@ -28,10 +28,11 @@ const HOLD_RESUME_BACK_MS = 2_000;
 /** 15.8 the extensions of the files in the hold folder that are tracks */
 const AUDIO = new Set([".mp3", ".wav", ".flac", ".ogg", ".opus", ".m4a", ".aac"]);
 
-/** 15.8 one track of the hold music: decoded on first use, and where it plays from next, in samples. */
+/** 15.8 one track of the hold music: decoded on first use, at which gain, and where it plays from next, in samples. */
 interface HoldTrack {
   file: string;
   samples: Promise<Int16Array | null> | null;
+  gain: number;
   at: number;
 }
 
@@ -45,7 +46,7 @@ function listTracks(folder: string, say?: (line: string) => void): HoldTrack[] {
     return [];
   }
   if (names.length === 0) say?.(`[no hold music: no tracks in ${folder}]`);
-  return names.map((name) => ({ file: join(folder, name), samples: null, at: 0 }));
+  return names.map((name) => ({ file: join(folder, name), samples: null, gain: 0, at: 0 }));
 }
 
 /**
@@ -238,7 +239,11 @@ export class Mouth {
    * in the sentence that was playing when the microphone heard it.
    */
   private lately: string[] = [];
-  /** 11.12 whether the bridge makes any sound at all. The words go either way. */
+  /**
+   * 11.12 whether the bridge makes any sound at all. The words go either way.
+   * It is the mouth's own and not the `audio` setting: "Audio off." turns the
+   * setting off at once, and this only when the line ends (11.12.2).
+   */
   private audio = true;
   /** 18.4 whether the next sentence of the answer is the turn's first. */
   private firstOfTurn = true;
@@ -272,7 +277,7 @@ export class Mouth {
       audio?: boolean;
       voiceChoices: Config["voiceChoices"];
       talking?: () => boolean;
-      /** 15.8 the hold music: the folder of tracks, the gain, and the rate the room plays at. Absent means none. */
+      /** 15.8 the hold music: the folder of tracks, the gain (read on each start, item 28), and the rate the room plays at. Absent means none. */
       music?: { folder: string; gain: number; rate: number; fadeMs: number; fadeInMs: number };
       /** 14.13 the voice reached this sentence, as it starts to play */
       speaking?: (sentence: Queued) => void;
@@ -500,6 +505,9 @@ export class Mouth {
     this.holdTracks ??= listTracks(music.folder, this.settings.say);
     if (this.holdTracks.length === 0) return false;
     const track = this.holdTracks[this.nextHoldTrack % this.holdTracks.length]!;
+    // item 28 the gain is read on each start: a track decoded at another gain is decoded again
+    if (track.gain !== music.gain) track.samples = null;
+    track.gain = music.gain;
     track.samples ??= wavFromFile(track.file, music.rate, music.gain).then((wav) => decodeWav(wav).samples, (error) => {
       this.settings.say?.(`[no hold music: ${(error as Error).message.split("\n")[0]}]`);
       return null;
@@ -520,18 +528,6 @@ export class Mouth {
       });
     }
     return this.started("music", playing);
-  }
-
-  /**
-   * Item 28 a new hold music gain, from the app's slider. Each track decodes
-   * again at the new gain the next time it plays. A track that plays now keeps
-   * the old gain until it stops.
-   */
-  setMusicGain(gain: number): void {
-    const { music } = this.settings;
-    if (!music) return;
-    music.gain = gain;
-    for (const track of this.holdTracks ?? []) track.samples = null;
   }
 
   /**
