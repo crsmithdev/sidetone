@@ -214,10 +214,6 @@ class ConversationTest {
             """{"kind":"setting","patch":{"holdMusic":false}}""",
             Outgoing.setting("holdMusic", false).decodeToString(),
         )
-        assertEquals(
-            """{"kind":"setting","patch":{"voice":"male"}}""",
-            Outgoing.voice("male").decodeToString(),
-        )
         // item 28 the options screen sends the verbosity and the volume by the same message
         assertEquals(
             """{"kind":"setting","patch":{"verbosity":"brief"}}""",
@@ -305,5 +301,74 @@ class ConversationTest {
         assertEquals("dropped", c.screenshots["a"])
         c.clear()
         assertEquals(emptyMap<String, String>(), c.screenshots)
+    }
+
+    private fun shown() = c.onScreen().lines.map { it.text }
+
+    @Test
+    fun aDroppedScreenshotLeavesTheScreenAndTheAnswerGrowsOnItsOwnLine() {
+        send("""{"kind":"blockStart","answer":1,"block":1}""")
+        send("""{"kind":"delta","text":"Let me ","answer":1,"block":1}""")
+        send("""{"kind":"screenshot","id":"a","state":"pending"}""")
+        assertEquals(listOf("Let me ", "a"), shown())
+        send("""{"kind":"screenshot","id":"a","state":"dropped"}""")
+        assertEquals(listOf("Let me "), shown())
+        // the line stays underneath, so the next words go to the bubble and not after the screenshot
+        send("""{"kind":"delta","text":"look.","answer":1,"block":1}""")
+        send("""{"kind":"heard","text":"thanks"}""")
+        assertEquals(listOf("Let me look.", "thanks"), shown())
+    }
+
+    @Test
+    fun aBubbleWithNoWordsIsNotShown() {
+        send("""{"kind":"heard","text":"look"}""")
+        send("""{"kind":"blockStart","answer":1,"block":1}""")
+        assertEquals(listOf("look", ""), texts())
+        assertEquals(listOf("look"), shown())
+        send("""{"kind":"delta","text":"Found it.","answer":1,"block":1}""")
+        assertEquals(listOf("look", "Found it."), shown())
+    }
+
+    @Test
+    fun theAudioAndMusicButtonsWaitForTheFirstSettings() {
+        // 17.10.6 before the bridge says, each shows on and cannot be pressed
+        val before = c.onScreen()
+        assertEquals(listOf(true, false, true, false), listOf(before.audioOn, before.audioEnabled, before.musicOn, before.musicEnabled))
+        send("""{"kind":"settings","settings":{"audio":false}}""")
+        val audio = c.onScreen()
+        assertEquals(listOf(false, true, true, false), listOf(audio.audioOn, audio.audioEnabled, audio.musicOn, audio.musicEnabled))
+        send("""{"kind":"settings","settings":{"audio":true,"holdMusic":false}}""")
+        val both = c.onScreen()
+        assertEquals(listOf(true, true, false, true), listOf(both.audioOn, both.audioEnabled, both.musicOn, both.musicEnabled))
+        assertEquals(2, both.settingsCount)
+        assertEquals(mapOf("audio" to true, "holdMusic" to false), both.settings.on)
+    }
+
+    @Test
+    fun aScreenshotSaysWhatBecameOfIt() {
+        send("""{"kind":"screenshot","id":"a","state":"pending"}""")
+        send("""{"kind":"screenshot","id":"b","state":"pending"}""")
+        send("""{"kind":"screenshot","id":"b","state":"sent"}""")
+        send("""{"kind":"screenshot","id":"c","state":"pending"}""")
+        send("""{"kind":"screenshot","id":"c","state":"expired"}""")
+        val screen = c.onScreen()
+        assertEquals(mapOf("a" to "attached to your next message", "c" to "not sent: it waited too long"), screen.screenshotWords)
+        // 14.12.7 only a pending one drops with a tap
+        assertEquals(setOf("a"), screen.pending)
+    }
+
+    @Test
+    fun theSpokenLineIsCountedAmongTheVisibleLines() {
+        send("""{"kind":"heard","text":"two things"}""")
+        send("""{"kind":"screenshot","id":"a","state":"pending"}""")
+        send("""{"kind":"screenshot","id":"a","state":"dropped"}""")
+        send("""{"kind":"blockStart","answer":1,"block":1}""")
+        send("""{"kind":"delta","text":"One. Two.","answer":1,"block":1}""")
+        send("""{"kind":"speaking","text":"One.","answer":1}""")
+        // the bubble is line 2 underneath and line 1 on the screen
+        assertEquals(2 to 4, c.spoken)
+        val screen = c.onScreen()
+        assertEquals(1 to 4, screen.spoken)
+        assertEquals("One. Two.", screen.lines[screen.spoken!!.first].text)
     }
 }

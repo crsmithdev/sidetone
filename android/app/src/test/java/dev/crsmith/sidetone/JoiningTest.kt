@@ -20,7 +20,7 @@ class JoiningTest {
     private fun on(event: Event) = joining.on(event, now)
 
     /**
-     * What `Client.loop` does with the effects: wait until an [Effect.Open] is
+     * What `ClientRoom.loop` does with the effects: wait until an [Effect.Open] is
      * due, then open. Returns the time the next room opens, or null for none.
      */
     private fun ended(reason: String): Long? {
@@ -308,5 +308,12 @@ class JoiningTest {
         on(Event.Opening)
         on(Event.Ended("the connection dropped"))
         assertEquals("Cannot reach the bridge: the connection dropped. Retrying.", joining.error)
+    }
+
+    @Test
+    fun rejoinsOnceInThirtySeconds() {
+        assertEquals(true, rejoinDue(null, 5_000))
+        assertEquals(false, rejoinDue(1_000, 30_999))
+        assertEquals(true, rejoinDue(1_000, 31_000))
     }
 }

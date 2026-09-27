@@ -2,8 +2,9 @@ package dev.crsmith.sidetone
 
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import java.time.ZoneOffset
 
-/** The screen and its log, driven as `Bridge` drives them: one call for each message. */
+/** The screen and its log, driven as the [Conversation] drives them: one call for each message. */
 class TranscriptTest {
     private fun Transcript.entries() = log.entries
 
@@ -106,5 +107,41 @@ class TranscriptTest {
         assertEquals(listOf("hello"), t.lines.map { it.text })
         assertEquals(listOf("heard b=0 'hello'", "microphone b=null 'microphone off'"), t.entries().map { it.brief() })
         assertEquals(listOf("heard", "microphone"), streamed)
+    }
+
+    @Test
+    fun anAnswerGrowsOnItsOwnLine() {
+        var lines = listOf(Line(Line.Kind.YOU, "count to three"))
+        var growing: Growing? = null
+        fun sentence(text: String, answer: Int) { grow(lines, growing, Incoming.Sentence(text, answer), 0).let { lines = it.first; growing = it.second } }
+        sentence("One.", 1)
+        sentence("Two.", 1)
+        // Chris cuts in; answer 1 is interrupted and never sends its turn
+        lines = lines + Line(Line.Kind.YOU, "stop, what is four plus four")
+        sentence("Eight.", 2)
+        lines = answered(lines, growing, Incoming.Turn(Line(Line.Kind.BRIDGE, "Eight."), 2), 0)
+        assertEquals(
+            listOf("count to three", "One. Two.", "stop, what is four plus four", "Eight."),
+            lines.map { it.text },
+        )
+    }
+
+    @Test
+    fun aTurnWhoseAnswerGrewNothingIsALineOfItsOwn() {
+        // the client joined after the answer's words went by
+        val lines = listOf(Line(Line.Kind.BRIDGE, "One."), Line(Line.Kind.YOU, "thanks"))
+        val after = answered(lines, Growing(0, 1), Incoming.Turn(Line(Line.Kind.BRIDGE, "The job finished."), 2), 0)
+        assertEquals(listOf("One.", "thanks", "The job finished."), after.map { it.text })
+    }
+
+    @Test
+    fun theClockIsHoursAndMinutesInTheGivenZone() {
+        // 2026-09-21 14:05:59 UTC
+        val at = 1_789_999_559_000L
+        assertEquals("14:05", clock(at, ZoneOffset.UTC))
+        assertEquals("16:05", clock(at, ZoneOffset.ofHours(2)))
+        // the minute is cut off, not rounded, and midnight is 00:00
+        assertEquals("23:59", clock(1_790_035_199_000L, ZoneOffset.UTC))
+        assertEquals("00:00", clock(1_790_035_200_000L, ZoneOffset.UTC))
     }
 }

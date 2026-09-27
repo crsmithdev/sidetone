@@ -13,7 +13,6 @@
 {"kind":"setting","patch":{"holdMusicGain":0.25}}
 {"kind":"setting","patch":{"endOfTurnPauseMs":900}}
 {"kind":"setting","patch":{"holdMusicAfterMs":20000}}
-{"kind":"setting","patch":{"voice":"male"}}
 {"kind":"screen","id":"log-1","part":1,"of":1,"entries":[{"at":0,"time":"00:00:00.000","kind":"delta","answer":1,"block":1,"bubble":0,"got":"Four.","text":"Four."}]}
 {"kind":"screenshot","id":"1789999559000","part":1,"of":1,"data":"AQID"}
 {"kind":"screenshot","id":"1789999559000","drop":true}

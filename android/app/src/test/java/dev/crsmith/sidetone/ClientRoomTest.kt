@@ -20,10 +20,10 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
 /**
- * The client with a room, with no LiveKit and no Android. The room writes down
+ * The client's room, with no LiveKit and no Android. The room writes down
  * what it was sent, and a send fails when the test says so.
  */
-class ClientTest {
+class ClientRoomTest {
     @get:Rule
     val folder = TemporaryFolder()
 
@@ -62,11 +62,11 @@ class ClientTest {
     private var setup: String? = null
     private var forgotten = 0
 
-    private fun client(scope: CoroutineScope, crashes: Crashes = Crashes(folder.newFolder())) = Client(
+    private fun client(scope: CoroutineScope, crashes: Crashes = Crashes(folder.newFolder())) = ClientRoom(
         state, scope,
         CutStore(read = kept::get, write = { key, on -> cutWrites += key to on; kept[key] = on }),
         SetupStore(read = { setup }, write = { setup = it }),
-        crashes, object : Client.Logcat {}, elapsed = { 100_000L },
+        crashes, object : ClientRoom.Logcat {}, elapsed = { 100_000L },
         forget = { forgotten++ },
         phone = { _, _ -> },
     )

@@ -35,17 +35,8 @@ object Bridge {
         val micOn: Boolean = true,
         /** 9.5.1 the hold to talk button is down. */
         val holding: Boolean = false,
-        /** 11.12 whether the bridge makes any sound, or only writes its answers, as the bridge last said (17.10.6). */
-        val audioOn: Boolean = true,
-        /** 15.7.3 whether the bridge may play hold music, as the bridge last said (17.10.6). */
-        val musicOn: Boolean = true,
-        /** 9.4.8 what the Stop button says, as the bridge gave it. */
-        val endTurn: String? = null,
-        /** 17.11 whether the bridge says the agent works. It is shown whatever the audio does. */
-        val sign: Sign = Sign.OFF,
-        val lines: List<Line> = emptyList(),
-        /** 17.21 the line of the spoken sentence and where the sentence ends in it. */
-        val spoken: Pair<Int, Int>? = null,
+        /** What the screen shows of the conversation. */
+        val screen: OnScreen = OnScreen(),
         val error: String? = null,
         /** 17.15 the app the bridge serves, when it is not the one installed. */
         val update: Apk? = null,
@@ -53,14 +44,8 @@ object Bridge {
         val updating: Boolean = false,
         /** 17.18.5 the JPEG of each screenshot this app sent, by id, for its thumbnail. */
         val thumbnails: Map<String, ByteArray> = emptyMap(),
-        /** 14.12.7 what became of each screenshot, by id, as the bridge last said. */
-        val screenshots: Map<String, String> = emptyMap(),
         /** 14.15 the SHA-256 of this app, for the menu. Null until it is read, or when it cannot be. */
         val build: String? = null,
-        /** 9.4.9 the settings in force on the bridge, which the options screen shows (item 28). */
-        val settings: Incoming.Settings = Incoming.Settings(emptyMap(), emptyMap(), emptyMap()),
-        /** Item 44 how many settings messages came; each puts the sliders back to what the bridge holds. */
-        val settingsCount: Int = 0,
     )
 
     private const val TAG = "Sidetone"
@@ -74,7 +59,7 @@ object Bridge {
     private lateinit var store: CredentialStore
 
     /** The rules of the client, apart from Android and LiveKit. */
-    private lateinit var client: Client
+    private lateinit var client: ClientRoom
     private var session: Job? = null
 
     /** 17.17 whether the app is on the screen. [MainActivity] sets it. */
@@ -96,7 +81,7 @@ object Bridge {
         val cuts = CutStore(read = { key -> if (cut.contains(key)) cut.getBoolean(key, true) else null }, write = { key, on -> cut.edit().putBoolean(key, on).apply() })
         // 17.20 a crash writes a report, and the next room sends it
         val crashes = Crashes(File(app.filesDir, "crashes"))
-        client = Client(_state, scope, cuts, setups, crashes, Logcat, SystemClock::elapsedRealtime,
+        client = ClientRoom(_state, scope, cuts, setups, crashes, Logcat, SystemClock::elapsedRealtime,
             forget = {
                 store.clear()
                 stop(app)
@@ -308,7 +293,7 @@ object Bridge {
         }
 
     /** What the client writes goes to logcat under one tag. */
-    private object Logcat : Client.Logcat {
+    private object Logcat : ClientRoom.Logcat {
         override fun info(text: String) {
             Log.i(TAG, text)
         }

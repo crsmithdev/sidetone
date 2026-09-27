@@ -32,31 +32,6 @@ class MessagesTest {
     }
 
     @Test
-    fun anAnswerGrowsOnItsOwnLine() {
-        var lines = listOf(Line(Line.Kind.YOU, "count to three"))
-        var growing: Growing? = null
-        fun sentence(text: String, answer: Int) { grow(lines, growing, Incoming.Sentence(text, answer), 0).let { lines = it.first; growing = it.second } }
-        sentence("One.", 1)
-        sentence("Two.", 1)
-        // Chris cuts in; answer 1 is interrupted and never sends its turn
-        lines = lines + Line(Line.Kind.YOU, "stop, what is four plus four")
-        sentence("Eight.", 2)
-        lines = answered(lines, growing, Incoming.Turn(Line(Line.Kind.BRIDGE, "Eight."), 2), 0)
-        assertEquals(
-            listOf("count to three", "One. Two.", "stop, what is four plus four", "Eight."),
-            lines.map { it.text },
-        )
-    }
-
-    @Test
-    fun aTurnWhoseAnswerGrewNothingIsALineOfItsOwn() {
-        // the client joined after the answer's words went by
-        val lines = listOf(Line(Line.Kind.BRIDGE, "One."), Line(Line.Kind.YOU, "thanks"))
-        val after = answered(lines, Growing(0, 1), Incoming.Turn(Line(Line.Kind.BRIDGE, "The job finished."), 2), 0)
-        assertEquals(listOf("One.", "thanks", "The job finished."), after.map { it.text })
-    }
-
-    @Test
     fun takesTheBlocksOfAnAnswer() {
         // src/messages.ts: a block start, the words of the block, the block end
         assertEquals(Incoming.BlockStart(3, 1), decode(bytes("""{"kind":"blockStart","answer":3,"block":1}""")))
@@ -194,17 +169,6 @@ class MessagesTest {
     }
 
     @Test
-    fun theClockIsHoursAndMinutesInTheGivenZone() {
-        // 2026-09-21 14:05:59 UTC
-        val at = 1_789_999_559_000L
-        assertEquals("14:05", clock(at, ZoneOffset.UTC))
-        assertEquals("16:05", clock(at, ZoneOffset.ofHours(2)))
-        // the minute is cut off, not rounded, and midnight is 00:00
-        assertEquals("23:59", clock(1_790_035_199_000L, ZoneOffset.UTC))
-        assertEquals("00:00", clock(1_790_035_200_000L, ZoneOffset.UTC))
-    }
-
-    @Test
     fun historyKeepsTheTurnsOnly() {
         val history = decode(bytes("""{"kind":"history","turns":[{"kind":"heard","text":"a"},{"kind":"narration","text":"x"},{"kind":"turn","text":"b"}]}"""))
         assertEquals(Incoming.History(listOf(Line(Line.Kind.YOU, "a"), Line(Line.Kind.BRIDGE, "b"))), history)
@@ -263,13 +227,6 @@ class MessagesTest {
     }
 
     @Test
-    fun rejoinsOnceInThirtySeconds() {
-        assertEquals(true, rejoinDue(null, 5_000))
-        assertEquals(false, rejoinDue(1_000, 30_999))
-        assertEquals(true, rejoinDue(1_000, 31_000))
-    }
-
-    @Test
     fun saysSoWhenTheTwoEndsHaveDrifted() {
         // dropping it silently is how a new kind stayed invisible
         assertEquals(Incoming.Unknown("stats"), decode(bytes("""{"kind":"stats"}""")))
@@ -323,7 +280,6 @@ class MessagesTest {
             Outgoing.setting("holdMusicGain", 0.25),
             Outgoing.setting("endOfTurnPauseMs", 900),
             Outgoing.musicDelay(20),
-            Outgoing.voice("male"),
             *screenParts(listOf(Shown(0, "delta", 1, 1, 0, "Four.", "Four.")), "log-1", zone = ZoneOffset.UTC).map { it.message }.toTypedArray(),
             *screenshotParts(byteArrayOf(1, 2, 3), "1789999559000").toTypedArray(),
             Outgoing.dropScreenshot("1789999559000"),

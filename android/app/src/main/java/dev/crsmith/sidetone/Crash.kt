@@ -82,7 +82,7 @@ fun crashReport(at: Long, thread: String, state: String, error: Throwable): Stri
 
 /** 17.20.1 the app state without the lines, which the screen log already holds. */
 fun crashState(state: Bridge.State): String =
-    state.copy(lines = emptyList()).toString().replace("lines=[]", "lines=${state.lines.size}")
+    state.copy(screen = state.screen.copy(lines = emptyList())).toString().replace("lines=[]", "lines=${state.screen.lines.size}")
 
 /** 14.14.1 one report as one message. A report too long for it loses its end, and says so. */
 fun crashMessage(id: String, text: String, limit: Int = CRASH_MESSAGE_BYTES): ByteArray {

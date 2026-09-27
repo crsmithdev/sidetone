@@ -14,8 +14,8 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /**
- * The client with a room: the microphone, what goes to the bridge, the setup
- * the bridge pushes, and the loop that opens one room after another.
+ * The client's room: the microphone, what goes to the bridge, the setup the
+ * bridge pushes, and the loop that opens one room after another.
  *
  * This used to be all of `Bridge`, an object with an Android context and a
  * LiveKit room in it, so none of these rules ran in a test: a hold writes no
@@ -26,7 +26,7 @@ import kotlinx.coroutines.withContext
  * one that writes down what it was sent. `Bridge` keeps the context, the
  * service, the audio route and the LiveKit room, and calls this.
  */
-class Client(
+class ClientRoom(
     /** What the screen shows. `Bridge` holds it, so the screen can read it before the app is loaded. */
     val state: MutableStateFlow<Bridge.State>,
     /** 17.20.4 an error in a launched coroutine is written down, and the app goes on. */
@@ -130,7 +130,7 @@ class Client(
      * the bridge is in it. Returns why it ended.
      */
     suspend fun inRoom(room: Room, connect: suspend () -> Boolean): String = coroutineScope {
-        this@Client.room = room
+        this@ClientRoom.room = room
         val ended = CompletableDeferred<String>()
         val events = launch { room.events.collect { on(room, it, ended) } }
         // 17.11 the sign goes to "stalled" with no message to say so, so it is looked at on the clock
@@ -154,8 +154,8 @@ class Client(
             stream.cancel()
             // the protocol, the last reading and the last word about work belonged to a room that is gone
             conversation.bridgeGone(elapsed(), now())
-            state.update { it.copy(quality = null, endTurn = conversation.endTurn, sign = conversation.sign) }
-            this@Client.room = null
+            state.update { it.copy(quality = null, screen = conversation.onScreen()) }
+            this@ClientRoom.room = null
         }
     }
 
@@ -190,7 +190,7 @@ class Client(
                 tell(room, Outgoing.quality(event.quality))
             }
             is Room.Event.Data -> {
-                val effects = conversation.receive(decode(event.payload), now(), elapsed(), inFront, state.value.audioOn)
+                val effects = conversation.receive(decode(event.payload), now(), elapsed(), inFront, state.value.screen.audioOn)
                 shown()
                 for (effect in effects) when (effect) {
                     is Conversation.Effect.Alert, is Conversation.Effect.Offer, Conversation.Effect.Device -> phone(room, effect)
@@ -354,7 +354,7 @@ class Client(
     /** 9.4.8 by hand, for a car that is too loud to be heard in. */
     fun endTurn() {
         // the phrase belongs to the bridge, which owns the wake word
-        state.value.endTurn?.let { say(it) }
+        state.value.screen.endTurn?.let { say(it) }
     }
 
     private fun tell(room: Room, payload: ByteArray) {
@@ -413,10 +413,7 @@ class Client(
 
     /** The screen shows what the conversation holds now. */
     private fun shown() {
-        state.update { it.copy(lines = conversation.lines, spoken = conversation.spoken, endTurn = conversation.endTurn, sign = conversation.sign, screenshots = conversation.screenshots,
-            settings = Incoming.Settings(conversation.settingsOn, conversation.settingWords, conversation.settingNumbers), settingsCount = conversation.settingsCount,
-            // 17.10.6 the saved settings are the bridge's; on until it says otherwise
-            audioOn = conversation.settingsOn["audio"] ?: true, musicOn = conversation.settingsOn["holdMusic"] ?: true) }
+        state.update { it.copy(screen = conversation.onScreen()) }
     }
 
     /**

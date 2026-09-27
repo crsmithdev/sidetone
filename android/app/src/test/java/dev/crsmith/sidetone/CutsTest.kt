@@ -23,7 +23,7 @@ class CutsTest {
     @Test
     fun `the state takes the kept cut and nothing else`() {
         // 17.10.6 the audio and the music come from the bridge, so a kept cut does not touch them
-        val state = Bridge.State(paired = true, error = "x", audioOn = false, musicOn = false)
+        val state = Bridge.State(paired = true, error = "x", screen = OnScreen(audioOn = false, musicOn = false))
         val cut = Cuts(micOn = false).applyTo(state)
         assertEquals(state.copy(micOn = false), cut)
         assertEquals(Cuts(micOn = false), Cuts.of(cut))

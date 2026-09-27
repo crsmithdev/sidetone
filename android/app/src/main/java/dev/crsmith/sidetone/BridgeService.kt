@@ -71,7 +71,7 @@ class BridgeService : Service() {
     data class Shown(val reading: Reading, val micOn: Boolean, val audioOn: Boolean, val inRoom: Boolean) {
         companion object {
             fun of(state: Bridge.State) =
-                Shown(reading(state.status, state.quality, state.sign), state.micOn, state.audioOn, state.endTurn != null)
+                Shown(reading(state.status, state.quality, state.screen.sign), state.micOn, state.screen.audioOn, state.screen.endTurn != null)
         }
     }
 
@@ -104,7 +104,7 @@ class BridgeService : Service() {
             val state = Bridge.state.value
             when (intent.action) {
                 MIC -> Bridge.setMic(!state.micOn)
-                AUDIO -> Bridge.setAudio(!state.audioOn)
+                AUDIO -> Bridge.setAudio(!state.screen.audioOn)
                 END_TURN -> Bridge.endTurn()
             }
         }

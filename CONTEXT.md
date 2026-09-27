@@ -57,6 +57,10 @@ _Avoid_: bridge down, gone, offline.
 What the app does about the room: the status word it shows, whether it waits and asks again after a room ends, whether the bridge asked for a new microphone track, and whether the bridge is in the room and ready. The phone's room and the bridge are two things: a restart of the bridge leaves the phone's room up, and the word is then "waiting", then "starting", then "listening". It gives up on one end only, a refused pairing; every other end it tries again. It holds no room, so it is read by a test. In the app it is one module of that name, beside the conversation.
 _Avoid_: the connection, the socket, the retry loop.
 
+**The client's room**:
+What the app does in a room: it opens and cuts the microphone, keeps the setup the bridge pushed, and sends the screen log, the screenshots and the crash reports, with a retry for a send that fails. It also runs the loop that does the effects of the joining. It reaches the room through a port, so a test gives it a fake room. In the app it is one module of that name, beside the joining.
+_Avoid_: the client (the client is the whole page or app), the session, the controller.
+
 **The control channel**:
 The words between the bridge and a client, apart from the audio: what was heard, the words of an answer as the agent writes them, each sentence as it is known, a turn, a note, whether the agent works, the screen log, a screenshot, a crash report, and what a returning client missed. One module owns its vocabulary in both directions.
 _Avoid_: the data channel, the transcript feed, the messages.

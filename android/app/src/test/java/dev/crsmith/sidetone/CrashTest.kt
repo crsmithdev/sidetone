@@ -31,7 +31,7 @@ class CrashTest {
 
     @Test
     fun theStateGivesTheNumberOfLinesAndNotTheirWords() {
-        val state = Bridge.State(micOn = false, lines = listOf(Line(Line.Kind.YOU, "a secret"), Line(Line.Kind.BRIDGE, "another")))
+        val state = Bridge.State(micOn = false, screen = OnScreen(lines = listOf(Line(Line.Kind.YOU, "a secret"), Line(Line.Kind.BRIDGE, "another"))))
         val said = crashState(state)
         assertTrue(said, said.contains("micOn=false"))
         assertTrue(said, said.contains("lines=2"))

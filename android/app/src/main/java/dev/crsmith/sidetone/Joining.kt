@@ -30,7 +30,7 @@ fun isBridge(identity: String?): Boolean = identity?.startsWith("bridge") == tru
  * So the statuses and the decisions live here, as [Conversation]'s do: an
  * [Event] and the time in, a new status and a list of [Effect]s out. The time
  * is [android.os.SystemClock.elapsedRealtime], so a test gives its own clock.
- * [Client] keeps the room, turns the room's events into [Event]s, and does the
+ * [ClientRoom] keeps the room, turns the room's events into [Event]s, and does the
  * effects.
  */
 class Joining(private val retryMs: Long = RETRY_MS) {
@@ -187,3 +187,9 @@ class Joining(private val retryMs: Long = RETRY_MS) {
         const val REJOINING = "rejoining"
     }
 }
+
+/** 18.9.4 the shortest time between two rejoins that the bridge asked for. */
+const val REJOIN_MS = 30_000L
+
+/** 18.9.4 whether a request to rejoin is due, given when the last rejoin began. Times are in milliseconds. */
+fun rejoinDue(lastAt: Long?, now: Long): Boolean = lastAt == null || now - lastAt >= REJOIN_MS

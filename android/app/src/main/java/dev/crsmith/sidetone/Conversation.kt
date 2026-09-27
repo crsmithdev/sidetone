@@ -12,7 +12,7 @@ package dev.crsmith.sidetone
  * drifted away from this one.
  *
  * So the state and the decisions are here, and they are a message in and a new
- * state plus a few [Effect]s out. [Client] keeps the room, the microphone and
+ * state plus a few [Effect]s out. [ClientRoom] keeps the room, the microphone and
  * the retry, and does the effects.
  */
 class Conversation(val transcript: Transcript = Transcript()) {
@@ -181,6 +181,35 @@ class Conversation(val transcript: Transcript = Transcript()) {
         tick(since, at)
     }
 
+    /**
+     * What the screen shows now. The rules of what shows are here, so a test
+     * reads them; the screen only draws the result.
+     */
+    fun onScreen(): OnScreen {
+        // 14.9 a bubble with no words yet is not shown: the block has begun and the first word has not come.
+        // 17.18.5 nor is a screenshot that Chris dropped. The line stays, so a growing line keeps its index.
+        val visible = lines.indices.filter { i ->
+            val line = lines[i]
+            line.text.isNotBlank() && !(line.kind == Line.Kind.SCREENSHOT && screenshots[line.text] == "dropped")
+        }
+        return OnScreen(
+            lines = visible.map { lines[it] },
+            // 17.21 the spoken line by its place among the visible lines; a hidden line greys nothing
+            spoken = spoken?.let { (at, end) -> visible.indexOf(at).takeIf { it >= 0 }?.let { it to end } },
+            endTurn = endTurn,
+            sign = sign,
+            screenshotWords = screenshots.mapNotNull { (id, state) -> screenshotWords(state)?.let { id to it } }.toMap(),
+            pending = screenshots.filterValues { it == "pending" }.keys,
+            // 17.10.6 the saved settings are the bridge's: on until it says otherwise, and each button waits for it
+            audioOn = settingsOn["audio"] ?: true,
+            audioEnabled = "audio" in settingsOn,
+            musicOn = settingsOn["holdMusic"] ?: true,
+            musicEnabled = "holdMusic" in settingsOn,
+            settings = Incoming.Settings(settingsOn, settingWords, settingNumbers),
+            settingsCount = settingsCount,
+        )
+    }
+
     /** A conversation that ended has no lines, no log and no work to show. */
     fun clear() {
         transcript.clear()
@@ -195,4 +224,42 @@ class Conversation(val transcript: Transcript = Transcript()) {
         spoken = null
         screenshots = emptyMap()
     }
+}
+
+/**
+ * What the screen shows of the conversation, from [Conversation.onScreen]. The
+ * screen draws it and decides nothing.
+ */
+data class OnScreen(
+    /** The lines that show, in order: no empty bubble, no dropped screenshot. */
+    val lines: List<Line> = emptyList(),
+    /** 17.21 the spoken sentence: the index of its line in [lines], and where it ends in the trimmed words. */
+    val spoken: Pair<Int, Int>? = null,
+    /** 9.4.8 what the Stop button says, as the bridge gave it. Null disables the button. */
+    val endTurn: String? = null,
+    /** 17.11 whether the bridge says the agent works. It is shown whatever the audio does. */
+    val sign: Sign = Sign.OFF,
+    /** 17.18.5 the words under a screenshot's thumbnail, by id. A screenshot with none says nothing. */
+    val screenshotWords: Map<String, String> = emptyMap(),
+    /** 14.12.7 the ids of the pending screenshots, which a tap drops. */
+    val pending: Set<String> = emptySet(),
+    /** 11.12 whether the bridge makes any sound, or only writes its answers, as the bridge last said (17.10.6). */
+    val audioOn: Boolean = true,
+    /** 17.10.6 the Audio button waits for the bridge to send the setting. */
+    val audioEnabled: Boolean = false,
+    /** 15.7.3 whether the bridge may play hold music, as the bridge last said (17.10.6). */
+    val musicOn: Boolean = true,
+    /** 17.10.6 the Music button waits for the bridge to send the setting. */
+    val musicEnabled: Boolean = false,
+    /** 9.4.9 the settings in force on the bridge, which the options screen shows (item 28). */
+    val settings: Incoming.Settings = Incoming.Settings(emptyMap(), emptyMap(), emptyMap()),
+    /** Item 44 how many settings messages came; each puts the sliders back to what the bridge holds. */
+    val settingsCount: Int = 0,
+)
+
+/** 17.18.5 what a thumbnail says under it for each state the bridge gives (14.12.7). A sent one says nothing. */
+fun screenshotWords(state: String): String? = when (state) {
+    "pending" -> "attached to your next message"
+    "expired" -> "not sent: it waited too long"
+    else -> null
 }

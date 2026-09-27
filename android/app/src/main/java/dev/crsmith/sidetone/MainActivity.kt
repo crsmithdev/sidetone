@@ -41,7 +41,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -240,9 +240,8 @@ private fun Conversation(state: Bridge.State, onQuit: () -> Unit) {
     var options by rememberSaveable { mutableStateOf(false) }
     BackHandler(enabled = options) { options = false }
     val list = rememberLazyListState()
-    // 14.9 a bubble with no words yet is not shown: the block has begun and the first word has not come.
-    // 17.18.5 nor is a screenshot that Chris dropped.
-    val shown = state.lines.filter { it.text.isNotBlank() && !(it.kind == Line.Kind.SCREENSHOT && state.screenshots[it.text] == "dropped") }
+    val screen = state.screen
+    val shown = screen.lines
     // the last bubble grows word by word, so the view follows its length as well as the count
     LaunchedEffect(shown.size, shown.lastOrNull()?.text?.length) {
         if (shown.isNotEmpty()) list.animateScrollToItem(shown.lastIndex)
@@ -256,7 +255,7 @@ private fun Conversation(state: Bridge.State, onQuit: () -> Unit) {
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            val reading = reading(state.status, state.quality, state.sign)
+            val reading = reading(state.status, state.quality, screen.sign)
             StatusDot(reading)
             // 17.11.7 the word says the state that the colour shows
             Text(reading.word, style = MaterialTheme.typography.titleMedium)
@@ -265,8 +264,8 @@ private fun Conversation(state: Bridge.State, onQuit: () -> Unit) {
         }
         if (options) {
             OptionsScreen(
-                state.settings,
-                state.settingsCount,
+                screen.settings,
+                screen.settingsCount,
                 state.build,
                 inRoom = state.status != Status.LEFT,
                 onClose = { options = false },
@@ -292,10 +291,9 @@ private fun Conversation(state: Bridge.State, onQuit: () -> Unit) {
                 )
             }
             LazyColumn(Modifier.fillMaxSize(), state = list, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(shown) { line ->
-                    if (line.kind == Line.Kind.SCREENSHOT) ScreenshotLine(line, state.thumbnails[line.text], state.screenshots[line.text])
-                    // 17.21 `shown` keeps the lines themselves, so the spoken line is found by identity
-                    else TranscriptLine(line, state.spoken?.takeIf { state.lines.getOrNull(it.first) === line }?.second)
+                itemsIndexed(shown) { i, line ->
+                    if (line.kind == Line.Kind.SCREENSHOT) ScreenshotLine(line, state.thumbnails[line.text], screen.screenshotWords[line.text], line.text in screen.pending)
+                    else TranscriptLine(line, screen.spoken?.takeIf { it.first == i }?.second)
                 }
             }
         }
@@ -306,15 +304,14 @@ private fun Conversation(state: Bridge.State, onQuit: () -> Unit) {
             Toggle(on = state.micOn, enabled = !state.holding, onClick = { Bridge.setMic(!state.micOn) }, modifier = Modifier.weight(1f)) {
                 Text("Mic")
             }
-            // 17.10.6 the audio and the music are the bridge's settings: each waits for the bridge to send it
-            Toggle(on = state.audioOn, enabled = "audio" in state.settings.on, onClick = { Bridge.setAudio(!state.audioOn) }, modifier = Modifier.weight(1f)) {
+            Toggle(on = screen.audioOn, enabled = screen.audioEnabled, onClick = { Bridge.setAudio(!screen.audioOn) }, modifier = Modifier.weight(1f)) {
                 Text("Audio")
             }
-            Toggle(on = state.musicOn, enabled = "holdMusic" in state.settings.on, onClick = { Bridge.setMusic(!state.musicOn) }, modifier = Modifier.weight(1f)) {
+            Toggle(on = screen.musicOn, enabled = screen.musicEnabled, onClick = { Bridge.setMusic(!screen.musicOn) }, modifier = Modifier.weight(1f)) {
                 Text("Music")
             }
         }
-        OutlinedButton(onClick = Bridge::endTurn, modifier = Modifier.fillMaxWidth(), enabled = state.endTurn != null) { Text("End the turn") }
+        OutlinedButton(onClick = Bridge::endTurn, modifier = Modifier.fillMaxWidth(), enabled = screen.endTurn != null) { Text("End the turn") }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
                 value = draft,
@@ -499,23 +496,18 @@ private fun Legend() {
 }
 
 /**
- * 17.18.5 the thumbnail of a screenshot the bridge has, on Chris's side. While it
- * is pending it says so, and a tap drops it (14.12.7).
+ * 17.18.5 the thumbnail of a screenshot the bridge has, on Chris's side, with
+ * `mark` under it. While it is pending a tap drops it (14.12.7).
  */
 @Composable
-private fun ScreenshotLine(line: Line, jpeg: ByteArray?, state: String?) {
+private fun ScreenshotLine(line: Line, jpeg: ByteArray?, mark: String?, pending: Boolean) {
     val colors = MaterialTheme.colorScheme
     val image = remember(jpeg) { jpeg?.let { BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap() } }
-    val mark = when (state) {
-        "pending" -> "attached to your next message"
-        "expired" -> "not sent: it waited too long"
-        else -> null
-    }
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
         Column(
             modifier = Modifier
                 .widthIn(max = 160.dp)
-                .clickable(enabled = state == "pending") { Bridge.dropScreenshot(line.text) }
+                .clickable(enabled = pending) { Bridge.dropScreenshot(line.text) }
                 .semantics { contentDescription = listOfNotNull("screenshot", mark).joinToString(", ") },
             horizontalAlignment = Alignment.End,
         ) {
