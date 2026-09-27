@@ -17,6 +17,34 @@ The drive ends when every test below has a verdict, or a reason it was skipped.
 The commits of 19 September add six more tests, numbered 9 to 14, in
 [`drive-tests-19-september.md`](drive-tests-19-september.md).
 
+## This drive, 27 September
+
+Read this section first. The vault note has one verdict (test 1, half), so
+every other test below is open. The record has 1,272 utterances from 21 to 23
+September with no verdicts written from them.
+
+The bridge runs `ade0bde`, the latest commit, since 07:48: do not restart it
+before the drive. The app needs the new APK, built at 07:42, before Chris
+leaves. It holds three refactors of the app's room code (`fe3e62f`,
+`9312076`, `ea27362`) and one of the bridge's settings (`4876973`). Check
+these first, in this order. None of them is a numbered test:
+
+| Check | Pass |
+|---|---|
+| Join, then one ordinary turn | the app says "listening" and the bridge answers |
+| "interrupt on", "music off", then `/diagnostics` | the settings in force show both |
+| "Leave" in the gear menu, then "Rejoin" | the dot goes grey on leave; the next turn is heard after rejoin |
+| a screenshot, with the app on the screen | `screenshot at` in the journal, and `screen log at` |
+
+Then the tests below in this order: 1 (only "sidetone, end the turn" during a
+replay is left), 3, 4, 15 (the `/play` one), 5, 6, 7, 2, and 8 last. Tests 9
+to 14 are in [`drive-tests-19-september.md`](drive-tests-19-september.md)
+and have no verdicts either.
+
+Test 16 needs the microphone open for the whole drive with no hold to talk,
+and that changes how tests 1 and 3 behave. Ask Chris at the start: run test
+16 on the way back, or on another drive.
+
 ## Before the car
 
 The Android Auto fault (test 6) needs `adb` on the phone. Pair wireless
