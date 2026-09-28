@@ -176,11 +176,13 @@ SIDETONE_GPU=1 bun test speech.smoke   # the real engines, on the GPU
 
 | Doc | Holds |
 |---|---|
-| [`docs/operating.md`](docs/operating.md) | setup, the phone, the service, tests, every command |
-| [`docs/sidetone-spec.md`](docs/sidetone-spec.md) | the full specification. Section numbers in the source refer to it |
+| [`docs/operating.md`](docs/operating.md) | setup, the phone, the service, every command |
+| [`docs/spec.md`](docs/spec.md) | the full specification. Section numbers in the source refer to it |
+| [`docs/design.md`](docs/design.md) | the design work not built yet: latency and the dashboard |
+| [`docs/testing.md`](docs/testing.md) | the test suite, the score of a drive, and the drive card |
+| [`docs/todo.md`](docs/todo.md) | what is left to build |
 | [`CONTEXT.md`](CONTEXT.md) | the words this project uses |
 | [`docs/adr/`](docs/adr) | the decisions and the reasons for them |
-| [`docs/todo.md`](docs/todo.md) | what is left to build; [`docs/drive.md`](docs/drive.md) holds the open car tests |
 
 ## License
 

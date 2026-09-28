@@ -78,7 +78,7 @@ class MessagesTest {
 
     @Test
     fun theAnswerStandsOnceWhenTheVoiceFinishes() {
-        // drive.md test 4: the bridge sends the words, then the sentences, then the turn
+        // docs/testing.md test 4: the bridge sends the words, then the sentences, then the turn
         val screen = Screen()
         screen.receive("""{"kind":"blockStart","answer":1,"block":1}""", 1_000)
         screen.receive("""{"kind":"delta","text":"Let me look. ","answer":1,"block":1}""", 1_100)

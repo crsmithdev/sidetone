@@ -3,7 +3,7 @@
 A spoken conversation with a Claude Code session: Chris talks to his phone, a
 bridge on his desktop machine does the hearing and the speaking, and the agent
 does the reasoning. These are the words this project uses. The feature
-specification is [`docs/sidetone-spec.md`](docs/sidetone-spec.md); the
+specification is [`docs/spec.md`](docs/spec.md); the
 decisions behind them are in [`docs/adr/`](docs/adr).
 
 ## Language

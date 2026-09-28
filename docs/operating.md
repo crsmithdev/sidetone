@@ -6,9 +6,10 @@ every voice decision and does speech locally.
 
 The words this project uses are in [`CONTEXT.md`](../CONTEXT.md), and the
 decisions behind them are in [`docs/adr/`](adr). The full specification is
-[`docs/sidetone-spec.md`](sidetone-spec.md), and section numbers in the source
+[`docs/spec.md`](spec.md), and section numbers in the source
 refer to it. [`docs/todo.md`](todo.md) says what is left to build, and
-[`docs/drive.md`](drive.md) says which parts still wait for a test in the car.
+[`docs/testing.md`](testing.md) says how to test it, and which parts still wait
+for a test in the car.
 
 > The manifest-to-MCP **project bridge** is on the `project-bridge` branch.
 > `git checkout project-bridge` gets it back.
@@ -291,98 +292,10 @@ systemctl --user enable --now sidetone.service sidetone-cert.timer sidetone-heal
 `/health` says whether the bridge works: the room is joined and the agent is
 alive.
 
-### Score a drive
+### Test it
 
-A drive is a script that you read aloud in the car, and a score of the result:
-
-```bash
-bun scripts/session-check.ts card     # what to say, in order
-bun scripts/session-check.ts score    # how it went
-```
-
-Read the card with the phone connected, then score it. The score is the same
-set of figures each time, so you compare two builds by figures, not by
-memory. The figures are the commands that fired, the part of the passage that
-came back word for word, the median round trip, and the settings.
-
-The bridge appends the record to `~/.sidetone/record.jsonl` (`recordPath`).
-Each event is one line of JSON, and a header line opens each session. `score`
-reads the last session that heard anything. Thus it ignores the empty session
-that a restart leaves.
-
-### Run the tests
-
-```bash
-bun test              # the whole suite; it needs no GPU and no audio
-bun run typecheck
-```
-
-The supervisor takes a clock, so the tests run the whole escalation with no
-process. A clock cannot show that the interrupt shape is right, that a
-restarted process answers, or that the ladder ends a real turn. These were
-checked by hand against claude 2.1.267.
-
-One file needs the card:
-
-```bash
-SIDETONE_GPU=1 bun test speech.smoke
-```
-
-It starts kokoro and whisper against the real models. It asserts that
-onnxruntime took the graph on the GPU, because without its CUDA libraries it
-gives no error. It uses the CPU, and a sentence costs a second instead of
-120 to 165 ms. Then kokoro says a sentence and whisper reads it back. When the
-chatterbox environment and the default reference wav are present, it also
-checks chatterbox on the GPU.
-
-The test skips without `SIDETONE_GPU=1`. It also skips when the kokoro model or
-its environment is absent, and the chatterbox part skips when its reference
-wav or environment is absent. A skip prints the path it did not find.
-
-`bun test` cannot reach the page, so two scripts do what a unit test cannot.
-Run both against a bridge of your own, never the live bridge on 3100. The
-fake phone starts its own bridge. For `browser-check`, start one on another
-port with a config of its own:
-
-```bash
-echo '{ "servePort": 3102, "room": "check" }' > /tmp/check.json
-SIDETONE_CONFIG=/tmp/check.json bun src/main.ts serve /tmp   # prints the pairing code
-sox question.wav mic.wav pad 1 25                              # silence, so the question does not repeat
-bun scripts/browser-check.ts http://127.0.0.1:3102 <code> mic.wav
-```
-
-`browser-check` drives the real page in Chromium, with the wav as the
-microphone. It refuses a URL with `3100` in it unless you set `LIVE=1`.
-`PHONE=1` runs it at phone width. `INSECURE=1` accepts a self-signed
-certificate.
-
-`scripts/fake-phone.ts` is a phone with no phone. It pairs, joins, and speaks
-with the same local engine the bridge uses, in the other voice. It
-transcribes what the bridge says back, so you can script and read a spoken
-conversation. It ignores the cues when it decides that the bridge has
-finished. A cue is about 90 ms of sound, and a check that took one as speech
-ended before the agent answered.
-
-```bash
-bun scripts/fake-phone.ts "what is two plus two" "say the word done"
-bun scripts/fake-phone.ts --dir ~/some-project "summarise the readme"
-bun scripts/fake-phone.ts --barge 6000 "list twenty primes" "stop, different question"
-bun scripts/fake-phone.ts "run something slow" "+30s:continue"
-```
-
-A line may say when it is spoken. Some things happen only on a clock, for
-example the checkpoint of 8.6.3. A script that waits for the bridge to finish
-arrives before them, and the bridge takes it as ordinary speech.
-
-After each Claude Code upgrade, measure the stream facts again (spec 16.2):
-
-```bash
-bun scripts/protocol-check.ts --runs 3            # Haiku; --model sonnet for the bridge's model
-```
-
-It drives the real `claude` with the bridge's flags, text in. It prints one
-line for each fact: the runs that held, the runs in all, and the claude
-version. It costs money and needs the network, so it is not in `bun test`.
+The test suite, the scripts that check the page and the phone, and the
+score of a drive are in [`testing.md`](testing.md).
 
 ### Add a command
 

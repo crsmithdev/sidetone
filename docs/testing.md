@@ -1,4 +1,103 @@
-# The drive card
+# Testing
+
+Two kinds of test check Sidetone. The test suite runs on this machine with no
+phone. The drive card is a list of tests that Chris does in the car, for the
+parts that only a real drive can show.
+
+## The test suite
+
+```bash
+bun test              # the whole suite; it needs no GPU and no audio
+bun run typecheck
+```
+
+The supervisor takes a clock, so the tests run the whole escalation with no
+process. A clock cannot show that the interrupt shape is right, that a
+restarted process answers, or that the ladder ends a real turn. These were
+checked by hand against claude 2.1.267.
+
+One file needs the card:
+
+```bash
+SIDETONE_GPU=1 bun test speech.smoke
+```
+
+It starts kokoro and whisper against the real models. It asserts that
+onnxruntime took the graph on the GPU, because without its CUDA libraries it
+gives no error. It uses the CPU, and a sentence costs a second instead of
+120 to 165 ms. Then kokoro says a sentence and whisper reads it back. When the
+chatterbox environment and the default reference wav are present, it also
+checks chatterbox on the GPU.
+
+The test skips without `SIDETONE_GPU=1`. It also skips when the kokoro model or
+its environment is absent, and the chatterbox part skips when its reference
+wav or environment is absent. A skip prints the path it did not find.
+
+`bun test` cannot reach the page, so two scripts do what a unit test cannot.
+Run both against a bridge of your own, never the live bridge on 3100. The
+fake phone starts its own bridge. For `browser-check`, start one on another
+port with a config of its own:
+
+```bash
+echo '{ "servePort": 3102, "room": "check" }' > /tmp/check.json
+SIDETONE_CONFIG=/tmp/check.json bun src/main.ts serve /tmp   # prints the pairing code
+sox question.wav mic.wav pad 1 25                              # silence, so the question does not repeat
+bun scripts/browser-check.ts http://127.0.0.1:3102 <code> mic.wav
+```
+
+`browser-check` drives the real page in Chromium, with the wav as the
+microphone. It refuses a URL with `3100` in it unless you set `LIVE=1`.
+`PHONE=1` runs it at phone width. `INSECURE=1` accepts a self-signed
+certificate.
+
+`scripts/fake-phone.ts` is a phone with no phone. It pairs, joins, and speaks
+with the same local engine the bridge uses, in the other voice. It
+transcribes what the bridge says back, so you can script and read a spoken
+conversation. It ignores the cues when it decides that the bridge has
+finished. A cue is about 90 ms of sound, and a check that took one as speech
+ended before the agent answered.
+
+```bash
+bun scripts/fake-phone.ts "what is two plus two" "say the word done"
+bun scripts/fake-phone.ts --dir ~/some-project "summarise the readme"
+bun scripts/fake-phone.ts --barge 6000 "list twenty primes" "stop, different question"
+bun scripts/fake-phone.ts "run something slow" "+30s:continue"
+```
+
+A line may say when it is spoken. Some things happen only on a clock, for
+example the checkpoint of 8.6.3. A script that waits for the bridge to finish
+arrives before them, and the bridge takes it as ordinary speech.
+
+After each Claude Code upgrade, measure the stream facts again (spec 16.2):
+
+```bash
+bun scripts/protocol-check.ts --runs 3            # Haiku; --model sonnet for the bridge's model
+```
+
+It drives the real `claude` with the bridge's flags, text in. It prints one
+line for each fact: the runs that held, the runs in all, and the claude
+version. It costs money and needs the network, so it is not in `bun test`.
+
+## Score a drive
+
+A drive is a script that you read aloud in the car, and a score of the result:
+
+```bash
+bun scripts/session-check.ts card     # what to say, in order
+bun scripts/session-check.ts score    # how it went
+```
+
+Read the card with the phone connected, then score it. The score is the same
+set of figures each time, so you compare two builds by figures, not by
+memory. The figures are the commands that fired, the part of the passage that
+came back word for word, the median round trip, and the settings.
+
+The bridge appends the record to `~/.sidetone/record.jsonl` (`recordPath`).
+Each event is one line of JSON, and a header line opens each session. `score`
+reads the last session that heard anything. Thus it ignores the empty session
+that a restart leaves.
+
+## The drive card
 
 The open questions about this bridge, and the test that settles each one. Every
 test is something Chris does in the car and the bridge checks from the journal,
@@ -14,7 +113,9 @@ ask Chris for something a command answers.
 Write each verdict into the vault page "Voice Bridge Car Test 4" as it lands.
 The drive ends when every test below has a verdict, or a reason it was skipped.
 
-## What is open
+The tests below are in the order to run them.
+
+### What is open
 
 The drive of 27 September passed tests 2, 3, 5 and 8, and most of 1 and 4.
 Test 15 failed. The vault page has each verdict. These are open:
@@ -24,7 +125,7 @@ Test 15 failed. The vault page has each verdict. These are open:
 | 1 | "sidetone, end the turn" during a replay |
 | 4 | an answer with a tool call: two bubbles |
 | 7 | the Mic button and Android Auto's voice input |
-| 9 to 14 | all, in [`drive-tests-19-september.md`](drive-tests-19-september.md) |
+| 10 to 14 | all; 9 is answered without a drive |
 | 6 | only if Android Auto's audio stays blocked after the app leaves the room |
 | 15 | a rerun after to-do item 61 lands |
 | 16 | a drive with the microphone open, for the turn detector and the names |
@@ -33,7 +134,7 @@ Run them in this order: 1, 4, 7, then 10, 11, 12 and 14, then the restart of
 test 8 with test 13 last. Test 16 changes how test 1 behaves, so ask Chris at
 the start: run test 16 on the way back, or on another drive.
 
-## Before the car
+### Before the car
 
 The live unit runs the code it was started with. Restart it when the running
 commit is not HEAD, that is, when the last commit on `main` is newer than the
@@ -52,7 +153,7 @@ developer settings before leaving, and check:
 ~/Android/Sdk/platform-tools/adb devices
 ```
 
-## 1. Can the replay be stopped?
+### 1. Can the replay be stopped?
 
 The barge-in and the replay parts passed on 27 September. One part is left.
 
@@ -65,7 +166,7 @@ The barge-in and the replay parts passed on 27 September. One part is left.
 20 September "that's enough" ended a replay with no `[stopped: ...]` line, so
 this phrase is not confirmed yet.
 
-## 4. Does the answer arrive on the screen ahead of the voice?
+### 4. Does the answer arrive on the screen ahead of the voice?
 
 The plain answer passed on 27 September. The tool call case is left.
 
@@ -79,7 +180,7 @@ once, not twice.
 **Evidence.** `jq -c '{time,kind,bubble,text}' ~/.sidetone/screen/latest.jsonl`
 shows two bubble numbers for the one turn.
 
-## 7. Does cutting the microphone leave the conversation usable?
+### 7. Does cutting the microphone leave the conversation usable?
 
 **Do.** Tap Mic, use Android Auto's voice input, tap Mic again, speak.
 
@@ -87,7 +188,63 @@ shows two bubble numbers for the one turn.
 hears you after it is open again: `[the room has a microphone track, TR_...]`
 and then a `> ` line.
 
-## 8. Does the app come back after a restart? (last)
+### 9. How often would a shorter pause have cut a sentence?
+
+Answered without a drive. From 19 to 26 September, 278 of 530 utterances held
+a quiet of 400 ms or more that Chris talked through (to-do item 54). The turn
+detector now runs in shadow mode, and test 16 collects its data.
+
+### 10. Does the record know which setting was in force?
+
+**Do.** Say "sidetone, male voice" or "sidetone, interrupt on" a few
+turns in.
+
+**Pass.** After the drive, the record has a `setting` line at the moment you
+said it, and the settings on `/diagnostics` show the new value, not the one
+the bridge started with:
+
+```
+grep '"setting"' ~/.sidetone/record.jsonl
+curl -sk https://127.0.0.1:3100/diagnostics | python3 -c "import json,sys; print(json.load(sys.stdin)['settings']['ttsVoice'])"
+```
+
+### 11. Does "end the turn" with nothing running say so?
+
+Before 19 September your own command counted as a barge-in, so this said
+"Stopped." and dropped a hold with nothing behind it.
+
+**Do.** With nothing playing, say "sidetone, end the turn".
+
+**Pass.** "Nothing is running." Nothing else is said.
+
+### 12. Does the audio go off and come back?
+
+The control channel is one module now, and this is the message it handles
+that no drive has tried.
+
+**Do.** Tap the app's Audio button. Ask something. Tap it again. Ask again.
+
+**Pass.** The answer arrives as text and nothing is spoken. After the second
+tap the next answer is spoken. The journal has
+`[the audio is off; the words carry on in the transcript]` and then
+`[the audio is on]`, and the record has a `setting` line for each tap:
+
+```
+grep '"setting"' ~/.sidetone/record.jsonl | grep '"audio"'
+```
+
+### 14. Does interrupting a finished answer stay quiet about it?
+
+Before 19 September an interrupt of a turn whose answer had fully played
+reported an earlier turn's held rest as unspoken.
+
+**Do.** With "interrupt on": ask something, let the answer play out, then ask
+a follow-up.
+
+**Pass.** No `not spoken:` narration appears for the follow-up. The one time
+it should appear is when you talk over an answer that is still playing.
+
+### 8. Does the app come back after a restart?
 
 Passed on 27 September. Run it again last, because test 13 needs the
 restart. It ends this session, and everything learned above goes with it
@@ -111,7 +268,24 @@ bridge restart nothing is tried. A refused pairing is the one end the app
 gives up after. This test is the watched restart that `JoiningTest` cannot
 give.
 
-## 6. What holds Android Auto's audio? (needs adb)
+### 13. Does a phone that arrives while the engines warm get the words?
+
+Extends test 8. The room used to be joined before the engines were
+ready and the handlers attached after both, so a phone that reconnected in
+that window got no protocol, no history, and its microphone cut was dropped.
+
+**Do.** After the restart of test 8, reopen the app within five seconds,
+before the bridge can hear.
+
+**Pass.** The End the turn button is enabled at once and the earlier turns
+appear on the screen, before `[turn` lines resume in the journal. The first
+thing you say once the engines are warm is heard.
+
+**Evidence.** The journal shows `bridge on https://…` and a participant
+join before whisper's ready line; `/health` reports `engines.transcription`
+false in that window and true after.
+
+### 6. What holds Android Auto's audio? (needs adb)
 
 Run this only if the fault returns. In call mode the car parks its own media
 while the app is in the room (to-do item 27); that is expected. The fault is
@@ -130,7 +304,7 @@ adb shell dumpsys audio | grep -iE "mode|focus|usage"
 `dev.crsmith.sidetone` in the first reading means the app did not let go.
 Write both readings into the vault page.
 
-## 15. Can the agent play a file and talk about it in the same turn?
+### 15. Can the agent play a file and talk about it in the same turn?
 
 **Failed, 27 September.** `POST /play` returned 202 for two files. The first
 stopped at 26 s (`"whole":false`). The second has no `track` event: it never
@@ -144,7 +318,7 @@ the same turn.
 with no retry. The record has a `track` event for the file that says it
 finished.
 
-## 16. Open microphone: turn detector data, and the names
+### 16. Open microphone: turn detector data, and the names
 
 The shadow turn detector (spec 18.16) writes a `turnGuess` line at each
 tentative end. A guess is `resumed` when Chris talked through the pause, and
@@ -199,7 +373,7 @@ each name spelled as in the list passes; a name heard as something else
 ("side tone", "Alf", "live kit") fails, and the text goes into the vault
 page.
 
-## If it goes wrong mid-drive
+### If it goes wrong mid-drive
 
 | Trouble | What works |
 |---|---|
@@ -208,7 +382,7 @@ page.
 | Interrupting feels wrong | "sidetone, interrupt off" |
 | Nothing at all reaches him | the typing box still works; the conversation is the same one |
 
-## What this does not test
+### What this does not test
 
 The engine swap by voice ("fast voice" / "clone voice") is not built; the
 engine is `ttsEngine` in the config and needs a restart. The cloned voice's

@@ -2,7 +2,7 @@
 
 Chris's list of things to build or look at. Add to the end. When an item ships,
 move it to the Done section at the end as one line, and say where in the commit
-message. [`docs/drive.md`](drive.md) holds the open car tests; this file holds
+message. [`docs/testing.md`](testing.md) holds the open car tests; this file holds
 the rest. Item numbers never change: commits, the spec and the vault quote them.
 
 ## 4. Long jobs and the subagent interrupt
@@ -77,7 +77,7 @@ a hold. Kokoro costs 0.1 s but is not the voice Chris wants.
 
 Find out what shortens the time between the end of a request and the first
 sound, with a chatterbox voice. The research is in section G of
-[`docs/streaming-brief.md`](streaming-brief.md). In order of cost:
+[`docs/design.md`](design.md#g-stream-the-audio-the-cloned-voice-is-live). In order of cost:
 
 | Step | Cost | Result that closes it |
 |---|---|---|
@@ -137,7 +137,7 @@ Decided 23 September 2026:
   copy them. The turn view links to the Langfuse trace of that turn.
 - Build the turn view first. Decide the aggregate views after Chris has used it.
 - What else to record, and the order to build it, is in
-  [`observability-brief.md`](observability-brief.md).
+  [`design.md`](design.md#observability).
 - The page uses a component framework and a CSS framework. Before the build,
   make several mock-ups with the `impeccable` skill and the skills that fit.
   Chris picks one.
@@ -628,7 +628,7 @@ have caught 69 ends and cut 31 of the 104 pauses. At 0.95 it would have caught
 ### a. Let the detector end a turn
 
 1. Drive with an open microphone until about 100 utterances end on a pause:
-   `docs/drive.md` section 16 (fd68793). It also checks the vocabulary prompt
+   `docs/testing.md` test 16 (fd68793). It also checks the vocabulary prompt
    of b139674. At 89 after 27 September.
 2. If a threshold exists with few `cutOff` and most `caught`, add a third
    `turnDetector` value that ends the utterance at the tentative end
@@ -726,7 +726,7 @@ frames, over one drive, by minute.
 
 ## 61. `/play` says it plays a file and then drops it
 
-Noted 27 September 2026, from `docs/drive.md` test 15 in the car (vault: Voice
+Noted 27 September 2026, from `docs/testing.md` test 15 in the car (vault: Voice
 Bridge Car Test 4). The test failed.
 
 At 11:36 the agent asked `/play` for a hold track (Soulful Strut). The route
@@ -751,7 +751,7 @@ The first track was not a fault. The record has a `barged` line at
 11:36:41.558, 14 ms before the track stopped: Chris asked for "a shorter
 one", and his speech cut the track as 15.10.3 says.
 
-Done when `docs/drive.md` test 15 passes in the car: the track and the
+Done when `docs/testing.md` test 15 passes in the car: the track and the
 sentence both play in full, with a `track` event for the file that says it
 finished.
 
@@ -791,7 +791,7 @@ commit, and any finding that lived only in the item.
   car. Call mode over Bluetooth SCO passes the echo check, but the car hears an
   HFP call and parks its own media for the whole time the app is in the room.
   Media mode over A2DP lets music play, but the canceller fails: in the car the
-  whole passage came back, 14.9 s at peak 0.54 (drive.md test 15 at ea9d252). Releasing
+  whole passage came back, 14.9 s at peak 0.54 (testing.md test 15 at ea9d252). Releasing
   the focus changes nothing, and in LiveKit 2.28.2 the routing and the focus
   are one flag, so no focus meant the earpiece; the app now routes a no-focus
   setup itself (spec 4.2.2.1). Chris rejected a mode switch per turn: a second

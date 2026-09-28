@@ -1,16 +1,16 @@
 # Sidetone
 
 [`CONTEXT.md`](CONTEXT.md) holds the words this project uses.
-[`docs/sidetone-spec.md`](docs/sidetone-spec.md) is the specification and
+[`docs/spec.md`](docs/spec.md) is the specification and
 [`docs/adr/`](docs/adr) the decisions behind it.
 
-Read [`docs/drive.md`](docs/drive.md) when Chris says he is driving, starts a
-test, reports something that happened in the car, or asks what is left to try.
-It holds the open questions, the test that settles each one, and the command
-that shows the answer.
+Read "The drive card" in [`docs/testing.md`](docs/testing.md) when Chris says
+he is driving, starts a test, reports something that happened in the car, or
+asks what is left to try. It holds the open questions, the test that settles
+each one, and the command that shows the answer.
 
-Read [`docs/streaming-brief.md`](docs/streaming-brief.md) when Chris asks
-about streaming, latency or the round trip.
+Read "Latency" in [`docs/design.md`](docs/design.md) when Chris asks about
+streaming, latency or the round trip.
 
 ## Jobs in a spoken conversation
 
