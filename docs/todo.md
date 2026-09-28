@@ -358,7 +358,7 @@ Points 1 to 5 of the work:
    beside a plain yes, so "do not continue" does not agree.
 5. Done 24 September 2026 (1560391). The matcher looks inside `bash -c`,
    `eval`, `$(…)`, `xargs` and `find`, and gates a command it cannot read.
-   Item 58 holds a shell that reads from a pipe.
+   Item 58 gates a shell that reads from a pipe.
 
 Done when a job started by `aleph job` from a spoken turn does not stop on a
 permission, and a gated action has been agreed and refused once by voice in
@@ -653,18 +653,6 @@ exact thinking count and the cache counts to split them.
 Done when the record splits the median `agentMs` into its parts, and each part
 either has a fix or a reason to leave it.
 
-## 58. The gate does not see a command piped into a shell
-
-Noted 27 September 2026, from the architectural review of 25 September
-(section 6.1). `shell` in `src/gated.ts:89` scans only `bash -c` and `sh -c`.
-A shell that reads its commands from a pipe or a file is not scanned:
-`gatedAction` returns `null` for `echo … | base64 -d | sh`, `curl … | bash`
-and `sh < script.sh`. `ASK_RULES` sends a request for a command that starts
-with `bash`, `sh`, `eval`, `xargs` or `find` (ADR 0009), but `gatedAction`
-lets a shell with no `-c` through. Decide whether a shell with no `-c` and no
-script it can read is `UNREADABLE`, which fails closed. Done when that
-decision is written into the spec at 10.7 and a test holds it.
-
 ## 59. Send screenshots over HTTP, not the control channel
 
 Noted 27 September 2026, from the architectural review of 25 September
@@ -896,3 +884,8 @@ commit, and any finding that lived only in the item.
   it. On the card an echo is only what began while the voice played: Chris
   repeats the line within a second of its end, which the usual 1 s grace
   would drop. Not yet tried in the car.
+- **58. The gate does not see a command piped into a shell.** Closed 28
+  September 2026 (spec 10.7.6). A shell with no `-c` and no script file, or
+  with `-s`, reads a pipe or a redirect, so `gatedAction` gates it as a
+  command that the bridge cannot read. A shell that names a script file still
+  passes: the bridge does not read the file.

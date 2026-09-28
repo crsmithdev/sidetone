@@ -85,18 +85,33 @@ function check(name: string | undefined, args: string[], cwd: string, project: s
   return null;
 }
 
-/** `bash -c <string>` or `sh -c <string>`: the string is a command line. A script file is not read. */
+/**
+ * `bash -c <string>` or `sh -c <string>`: the string is a command line. A
+ * script file is named but not read. A shell with neither reads its commands
+ * from a pipe or a redirect, which cannot be read here.
+ */
 function shell(args: string[], cwd: string, project: string): string | null {
   let i = 0;
   let string = false;
+  let stdin = false;
   while (i < args.length && /^[-+]/.test(args[i]!)) {
     if (args[i] === "-o" || args[i] === "+o") i++;
     else if (/^-[A-Za-z]*c/.test(args[i]!)) string = true;
+    else if (/^-[A-Za-z]*s/.test(args[i]!)) stdin = true;
     i++;
   }
-  if (!string) return null;
-  if (i >= args.length) return UNREADABLE;
-  return scan(args[i]!, cwd, project);
+  if (string) return i < args.length ? scan(args[i]!, cwd, project) : UNREADABLE;
+  if (stdin || !scriptIn(args.slice(i))) return UNREADABLE;
+  return null;
+}
+
+/** Whether a word after the options names a script, and is not a redirect or the target of one. */
+function scriptIn(words: string[]): boolean {
+  for (let i = 0; i < words.length; i++) {
+    if (/^\d*[<>]+&?$/.test(words[i]!)) i++;
+    else if (!/^\d*[<>]/.test(words[i]!)) return true;
+  }
+  return false;
 }
 
 /** The xargs options that take the next word as their value. */
