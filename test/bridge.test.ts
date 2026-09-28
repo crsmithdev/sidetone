@@ -7,7 +7,12 @@
  * no test reached, because the wiring they need was made inside `assemble`.
  */
 import { describe, expect, test } from "bun:test";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { decodeWav } from "../src/audio.ts";
+import { DEFAULTS } from "../src/config.ts";
+import { SentClips } from "../src/sent.ts";
 import type { TurnDetector } from "../src/speech.ts";
 import { bridge } from "./harness.ts";
 
@@ -341,5 +346,45 @@ describe("the turn detector in shadow (18.16)", () => {
     await tick();
     expect(started).toBe(0);
     expect(r.journal.some((line) => line.startsWith("[turn detector"))).toBe(false);
+  });
+});
+
+describe("the utterances the bridge heard (18.14.4)", () => {
+  /** One utterance, loud enough to be speech, then the end-of-turn pause. */
+  async function speak(r: ReturnType<typeof bridge>) {
+    r.stt.transcribe = async () => "sidetone, end turn";
+    const say = (level: number, ms: number) => { for (let i = 0; i < ms / 20; i++) r.ear.frame(new Int16Array(320).fill(Math.round(level * 32768))); };
+    say(0.4, 500);
+    say(0.001, r.config.endOfTurnPauseMs + 500);
+    await until(() => r.journal.some((line) => line.includes("sidetone, end turn")));
+  }
+
+  test("the setting is off, because the copy is Chris's voice", () => {
+    expect(DEFAULTS.keepHeardClips).toBe(false);
+    expect(DEFAULTS.heardDir.endsWith(join(".sidetone", "heard"))).toBe(true);
+  });
+
+  test("off, nothing is kept", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "heard-"));
+    await speak(bridge({ overrides: { heardDir: dir } }));
+    expect(new SentClips(dir).list()).toEqual([]);
+  });
+
+  test("on, each utterance is kept with what the engine wrote for it", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "heard-"));
+    await speak(bridge({ overrides: { keepHeardClips: true, heardDir: dir } }));
+    const kept = new SentClips(dir).list();
+    expect(kept.length).toBeGreaterThan(0);
+    expect(kept.every((clip) => clip.text === "sidetone, end turn" && clip.source === "heard")).toBe(true);
+    expect(decodeWav(await Bun.file(kept[0]!.wav).bytes()).samples.length).toBeGreaterThan(0);
+  });
+
+  test("a copy that fails costs a journal line, not the words", async () => {
+    // a file where the folder should be, so the copy cannot be made
+    const file = join(mkdtempSync(join(tmpdir(), "heard-")), "not-a-folder");
+    await Bun.write(file, "");
+    const r = bridge({ overrides: { keepHeardClips: true, heardDir: file } });
+    await speak(r);
+    expect(r.journal.some((line) => line.includes("could not keep the utterance"))).toBe(true);
   });
 });

@@ -32,7 +32,7 @@ import { Recorder } from "./record.ts";
 import { Screens } from "./screen.ts";
 import { Settings } from "./settings.ts";
 import { SCREENSHOT_DIR, Screenshots } from "./screenshot.ts";
-import { SentClips, clipChecker } from "./sent.ts";
+import { HEARD_KEPT, SentClips, clipChecker } from "./sent.ts";
 import { setupWords } from "./setup.ts";
 import { LocalWhisper, SmartTurn, SpokenAhead, textToSpeech, type SpeechToText, type TextToSpeech, type TurnDetector } from "./speech.ts";
 import { TurnGuesses } from "./turn.ts";
@@ -222,11 +222,17 @@ export function assemble(
   // item 44 the ear reads the settings in force on every frame; only the rate is its own
   const earSettings = Object.assign(Object.create(config) as Config, { sampleRate });
   let counter = 0;
+  // 18.14.4 a transcription at the tentative end is kept too: it is the only
+  // copy when the guess was right, and a part of the utterance when it was not
+  const heard = config.keepHeardClips ? new SentClips(config.heardDir, HEARD_KEPT) : null;
   /** 11.5 and 18.4 entire: the listening policy, one module, driven by frames. */
   const ear: Ear = new Ear(conversation.ears, async (utterance) => {
     const wav = join(scratch, `heard-${++counter}.wav`);
     await Bun.write(wav, encodeWav(utterance.samples, sampleRate));
-    return stt.transcribe(wav);
+    const text = await stt.transcribe(wav);
+    // a copy that fails must not cost the words
+    try { heard?.keep(wav, text, "heard"); } catch (error) { say(`[could not keep the utterance: ${(error as Error).message}]`); }
+    return text;
   }, earSettings, measures, say, guesses);
 
   conversation.start();

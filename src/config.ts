@@ -135,6 +135,13 @@ export interface Config {
    */
   keepSentClips: boolean;
   sentDir: string;
+  /**
+   * 18.14.4 whether the bridge keeps a copy of each utterance it transcribes,
+   * and where. It stores Chris's voice, so it is off unless he turns it on for
+   * a drive whose recordings are to be scored.
+   */
+  keepHeardClips: boolean;
+  heardDir: string;
   /** 5.6 a run of text this long with no punctuation is spoken anyway */
   sentenceMaxChars: number;
   /** 11.5 the pause that ends a turn, and the level that counts as speech */
@@ -300,6 +307,8 @@ export const DEFAULTS: Config = {
   warmTries: 100,
   keepSentClips: true,
   sentDir: join(homedir(), ".sidetone", "sent"),
+  keepHeardClips: false,
+  heardDir: join(homedir(), ".sidetone", "heard"),
   sentenceMaxChars: 240,
   endOfTurnPauseMs: 1_500,
   earlyTranscribeMs: 400,

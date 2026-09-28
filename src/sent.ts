@@ -26,8 +26,17 @@ import type { SpeechToText } from "./speech.ts";
  */
 const SENT_KEPT = 100;
 
-/** Where a clip came from: a kept line played from disk (11.6), or made by the engine for this sentence. */
-export type Source = "kept" | "made";
+/**
+ * 18.14.4 how many utterances are kept. A drive has a few hundred, and an
+ * utterance at 16 kHz is about 30 kB a second, so this is 50 to 150 MB.
+ */
+export const HEARD_KEPT = 1_000;
+
+/**
+ * Where a clip came from: a kept line played from disk (11.6), made by the
+ * engine for this sentence, or heard from Chris (18.14.4).
+ */
+export type Source = "kept" | "made" | "heard";
 
 export interface SentClip {
   id: string;

@@ -129,6 +129,7 @@ Test 15 failed. The vault page has each verdict. These are open:
 | 6 | only if Android Auto's audio stays blocked after the app leaves the room |
 | 15 | a rerun after to-do item 61 lands |
 | 16 | a drive with the microphone open, for the turn detector and the names |
+| 17 | all; needs `keepHeardClips` on for a whole drive, not this one |
 
 Run them in this order: 1, 4, 7, then 10, 11, 12 and 14, then the restart of
 test 8 with test 13 last. Test 16 changes how test 1 behaves, so ask Chris at
@@ -372,6 +373,45 @@ ends turns (to-do item 54). The heard texts settle the vocabulary prompt:
 each name spelled as in the list passes; a name heard as something else
 ("side tone", "Alf", "live kit") fails, and the text goes into the vault
 page.
+
+### 17. Which speech model hears Chris best? (not this drive)
+
+`docs/design.md`'s "Latency research, 18 September" compared five Whisper
+models on synthetic voices and found no difference but one elided phrase. It
+could not test Chris's voice through the phone. This test records it, and a
+script scores it later on each model.
+
+**Before.** Set `"keepHeardClips": true` in `~/.sidetone/config.json` and
+restart the bridge. Each utterance then goes to `~/.sidetone/heard/` as a wav
+with the text small.en wrote for it (spec 18.14.4). Set it back to `false`
+after the drive: the copies are his voice.
+
+**Do.** Say "sidetone, mute". Muted, the bridge still transcribes and keeps
+every utterance, and no command but mute, unmute and the tones acts. Read the
+card three times, in order, at ordinary speed, with a pause after each line:
+
+| # | Say | Want |
+|---|---|---|
+| 1 | sidetone, end the turn | endTurn |
+| 2 | sidetone, never mind | endTurn |
+| 3 | sidetone, male voice | maleVoice |
+| 4 | sidetone, female voice | femaleVoice |
+| 5 | sidetone, carry on | carryOn |
+| 6 | sidetone, say again | restate |
+| 7 | sidetone, recap | where |
+| 8 | sidetone, stats | stats |
+| 9 | sidetone, report the usage | usage |
+| 10 | sidetone, interrupt on | interruptOn |
+| 11 | sidetone, verbosity brief | verbosityBrief |
+| 12 | what does the serve command actually do | speech |
+
+Then "sidetone, unmute". That is 36 utterances, about four minutes.
+
+**Settles.** Nothing on the drive. After it, label each kept clip with its
+line on the card, in time order, and score each model on the labels: the
+count that `match` takes to the wanted command, and the mean time a clip. A
+clip kept at the tentative end (18.4) that is only part of a line gets no
+label of its own.
 
 ### If it goes wrong mid-drive
 
