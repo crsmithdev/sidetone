@@ -54,11 +54,7 @@ September, the median was 6.0 seconds (4.8 with Kokoro only).
 | Transcription started at a 400 ms quiet, used if the pause completes | `094b427` |
 | Each sentence sent to the phone's screen before the voice reaches it | `dc324e3` |
 | A short first sentence, asked for in the voice instruction | `e705a76` |
-| A kept opener ("Okay.") that plays while the first sentence is made | `c0f4f83` |
 | The turn detector, in shadow: it guesses and ends nothing | `f040436` |
-
-The opener shipped on 24 September, but no `answered` line in the record
-names an opener yet. Nobody has checked why.
 
 ### 4. What is left, in order
 

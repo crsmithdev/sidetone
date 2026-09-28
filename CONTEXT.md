@@ -245,10 +245,6 @@ _Avoid_: the endpointer, the end-of-speech model.
 A short line the bridge makes once, checks, and keeps on disk under `~/.sidetone/spoken/`. `bun src/main.ts warm` makes each kept line that is missing.
 _Avoid_: a cached clip, a canned phrase.
 
-**An opener**:
-A short kept line, such as "Okay.", that plays at the start of an answer while the bridge makes the first sentence (`openers`).
-_Avoid_: a filler, an acknowledgement.
-
 **The supervisor**:
 The part of the bridge that watches the agent process and restarts it when it stops, loops on compaction or runs too long (spec section 8).
 _Avoid_: the watchdog, the monitor.

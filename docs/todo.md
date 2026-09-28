@@ -63,13 +63,11 @@ agent with no re-run of a job.
 
 ## 5. Faster speech from the good voices
 
-Noted 21 September 2026. Step one measured 21 September. Two parts built 24
+Noted 21 September 2026. Step one measured 21 September. One part built 24
 September 2026:
 
 - eebbd2b: a resume plays the clip that a barge-in cut, and the record has the
   worker's times.
-- c0f4f83 (spec 11.6.5): an answer opens with a kept opener while the engine
-  makes its first sentence.
 
 The good voices are the chatterbox ones, and chatterbox is the default engine.
 Its first sentence costs about 2.5 s, on every answer and on every resume after

@@ -92,7 +92,7 @@ export interface Parts {
   /** 18.16 the turn detector in shadow. It is made from the config when it is left out */
   turn?: TurnDetector;
   /** 11.6 the sentence made ahead of the one being spoken. It is made from `tts` when it is left out */
-  made?: Pick<SpokenAhead, "take" | "start" | "use" | "times" | "keptClip">;
+  made?: Pick<SpokenAhead, "take" | "start" | "use" | "times">;
   /** 15 the cue files, built once */
   cues?: Pick<Cues, "file"> & { build(): Promise<void> };
   /** 18 where every event of the session goes. A test that keeps none passes a sink that drops them */
@@ -156,8 +156,6 @@ export function assemble(
   const mouth = new Mouth(speaker, ahead, cues, measures, {
     ...config,
     talking: () => ear.bargingIn,
-    // 11.6.5 no opener while muted
-    muted: () => conversation.isMuted,
     // 15.8 the tracks are decoded at the rate the room plays at, so nothing resamples them
     // item 28 the gain is the setting in force, read on each start
     music: { folder: config.holdMusicFolder, get gain() { return config.holdMusicGain; }, rate: sampleRate, fadeMs: config.holdMusicFadeMs, fadeInMs: config.holdMusicFadeInMs },
