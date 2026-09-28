@@ -39,6 +39,9 @@ import { LocalWhisper, SmartTurn, SpokenAhead, textToSpeech, type SpeechToText, 
 import { TurnGuesses } from "./turn.ts";
 import { Working, jobsRunning } from "./working.ts";
 
+/** 14.16.4 what the voice says when a new process of the bridge first has a listener */
+export const STARTED = "Sidetone started.";
+
 /** 18 the session's own line, then every event after it, appended as it happens. */
 function recorder(config: Config): (event: Event) => void {
   const record = new Recorder(config.recordPath);
@@ -197,6 +200,8 @@ export function assemble(
       if (event) measures.device(event);
       return line;
     },
+    // 14.16.4 a restart of the service is heard, not only seen in systemctl
+    started: () => announce(STARTED),
   }, say);
 
   // 14.16 the app shows "starting" until the workers are warm. A failed load
@@ -259,13 +264,13 @@ export function assemble(
     for (const line of screenshots.expire()) channel.journal(line);
   }, 1_000);
 
+  function announce(text: string): void {
+    mouth.announce(text, idle);
+    // 17.17 the words reach the app at once, which notifies them when it is not in front
+    channel.tell({ kind: "narration", text, announce: true });
+  }
   return {
-    conversation, ear, mouth, channel, measures, stt, tts, ready,
-    announce(text: string) {
-      mouth.announce(text, idle);
-      // 17.17 the words reach the app at once, which notifies them when it is not in front
-      channel.tell({ kind: "narration", text, announce: true });
-    },
+    conversation, ear, mouth, channel, measures, stt, tts, ready, announce,
     tell(text: string) {
       news.push(text);
       deliver();

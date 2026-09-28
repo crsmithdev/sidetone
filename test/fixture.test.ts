@@ -135,6 +135,8 @@ describe("the control channel fixture (4.3, ADR 0007)", () => {
     }
     expect(endTurn).toBe("sidetone end the turn");
     expect(lines).toEqual([
+      // 14.16.4 the new bridge is warm with a client in the room
+      "note: Sidetone started.",
       "you: look and tell me",
       // the page grows one line for the answer, begun with its first sentence
       "bridge: Let me look. Found it.",

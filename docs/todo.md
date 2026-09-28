@@ -606,15 +606,6 @@ says what "small" and "independent" mean.
 Done when the rule is in `CLAUDE.md`, and in a spoken conversation a request
 for a small, independent task starts a job instead of running inline.
 
-## 66. Say something when the service restarts
-
-Noted 28 September 2026. When the Sidetone systemd service restarts, nothing
-tells Chris. He has to run `systemctl status` to know. He wants the bridge to
-say something he can hear when it starts again, so he knows without a check.
-
-Done when the bridge speaks, or plays a cue, when the service starts or
-restarts, and Chris hears it in the room without a command.
-
 ## Done
 
 One line for each item that shipped: the number, the title, the date, the
@@ -786,3 +777,8 @@ commit, and any finding that lived only in the item.
   with `-s`, reads a pipe or a redirect, so `gatedAction` gates it as a
   command that the bridge cannot read. A shell that names a script file still
   passes: the bridge does not read the file.
+- **66. Say something when the service restarts.** Closed 28 September 2026
+  (spec 14.16.4). A new process of the bridge says "Sidetone started." once,
+  when its workers are warm and a client is in the room, or when the first
+  client joins after that. It is spoken, not a cue, so `tones off` leaves it
+  on. The tests cover the timing; Chris has not heard it in the room yet.

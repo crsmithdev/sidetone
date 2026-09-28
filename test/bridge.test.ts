@@ -11,6 +11,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { decodeWav } from "../src/audio.ts";
+import { STARTED } from "../src/bridge.ts";
 import { DEFAULTS } from "../src/config.ts";
 import { SentClips } from "../src/sent.ts";
 import type { TurnDetector } from "../src/speech.ts";
@@ -42,6 +43,34 @@ describe("the bridge, assembled as the car assembles it", () => {
     await r.ready;
     await tick();
     expect(r.told.filter((m) => m.kind === "starting")).toEqual([{ kind: "starting", on: true }, { kind: "starting", on: false }]);
+  });
+
+  test("14.16.4 a new bridge says it started once, when it is warm and a client is in the room", async () => {
+    let warm = () => {};
+    const r = bridge({ warm: new Promise<void>((resolve) => { warm = resolve; }) });
+    r.channel.joined();
+    await tick();
+    // cold: nothing is said while the engines load
+    expect(r.told.filter((m) => m.kind === "narration")).toEqual([]);
+    warm();
+    await r.ready;
+    await until(() => r.said.length > 0, 2_000);
+    expect(r.said).toEqual([STARTED]);
+    expect(r.told).toContainEqual({ kind: "narration", text: STARTED, announce: true });
+    // a rejoin of the same process is not a start
+    r.channel.joined();
+    await Bun.sleep(600);
+    expect(r.said).toEqual([STARTED]);
+  });
+
+  test("14.16.4 a warm bridge with nobody in the room says it started when a client joins", async () => {
+    const r = bridge();
+    await r.ready;
+    await Bun.sleep(600);
+    expect(r.said).toEqual([]);
+    r.channel.joined();
+    await until(() => r.said.length > 0, 2_000);
+    expect(r.said).toEqual([STARTED]);
   });
 
   test("Chris speaking over the answer holds the rest of it (11.3, 11.9)", async () => {

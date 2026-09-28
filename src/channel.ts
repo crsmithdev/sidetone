@@ -45,6 +45,8 @@ export interface Ends {
   crash(report: Record<string, unknown>): string;
   /** 14.15 what the phone says about itself each time the bridge greets it; what to say about it */
   device(value: Record<string, unknown>): Promise<string>;
+  /** 14.16.4 the bridge is warm and a client is in the room, once for each process */
+  started?(): void;
 }
 
 /** The ear's reading of a dead microphone, as `Ear.silence` gives it. */
@@ -62,6 +64,9 @@ export class Channel {
   private warm = false;
   /** 14.16 whether a client was told that the bridge starts, and so is owed the end of it */
   private toldStarting = false;
+  /** 14.16.4 whether a client joined, and whether the bridge said that it started */
+  private present = false;
+  private saidStarted = false;
 
   constructor(
     private readonly config: Config,
@@ -114,6 +119,8 @@ export class Channel {
     if (!this.warm) this.toldStarting = true;
     this.settings();
     this.send({ kind: "history", turns: this.missed() });
+    this.present = true;
+    this.started();
   }
 
   /**
@@ -123,6 +130,14 @@ export class Channel {
   ready(): void {
     this.warm = true;
     if (this.toldStarting) this.send({ kind: "starting", on: false });
+    this.started();
+  }
+
+  /** 14.16.4 the first moment the bridge is warm with a client in the room */
+  private started(): void {
+    if (this.saidStarted || !this.warm || !this.present) return;
+    this.saidStarted = true;
+    this.ends.started?.();
   }
 
   /**
