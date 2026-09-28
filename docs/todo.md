@@ -516,17 +516,6 @@ exact thinking count and the cache counts to split them.
 Done when the record splits the median `agentMs` into its parts, and each part
 either has a fix or a reason to leave it.
 
-## 59. Send screenshots over HTTP, not the control channel
-
-Noted 27 September 2026, from the architectural review of 25 September
-(section 6.4). A screenshot goes to the bridge as chunks on the control
-channel (`ClientRoom.kt:371`), the same channel as the words of an answer. On
-a weak mobile connection a screenshot can hold back the deltas behind it. The
-review proposes a POST to the bridge's HTTP server for the image, with only a
-short note on the control channel. Done when there is a measurement: one
-screenshot sent during an answer on a slow link, with the delay of the
-deltas before and after the change.
-
 ## 60. Set the level for speech from the noise in the car
 
 Noted 27 September 2026, from the architectural review of 25 September
@@ -922,3 +911,25 @@ commit, and any finding that lived only in the item.
   question Chris waits on inline. It defines "small" as a bounded, mechanical
   edit or lookup, and "independent" as a result that nothing later in the
   turn needs. Not yet tried in the car since the rule.
+- **59. Send screenshots over HTTP, not the control channel.** Closed 28
+  September 2026 with a measurement; the change is not kept. A branch had
+  the app POST the JPEG whole to `/screenshot`, with the room token as the
+  pass, and kept only the drop and the states of 14.12.7 on the control
+  channel. `scripts/screenshot-link.ts` measures both ways: two rtc-node
+  participants and a private LiveKit server, a real 53 KB screenshot sent
+  3 s into a stream of deltas, with netem on the phone's link. The delay of
+  the deltas after the send starts:
+
+  | Link (up/down, one way, loss) | Parts: max | HTTP: max |
+  | --- | --- | --- |
+  | 256k/1M, 50 ms, 0% (3 runs each) | 54-71 ms | 54-59 ms |
+  | 128k/512k, 100 ms, 0% (3 each) | 183-225 ms | 322-1,245 ms |
+  | 64k/256k, 150 ms, 1% (6 each) | 0.5-6.5 s; 0-206 deltas over 1 s | 4.5-5.1 s; 116-135 over 1 s |
+
+  The base delay is the netem delay. The cause is the phone's full uplink
+  queue, which delays the acknowledgements of the downlink, not the control
+  channel: a data message the phone sends does not queue in front of one it
+  receives. A POST fills the same uplink, and TCP fills it harder. The change
+  does not cut the delay and adds a route on the tailnet that needs a token,
+  so the screenshot stays in parts on the control channel. Not measured on
+  the phone itself or on a real mobile link.
