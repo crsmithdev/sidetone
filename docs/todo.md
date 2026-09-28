@@ -765,6 +765,28 @@ trip enough to matter.
 Done when there is a measurement of what batching would save, or a finding
 that says why it would not help.
 
+## 63. Strengthen two rules in the voice instruction
+
+Noted 28 September 2026, from a live conversation where both were broken.
+The agent called a tool with no sentence first, so the voice went silent
+while it ran, despite `voiceInstruction` in `src/config.ts` already saying
+to speak first. Separately, asked about round-trip data, it guessed an
+answer instead of reading `~/.sidetone/record.jsonl`, and was wrong.
+
+### a. Say something before every tool call
+
+`src/config.ts` line 357 already states the rule. Find out why it is not
+followed every time and strengthen the wording, or find a mechanical check
+that catches a tool call with no line before it.
+
+### b. Do not guess at stats, logs or other facts a file would settle
+
+Add a rule against answering a factual question (data, state, "did X
+happen") from memory when a source of truth exists to check first.
+
+Done when both rules hold across a run of test conversations, or a
+mechanical check catches a violation.
+
 ## Done
 
 One line for each item that shipped: the number, the title, the date, the
