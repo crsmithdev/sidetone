@@ -665,6 +665,81 @@ setting). The sentences should be like what Chris says to the agent in the
 car: file names, numbers, project words and a question or two. Done when
 "read the card" can read either card, and test 17 scores both.
 
+## 69. A blip of garbled speech at the start or the end of an answer
+
+Noted 28 September 2026, from Chris in the car at 16:12 (record, `heard` at
+1790637127671). In his words: "there are these moments where it's like this
+syllable comes out of the text to speech, like, I don't know if it's like out
+of order, or it's like, it's or backwards, or it sounds like really, really
+weird. It's like an interjection. It happens every once in a while." And:
+"Usually at the beginning of a response, or maybe at the end, but never in the
+middle, really." He thought it may be a connection glitch. It is intermittent,
+and no report names a time yet.
+
+### What the telemetry of that drive shows
+
+The drive ran from 16:02 (the `device` line with route Audi MMI) to 16:13.
+Most of it was the card of item 65: short lines, each one its own clip.
+
+- No transport data. The phone runs the APK built 27 September at 07:42
+  (`ab234707a15a`, and the bridge serves the same file). The receive
+  statistics and the `reconnect` event of 14.17 landed on 28 September at
+  10:47 (309d2fe), so this build sends neither. The journal of the day has no
+  "the phone received" line, and the screen log has no `reconnect`. The drive
+  has no "the phone reports poor" line either, but that reading is coarse.
+- The render has faults at the edges. The drive's 55 kept clips
+  (`~/.sidetone/sent/`) were copied to `~/.sidetone/findings/blip-69/sent/`
+  before they rotate out. The speech worker transcribed each one against its
+  text, as `bun scripts/sent-check.ts` does. Five are garbled, all at the
+  start or the end of the clip, none in the middle:
+
+  | Time | Text | Heard |
+  |------|------|-------|
+  | 16:05:53 | `Listening."` | "Living Eik." |
+  | 16:06:05 | "Round 1." | "Oh, wow, yep." |
+  | 16:06:28 | "sidetone, female voice." | "Sidetone, female voice, Nabei" |
+  | 16:08:02 | "sidetone, stats." | "Cytone, Stats" |
+  | 16:08:16 | "sidetone, interrupt on." | "Cytone Interrupt on" |
+
+  A sixth, "Logging that one too" at 16:12:20, came back as "Log in at 1.2",
+  at the start of an answer. It passed the likeness check.
+
+  The first two are the fault of item 33: chatterbox garbles one-word text.
+  "Listening." is one word because the splitter cut the agent's `says "That
+  is the card. Listening."` at the period inside the quote. The third has an
+  extra syllable after the last word. The last two smear the first syllable.
+  These faults are in the wav that the bridge sent, so the render makes them,
+  not the connection. Nobody has listened to the clips yet; the transcriber
+  can mishear a short clip too.
+- The cues do not mix into the speech. The room has one audio source, and
+  `speak` in `src/transport.ts` writes one wav at a time, so the frames of a
+  cue and of a sentence never interleave. A cue can play right before the
+  first sentence (`thinking`) or right after the last (`done`, 15.15), and
+  `Mouth.cue` drops a cue while a sentence plays. A click next to a word can
+  sound like part of the word, but it is not in the word's samples.
+- No note in the research of item 5 or 56 names an onset fault of chatterbox.
+
+So the drive has a likely cause for some reports, a render fault on short
+text and at the edges of a clip, and no data to rule transport in or out.
+
+### What to capture next time
+
+1. Install the current APK on the phone before the next drive, so the app
+   sends its receive statistics (14.17) and logs `reconnect`.
+2. When the blip happens, say "blip" at once, as a plain utterance. The
+   `heard` line of the record then marks the time, and the sentence just
+   before it is the one with the blip.
+3. Look within the hour. The bridge keeps only the last 100 clips
+   (`SENT_KEPT` in `src/sent.ts`), and the card made 55 in ten minutes. Copy
+   the clips near the mark, then run `bun scripts/sent-check.ts` on them.
+   Garbled in the clip means the render. Clean in the clip, with concealment
+   in the journal's receive line at that time, means the connection.
+4. If the clip is clean and the receive line is too, suspect the car's
+   Bluetooth link (item 56, finding row 4) or a cue next to the word.
+
+Done when one report with a time is matched to its clip and its receive line,
+and the cause is named.
+
 ## Done
 
 One line for each item that shipped: the number, the title, the date, the
