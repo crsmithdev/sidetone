@@ -787,6 +787,22 @@ happen") from memory when a source of truth exists to check first.
 Done when both rules hold across a run of test conversations, or a
 mechanical check catches a violation.
 
+## 64. Push small, independent tasks to a background job
+
+Noted 28 September 2026, first tried live in the car that day: Chris asked
+for a to-do item in a spoken turn, and it went to a background job.
+
+Chris prefers that a small task, such as adding a to-do item, runs as a
+background `aleph job` and not inline in a spoken turn, when nothing in the
+rest of the turn depends on its result. The voice stays free for the
+conversation, and the `[job news]` message tells him when it lands.
+`CLAUDE.md`, under "Jobs in a spoken conversation", says how to start a job
+but not when to prefer one. Add a rule that sends such a task to a job, and
+says what "small" and "independent" mean.
+
+Done when the rule is in `CLAUDE.md`, and in a spoken conversation a request
+for a small, independent task starts a job instead of running inline.
+
 ## Done
 
 One line for each item that shipped: the number, the title, the date, the
