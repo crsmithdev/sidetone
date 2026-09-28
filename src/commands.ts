@@ -19,7 +19,7 @@ export type CommandName =
   | "carryOn" | "interruptOn" | "interruptOff"
   | "audioOn" | "audioOff"
   | "verbosityBrief" | "verbosityNormal" | "verbosityFull" | "shorter" | "longer"
-  | "readCard";
+  | "readCard" | "readPlainCard";
 
 export type Match =
   /** 9.4 a command to do */
@@ -95,6 +95,11 @@ const COMMANDS: Array<{ name: CommandName; any: string[][]; phrases: string[] }>
   // "voice" was the first attempt and it matched nothing on a real run. No
   // "man": "can", "mean" and "an" are one character from it (item 36).
   { name: "maleVoice", any: [["male"], ["mail"]], phrases: ["male voice"] },
+  // item 67 the plain card, above the command card, which "read ... card"
+  // matches too. 9.3 small.en wrote "read the plain card" as "read the
+  // playing card" in every take of the corpus, and "plane" is the other way
+  // it can spell the sound.
+  { name: "readPlainCard", any: [["read", "plain", "card"], ["read", "plane", "card"], ["read", "playing", "card"]], phrases: ["read the plain card"] },
   // item 65 test 17 of docs/testing.md, run by the bridge. Two words: "read"
   // is a word Chris says, and "card" is one character from "car".
   { name: "readCard", any: [["read", "card"]], phrases: ["read the card"] },
@@ -172,13 +177,15 @@ export function spokenForms(wakeWord: string): Array<{ said: string; want: Comma
   return COMMANDS.flatMap(({ name, phrases }) => phrases.map((phrase) => ({ said: `${wakeWord}, ${phrase}`, want: name })));
 }
 
+/** A line of a card: what Chris says, and what `match` must take it to. */
+export type CardLine = { say: string; want: CommandName | "speech" };
+
 /**
- * Item 65 the card of test 17 in docs/testing.md: eleven commands and one
- * sentence of speech, which Chris reads three times through, muted, so the
- * kept clips score speech models on his voice. `want` is what `match` must
- * take each line to.
+ * Item 65 the command card of test 17 in docs/testing.md: eleven commands and
+ * one sentence of speech, which Chris reads three times through, muted, so
+ * the kept clips score speech models on his voice.
  */
-export const CARD: Array<{ say: string; want: CommandName | "speech" }> = [
+export const CARD: CardLine[] = [
   { say: "sidetone, end the turn", want: "endTurn" },
   { say: "sidetone, never mind", want: "endTurn" },
   { say: "sidetone, male voice", want: "maleVoice" },
@@ -193,7 +200,28 @@ export const CARD: Array<{ say: string; want: CommandName | "speech" }> = [
   { say: "what does the serve command actually do", want: "speech" },
 ];
 
-/** Item 65 how many times through the card is read. */
+/**
+ * Item 67 the plain card of test 17: sentences Chris says to the agent, with
+ * the words the record shows a model hears badly. No line starts with the
+ * wake word, so each one is speech. The reason for each line is in the table
+ * of test 17.
+ */
+export const PLAIN_CARD: CardLine[] = [
+  { say: "Drop that job.", want: "speech" },
+  { say: "Add a to-do item for the car cue.", want: "speech" },
+  { say: "What does item 67 say?", want: "speech" },
+  { say: "Open conversation.ts and find the readLine function.", want: "speech" },
+  { say: "Is the LiveKit server still up on port 7880?", want: "speech" },
+  { say: "Land the plain card job, then restart the service.", want: "speech" },
+  { say: "Check the worktree for changes before you rebase onto main.", want: "speech" },
+  { say: "Read ADR 6 and tell me why Sidetone matches the sound of the wake word.", want: "speech" },
+  { say: "Ask Claude to build the APK and run bun test.", want: "speech" },
+  { say: "The answer took 2.4 seconds, and Kokoro used 350 milliseconds of that.", want: "speech" },
+  { say: "Which Whisper model are we running right now?", want: "speech" },
+  { say: "When the road gets loud on the highway, keep each answer short and say the item number first.", want: "speech" },
+];
+
+/** Item 65 how many times through a card is read. */
 export const CARD_ROUNDS = 3;
 
 /**

@@ -556,6 +556,37 @@ setting). The sentences should be like what Chris says to the agent in the
 car: file names, numbers, project words and a question or two. Done when
 "read the card" can read either card, and test 17 scores both.
 
+#### Findings, 28 September
+
+Sources: the 943 utterances with words in `~/.sidetone/record.jsonl`, the card
+read of 16:06 to 16:10, and the vocabulary prompt (`sttVocabulary`, since 26
+September).
+
+- The command card spends most of its words on "sidetone". The drive's reads
+  of it were right but for the wake word: "Saitone", "Cytone" and "site." on
+  28 September, with the prompt in force.
+- The record's misses are names: "Claude" as "Cloud" and "Clod", "Sidetone"
+  as "inside tone", "SITONE", "Sight tone", "worktree" as "work tree". All
+  are in the prompt now; the plain card measures whether the prompt holds.
+- Words out of the prompt are not measured anywhere: "ADR", "APK", "Whisper",
+  file names ("echo check.ts" in the record), code names.
+- Numbers come back as digits or as words by chance ("five or 10"), so a
+  line with a number tests the form the agent reads.
+- Chris talks to the agent in commands ("land it", "drop it", "restart the
+  service") and questions ("What whisper model are we running right now?"),
+  from two words to thirty.
+- A synthetic read of the plain card on small.en (two Kokoro voices, clean)
+  already misses "car cue" ("Car Queue"), "plain card" ("plane car") and
+  "readLine" ("read line"), and writes "conversation.ts" as "conversation,
+  TS". The lines separate models before Chris's voice is in them.
+- The same engine wrote "read the plain card" as "read the playing card" in
+  every take of the corpus, so "playing" is a form of the command.
+
+The twelve lines and the reason for each are in test 17 of `docs/testing.md`.
+"read the plain card" picks the plain card; "read the card" still picks the
+command card (spec 9.4.15). A plain line scores as right when its letters and
+digits match the line's, lower case.
+
 ## 69. A blip of garbled speech at the start or the end of an answer
 
 Noted 28 September 2026, from Chris in the car at 16:12 (record, `heard` at

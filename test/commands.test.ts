@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { DEFAULTS } from "../src/config.ts";
-import { CARD, afterWakeWord, commandIn, match, read } from "../src/commands.ts";
+import { CARD, PLAIN_CARD, afterWakeWord, commandIn, match, read } from "../src/commands.ts";
 
 const WAKE = DEFAULTS.wakeWord;
 const MUTED = DEFAULTS.mutedCommands;
@@ -355,7 +355,7 @@ describe("two words of a command run together (9.3)", () => {
 
 describe("the card of test 17 (item 65)", () => {
   test("each line reaches what the card wants of it, so a miss on the drive is the engine's", () => {
-    for (const line of CARD) {
+    for (const line of [...CARD, ...PLAIN_CARD]) {
       const got = match(line.say, WAKE, false, MUTED);
       expect(`${line.say} -> ${got.kind === "command" ? got.name : got.kind}`).toBe(`${line.say} -> ${line.want}`);
     }
@@ -364,5 +364,10 @@ describe("the card of test 17 (item 65)", () => {
     expect(match("sidetone, read the card", WAKE, false, MUTED)).toEqual({ kind: "command", name: "readCard" });
     expect(commandIn("read it")).toBe(null);
     expect(commandIn("the card")).toBe(null);
+  });
+  test("\"read the plain card\" is the plain card, however the engine spells it", () => {
+    expect(match("sidetone, read the plain card", WAKE, false, MUTED)).toEqual({ kind: "command", name: "readPlainCard" });
+    expect(match("Sidetone, read the plane card.", WAKE, false, MUTED)).toEqual({ kind: "command", name: "readPlainCard" });
+    expect(match("Sidetone, read the playing card.", WAKE, false, MUTED)).toEqual({ kind: "command", name: "readPlainCard" });
   });
 });

@@ -35,7 +35,7 @@
 import { Answer } from "./answer.ts";
 import { Answers } from "./answers.ts";
 import type { Channel } from "./channel.ts";
-import { CARD, CARD_ROUNDS, read, type CommandName, type Reading } from "./commands.ts";
+import { CARD, CARD_ROUNDS, PLAIN_CARD, read, type CardLine, type CommandName, type Reading } from "./commands.ts";
 import { VERBOSITIES, type Config, type Verbosity } from "./config.ts";
 import type { CueName } from "./cues.ts";
 import { ECHO_AFTER_MS, echoOf } from "./echo.ts";
@@ -106,6 +106,8 @@ export class Conversation {
   private muted = false;
   /** Item 65 the line of the card Chris says next, counted across the rounds, or null with no card */
   private card: number | null = null;
+  /** Item 67 the lines of the card being read: the command card or the plain card */
+  private cardLines: CardLine[] = CARD;
   private checkpointOpen = false;
   /** 13.2 the usage warning was spoken, and use has not dropped below the level since */
   private usageWarned = false;
@@ -343,16 +345,29 @@ export class Conversation {
     await then?.();
   }
 
+  /** Item 65 start a card: mute, so no line acts, and say the first line. */
+  private readCard(lines: CardLine[], name: string): Hold {
+    this.muted = true;
+    this.cardLines = lines;
+    this.card = 0;
+    this.reply(`Reading ${name}, ${CARD_ROUNDS} times through. Say each line after me.`);
+    this.promptLine();
+    return "resume";
+  }
+
   /** Item 65 where a line is on the card, for the journal. */
   private cardPlace(at: number): string {
-    return `round ${Math.floor(at / CARD.length) + 1}, line ${at % CARD.length + 1}`;
+    return `round ${Math.floor(at / this.cardLines.length) + 1}, line ${at % this.cardLines.length + 1}`;
   }
 
   /** Item 65 the next line of the card, said for Chris to repeat, with the round at the head of each. */
   private promptLine(): void {
     const at = this.card ?? 0;
-    if (at % CARD.length === 0) this.reply(`Round ${at / CARD.length + 1}.`);
-    this.reply(`${CARD[at % CARD.length]!.say}.`);
+    const lines = this.cardLines;
+    if (at % lines.length === 0) this.reply(`Round ${at / lines.length + 1}.`);
+    // a plain line ends in its own stop or question mark, which the voice needs for the tune of a question
+    const say = lines[at % lines.length]!.say;
+    this.reply(/[.?]$/.test(say) ? say : `${say}.`);
   }
 
   /**
@@ -362,9 +377,10 @@ export class Conversation {
    */
   private readLine(said: string): void {
     const at = this.card ?? 0;
-    this.channel.journal(`the card, ${this.cardPlace(at)}, "${CARD[at % CARD.length]!.say}": heard "${said}"`);
+    const lines = this.cardLines;
+    this.channel.journal(`the card, ${this.cardPlace(at)}, "${lines[at % lines.length]!.say}": heard "${said}"`);
     this.card = at + 1;
-    if (this.card < CARD.length * CARD_ROUNDS) { this.promptLine(); return; }
+    if (this.card < lines.length * CARD_ROUNDS) { this.promptLine(); return; }
     this.card = null;
     this.muted = false;
     this.reply("That is the card. Listening.");
@@ -656,12 +672,9 @@ export class Conversation {
        * waits for his utterance, not a timer: the pause after each line is the
        * end of his turn, and a line the engine lost is said again, not skipped.
        */
-      case "readCard":
-        this.muted = true;
-        this.card = 0;
-        this.reply(`Reading the card, ${CARD_ROUNDS} times through. Say each line after me.`);
-        this.promptLine();
-        return "resume";
+      case "readCard": return this.readCard(CARD, "the card");
+      // item 67 the same test on sentences Chris says to the agent
+      case "readPlainCard": return this.readCard(PLAIN_CARD, "the plain card");
       // 15.4 the cues earn their keep while this is being built and are noise
       // once it works, so which it is stays Chris's to say, out loud.
       case "tonesOn": return this.setTones(true);

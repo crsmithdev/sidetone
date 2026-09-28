@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { DEFAULTS, type Config } from "../src/config.ts";
-import { CARD, CARD_ROUNDS, COMMAND_NAMES, spokenForms } from "../src/commands.ts";
+import { CARD, CARD_ROUNDS, COMMAND_NAMES, PLAIN_CARD, spokenForms } from "../src/commands.ts";
 import { KEPT_LINES } from "../src/mouth.ts";
 import { bridge, type Script } from "./harness.ts";
 
@@ -928,6 +928,25 @@ describe("the card of test 17 (item 65)", () => {
     const labels = r.journal.filter((line) => line.startsWith("[the card, "));
     expect(labels).toHaveLength(CARD.length * CARD_ROUNDS);
     expect(labels[13]).toBe('[the card, round 2, line 2, "sidetone, never mind": heard "sidetone, never mind"]');
+  });
+
+  test("the plain card is read the same way, each line with its own stop", async () => {
+    const r = room({}, failing);
+    await r.c.heard("sidetone, read the plain card");
+    await tick();
+    expect(r.said).toEqual(["Reading the plain card, 3 times through. Say each line after me.", "Round 1.", "Drop that job."]);
+    for (let round = 0; round < CARD_ROUNDS; round++) {
+      for (const line of PLAIN_CARD) await r.c.heard(line.say);
+    }
+    await tick();
+    expect(r.c.isMuted).toBe(false);
+    // the opening, a round mark and the lines each round, and the close: no line reached the agent
+    expect(r.said).toHaveLength(1 + CARD_ROUNDS * (1 + PLAIN_CARD.length) + 1);
+    expect(r.said).toContain("What does item 67 say?");
+    expect(r.said.at(-1)).toBe("That is the card. Listening.");
+    const labels = r.journal.filter((line) => line.startsWith("[the card, "));
+    expect(labels).toHaveLength(PLAIN_CARD.length * CARD_ROUNDS);
+    expect(labels[12]).toBe('[the card, round 2, line 1, "Drop that job.": heard "Drop that job."]');
   });
 
   test("unmute stops it, and nothing after is a line", async () => {
