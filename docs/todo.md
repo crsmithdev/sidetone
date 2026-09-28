@@ -259,8 +259,9 @@ fault.
 ## 28. A proper options menu in the Android app
 
 Noted 22 September 2026. Built and landed 23 September 2026 (010a92d, spec
-17.22). Item 46 put a gear on it. Not yet used on the phone. What is left is
-one use of the menu on the phone.
+17.22). Item 46 put a gear on it. Item 50 folded in on 28 September 2026: it
+made the menu a screen that fills the window (9df5cc8), and what was left of
+both items is the same check on the phone. Not yet used on the phone.
 
 What was built. The gear at the end of the status row opens a menu with a
 three-way verbosity selector (item 37), a tones switch, a hold music volume
@@ -282,8 +283,14 @@ Still to do:
   and the volume heard in the car.
 - Item 49 (4d15b13) renamed "Leave" to "Quit" in this menu and gave "Leave" a
   new job.
+- Item 50 (9df5cc8, APK `0877275ff197`) replaced the dropdown with an options
+  screen under the status row. The gear or a back gesture closes it. It holds
+  the same controls, with full-width rows and a large slider thumb, because a
+  slider in a dropdown is a poor target in a moving car.
 
-Done when the menu has been used on the phone once.
+Done when the options screen has been used on the phone once: the gear opens a
+screen that fills the window under the top bar, every control in it works, and
+a back gesture returns to the conversation.
 
 ## 35. Permissions stop the agent, and the spoken confirm word may not exist
 
@@ -555,25 +562,6 @@ tunnel (14.8), and the history arrives when it comes back.
 Done when Chris taps Leave in the car, the music plays, the app is still on the
 screen, and one tap brings the conversation back with the history.
 
-## 50. The settings screen fills the window
-
-Noted 24 September 2026, from using the app. Built 24 September 2026 (9df5cc8,
-spec 17.22), in APK `0877275ff197`. Not yet used on the phone.
-
-The options behind the gear are a dropdown menu (`Options.kt`, spec 17.22). It
-is small, its controls sit in a narrow column, and a slider in a dropdown is a
-poor target in a moving car.
-
-The settings should fill the window, with the top bar and its gear the only
-thing left around it. Tapping the gear opens it; the same tap or a back gesture
-closes it. The controls are the ones the menu holds now, with room to grow as
-item 44 adds the bridge's thresholds: verbosity, tones, hold music volume,
-"Leave", "Quit" and the build line.
-
-Done when the gear opens a screen that fills the window under the top bar, every
-control in it works as it does in the menu today, and a back gesture returns to
-the conversation.
-
 ## 51. A design pass on the status light and its legend
 
 Noted 24 September 2026, from reading the legend on the phone. Designed with
@@ -665,41 +653,6 @@ exact thinking count and the cache counts to split them.
 Done when the record splits the median `agentMs` into its parts, and each part
 either has a fix or a reason to leave it.
 
-## 56. Can correct audio arrive distorted from the connection or the transport?
-
-Noted 27 September 2026, from a question in the car. Investigated 28
-September 2026, `~/.sidetone/findings/audio-transport-56.md`, from the code
-and the journal, with no phone attached. The answer is yes: loss and jitter on
-the cellular link, concealed by the phone's jitter buffer, can garble a
-correct render. The measurement landed 28 September 2026 (spec 14.17). No fix
-made.
-
-Chris asked: can a wav that the server renders correctly still play garbled on
-the phone, from a poor connection or another cause? Two faults look similar
-but are not this one:
-
-- Item 33: chatterbox itself renders some sentences garbled. Nothing is lost
-  after the render.
-- Item 43: chat text arrived scrambled because of the order of data messages
-  (`Dispatchers.Default`), not the connection. A `seq` fixed it.
-
-Neither checked the audio frames from end to end. Questions to research:
-
-- Does the LiveKit Opus path drop or reorder frames under loss?
-- Can the app's playback buffer starve or glitch under jitter?
-- Is anything short of a full resend worth adding: a sequence number on
-  frames, a checksum, or forward error correction?
-
-Done when there is a finding in the shape of item 39 part 2: a file under
-`~/.sidetone/findings/`, from the code and LiveKit's own behaviour, that names
-what can go wrong between a correct render and what Chris hears.
-
-### Outcome, 28 September 2026
-
-Landed: the app sends its receive statistics every 5 s while the bridge
-speaks, the journal has one line for each (spec 14.17), and the screen log has
-a `reconnect` event.
-
 ## 58. The gate does not see a command piped into a shell
 
 Noted 27 September 2026, from the architectural review of 25 September
@@ -763,59 +716,6 @@ one", and his speech cut the track as 15.10.3 says.
 Done when `docs/testing.md` test 15 passes in the car: the track and the
 sentence both play in full, with a `track` event for the file that says it
 finished.
-
-## 62. Investigate batching for Sidetone's own tool calls
-
-Noted 28 September 2026, from a question in the car about tool call speed.
-
-Independent tool calls in one turn can run in parallel instead of one after
-another. Find out how often a Sidetone turn issues tool calls that do not
-depend on each other, and whether batching them would shorten the round
-trip enough to matter.
-
-Done when there is a measurement of what batching would save, or a finding
-that says why it would not help.
-
-### Outcome, 28 September 2026
-
-Measured from the Claude Code transcripts of the voice sessions in
-`~/.claude/projects/-home-crsmi-sidetone` (886 turns) and the 131 `answered`
-lines in `~/.sidetone/record.jsonl` that have `toolsBeforeText`.
-
-| Measure | Value |
-|---|---|
-| Voice turns with a tool call | 433 of 886 (49%) |
-| Turns with more than one model step that calls tools | 212 (24%) |
-| Turns that already put two or more calls in one step | 22 (2%) |
-| Multi-step turns with an independent pair of steps (hand check of 40) | 10 of 40, 15 with borderline cases |
-| Voice turns that batching could shorten | about 6%, at most 9% |
-| Model time between a tool result and the next call, median (p10, p90) | 3.3 s (1.5 s, 9.8 s), 728 gaps |
-| Tool run time, median | 1.2 s; Bash 1.3 s, Read 0.02 s |
-
-Most sequences are real chains: a grep and then a read of the lines it
-found, a `git worktree add` and then an edit in it, a poll and then another
-poll. The independent pairs are mostly two searches or two status checks.
-
-Nothing in Sidetone issues or orders tool calls. Claude Code runs the calls of
-one model step together, and the transcripts show that it does: two Bash
-calls in one step overlap. Only the model decides to put two calls in one
-step, so the one lever is a line in `voiceInstruction` in `src/config.ts`.
-
-Batching saves one model step, about 3 s, in roughly one voice turn of 16. In
-most of those turns it does not move the first word: the first word comes
-before the first tool call, and `answerMs` stops at the first word. It
-shortens the silence in the middle of the turn. The exception is a turn that
-calls tools before it speaks. 50 of the 131 `answered` lines did that, and 22
-of them called two or more tools first. Item 63a closes that case better: a
-sentence before the first tool call takes all tool time off `answerMs`, not
-one step of it.
-
-Not worth a change of its own. If item 63 edits `voiceInstruction`, add one
-sentence there: "Run lookups that do not depend on each other in one step."
-The hand check of 40 turns is a judgement and was not repeated.
-
-The sentence landed in `voiceInstruction` on 28 September 2026, after the
-rule to speak before a tool call.
 
 ## 63. Strengthen two rules in the voice instruction
 
@@ -969,9 +869,23 @@ commit, and any finding that lived only in the item.
   playing, now under 500; and "Audio off." waited on the whole queue, so the
   held answer played on behind it. `frames()` clears the source on a cut, and
   `Mouth.quietAfter` turns the audio off when its own line ends.
+- **56. Can correct audio arrive distorted from the connection or the
+  transport?** Closed 28 September 2026 (cee9eb2) with the finding
+  `~/.sidetone/findings/audio-transport-56.md`, from the code and the journal.
+  Yes: loss and jitter on the cellular link, concealed by the phone's jitter
+  buffer, can garble a correct render. The measurement landed the same day
+  (309d2fe, spec 14.17): the app sends its receive statistics every 5 s while
+  the bridge speaks, and the screen log has a `reconnect` event. No fix made.
 - **57. Say what a long check does before each step, not only the first.**
   Closed 27 September 2026 as a rule in `CLAUDE.md`, under the spoken
   conversation. No code: it is the agent's habit in a spoken turn.
+- **62. Investigate batching for Sidetone's own tool calls.** Closed 28
+  September 2026 (7ae9476, the measurement; 94bbe0a, the line). Batching saves
+  one model step, about 3 s, in about 6% of voice turns, at most 9%, and seldom
+  moves the first word. Nothing in Sidetone orders tool calls; Claude Code
+  already runs the calls of one step together. The one lever is a sentence in
+  `voiceInstruction`: "Run lookups that do not depend on each other in one
+  step." Item 63a covers the turn that calls tools before it speaks.
 - **65. A Sidetone command for the twelve-phrase model check.** Landed 28
   September 2026 (90b13c0, spec 9.4.15). "sidetone, read the card" mutes, says
   each line of test 17's card for Chris to say after it, three rounds, then
