@@ -426,35 +426,6 @@ throws. Read `~/.sidetone/findings/stability-39b.md` first.
 Done when a test with the app in the background for an hour, then in front
 again, gives a working microphone with no touch, or a fix for the cause.
 
-## 44. Change more settings without a rebuild or a restart
-
-Noted 23 September 2026. The phone half built and landed 24 September 2026
-(c051f12, spec 18.15). The bridge half built and landed 24 September 2026
-(60d137f, spec 9.4.9): `bargeInLevel`, `minSpeechPeak` and `endOfTurnPauseMs`
-change from the options screen and reach the live ear. What is left is one
-change from the phone and a turn that uses it.
-
-Chris tries a setting such as the hardware or software echo canceller by
-building a new app, installing it and restarting the bridge. Each try cost
-minutes, and it made the build in the room hard to know (item 42).
-
-Phone half, what was built: a `setup` message carries the audio setup in
-named values, mode, output, focus, canceller and the two flags, and `Audio.kt`
-maps each name to its constant. The app keeps a pushed setup across a restart
-and applies it by rejoining the room, because LiveKit builds the audio path at
-join. `{"kind":"setup","default":true}` clears it. The `device` message and the
-record name the setup in force and whether it was pushed. `bun
-scripts/audio-setup.ts --canceller software` is the whole cost of an echo
-experiment now. `AudioTest` still guards the setup written in the code, which
-is what ships.
-
-Bridge half: `Conversation.set` in `src/conversation.ts` takes the keys a
-client may change. `Settings` in `src/settings.ts` checks each change and
-applies it.
-
-Done when Chris changes one bridge threshold from a menu or a command, and the
-next turn uses the new value with no restart.
-
 ## 54. End a turn before the 1.5 s pause
 
 Noted 26 September 2026, from the round trip plan of 25 September and the
@@ -833,6 +804,14 @@ commit, and any finding that lived only in the item.
   Android SDK posts each data message on `Dispatchers.Default`, so two sent a
   millisecond apart arrive in either order. Four chunks arrived reversed in a
   1 ms burst with every character present. Each delta carries `seq`.
+- **44. Change more settings without a rebuild or a restart.** Closed 28
+  September 2026. The phone half landed 24 September 2026 (c051f12, spec
+  18.15): a pushed `setup` message changes the audio setup, and the app
+  applies it by rejoining the room. The bridge half landed 24 September 2026
+  (60d137f, spec 9.4.9): `bargeInLevel`, `minSpeechPeak` and
+  `endOfTurnPauseMs` change from the options screen and reach the live ear.
+  Chris checked it a few days before 28 September: he changed a bridge
+  threshold from the menu, and the next turn used it with no restart.
 - **45. The status light: smaller, a legend on tap, and the state word never
   shows.** Landed 23 September 2026 (98d96a8, spec 17.11.7). The word never
   showed because 17.11.7 withheld it for every state Chris expects, which is
