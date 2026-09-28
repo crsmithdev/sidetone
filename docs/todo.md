@@ -765,6 +765,44 @@ trip enough to matter.
 Done when there is a measurement of what batching would save, or a finding
 that says why it would not help.
 
+### Outcome, 28 September 2026
+
+Measured from the Claude Code transcripts of the voice sessions in
+`~/.claude/projects/-home-crsmi-sidetone` (886 turns) and the 131 `answered`
+lines in `~/.sidetone/record.jsonl` that have `toolsBeforeText`.
+
+| Measure | Value |
+|---|---|
+| Voice turns with a tool call | 433 of 886 (49%) |
+| Turns with more than one model step that calls tools | 212 (24%) |
+| Turns that already put two or more calls in one step | 22 (2%) |
+| Multi-step turns with an independent pair of steps (hand check of 40) | 10 of 40, 15 with borderline cases |
+| Voice turns that batching could shorten | about 6%, at most 9% |
+| Model time between a tool result and the next call, median (p10, p90) | 3.3 s (1.5 s, 9.8 s), 728 gaps |
+| Tool run time, median | 1.2 s; Bash 1.3 s, Read 0.02 s |
+
+Most sequences are real chains: a grep and then a read of the lines it
+found, a `git worktree add` and then an edit in it, a poll and then another
+poll. The independent pairs are mostly two searches or two status checks.
+
+Nothing in Sidetone issues or orders tool calls. Claude Code runs the calls of
+one model step together, and the transcripts show that it does: two Bash
+calls in one step overlap. Only the model decides to put two calls in one
+step, so the one lever is a line in `voiceInstruction` in `src/config.ts`.
+
+Batching saves one model step, about 3 s, in roughly one voice turn of 16. In
+most of those turns it does not move the first word: the first word comes
+before the first tool call, and `answerMs` stops at the first word. It
+shortens the silence in the middle of the turn. The exception is a turn that
+calls tools before it speaks. 50 of the 131 `answered` lines did that, and 22
+of them called two or more tools first. Item 63a closes that case better: a
+sentence before the first tool call takes all tool time off `answerMs`, not
+one step of it.
+
+Not worth a change of its own. If item 63 edits `voiceInstruction`, add one
+sentence there: "Run lookups that do not depend on each other in one step."
+The hand check of 40 turns is a judgement and was not repeated.
+
 ## 63. Strengthen two rules in the voice instruction
 
 Noted 28 September 2026, from a live conversation where both were broken.
