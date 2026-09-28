@@ -215,13 +215,6 @@
    ]
   },
   {
-   "said": "sidetone, read the plain card",
-   "want": "readPlainCard",
-   "heard": [
-    "Sidetone, read the playing card."
-   ]
-  },
-  {
    "said": "sidetone, read the card",
    "want": "readCard",
    "heard": [

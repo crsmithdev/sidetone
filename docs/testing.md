@@ -386,52 +386,37 @@ script scores it later on each model.
 18.14.4), whatever `keepHeardClips` says. The copies are his voice: delete them
 once they are scored.
 
-**Do.** Say "sidetone, read the card" for the command card, or "sidetone,
-read the plain card" for the plain card. The bridge mutes, says "Round 1." and
-the first line, and says each next line when he has said the one before. It
-does not pace itself on a timer: a line he misses, he says again. Muted, no
-line acts. After the third round the bridge says "That is the card.
-Listening." and unmutes. "sidetone, unmute" stops it early. The command
-card, which the bridge reads from `CARD` in `src/commands.ts`, scores the wake
-word and the commands:
+**Do.** Say "sidetone, read the card" or "sidetone, read the transcription
+card". The bridge mutes, says "Round 1." and the first line, and says each
+next line when he has said the one before. It does not pace itself on a
+timer: a line he misses, he says again. Muted, no line acts. After the third
+round the bridge says "That is the card. Listening." and unmutes. "sidetone,
+unmute" stops it early. The transcription card, which the bridge reads from
+`TRANSCRIPTION_CARD` in `src/commands.ts`, scores the speech that reaches the
+agent and, in its last three lines, the wake word (item 67):
 
-| # | Say | Want |
-|---|---|---|
-| 1 | sidetone, end the turn | endTurn |
-| 2 | sidetone, never mind | endTurn |
-| 3 | sidetone, male voice | maleVoice |
-| 4 | sidetone, female voice | femaleVoice |
-| 5 | sidetone, carry on | carryOn |
-| 6 | sidetone, say again | restate |
-| 7 | sidetone, recap | where |
-| 8 | sidetone, stats | stats |
-| 9 | sidetone, report the usage | usage |
-| 10 | sidetone, interrupt on | interruptOn |
-| 11 | sidetone, verbosity brief | verbosityBrief |
-| 12 | what does the serve command actually do | speech |
+| # | Say | Want | Why |
+|---|---|---|---|
+| 1 | Drop that job. | speech | shortest line; a model drops or adds words on a short clip |
+| 2 | Add a to-do item for the car cue. | speech | short command to the agent; "cue" is heard as "Queue" |
+| 3 | What does item 67 say? | speech | question with a two-digit number |
+| 4 | Open conversation.ts and find the readLine function. | speech | file name and code name, both out of the vocabulary |
+| 5 | Is the LiveKit server still up on port 7880? | speech | a vocabulary word and a four-digit number |
+| 6 | Land the transcription card job, then restart the service. | speech | two commands to the agent in one line; a job name |
+| 7 | Check the worktree for changes before you rebase onto main. | speech | "worktree", heard as "work tree" before 26 September; git words |
+| 8 | Read ADR 6 and tell me why Sidetone matches the sound of the wake word. | speech | "ADR", out of the vocabulary; "Sidetone" as a word, not the wake word |
+| 9 | Ask Claude to build the APK and run bun test. | speech | "Claude", heard as "Cloud" and "Clod"; "APK" and "bun" |
+| 10 | The answer took 2.4 seconds, and Kokoro used 350 milliseconds of that. | speech | a decimal and a three-digit number |
+| 11 | Which Whisper model are we running right now? | speech | a question Chris asked, word for word from the record |
+| 12 | When the road gets loud on the highway, keep each answer short and say the item number first. | speech | longest line; the ear must not end it on a pause |
+| 13 | sidetone, end the turn | endTurn | the wake word, and the command that stops a turn |
+| 14 | sidetone, male voice | maleVoice | the wake word; "male" was heard as "Mail" in the car |
+| 15 | sidetone, recap | where | the wake word before one short word |
 
-The plain card, from `PLAIN_CARD` in `src/commands.ts`, scores the speech
-that reaches the agent (item 67b). Each line reaches `speech`:
-
-| # | Say | Why |
-|---|---|---|
-| 1 | Drop that job. | shortest line; a model drops or adds words on a short clip |
-| 2 | Add a to-do item for the car cue. | short command to the agent; "cue" is heard as "Queue" |
-| 3 | What does item 67 say? | question with a two-digit number |
-| 4 | Open conversation.ts and find the readLine function. | file name and code name, both out of the vocabulary |
-| 5 | Is the LiveKit server still up on port 7880? | a vocabulary word and a four-digit number |
-| 6 | Land the plain card job, then restart the service. | two commands to the agent in one line; a job name |
-| 7 | Check the worktree for changes before you rebase onto main. | "worktree", heard as "work tree" before 26 September; git words |
-| 8 | Read ADR 6 and tell me why Sidetone matches the sound of the wake word. | "ADR", out of the vocabulary; "Sidetone" as a word, not the wake word |
-| 9 | Ask Claude to build the APK and run bun test. | "Claude", heard as "Cloud" and "Clod"; "APK" and "bun" |
-| 10 | The answer took 2.4 seconds, and Kokoro used 350 milliseconds of that. | a decimal and a three-digit number |
-| 11 | Which Whisper model are we running right now? | a question Chris asked, word for word from the record |
-| 12 | When the road gets loud on the highway, keep each answer short and say the item number first. | longest line; the ear must not end it on a pause |
-
-Each card is 36 utterances: about four minutes for the command card and
-about five for the plain card. Before item 65 the command card was read by
-hand: "sidetone, mute", the card three times with the keep setting on, then
-"sidetone, unmute".
+The card is 45 utterances, about six minutes. Before item 65 a card of
+commands was read by hand: "sidetone, mute", the card three times with the
+keep setting on, then "sidetone, unmute". Before item 67 the bridge read that
+card of eleven commands and one sentence as well.
 
 **Settles.** Nothing on the drive. After it, label each kept clip with its
 line on the card. The journal names the line each utterance answered, in the
@@ -442,7 +427,7 @@ journalctl --user -u sidetone.service --since "-3 hours" | grep "the card"
 ```
 
 Then score each model on the labels, and the mean time a clip. A command
-line scores by the count that `match` takes to the wanted command. A plain
+line scores by the count that `match` takes to the wanted command. A speech
 line scores by the count of clips whose text is the line, after lower case
 and with all but letters and digits removed, as `match` compares words: so
 "conversation, TS" is right for "conversation.ts" and "Car Queue" is wrong

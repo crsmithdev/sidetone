@@ -583,9 +583,15 @@ September).
   every take of the corpus, so "playing" is a form of the command.
 
 The twelve lines and the reason for each are in test 17 of `docs/testing.md`.
-"read the plain card" picks the plain card; "read the card" still picks the
-command card (spec 9.4.15). A plain line scores as right when its letters and
-digits match the line's, lower case.
+A speech line scores as right when its letters and digits match the line's,
+lower case.
+
+On 28 September Chris renamed the plain card the transcription card and
+dropped the command card. The transcription card is the one card of test 17:
+the twelve sentences, then three "sidetone, ..." commands ("end the turn",
+"male voice", "recap"), because the command card was the only part of test 17
+that scored the wake word. "read the card" and "read the transcription card"
+both read it (spec 9.4.15), and "read the plain card" is gone.
 
 ## 69. A blip of garbled speech at the start or the end of an answer
 

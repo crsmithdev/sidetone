@@ -223,6 +223,10 @@ _Avoid_: a field test, a trial.
 The script of commands read aloud on a drive, in order, so two drives can be compared.
 _Avoid_: the test plan, the checklist.
 
+**The transcription card**:
+The fifteen lines of test 17 in `docs/testing.md` that Chris says after the bridge, three times through, so the kept clips score speech models on his voice. "sidetone, read the card" reads it.
+_Avoid_: the plain card, the command card, the model check.
+
 **The scorecard**:
 What a drive's record is reduced to: the handful of figures that say whether a build is better than the one before it.
 _Avoid_: the metrics, the report.

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { DEFAULTS, type Config } from "../src/config.ts";
-import { CARD, CARD_ROUNDS, COMMAND_NAMES, PLAIN_CARD, spokenForms } from "../src/commands.ts";
+import { CARD_ROUNDS, COMMAND_NAMES, TRANSCRIPTION_CARD, spokenForms } from "../src/commands.ts";
 import { KEPT_LINES } from "../src/mouth.ts";
 import { bridge, type Script } from "./harness.ts";
 
@@ -906,53 +906,46 @@ describe("the agent's timings (18.4.1)", () => {
   });
 });
 
-describe("the card of test 17 (item 65)", () => {
+describe("the transcription card of test 17 (items 65, 67)", () => {
   test("it mutes, says each line in turn, keeps the clips, and listens again after the third round", async () => {
     const r = room({}, failing);
     await r.c.heard("sidetone, read the card");
     await tick();
     expect(r.c.isMuted).toBe(true);
     expect(r.c.readingCard).toBe(true);
-    expect(r.said).toEqual(["Reading the card, 3 times through. Say each line after me.", "Round 1.", "sidetone, end the turn."]);
+    expect(r.said).toEqual(["Reading the transcription card, 3 times through. Say each line after me.", "Round 1.", "Drop that job."]);
     for (let round = 0; round < CARD_ROUNDS; round++) {
-      for (const line of CARD) await r.c.heard(line.say);
+      for (const line of TRANSCRIPTION_CARD) await r.c.heard(line.say);
     }
     await tick();
     expect(r.c.isMuted).toBe(false);
     expect(r.c.readingCard).toBe(false);
     // no line acted: no voice switch, no verbosity, and the speech never reached the agent
     expect(r.patches).toEqual([]);
+    // the opening, a round mark and the lines each round, and the close
+    expect(r.said).toHaveLength(1 + CARD_ROUNDS * (1 + TRANSCRIPTION_CARD.length) + 1);
     expect(r.said.filter((line) => line.startsWith("Round "))).toEqual(["Round 1.", "Round 2.", "Round 3."]);
-    expect(r.said.at(-2)).toBe("what does the serve command actually do.");
+    expect(r.said).toContain("What does item 67 say?");
+    expect(r.said.at(-2)).toBe("sidetone, recap.");
     expect(r.said.at(-1)).toBe("That is the card. Listening.");
     const labels = r.journal.filter((line) => line.startsWith("[the card, "));
-    expect(labels).toHaveLength(CARD.length * CARD_ROUNDS);
-    expect(labels[13]).toBe('[the card, round 2, line 2, "sidetone, never mind": heard "sidetone, never mind"]');
+    expect(labels).toHaveLength(TRANSCRIPTION_CARD.length * CARD_ROUNDS);
+    expect(labels[15]).toBe('[the card, round 2, line 1, "Drop that job.": heard "Drop that job."]');
+    expect(labels[13]).toBe('[the card, round 1, line 14, "sidetone, male voice": heard "sidetone, male voice"]');
   });
 
-  test("the plain card is read the same way, each line with its own stop", async () => {
+  test("\"read the transcription card\" reads it too", async () => {
     const r = room({}, failing);
-    await r.c.heard("sidetone, read the plain card");
+    await r.c.heard("sidetone, read the transcription card");
     await tick();
-    expect(r.said).toEqual(["Reading the plain card, 3 times through. Say each line after me.", "Round 1.", "Drop that job."]);
-    for (let round = 0; round < CARD_ROUNDS; round++) {
-      for (const line of PLAIN_CARD) await r.c.heard(line.say);
-    }
-    await tick();
-    expect(r.c.isMuted).toBe(false);
-    // the opening, a round mark and the lines each round, and the close: no line reached the agent
-    expect(r.said).toHaveLength(1 + CARD_ROUNDS * (1 + PLAIN_CARD.length) + 1);
-    expect(r.said).toContain("What does item 67 say?");
-    expect(r.said.at(-1)).toBe("That is the card. Listening.");
-    const labels = r.journal.filter((line) => line.startsWith("[the card, "));
-    expect(labels).toHaveLength(PLAIN_CARD.length * CARD_ROUNDS);
-    expect(labels[12]).toBe('[the card, round 2, line 1, "Drop that job.": heard "Drop that job."]');
+    expect(r.c.readingCard).toBe(true);
+    expect(r.said).toEqual(["Reading the transcription card, 3 times through. Say each line after me.", "Round 1.", "Drop that job."]);
   });
 
   test("unmute stops it, and nothing after is a line", async () => {
     const r = room();
     await r.c.heard("sidetone, read the card");
-    await r.c.heard("sidetone, end the turn");
+    await r.c.heard("Drop that job.");
     await r.c.heard("sidetone, unmute");
     await tick();
     expect(r.c.isMuted).toBe(false);
@@ -964,14 +957,17 @@ describe("the card of test 17 (item 65)", () => {
   test("Chris starting a line just after the voice ends is his line, and what began over the voice is its echo", async () => {
     const r = room();
     await r.c.heard("sidetone, read the card");
-    await r.mouth.drained();
     const card = () => r.journal.filter((line) => line.startsWith("[the card, "));
-    await r.c.heard("sidetone, end the turn", Date.now() - 5_000);
+    // line 1 is three words, too short to be told from an echo, so line 2 is the check
+    await r.c.heard("Drop that job.");
+    await r.mouth.drained();
+    expect(card()).toHaveLength(1);
+    await r.c.heard("Add a to-do item for the car cue.", Date.now() - 5_000);
     expect(r.journal.at(-1)).toStartWith("[the bridge dropped");
-    expect(card()).toHaveLength(0);
+    expect(card()).toHaveLength(1);
     // a tenth of a second after the voice, well inside the second an echo is allowed
     await new Promise((resolve) => setTimeout(resolve, 100));
-    await r.c.heard("sidetone, end the turn", Date.now());
-    expect(card()).toHaveLength(1);
+    await r.c.heard("Add a to-do item for the car cue.", Date.now());
+    expect(card()).toHaveLength(2);
   });
 });
