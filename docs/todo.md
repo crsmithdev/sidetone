@@ -753,6 +753,18 @@ Done when `docs/testing.md` test 15 passes in the car: the track and the
 sentence both play in full, with a `track` event for the file that says it
 finished.
 
+## 62. Investigate batching for Sidetone's own tool calls
+
+Noted 28 September 2026, from a question in the car about tool call speed.
+
+Independent tool calls in one turn can run in parallel instead of one after
+another. Find out how often a Sidetone turn issues tool calls that do not
+depend on each other, and whether batching them would shorten the round
+trip enough to matter.
+
+Done when there is a measurement of what batching would save, or a finding
+that says why it would not help.
+
 ## Done
 
 One line for each item that shipped: the number, the title, the date, the
