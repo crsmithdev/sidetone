@@ -87,12 +87,15 @@ function brief(window?: string): void {
     `barge-ins ${card.bargeIns}`,
     `answers ${card.roundTrip.rounds}`,
     `round trip ${card.roundTrip.medianMs}ms`,
+    `silent starts ${card.silentStarts.silent}/${card.silentStarts.measured}`,
     `music ${card.music.logged ? `${card.music.played}/${card.music.earned}` : "not recorded"}`,
   ];
   console.log(`[card${window ? ` ${window}` : ""}: ${parts.join(", ")}]`);
   // the two that mean something is wrong rather than merely busy
   if (card.unasked > 0) console.log(`[card: ${card.unasked} utterances the room said, not Chris (18.11)]`);
   if (card.echoes > 0) console.log(`[card: ${card.echoes} times the bridge heard its own voice (18.10)]`);
+  // 18.17 the voice instruction says to speak before the first tool call
+  if (card.silentStarts.silent > 0) console.log(`[card: ${card.silentStarts.silent} turns called a tool before they spoke (18.17)]`);
   // 18.12 the way hold music was dead for a day with every test passing
   if (card.music.logged && card.music.earned >= 3 && card.music.played === 0) {
     console.log(`[card: ${card.music.earned} turns waited long enough for hold music and none of them got it (18.12)]`);
@@ -143,6 +146,11 @@ function report(window?: string): void {
   line("answers", card.roundTrip.rounds);
   line("median", `${card.roundTrip.medianMs}ms`);
   line("worst", `${card.roundTrip.worstMs}ms`);
+  line(
+    "silent starts",
+    `${card.silentStarts.silent}/${card.silentStarts.measured}`,
+    card.silentStarts.silent ? "<-- a tool call before the first word (18.17)" : "of the turns that record it",
+  );
 
   console.log(`\n  SETTINGS IN FORCE  (the drive of ${when})`);
   for (const [name, value] of Object.entries(drive.settings)) line(name, String(value));

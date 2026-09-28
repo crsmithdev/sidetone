@@ -576,19 +576,46 @@ while it ran, despite `voiceInstruction` in `src/config.ts` already saying
 to speak first. Separately, asked about round-trip data, it guessed an
 answer instead of reading `~/.sidetone/record.jsonl`, and was wrong.
 
+Both rules are now in `voiceInstruction` and in spec 6.6.3 and 6.6.4. What
+is left is to see whether the model follows them.
+
 ### a. Say something before every tool call
 
-`src/config.ts` line 357 already states the rule. Find out why it is not
-followed every time and strengthen the wording, or find a mechanical check
-that catches a tool call with no line before it.
+The record already had the check: `toolsBeforeText` on each `answered` line
+(18.4.1). Before the change, 64 of 176 turns that record it called a tool
+before the first word; 28 of 82 in the last 24 hours. Most of them thought
+first (`firstEvent` "thinking"), then called the tool.
+
+Why the old rule was skipped, from its wording: "Begin every answer" read as
+what comes after a lookup; the tool rule gave no reason, and lost to the
+global instructions "no preamble" and "when a lookup is needed, do it"; and
+the rule was split over the sixth and ninth of thirteen lines. The new rule
+is third, names the tool call, gives the reason (the voice is silent until
+the first sentence), and says it overrides an instruction to skip a preamble.
+
+A cold A/B did not reproduce the fault: six lookup questions, twice each,
+`claude -p` on sonnet in `~/sidetone` with the old and the new instruction,
+gave 0 of 12 silent starts for each. In the record, silent starts are 27% of
+turns under 50k tokens of cache and about 40% above, so a long session makes
+them more likely but does not explain them. Only live use can judge the new
+wording.
+
+The scorecard counts silent starts (spec 18.17). `bun scripts/session-check.ts
+brief` puts the count in the journal line and flags any.
+
+Done when a day of spoken use gives a silent-start count well under the 36%
+of before, in `bun scripts/session-check.ts brief 24h`.
 
 ### b. Do not guess at stats, logs or other facts a file would settle
 
-Add a rule against answering a factual question (data, state, "did X
-happen") from memory when a source of truth exists to check first.
+A new line tells the agent to read the source first (the record, the
+journal, the project's files, the git log) and to say it does not know when
+none settles it. No code can check this: a guess and a read answer look the
+same in the record. It stays a matter of the model's adherence. In the same
+A/B, all 24 turns read a source before they answered, with either wording.
 
-Done when both rules hold across a run of test conversations, or a
-mechanical check catches a violation.
+Done when a question about the record, asked by voice, gets a tool call that
+reads it before the answer.
 
 ## 64. Push small, independent tasks to a background job
 

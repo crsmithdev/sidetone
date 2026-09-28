@@ -135,6 +135,10 @@ This repository is Sidetone. The earlier project bridge is on the
 
 6.6.2 The agent names a file by its path from the project root, for example src/audio.ts. The agent does not speak an absolute path unless Chris asks for one. This is a default and not an absolute, because the agent answers a direct question either way and a rule that is routinely broken weakens the rules beside it. This is measured, not a preference: spoken and transcribed back, the relative path takes three seconds and is understood, and the absolute path it came from takes six and a half and arrives as a run of the word "slash".
 
+6.6.3 The first thing the agent writes in every turn is one short sentence, before any tool call, and a sentence comes before each later tool call too. The voice is silent until the first sentence arrives. This rule overrides an instruction to skip a preamble. The scorecard counts the turns that break it (18.17).
+
+6.6.4 The agent does not answer a question about data, state or whether something happened from memory. It reads the source that settles it first: the record, the journal, the project's files or the git log. If no source settles it, the agent says that it does not know.
+
 6.7 Every value that this document gives as a default is a setting. `src/config.ts` lists the settings and their defaults (21.2). A builder does not write a value of this kind into the code as a constant.
 
 ## 7. Build order
@@ -947,6 +951,8 @@ The same line also gives where the agent's time to the first word went, from its
 18.16.4 Each tentative end gives one `turnGuess` line in the record. The bridge writes the line when the outcome is known. It waits up to 3 seconds more for the guess and for the early transcription. The line has these fields. `at` is the time of the tentative end. `probability` and `inferenceMs` are the guess and the worker's time for it, or null when the worker gave no answer. `quietMs` is the quiet at the guess. `outcome` is `resumed` when speech came back, with `resumedAfterMs`, the length of the quiet. It is `ended` when the utterance ended on this pause or on a release, with `endedBy`, `pause` or `flush`. It is `cut` when the microphone was cut and the recording dropped. `text` is what the early transcription made of the audio the detector heard, or null. It is what an early end would have sent to the agent.
 
 18.16.5 Measured on 25 September, on 328 recorded utterances from the bridge's scratch folders, with a busy machine: the worker loads in 0.14 to 0.2 seconds. One guess costs 58 ms in the worker, median, and 74 ms at the 90th percentile: the model takes most of it. The bridge spends under 1 ms, median, to copy the samples. 222 of the 328 were tentative ends that Chris spoke on after. The detector gave 0.5 or more to 38 in 100 of those, which is where a cut at 0.5 would have cut him off. The other 106 were mostly whole utterances, and it gave 0.5 or more to 57 in 100 of those. This is a first reading of mixed data, not a verdict. A drive with the record decides.
+
+18.17 The scorecard counts the silent starts: the `answered` lines whose `toolsBeforeText` (18.4.1) is more than zero, of the lines that have the field. A silent start is a turn that called a tool before its first sentence, so the voice said nothing while the tool ran. The voice instruction tells the agent to speak first, and a model can skip an instruction, so the count is the check on the rule, not the rule. `bun scripts/session-check.ts brief` puts the count in the journal line and adds a line of its own when it is more than zero. On 28 September, before the rule was made stronger, the count was 64 of 176.
 
 ## 19 and 20. Removed
 

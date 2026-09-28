@@ -177,6 +177,21 @@ describe("the round trip", () => {
   });
 });
 
+describe("a turn that called a tool before it spoke (18.17)", () => {
+  const answered = (toolsBeforeText?: number): Event =>
+    ({ kind: "answered", at: 0, answerMs: 2_000, pauseMs: 1_500, transcribeMs: 200, agentMs: 1_000, sentenceMs: 0, synthesisMs: 0, toolsBeforeText });
+
+  test("it counts the turns with a tool call before the first word, of the turns that say", () => {
+    const card = score([answered(0), answered(3), answered(1), answered(0)]);
+    expect(card.silentStarts).toEqual({ measured: 4, silent: 2 });
+  });
+
+  test("a line with no count is not measured, and not a silent start", () => {
+    // a command's reply, or a record from before 25 September
+    expect(score([answered(), answered(2)]).silentStarts).toEqual({ measured: 1, silent: 1 });
+  });
+});
+
 /**
  * 18.11 the coffee shop of 22 September: two hours in a noisy room, 503
  * utterances heard, 74 with any words in them, and 70 turns nobody asked for.

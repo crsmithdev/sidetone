@@ -43,6 +43,12 @@ export interface Scorecard {
    * the mark, so a record from before 19 September gives zero for each.
    */
   roundTrip: { rounds: number; medianMs: number; worstMs: number; medianAgentMs: number; medianSentenceMs: number; medianSynthesisMs: number };
+  /**
+   * 18.17 the turns that called a tool before the first word, of the turns
+   * whose line says. The voice instruction forbids it and a model can skip
+   * that rule, so this counts what the rule cannot guarantee.
+   */
+  silentStarts: { measured: number; silent: number };
   bargeIns: number;
   invented: number;
   /**
@@ -141,6 +147,10 @@ export function score(events: Event[], script = SCRIPT, passage = PASSAGE, setti
       medianAgentMs: marked((a) => a.agentMs),
       medianSentenceMs: marked((a) => a.sentenceMs),
       medianSynthesisMs: marked((a) => a.synthesisMs),
+    },
+    silentStarts: {
+      measured: answered.filter((a) => a.toolsBeforeText !== undefined).length,
+      silent: answered.filter((a) => (a.toolsBeforeText ?? 0) > 0).length,
     },
     bargeIns: events.filter((e) => e.kind === "barged").length,
     // 18.10 a drive with any of these has an echo canceller that is not holding
