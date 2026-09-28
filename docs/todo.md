@@ -857,6 +857,15 @@ walks the twelve lines and mutes/unmutes on its own.
 Done when there is a command for it, or a decision on what it should say and
 how it should pace itself between lines.
 
+## 66. Say something when the service restarts
+
+Noted 28 September 2026. When the Sidetone systemd service restarts, nothing
+tells Chris. He has to run `systemctl status` to know. He wants the bridge to
+say something he can hear when it starts again, so he knows without a check.
+
+Done when the bridge speaks, or plays a cue, when the service starts or
+restarts, and Chris hears it in the room without a command.
+
 ## Done
 
 One line for each item that shipped: the number, the title, the date, the
