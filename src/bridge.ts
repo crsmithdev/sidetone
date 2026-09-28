@@ -226,14 +226,15 @@ export function assemble(
   let counter = 0;
   // 18.14.4 a transcription at the tentative end is kept too: it is the only
   // copy when the guess was right, and a part of the utterance when it was not
-  const heard = config.keepHeardClips ? new SentClips(config.heardDir, HEARD_KEPT) : null;
+  // item 65 the card of test 17 keeps them too: to read it is to ask for the copies
+  const heard = new SentClips(config.heardDir, HEARD_KEPT);
   /** 11.5 and 18.4 entire: the listening policy, one module, driven by frames. */
   const ear: Ear = new Ear(conversation.ears, async (utterance) => {
     const wav = join(scratch, `heard-${++counter}.wav`);
     await Bun.write(wav, encodeWav(utterance.samples, sampleRate));
     const text = await stt.transcribe(wav);
     // a copy that fails must not cost the words
-    try { heard?.keep(wav, text, "heard"); } catch (error) { say(`[could not keep the utterance: ${(error as Error).message}]`); }
+    try { if (config.keepHeardClips || conversation.readingCard) heard.keep(wav, text, "heard"); } catch (error) { say(`[could not keep the utterance: ${(error as Error).message}]`); }
     return text;
   }, earSettings, measures, say, guesses);
 

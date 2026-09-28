@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { DEFAULTS } from "../src/config.ts";
-import { afterWakeWord, commandIn, match, read } from "../src/commands.ts";
+import { CARD, afterWakeWord, commandIn, match, read } from "../src/commands.ts";
 
 const WAKE = DEFAULTS.wakeWord;
 const MUTED = DEFAULTS.mutedCommands;
@@ -350,5 +350,19 @@ describe("two words of a command run together (9.3)", () => {
     }
     // and in the wake-word hold a joined word must be exact
     expect(read("verbosityful", DEFAULTS, false, true)).toEqual({ kind: "speech", agreed: false });
+  });
+});
+
+describe("the card of test 17 (item 65)", () => {
+  test("each line reaches what the card wants of it, so a miss on the drive is the engine's", () => {
+    for (const line of CARD) {
+      const got = match(line.say, WAKE, false, MUTED);
+      expect(`${line.say} -> ${got.kind === "command" ? got.name : got.kind}`).toBe(`${line.say} -> ${line.want}`);
+    }
+  });
+  test("\"read the card\" is the command, and neither word alone is", () => {
+    expect(match("sidetone, read the card", WAKE, false, MUTED)).toEqual({ kind: "command", name: "readCard" });
+    expect(commandIn("read it")).toBe(null);
+    expect(commandIn("the card")).toBe(null);
   });
 });

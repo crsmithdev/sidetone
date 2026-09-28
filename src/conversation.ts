@@ -13,6 +13,7 @@
  * | what Chris said | the held speech | the turn |
  * |---|---|---|
  * | mute, unmute, tones, music, a voice, interrupt, verbosity | resumes after the acknowledgement | untouched |
+ * | read the card, or a line of it | resumes after the next line | untouched |
  * | usage, stats | resumes after the report | untouched |
  * | say that again | resumes after the repeat | untouched |
  * | the wake word alone, or noise | resumes | untouched |
@@ -34,7 +35,7 @@
 import { Answer } from "./answer.ts";
 import { Answers } from "./answers.ts";
 import type { Channel } from "./channel.ts";
-import { read, type CommandName, type Reading } from "./commands.ts";
+import { CARD, CARD_ROUNDS, read, type CommandName, type Reading } from "./commands.ts";
 import { VERBOSITIES, type Config, type Verbosity } from "./config.ts";
 import type { CueName } from "./cues.ts";
 import { ECHO_AFTER_MS, echoOf } from "./echo.ts";
@@ -103,6 +104,8 @@ export interface ConversationHooks {
 
 export class Conversation {
   private muted = false;
+  /** Item 65 the line of the card Chris says next, counted across the rounds, or null with no card */
+  private card: number | null = null;
   private checkpointOpen = false;
   /** 13.2 the usage warning was spoken, and use has not dropped below the level since */
   private usageWarned = false;
@@ -218,6 +221,8 @@ export class Conversation {
   get busy(): boolean { return this.answers.busy; }
   get waitingForAgreement(): boolean { return this.checkpointOpen; }
   get isMuted(): boolean { return this.muted; }
+  /** Item 65 whether the card of test 17 is being read, so each utterance is kept. */
+  get readingCard(): boolean { return this.card !== null; }
   /** 15.4 whether the cues are on, for a transport that plays one of its own. */
   get tonesOn(): boolean { return this.config.tones; }
   /** 15.7.3 whether the hold music may play. */
@@ -305,7 +310,10 @@ export class Conversation {
     if (echoed) this.measures.echo(said, echoed);
     const awaited = this.awaitingCommand > Date.now();
     const reading = read(said, this.config, this.muted, awaited);
-    const overVoice = startedAt !== undefined && (this.mouth.speaking || this.mouth.lastVoiceAt >= startedAt - ECHO_AFTER_MS);
+    // item 65 on the card, Chris repeats the line the voice just said, and he
+    // may start within a second of its end: only what began over the voice is its echo
+    const echoAfter = this.card === null ? ECHO_AFTER_MS : 0;
+    const overVoice = startedAt !== undefined && (this.mouth.speaking || this.mouth.lastVoiceAt >= startedAt - echoAfter);
     if (echoed && overVoice && reading.kind !== "command") {
       this.channel.journal(`the bridge dropped "${said}" as its own echo of "${echoed}"`);
       this.heardNothing();
@@ -319,9 +327,47 @@ export class Conversation {
     // 10.5 the gate fails closed: anything that is not the agreement word
     // cancels the action, and is then handled as what it was.
     if (this.gate && !reading.agreed) this.refuseGate(`Chris said "${said}"`);
+    // item 65 on the card every utterance is a line, and only unmute acts: it stops the card
+    if (this.card !== null) {
+      if (reading.kind !== "command" || reading.name !== "unmute") {
+        this.readLine(said);
+        this.apply("resume");
+        return;
+      }
+      this.channel.journal(`the card stopped before ${this.cardPlace(this.card)}`);
+      this.card = null;
+      this.reply("The card stopped.");
+    }
     const { hold, then } = this.decide(said, reading);
     this.apply(hold);
     await then?.();
+  }
+
+  /** Item 65 where a line is on the card, for the journal. */
+  private cardPlace(at: number): string {
+    return `round ${Math.floor(at / CARD.length) + 1}, line ${at % CARD.length + 1}`;
+  }
+
+  /** Item 65 the next line of the card, said for Chris to repeat, with the round at the head of each. */
+  private promptLine(): void {
+    const at = this.card ?? 0;
+    if (at % CARD.length === 0) this.reply(`Round ${at / CARD.length + 1}.`);
+    this.reply(`${CARD[at % CARD.length]!.say}.`);
+  }
+
+  /**
+   * Item 65 a line of the card, heard. The journal names the line it answers,
+   * which is its label for the scoring, and the next line follows it. After
+   * the last line of the last round the bridge listens again.
+   */
+  private readLine(said: string): void {
+    const at = this.card ?? 0;
+    this.channel.journal(`the card, ${this.cardPlace(at)}, "${CARD[at % CARD.length]!.say}": heard "${said}"`);
+    this.card = at + 1;
+    if (this.card < CARD.length * CARD_ROUNDS) { this.promptLine(); return; }
+    this.card = null;
+    this.muted = false;
+    this.reply("That is the card. Listening.");
   }
 
   /** Which row of the table an utterance is. Everything it does to the hold is the `Hold` it returns. */
@@ -604,6 +650,18 @@ export class Conversation {
       // A setting changed and the answer did not, so the answer carries on.
       case "mute": this.muted = true; this.reply("Muted."); return "resume";
       case "unmute": this.muted = false; this.reply("Listening."); return "resume";
+      /**
+       * Item 65 test 17 of docs/testing.md, run by the bridge. It mutes, so no
+       * line acts, and says each line for Chris to say after it. The next line
+       * waits for his utterance, not a timer: the pause after each line is the
+       * end of his turn, and a line the engine lost is said again, not skipped.
+       */
+      case "readCard":
+        this.muted = true;
+        this.card = 0;
+        this.reply(`Reading the card, ${CARD_ROUNDS} times through. Say each line after me.`);
+        this.promptLine();
+        return "resume";
       // 15.4 the cues earn their keep while this is being built and are noise
       // once it works, so which it is stays Chris's to say, out loud.
       case "tonesOn": return this.setTones(true);

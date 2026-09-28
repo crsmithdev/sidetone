@@ -18,7 +18,8 @@ export type CommandName =
   | "femaleVoice" | "maleVoice"
   | "carryOn" | "interruptOn" | "interruptOff"
   | "audioOn" | "audioOff"
-  | "verbosityBrief" | "verbosityNormal" | "verbosityFull" | "shorter" | "longer";
+  | "verbosityBrief" | "verbosityNormal" | "verbosityFull" | "shorter" | "longer"
+  | "readCard";
 
 export type Match =
   /** 9.4 a command to do */
@@ -94,6 +95,9 @@ const COMMANDS: Array<{ name: CommandName; any: string[][]; phrases: string[] }>
   // "voice" was the first attempt and it matched nothing on a real run. No
   // "man": "can", "mean" and "an" are one character from it (item 36).
   { name: "maleVoice", any: [["male"], ["mail"]], phrases: ["male voice"] },
+  // item 65 test 17 of docs/testing.md, run by the bridge. Two words: "read"
+  // is a word Chris says, and "card" is one character from "car".
+  { name: "readCard", any: [["read", "card"]], phrases: ["read the card"] },
 ];
 
 /** Letters and spaces only, collapsed: what the sound was, not how it was written. */
@@ -167,6 +171,30 @@ export const COMMAND_NAMES: CommandName[] = COMMANDS.map((command) => command.na
 export function spokenForms(wakeWord: string): Array<{ said: string; want: CommandName }> {
   return COMMANDS.flatMap(({ name, phrases }) => phrases.map((phrase) => ({ said: `${wakeWord}, ${phrase}`, want: name })));
 }
+
+/**
+ * Item 65 the card of test 17 in docs/testing.md: eleven commands and one
+ * sentence of speech, which Chris reads three times through, muted, so the
+ * kept clips score speech models on his voice. `want` is what `match` must
+ * take each line to.
+ */
+export const CARD: Array<{ say: string; want: CommandName | "speech" }> = [
+  { say: "sidetone, end the turn", want: "endTurn" },
+  { say: "sidetone, never mind", want: "endTurn" },
+  { say: "sidetone, male voice", want: "maleVoice" },
+  { say: "sidetone, female voice", want: "femaleVoice" },
+  { say: "sidetone, carry on", want: "carryOn" },
+  { say: "sidetone, say again", want: "restate" },
+  { say: "sidetone, recap", want: "where" },
+  { say: "sidetone, stats", want: "stats" },
+  { say: "sidetone, report the usage", want: "usage" },
+  { say: "sidetone, interrupt on", want: "interruptOn" },
+  { say: "sidetone, verbosity brief", want: "verbosityBrief" },
+  { say: "what does the serve command actually do", want: "speech" },
+];
+
+/** Item 65 how many times through the card is read. */
+export const CARD_ROUNDS = 3;
 
 /**
  * Whether every word of a form is there, each in a spoken word of its own.

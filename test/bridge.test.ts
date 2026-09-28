@@ -379,6 +379,14 @@ describe("the utterances the bridge heard (18.14.4)", () => {
     expect(decodeWav(await Bun.file(kept[0]!.wav).bytes()).samples.length).toBeGreaterThan(0);
   });
 
+  test("off, the card of test 17 keeps them while it runs (item 65)", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "heard-"));
+    const r = bridge({ overrides: { heardDir: dir } });
+    await r.c.heard("sidetone, read the card");
+    await speak(r);
+    expect(new SentClips(dir).list().map((clip) => clip.text)).toContain("sidetone, end turn");
+  });
+
   test("a copy that fails costs a journal line, not the words", async () => {
     // a file where the folder should be, so the copy cannot be made
     const file = join(mkdtempSync(join(tmpdir(), "heard-")), "not-a-folder");

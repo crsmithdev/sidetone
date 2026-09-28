@@ -381,14 +381,17 @@ models on synthetic voices and found no difference but one elided phrase. It
 could not test Chris's voice through the phone. This test records it, and a
 script scores it later on each model.
 
-**Before.** Set `"keepHeardClips": true` in `~/.sidetone/config.json` and
-restart the bridge. Each utterance then goes to `~/.sidetone/heard/` as a wav
-with the text small.en wrote for it (spec 18.14.4). Set it back to `false`
-after the drive: the copies are his voice.
+**Before.** Nothing. The card keeps each utterance while it runs, in
+`~/.sidetone/heard/` as a wav with the text small.en wrote for it (spec 9.4.15,
+18.14.4), whatever `keepHeardClips` says. The copies are his voice: delete them
+once they are scored.
 
-**Do.** Say "sidetone, mute". Muted, the bridge still transcribes and keeps
-every utterance, and no command but mute, unmute and the tones acts. Read the
-card three times, in order, at ordinary speed, with a pause after each line:
+**Do.** Say "sidetone, read the card". The bridge mutes, says "Round 1." and
+the first line, and says each next line when he has said the one before. It
+does not pace itself on a timer: a line he misses, he says again. Muted, no
+line acts. After the third round the bridge says "That is the card.
+Listening." and unmutes. "sidetone, unmute" stops it early. The card, which
+the bridge reads from `CARD` in `src/commands.ts`:
 
 | # | Say | Want |
 |---|---|---|
@@ -405,10 +408,19 @@ card three times, in order, at ordinary speed, with a pause after each line:
 | 11 | sidetone, verbosity brief | verbosityBrief |
 | 12 | what does the serve command actually do | speech |
 
-Then "sidetone, unmute". That is 36 utterances, about four minutes.
+That is 36 utterances, about four minutes. Before item 65 it was read by
+hand: "sidetone, mute", the card three times with the keep setting on, then
+"sidetone, unmute".
 
 **Settles.** Nothing on the drive. After it, label each kept clip with its
-line on the card, in time order, and score each model on the labels: the
+line on the card. The journal names the line each utterance answered, in the
+order the clips were kept:
+
+```
+journalctl --user -u sidetone.service --since "-3 hours" | grep "the card"
+```
+
+Then score each model on the labels: the
 count that `match` takes to the wanted command, and the mean time a clip. A
 clip kept at the tentative end (18.4) that is only part of a line gets no
 label of its own.

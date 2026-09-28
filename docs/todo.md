@@ -855,17 +855,6 @@ says what "small" and "independent" mean.
 Done when the rule is in `CLAUDE.md`, and in a spoken conversation a request
 for a small, independent task starts a job instead of running inline.
 
-## 65. A Sidetone command for the twelve-phrase model check
-
-Noted 28 September 2026. Test 17 in `docs/testing.md` has Chris read a fixed
-card of twelve phrases three times, muted, to score speech models against
-his own voice. He expects to repeat this, so it should be a command rather
-than a manual drive procedure: something like "sidetone, read the card" that
-walks the twelve lines and mutes/unmutes on its own.
-
-Done when there is a command for it, or a decision on what it should say and
-how it should pace itself between lines.
-
 ## 66. Say something when the service restarts
 
 Noted 28 September 2026. When the Sidetone systemd service restarts, nothing
@@ -983,3 +972,13 @@ commit, and any finding that lived only in the item.
 - **57. Say what a long check does before each step, not only the first.**
   Closed 27 September 2026 as a rule in `CLAUDE.md`, under the spoken
   conversation. No code: it is the agent's habit in a spoken turn.
+- **65. A Sidetone command for the twelve-phrase model check.** Landed 28
+  September 2026 (90b13c0, spec 9.4.15). "sidetone, read the card" mutes, says
+  each line of test 17's card for Chris to say after it, three rounds, then
+  unmutes. The next line waits for his utterance, not a timer, so a lost line
+  is said again. The card keeps the heard clips while it runs, with no
+  `keepHeardClips` flag, and the journal names the line each utterance
+  answered, which labels the clips. Only "unmute" acts on the card, and stops
+  it. On the card an echo is only what began while the voice played: Chris
+  repeats the line within a second of its end, which the usual 1 s grace
+  would drop. Not yet tried in the car.

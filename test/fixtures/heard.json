@@ -215,6 +215,14 @@
    ]
   },
   {
+   "said": "sidetone, read the card",
+   "want": "readCard",
+   "heard": [
+    "Sidetone read the card.",
+    "Sidetone, read the card."
+   ]
+  },
+  {
    "said": "sidetonemute",
    "want": "mute",
    "heard": [
