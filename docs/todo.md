@@ -880,7 +880,9 @@ commit, and any finding that lived only in the item.
   conversation", sends a small, independent task to `aleph job` and keeps a
   question Chris waits on inline. It defines "small" as a bounded, mechanical
   edit or lookup, and "independent" as a result that nothing later in the
-  turn needs. Not yet tried in the car since the rule.
+  turn needs. Chris rescinded the small-task half on 28 September 2026: a
+  small edit or lookup is done inline again, and a job is for exploration,
+  research or a build. Not yet tried in the car since the rule.
 - **59. Send screenshots over HTTP, not the control channel.** Closed 28
   September 2026 with a measurement; the change is not kept. A branch had
   the app POST the JPEG whole to `/screenshot`, with the room token as the

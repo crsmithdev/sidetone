@@ -23,15 +23,11 @@ your scratchpad and run `aleph job <repo> <name> --spec <file>`. Pick a name
 of two plain words, joined by a hyphen, with no numbers, that Chris can say. For a plain
 command, run `aleph run <name> -- <command>`.
 
-Send a task to a job, not inline, when it is small and independent. The
-voice stays free for the conversation, and `[job news]` tells Chris when it
-lands. A task is small when it is a bounded, mechanical edit or lookup: add
-a to-do item, change a line in a doc, set a config value. A task is not
-small when it needs exploration, a design decision on the way, or thought
-before you can answer. A task is independent when nothing later in the turn
-needs its result: you do not read the result back, and it does not decide
-your next step. "Add a to-do item for the car cue" goes to a job. "What does
-item 54 say?" stays inline: Chris waits for the answer.
+Do a small, bounded edit or lookup inline: add a to-do item, change a line in
+a doc, set a config value. Do not send it to a job. Send a task to a job when
+it needs exploration, research or a build, and nothing later in the turn needs
+its result. The voice stays free for the conversation, and `[job news]` tells
+Chris when the job lands.
 
 A message that starts with `[job news]` is from aleph, not from Chris. For
 an item that says `landed`, `done` or `dropped`, say the name and the state,
