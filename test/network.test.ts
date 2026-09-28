@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { Network, qualityOf } from "../src/network.ts";
+import { Network, qualityOf, receivedLine } from "../src/network.ts";
 
 describe("what the framework reports (N.1)", () => {
   test("the node SDK counts and the browser SDK spells", () => {
@@ -56,5 +56,25 @@ describe("the connection, kept (N.2)", () => {
     blip.saw("phone", "poor", 0);
     blip.saw("phone", "good", 400);
     expect(blip.report(400)).toBe("The phone's connection is good and this end is not reported yet.");
+  });
+});
+
+describe("what the phone received of the bridge's voice (item 56)", () => {
+  test("one journal line gives the loss, the concealment, the stretch, the buffer and the codec", () => {
+    expect(receivedLine({
+      kind: "receive", ms: 5_012, packets: 250, lost: 3, samples: 240_000, concealed: 4_800, events: 2,
+      inserted: 0, removed: 480, bufferMs: 62, codec: "audio/opus",
+    })).toBe(
+      "the phone received 5.0 s of the bridge's voice: 250 packets, 3 lost; 2.0% concealed in 2 events; " +
+      "0.0% stretched, 0.2% squeezed; jitter buffer 62 ms; audio/opus",
+    );
+  });
+
+  test("a reading with no samples and no codec still reads, and one with no time does not", () => {
+    expect(receivedLine({ kind: "receive", ms: 800 })).toBe(
+      "the phone received 0.8 s of the bridge's voice: 0 packets, 0 lost; 0.0% concealed in 0 events; " +
+      "0.0% stretched, 0.0% squeezed; jitter buffer 0 ms; codec not reported",
+    );
+    expect(receivedLine({ kind: "receive" })).toBe("a receive reading from the phone was not readable");
   });
 });

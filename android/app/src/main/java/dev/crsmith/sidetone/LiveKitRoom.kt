@@ -5,6 +5,8 @@ import io.livekit.android.events.RoomEvent
 import io.livekit.android.room.track.LocalAudioTrack
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.mapNotNull
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
 
 /** The [Room] over a LiveKit room. It holds the microphone track the room published. */
 class LiveKitRoom(private val room: io.livekit.android.room.Room) : Room {
@@ -22,11 +24,19 @@ class LiveKitRoom(private val room: io.livekit.android.room.Room) : Room {
             Room.Event.BridgeLeft(last = room.remoteParticipants.values.none { it != event.participant && isBridge(it.identity?.value) })
         // N.1.4 the phone reads its own uplink and tells the bridge
         is RoomEvent.ConnectionQualityChanged -> if (event.participant != room.localParticipant) null else Room.Event.Quality(event.quality.name.lowercase())
+        // item 56 the phone reads what it received while the bridge speaks
+        is RoomEvent.ActiveSpeakersChanged -> Room.Event.BridgeSpeaking(event.speakers.any { isBridge(it.identity?.value) })
         is RoomEvent.DataReceived -> Room.Event.Data(event.data)
         else -> null
     }
 
     override suspend fun send(payload: ByteArray): Result<Unit> = room.localParticipant.publishData(payload)
+
+    override suspend fun received(): Received? = suspendCancellableCoroutine { done ->
+        room.getSubscriberRTCStats { report ->
+            done.resume(Received.of(report.statsMap.mapValues { (_, stat) -> Received.Stat(stat.type, stat.members) }))
+        }
+    }
 
     override suspend fun openMic() {
         if (mic != null) return

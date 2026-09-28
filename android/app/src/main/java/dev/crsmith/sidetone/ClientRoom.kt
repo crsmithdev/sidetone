@@ -7,11 +7,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * The client's room: the microphone, what goes to the bridge, the setup the
@@ -67,6 +69,9 @@ class ClientRoom(
 
     /** 14.11 names the file the bridge appends this conversation's log to. */
     private var logId = System.currentTimeMillis().toString()
+
+    /** Item 56 whether the bridge is speaking now, as LiveKit's active speakers say. */
+    private val bridgeSpeaking = MutableStateFlow(false)
 
     /** 14.12 one screenshot goes at a time, so the parts of two do not mix. */
     private val screenshotLock = Mutex()
@@ -137,6 +142,8 @@ class ClientRoom(
         val watch = launch { while (true) { delay(1_000); showSign() } }
         // 14.11 the screen log goes to the bridge as it grows
         val stream = launch { while (true) { delay(STREAM_MS); sendScreenLog(room) } }
+        // item 56 what the phone received of the bridge's voice goes to the bridge while it speaks
+        val receive = launch { while (true) { bridgeSpeaking.first { it }; sendReceived(room) } }
         try {
             // 17.11.11 the phone can be in the room while the bridge is not, as during a restart
             link(Joining.Event.Connected(bridgeHere = connect()))
@@ -152,6 +159,8 @@ class ClientRoom(
             events.cancel()
             watch.cancel()
             stream.cancel()
+            receive.cancel()
+            bridgeSpeaking.value = false
             // the protocol, the last reading and the last word about work belonged to a room that is gone
             conversation.bridgeGone(elapsed(), now())
             state.update { it.copy(quality = null, screen = conversation.onScreen()) }
@@ -170,8 +179,15 @@ class ClientRoom(
 
     private fun handle(room: Room, event: Room.Event, ended: CompletableDeferred<String>) {
         when (event) {
-            Room.Event.Reconnecting -> link(Joining.Event.Reconnecting)
-            Room.Event.Reconnected -> link(Joining.Event.Reconnected)
+            // item 56 a reconnect in the middle of a sentence loses part of it, so the log says when
+            Room.Event.Reconnecting -> {
+                record("reconnect", "the room is reconnecting")
+                link(Joining.Event.Reconnecting)
+            }
+            Room.Event.Reconnected -> {
+                record("reconnect", "the room reconnected")
+                link(Joining.Event.Reconnected)
+            }
             is Room.Event.Ended -> ended.complete(event.reason)
             Room.Event.BridgeArrived -> {
                 record("bridge", "the bridge joined the room")
@@ -184,6 +200,7 @@ class ClientRoom(
                 shown()
                 link(Joining.Event.BridgeLeft)
             }
+            is Room.Event.BridgeSpeaking -> bridgeSpeaking.value = event.on
             is Room.Event.Quality -> {
                 if (event.quality == state.value.quality) return
                 state.update { it.copy(quality = event.quality) }
@@ -444,6 +461,24 @@ class ClientRoom(
     }
 
     /**
+     * Item 56 while the bridge speaks, tell it every [RECEIVE_MS] what the phone
+     * received since the last reading, and once more when it stops, so a short
+     * sentence has a reading too. Returns when the bridge stops speaking.
+     */
+    private suspend fun sendReceived(room: Room) {
+        var last = room.received()
+        var at = elapsed()
+        do {
+            val stopped = withTimeoutOrNull(RECEIVE_MS) { bridgeSpeaking.first { !it } } != null
+            val now = room.received()
+            val nowAt = elapsed()
+            if (last != null && now != null) tell(room, Outgoing.receive(nowAt - at, now - last))
+            last = now
+            at = nowAt
+        } while (!stopped)
+    }
+
+    /**
      * 14.11 send the entries the bridge has not had, in parts that fit one
      * message. A part that fails goes back, with those after it, for the next try.
      * The parts are built off the main thread: after a long time out of the
@@ -467,6 +502,9 @@ class ClientRoom(
     private companion object {
         /** 14.11 how often the app sends new screen log entries. */
         const val STREAM_MS = 1_000L
+
+        /** Item 56 how often the app reads what it received while the bridge speaks. */
+        const val RECEIVE_MS = 5_000L
 
         /** 14.11 the most entries kept for the bridge while the room is gone. The oldest go first. */
         const val UNSENT_MAX = 2_000

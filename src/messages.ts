@@ -102,6 +102,8 @@ export type Incoming =
   | { kind: "music"; on: boolean }
   /** N.1.4 the phone's own reading of its uplink: a name, or LiveKit's number; `qualityOf` reads either */
   | { kind: "quality"; quality: unknown }
+  /** 14.17 what the phone received of the bridge's voice; `receivedLine` reads the rest */
+  | { kind: "receive"; [field: string]: unknown }
   /**
    * 14.11, 14.12, 14.14, 14.15 the module that owns each of these reads the
    * rest of the message, and says in the journal when it is not readable.
@@ -124,6 +126,7 @@ export function decodeIncoming(value: unknown): Incoming | null {
     case "setting":
       return message.patch && typeof message.patch === "object" ? { kind: "setting", patch: message.patch as Record<string, unknown> } : null;
     case "quality": return { kind: "quality", quality: message.quality };
+    case "receive": return { ...message, kind: "receive" };
     case "screen":
     case "screenshot":
     case "crash":

@@ -28,6 +28,7 @@ import { Ear, SILENCE_MS } from "./ear.ts";
 import { Measures } from "./measures.ts";
 import type { Outgoing, Setup } from "./messages.ts";
 import { Mouth, keptLines, type Speaker } from "./mouth.ts";
+import { receivedLine } from "./network.ts";
 import { Recorder } from "./record.ts";
 import { Screens } from "./screen.ts";
 import { Settings } from "./settings.ts";
@@ -186,6 +187,7 @@ export function assemble(
     // 15.7.3 the setting the voice command sets; the conversation reads it on every look
     music: (on) => conversation.setMusic(on),
     quality: (side, quality) => conversation.network.saw(side, quality),
+    receive: (value) => receivedLine(value),
     setting: (patch) => conversation.set(patch),
     screen: (part) => screens.receive(part),
     screenshot: (part) => screenshots.receive(part),

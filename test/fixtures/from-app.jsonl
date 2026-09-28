@@ -4,6 +4,7 @@
 {"kind":"mic","on":true,"hold":true}
 {"kind":"mic","on":false,"release":true}
 {"kind":"quality","quality":"good"}
+{"kind":"receive","ms":5012,"packets":250,"lost":3,"samples":240000,"concealed":4800,"events":2,"inserted":0,"removed":480,"bufferMs":62,"codec":"audio/opus"}
 {"kind":"voice","on":false}
 {"kind":"voice","on":true}
 {"kind":"music","on":false}

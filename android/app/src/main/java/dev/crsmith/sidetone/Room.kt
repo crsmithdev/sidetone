@@ -28,6 +28,9 @@ interface Room {
         /** N.1.4 the phone's own uplink changed, as a word. */
         data class Quality(val quality: String) : Event
 
+        /** Item 56 the bridge started or stopped speaking, as LiveKit's active speakers say. */
+        data class BridgeSpeaking(val on: Boolean) : Event
+
         /** A data message from the bridge. */
         class Data(val payload: ByteArray) : Event
     }
@@ -36,6 +39,9 @@ interface Room {
 
     /** Send one data message to the bridge. */
     suspend fun send(payload: ByteArray): Result<Unit>
+
+    /** Item 56 what the phone has received of the bridge's audio so far, or null before any arrives. */
+    suspend fun received(): Received?
 
     /** Publish a new microphone track. It throws when the track does not publish. */
     suspend fun openMic()

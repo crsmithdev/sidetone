@@ -104,3 +104,20 @@ function blank(): Held {
 function say(quality: Quality): string {
   return quality === "unknown" ? "not reported yet" : quality;
 }
+
+/**
+ * Item 56 what the phone received of the bridge's voice over the last few
+ * seconds, as one journal line. Concealment is the jitter buffer filling in
+ * for lost or late packets: at the time of a garbled sentence it says the
+ * network, and none says the render or the car. The codec says whether RED is on.
+ */
+export function receivedLine(value: Record<string, unknown>): string {
+  const count = (name: string) => (typeof value[name] === "number" ? value[name] as number : 0);
+  if (typeof value.ms !== "number") return "a receive reading from the phone was not readable";
+  const samples = count("samples");
+  const share = (name: string) => `${samples > 0 ? (count(name) / samples * 100).toFixed(1) : "0.0"}%`;
+  return `the phone received ${(value.ms / 1000).toFixed(1)} s of the bridge's voice: ` +
+    `${count("packets")} packets, ${count("lost")} lost; ${share("concealed")} concealed in ${count("events")} events; ` +
+    `${share("inserted")} stretched, ${share("removed")} squeezed; jitter buffer ${count("bufferMs")} ms; ` +
+    `${typeof value.codec === "string" ? value.codec : "codec not reported"}`;
+}

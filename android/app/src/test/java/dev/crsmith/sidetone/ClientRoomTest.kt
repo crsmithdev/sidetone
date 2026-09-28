@@ -44,6 +44,11 @@ class ClientRoomTest {
             return Result.success(Unit)
         }
 
+        /** Item 56 each reading hands out the next of these, and then the last one again. */
+        val readings = ArrayDeque<Received>()
+
+        override suspend fun received(): Received? = if (readings.size > 1) readings.removeFirst() else readings.firstOrNull()
+
         override suspend fun openMic() {
             mic += "open"
         }
@@ -98,6 +103,52 @@ class ClientRoomTest {
 
         room.incoming.send(Room.Event.Ended("done"))
         assertEquals("done", inRoom.await())
+    }
+
+    @Test
+    fun aSentenceShorterThanTheReadingGetsOneReceiveWhenTheBridgeStops() = runBlocking {
+        val room = FakeRoom()
+        room.readings += Received(100, 1, 96_000, 960, 1, 0, 0, 2_400.0, 96_000, "audio/opus")
+        room.readings += Received(150, 4, 144_000, 3_360, 3, 480, 0, 4_800.0, 144_000, "audio/red")
+        val client = client(this)
+        val inRoom = async { client.inRoom(room) { true } }
+        until { client.status == Status.LISTENING }
+
+        room.incoming.send(Room.Event.BridgeSpeaking(true))
+        // the first reading is taken when the bridge starts
+        until { room.readings.size == 1 }
+        room.incoming.send(Room.Event.BridgeSpeaking(false))
+        until { room.sent.isNotEmpty() }
+
+        // item 56 the change since the bridge started speaking, not the counts from the start of the track
+        assertEquals(
+            listOf("""{"kind":"receive","ms":0,"packets":50,"lost":3,"samples":48000,"concealed":2400,"events":2,"inserted":480,"removed":0,"bufferMs":50,"codec":"audio/red"}"""),
+            room.sent,
+        )
+
+        room.incoming.send(Room.Event.Ended("done"))
+        inRoom.await()
+        Unit
+    }
+
+    @Test
+    fun aReconnectGoesToTheScreenLog() = runBlocking {
+        val room = FakeRoom()
+        val client = client(this)
+        val inRoom = async { client.inRoom(room) { true } }
+        until { client.status == Status.LISTENING }
+
+        room.incoming.send(Room.Event.Reconnecting)
+        room.incoming.send(Room.Event.Reconnected)
+        room.incoming.send(Room.Event.Ended("done"))
+        inRoom.await()
+
+        // item 56 a reconnect can be matched to a sentence after a drive
+        val log = FakeRoom()
+        client.sendScreenLog(log)
+        val entries = log.sent.flatMap { part -> Json.parseToJsonElement(part).jsonObject["entries"]!!.jsonArray.map { it.jsonObject } }
+        val reconnects = entries.filter { it["kind"]?.jsonPrimitive?.content == "reconnect" }.map { it["text"]!!.jsonPrimitive.content }
+        assertEquals(listOf("the room is reconnecting", "the room reconnected"), reconnects)
     }
 
     @Test

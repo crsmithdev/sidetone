@@ -218,6 +218,15 @@ object Outgoing {
 
     fun quality(quality: String): ByteArray = encode(buildJsonObject { put("kind", "quality"); put("quality", quality) })
 
+    /** Item 56 what the phone received of the bridge's voice in the last `ms`, as [Received] counts it. */
+    fun receive(ms: Long, got: Received): ByteArray = encode(buildJsonObject {
+        put("kind", "receive"); put("ms", ms)
+        put("packets", got.packets); put("lost", got.lost)
+        put("samples", got.samples); put("concealed", got.concealed); put("events", got.events)
+        put("inserted", got.inserted); put("removed", got.removed); put("bufferMs", got.bufferMs)
+        got.codec?.let { put("codec", it) }
+    })
+
     /**
      * 9.4.9 change one setting. It does exactly what the spoken command does,
      * the voice's answer included, so a switch and the words cannot disagree.

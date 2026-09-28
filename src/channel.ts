@@ -33,6 +33,8 @@ export interface Ends {
   music(on: boolean): void;
   /** N.1 a reading of the connection; true when it is news */
   quality(side: Side, quality: Quality): boolean;
+  /** item 56 what the phone received of the bridge's voice; what the journal says about it */
+  receive(value: Record<string, unknown>): string;
   /** 9.4.9 a setting a client changed, in the same words the config uses */
   setting(patch: Record<string, unknown>): void;
   /** 14.11 one part of the phone's screen log; what to say about it, if anything */
@@ -178,6 +180,8 @@ export class Channel {
       // end sees, arriving twice, and it is kept because it is the one that
       // survives a link the bridge has stopped hearing from.
       case "quality": this.quality("phone", message.quality); return;
+      // item 56 the same as the crash report: the journal, not a note
+      case "receive": this.journal(this.ends.receive(message)); return;
     }
   }
 

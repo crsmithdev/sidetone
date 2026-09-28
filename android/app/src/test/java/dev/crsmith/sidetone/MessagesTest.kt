@@ -270,6 +270,7 @@ class MessagesTest {
             Outgoing.mic(true, hold = true),
             Outgoing.mic(false, release = true),
             Outgoing.quality("good"),
+            Outgoing.receive(5_012, Received(250, 3, 240_000, 4_800, 2, 0, 480, 14_880.0, 240_000, "audio/opus")),
             Outgoing.audio(false),
             Outgoing.audio(true),
             Outgoing.music(false),

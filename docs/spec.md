@@ -566,6 +566,12 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 
 14.16.3 A new process of the bridge sends `on` set to true. The client takes this as a new bridge: what the old one said about work (14.10) is gone. The bridge does not keep the message for the history (14.8). The web client ignores the message.
 
+14.17 The app says what it received of the bridge's voice (item 56). A sentence that Chris calls garbled can then be matched to the network at that time: concealment says loss or late packets on the link, and none says the render or the car.
+
+14.17.1 While LiveKit names the bridge as an active speaker, the app reads the inbound-rtp statistics of the bridge's audio every 5 seconds, and once more when the bridge stops. The `receive` message carries the change since the last reading: `ms`, the time between the readings; `packets` and `lost`; `samples`, the samples played out; `concealed` and `events`, the samples the jitter buffer made up and the number of times it began; `inserted` and `removed`, the samples it added and took out to change speed; `bufferMs`, the mean time a sample waited in the buffer; and `codec`, the MIME type of the codec, which says whether RED is on.
+
+14.17.2 The bridge writes one line to the journal, with the concealed, inserted and removed samples as a share of the samples played out. It sends no note (4.3.1). The web client does not send the message.
+
 ## 15. Audible state
 
 15.1 The bridge does not leave silence when it cannot answer. Silence is ambiguous.
@@ -730,7 +736,7 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 | --- | --- |
 | `at` | The time the message arrived, in milliseconds since 1970. |
 | `time` | The same time on the 24-hour clock of the phone, with seconds and milliseconds. |
-| `kind` | What arrived or changed: `heard` (Chris said it), `sentence`, `turn`, `block` (a block starts), `delta` (words of a block), `note` (a note from the bridge or from the app), `history`, `unknown`, `working` (the sign changed), `screenshot` (14.12.7), `bridge` (a bridge joined or left, 17.11.11.2), `rejoin` (18.9), `setup` (18.15.3), `leave` (17.11.10), `microphone`, `audio` or `music` (a button changed it, 17.10.2). |
+| `kind` | What arrived or changed: `heard` (Chris said it), `sentence`, `turn`, `block` (a block starts), `delta` (words of a block), `note` (a note from the bridge or from the app), `history`, `unknown`, `working` (the sign changed), `screenshot` (14.12.7), `bridge` (a bridge joined or left, 17.11.11.2), `rejoin` (18.9), `setup` (18.15.3), `leave` (17.11.10), `reconnect` (the room reconnects, item 56), `microphone`, `audio` or `music` (a button changed it, 17.10.2). |
 | `answer`, `block` | The numbers the message named (14.9.3), or null. |
 | `bubble` | The place of the line in the transcript, from 0. It counts every line, notes and hidden bubbles too. It is null when no line changed. |
 | `got` | The text the message carried, or null. |

@@ -18,6 +18,7 @@ function channel(overrides: Partial<Config> = {}) {
     setting: (patch) => { did.push(`setting ${JSON.stringify(patch)}`); },
     music: (on) => { did.push(`music ${on}`); },
     quality: (side, quality) => { did.push(`quality ${side} ${quality}`); return news; },
+    receive: (value) => { did.push(`receive ${String(value.ms)}`); return "receive said"; },
     screen: (part) => { did.push(`screen ${String(part.id)}`); return ["screen said"]; },
     screenshot: (part) => { did.push(`screenshot ${String(part.id)}`); return ["screenshot said"]; },
     crash: (report) => { did.push(`crash ${String(report.id)}`); return "crash said"; },
@@ -109,6 +110,14 @@ describe("what a client says about its screen (14.11)", () => {
     expect(did).toEqual(["crash a1"]);
     expect(sent).toEqual([]);
     expect(journal).toEqual(["[crash said]"]);
+  });
+
+  test("item 56 what the phone received goes to the receive end, and what it says reaches the journal only", () => {
+    const { c, did, sent, journal } = channel();
+    c.receive({ kind: "receive", ms: 5000 });
+    expect(did).toEqual(["receive 5000"]);
+    expect(sent).toEqual([]);
+    expect(journal).toEqual(["[receive said]"]);
   });
 
   test("14.15 what the phone says about itself goes to the device end, and what it says reaches the journal only", async () => {

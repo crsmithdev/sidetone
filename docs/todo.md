@@ -671,8 +671,8 @@ Noted 27 September 2026, from a question in the car. Investigated 28
 September 2026, `~/.sidetone/findings/audio-transport-56.md`, from the code
 and the journal, with no phone attached. The answer is yes: loss and jitter on
 the cellular link, concealed by the phone's jitter buffer, can garble a
-correct render. Nothing measures it yet. The next step is to read the phone's
-inbound-rtp stats while the bridge speaks. No fix made.
+correct render. The measurement landed 28 September 2026 (spec 14.17). No fix
+made.
 
 Chris asked: can a wav that the server renders correctly still play garbled on
 the phone, from a poor connection or another cause? Two faults look similar
@@ -693,6 +693,12 @@ Neither checked the audio frames from end to end. Questions to research:
 Done when there is a finding in the shape of item 39 part 2: a file under
 `~/.sidetone/findings/`, from the code and LiveKit's own behaviour, that names
 what can go wrong between a correct render and what Chris hears.
+
+### Outcome, 28 September 2026
+
+Landed: the app sends its receive statistics every 5 s while the bridge
+speaks, the journal has one line for each (spec 14.17), and the screen log has
+a `reconnect` event.
 
 ## 58. The gate does not see a command piped into a shell
 

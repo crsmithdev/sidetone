@@ -7,6 +7,7 @@ import { receiveCrash } from "../src/crash.ts";
 import { DEFAULTS } from "../src/config.ts";
 import { readDevice } from "../src/device.ts";
 import { decodeIncoming, type Incoming } from "../src/messages.ts";
+import { receivedLine } from "../src/network.ts";
 import { Screens } from "../src/screen.ts";
 import { Screenshots } from "../src/screenshot.ts";
 
@@ -22,7 +23,7 @@ const PAGE = new URL("../client/index.html", import.meta.url).pathname;
 
 /** Every kind a client may send, and the end each reaches. A kind added to `Incoming` must be added here. */
 const REACHES: Record<Incoming["kind"], keyof Ends> = {
-  said: "heard", mic: "microphone", voice: "voice", setting: "setting", music: "music", quality: "quality",
+  said: "heard", mic: "microphone", voice: "voice", setting: "setting", music: "music", quality: "quality", receive: "receive",
   screen: "screen", screenshot: "screenshot", crash: "crash", device: "device",
 };
 
@@ -55,6 +56,7 @@ function channel() {
     setting: () => { reached.push("setting"); },
     music: () => { reached.push("music"); },
     quality: () => { reached.push("quality"); return true; },
+    receive: (value) => { reached.push("receive"); return receivedLine(value); },
     screen: (part) => { reached.push("screen"); return screens.receive(part); },
     screenshot: (part) => { reached.push("screenshot"); return screenshots.receive(part); },
     crash: (report) => { reached.push("crash"); return receiveCrash(report, join(dir, "crashes")); },
