@@ -256,42 +256,6 @@ Done when Chris has weighed the open row, the synthesis alarm, and it has a
 test or a written reason that none is practical. Item 61 holds the `/play`
 fault.
 
-## 28. A proper options menu in the Android app
-
-Noted 22 September 2026. Built and landed 23 September 2026 (010a92d, spec
-17.22). Item 46 put a gear on it. Item 50 folded in on 28 September 2026: it
-made the menu a screen that fills the window (9df5cc8), and what was left of
-both items is the same check on the phone. Not yet used on the phone.
-
-What was built. The gear at the end of the status row opens a menu with a
-three-way verbosity selector (item 37), a tones switch, a hold music volume
-slider and "Leave". `Options.kt` draws it. Each control sends the `setting`
-message (9.4.9), so the bridge takes the path of the spoken command, and the
-control shows only what the next `settings` message says. The bridge takes
-`holdMusicGain` from a client (0 to 1, no answer) and decodes the next track at
-it. `tones` joined `IN_FORCE`, so the app can read the switch back. The voice
-choice and the audio switch stay out of the menu, because each already has a
-command or a button.
-
-Still to do:
-
-- The choice of hold music track: dropped. Chris decided on 24 September 2026
-  that the folder is the setting. Item 20 plays every file in
-  `~/.sidetone/hold/` in turn, and he changes what plays by adding or deleting
-  files. On 24 September the folder holds nine tracks.
-- Not checked on the phone: the look of the menu, the slider inside a dropdown,
-  and the volume heard in the car.
-- Item 49 (4d15b13) renamed "Leave" to "Quit" in this menu and gave "Leave" a
-  new job.
-- Item 50 (9df5cc8, APK `0877275ff197`) replaced the dropdown with an options
-  screen under the status row. The gear or a back gesture closes it. It holds
-  the same controls, with full-width rows and a large slider thumb, because a
-  slider in a dropdown is a poor target in a moving car.
-
-Done when the options screen has been used on the phone once: the gear opens a
-screen that fills the window under the top bar, every control in it works, and
-a back gesture returns to the conversation.
-
 ## 35. Permissions stop the agent, and the spoken confirm word may not exist
 
 Noted 23 September 2026. Investigated 23 September 2026,
@@ -363,53 +327,6 @@ Points 1 to 5 of the work:
 Done when a job started by `aleph job` from a spoken turn does not stop on a
 permission, and a gated action has been agreed and refused once by voice in
 the room.
-
-## 38. A screenshot from the phone does not reach the agent, and the status shows twice
-
-Noted 23 September 2026. Part 2 built and landed 23 September 2026 (ad48d25,
-spec 14.12.5 to 14.12.7, 17.18.5), not tried on the phone. Part 1 answered 23
-September 2026, `~/.sidetone/findings/double-status-38.md`.
-
-Part 1, answered. The double was the job lines, not the status row. The
-screenshot shows four lines under the 11:29 answer: "Job wake-review
-finished." and "Job status-dot finished.", each twice. The bridge and the app
-did the correct thing four times: the agent started each job twice. A barge-in
-during the job tool call made Claude Code report the call "rejected"
-after the command had run. Chris said "Start them both", and the agent ran the
-same command again. The four job directories have the same `command.txt` in
-pairs, and each exited 0.
-
-Also from the finding: the screenshot did reach the bridge. The app sent it,
-and the bridge wrote it at 11:32:43 to `~/.sidetone/screenshots/`. The agent
-looked in `~/.sidetone/share` and `~/.sidetone/screen` only. Part 2 answers
-that: the turn text now names the file.
-
-Part 2, what was built:
-
-- The bridge keeps each written screenshot pending, and the next turn that
-  Chris's words start takes all of them in order. A line for the agent names
-  each file, and the transcript does not show that line. A screenshot alone
-  starts no turn, and one that arrives after Chris speaks waits for the next
-  turn, so it cannot race with the answer (11.11).
-- A pending screenshot expires after 2 minutes.
-- The bridge tells the app `screenshot` with a state: `pending`, `sent`,
-  `expired` or `dropped`. The app shows the thumbnail with the mark "attached
-  to your next message", and a tap sends a drop request.
-- Tests: `test/screenshot.test.ts`, the fixture, `ConversationTest`,
-  `ScreenshotTest` and `MessagesTest`.
-
-Still to do:
-
-1. Closed. `scripts/job` refused a name that already ran (aa328c2), and went
-   in 2225aeb. `aleph job` starts a second run under the same name, so
-   `CLAUDE.md` tells the agent to run `aleph jobs` first.
-2. On the phone: the thumbnail, the mark and the tap, and one turn where the
-   agent opens a file the turn named.
-3. A known limit: the bridge forgets the pending screenshots when it restarts,
-   and nothing tells the app. The mark then stays, but no turn takes the
-   screenshot.
-
-Done when the agent has opened one screenshot that Chris sent from the phone.
 
 ## 39. The app sends no crash report, and nobody has checked it for stability
 
@@ -537,60 +454,6 @@ applies it.
 
 Done when Chris changes one bridge threshold from a menu or a command, and the
 next turn uses the new value with no restart.
-
-## 49. Leaving the room keeps the app open, and one tap rejoins
-
-Noted 24 September 2026. Built and landed 24 September 2026 (4d15b13). Not yet
-used on the phone: Chris has to install the build and try it in the car. This
-item takes over what was left of item 27.
-
-Item 27 closed with a workaround: while the app is in a room the car sees a
-call and parks its media, so Chris leaves the room to play music and rejoins to
-talk. Before 4d15b13, "Leave" quit the app, which is a heavy thing to do at the
-wheel.
-
-What was built. "Leave" ends the room, and the app stays open and in front. It
-shows the conversation it had, with a control large enough for a thumb to
-rejoin. The pairing is kept, so there is no code to scan. Leaving releases the
-phone's audio: the microphone track goes, the room connection ends, and the
-communication device is cleared, so the car stops treating the phone as being
-in a call. "Quit" is in the gear menu (item 28).
-
-The bridge needs no change: a phone out of the room is the case of a phone in a
-tunnel (14.8), and the history arrives when it comes back.
-
-Done when Chris taps Leave in the car, the music plays, the app is still on the
-screen, and one tap brings the conversation back with the history.
-
-## 51. A design pass on the status light and its legend
-
-Noted 24 September 2026, from reading the legend on the phone. Designed with
-Chris and built 24 September 2026 (9df5cc8, spec 17.11): the colour says whether
-the bridge hears him, a slow pulse says work is in progress, "stalled" is solid
-red, the ring is gone, and the legend draws each dot with its pulse. Not yet
-seen on the phone.
-
-Before the design, four of the seven states were amber, so the colour said
-almost nothing. Spec 17.11 now holds the design and `Reading.kt` draws it.
-
-Done when Chris has read the light and the legend on the phone.
-
-## 52. The hold music fades in
-
-Noted 24 September 2026, from Chris. Built and landed 24 September 2026
-(e782b4c, spec 15.10.4). What is left is for Chris to hear it in the car.
-
-A hold track starts at full level, and after a resume it starts two seconds
-before where it stopped (15.10.1), so it cuts in mid-phrase. It fades out over
-`holdMusicFadeMs` (300 ms, 15.10.2) but never fades in.
-
-What was built. Each start fades in with a straight line from zero, shorter
-than the fade out: the setting `holdMusicFadeInMs`, default 150 ms, where 0
-starts at full level. It applies to every start of a track, the first and each
-resume. The fade is done on the samples before `speaker.track` gets them, so it
-costs nothing at play time.
-
-Done when Chris has heard it in the car.
 
 ## 54. End a turn before the 1.5 s pause
 
@@ -796,6 +659,13 @@ commit, and any finding that lived only in the item.
   research is `~/.sidetone/findings/echo-cancellation-23-september.md`: on
   A2DP no documented canceller has the reply as a reference, and a server-side
   canceller is an experiment, not a fix.
+- **28. A proper options menu in the Android app**, with item 50 merged in.
+  Closed 28 September 2026 (010a92d, spec 17.22; 9df5cc8). The gear opens an
+  options screen under the status row with the verbosity selector, the tones
+  switch, the hold music volume slider and "Quit"; the gear or a back gesture
+  closes it. Each control sends `setting` and shows only what the next
+  `settings` says. The choice of a hold music track was dropped: the folder is
+  the setting. Chris used the screen on the phone, and every control worked.
 - **30. Compact the status row, and design it rather than grow it.** Landed 23
   September 2026 (1815e29, spec 17.11.6). One dot: colour for the room state,
   motion for the work, the ring for the quality; "Leave" into the menu. Item 45
@@ -823,6 +693,16 @@ commit, and any finding that lived only in the item.
   (010a92d). Three levels, one line at the head of each turn's prompt, saved
   in the settings file; the commands are `verbosity brief`, `verbosity
   normal`, `verbosity full`, `shorter` and `longer`.
+- **38. A screenshot from the phone does not reach the agent, and the status
+  shows twice.** Closed 28 September 2026 (ad48d25, spec 14.12.5 to 14.12.7,
+  17.18.5). The double was the job lines: a barge-in during the job tool call
+  made Claude Code report it "rejected" after it ran, and the agent started
+  each job twice (`~/.sidetone/findings/double-status-38.md`). The screenshot
+  reached the bridge, but the agent did not look in `~/.sidetone/screenshots/`.
+  The next turn now names each pending screenshot, which expires after 2
+  minutes. On the phone the agent opened a screenshot Chris sent. A known
+  limit: a bridge restart forgets the pending screenshots, and the app mark
+  stays.
 - **40. The app learns of a new build only when it joins the room.** Landed 23
   September 2026 (3b35cbe, spec 17.15.5, 17.15.6). The bridge looks at the
   file every 2 seconds and sends `apk` when the hash changes and two looks
@@ -857,6 +737,23 @@ commit, and any finding that lived only in the item.
   playing, now under 500; and "Audio off." waited on the whole queue, so the
   held answer played on behind it. `frames()` clears the source on a cut, and
   `Mouth.quietAfter` turns the audio off when its own line ends.
+- **49. Leaving the room keeps the app open, and one tap rejoins.** Closed 28
+  September 2026 (4d15b13). Takes over what was left of item 27. "Leave" ends
+  the room and releases the phone's audio, so the car stops treating the phone
+  as in a call; the app stays open with the conversation and a rejoin control,
+  and the pairing is kept. "Quit" is in the options screen. The bridge needed
+  no change. On the phone the music played after Leave, and one tap brought
+  the conversation back with the history.
+- **51. A design pass on the status light and its legend.** Closed 28
+  September 2026 (9df5cc8, spec 17.11). Before, four of the seven states were
+  amber. The colour now says whether the bridge hears Chris, a slow pulse says
+  work is in progress, "stalled" is solid red, the ring is gone, and the legend
+  draws each dot with its pulse. Chris read the light and the legend on the
+  phone.
+- **52. The hold music fades in.** Closed 28 September 2026 (e782b4c, spec
+  15.10.4). Each start of a track, the first and each resume, fades in on a
+  straight line over `holdMusicFadeInMs`, default 150 ms, where 0 starts at
+  full level. Chris heard it on the phone.
 - **56. Can correct audio arrive distorted from the connection or the
   transport?** Closed 28 September 2026 (cee9eb2) with the finding
   `~/.sidetone/findings/audio-transport-56.md`, from the code and the journal.
