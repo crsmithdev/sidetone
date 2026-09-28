@@ -187,75 +187,6 @@ Done when there is a clearer answer to what problem a desktop client solves,
 or it turns out the browser client already covers it; and when the three
 untested session cases have a result.
 
-## 26. Automated coverage for a barge-in / echo-cancellation regression, before item 27
-
-Noted 22 September 2026. Built and landed 23 September 2026 (15ed8e8, spec
-4.2.2, 18.13) and 24 September 2026 (9a49cb9, the echo path in the test suite;
-adfe8b0, the car check). Item 1, the volume of the phone audio path, closed
-into this item on 24 September 2026. What is left is for Chris to weigh the
-list of gaps at the end.
-
-What was built. A unit test cannot hear the phone, so there are three parts:
-
-| Part | What it catches | Runs |
-|---|---|---|
-| `android/.../Audio.kt` and `AudioTest` (spec 4.2.2, 18.13.1) | any change to the audio setup that has not passed the echo check, and any audio-path call outside `Audio.kt`: a track gain, a mode, focus, routing, a player of its own | `./gradlew testDebugUnitTest`, no phone |
-| `bun scripts/echo-check.ts` (spec 18.13) | the canceller that does not hold: the bridge says a passage into the room and the record shows whether the microphone brought it back. It refuses a cut microphone and a dead capture (18.13.2, 18.13.3), because on 23 September both passed as a quiet room | on the bridge machine, with the phone in the room and nobody talking |
-| `test/echo-path.ts` (9a49cb9) | the bridge's side of an echo, with no car: speech-shaped audio, delayed and attenuated through a modelled canceller into `Ear.frame`. A clean echo of one sentence is dropped and the held answer resumes; the whole passage comes back as one utterance of over 15 s at peak 0.54 and `verdict` calls it a fail; real speech over the voice is still heard | `bun test` |
-
-The fourth assertion of `test/echo-path.ts` is a limit to know: at peak 0.54
-with 300 ms bursts and dips over 200 ms, the barge-in gate never fires, because
-each burst holds 300 of the 400 ms it needs and the dip resets the count. The
-gate guards only a canceller that fails outright. A canceller that leaks onsets
-leaves the words (18.10.1, 18.10.3) as the only guard.
-
-The setup that ships passed the check in the car on 24 September, over
-Bluetooth SCO to an Audi MMI at full volume, with the microphone open and the
-capture live: nothing came back. `Audio.CHECKED_ON` says so. Run the check in
-the car again before anything about the audio setup changes; `bun
-scripts/audio-setup.ts` changes it without a build (18.15), and the record
-names the setup each reading was taken with.
-
-The phone's audio path, from item 1. What is still true:
-
-- The app takes no volume of its own. A search of the `.ts` and `.kt` files
-  finds only `cueVolume`, which scales the cues, and the gain in `src/audio.ts`.
-  In the car the car's volume control works. On the phone alone the setting has
-  little effect and a floor Chris cannot go under. The floor fits call mode:
-  Android's voice-call stream often has a minimum of 1 and never reaches 0.
-  Not verified on adb.
-- Call mode stays. The car check settled it: call mode passes the echo check
-  and media mode fails it (item 27). The level of the phone alone is a property
-  of call mode, and a fix must keep call mode.
-- An in-app volume slider (spec 4.2.1) shipped 21 September and was reverted
-  22 September. Its gain on the bridge's track was loud enough to defeat the
-  phone's echo canceller, so the bridge heard its own voice and barged in on
-  itself. `AudioTest` now names a track gain outside `Audio.kt`, so a volume
-  change is an audio-path change and needs the echo check before it ships.
-- Playback volume sometimes jumps suddenly (item 25), especially with hold
-  music. No case is on record. The hold music gain is set once, at decode time
-  (spec 15.9), so a jump mid-track is in the transport or the phone, not the
-  bridge. Get one case: the time, what was playing, the status on screen, and a
-  screenshot, which now joins the next turn (item 38).
-
-Other testing gaps, from the session transcripts of 20 to 23 September, for
-Chris to weigh:
-
-| What happened | Would a test have caught it? |
-|---|---|
-| `/play` fought the voice and the hold music (22 September) | In part: `test/turn.test.ts` (15.12) tests a track and a sentence that wait for each other. The drive of 27 September found a fault that the tests do not catch: item 61. |
-| The voice came out garbled from the pre-rendered replies (item 32) | Covered since 23 September: a kept line is kept only when the speech worker hears its text (11.6.1, item 33). |
-| The voice said ".ts" about twelve times (item 34) | Covered since 24 September: a path is spelled for the voice, with a test (item 33 c). |
-| All of the bridge's audio was lost after an app or bridge change (21 September) | A `scripts/fake-phone.ts` run after each bridge change hears what the bridge says, so it catches a loss on the bridge side. Nothing catches one in the app except the phone. |
-| The app joined, played the voice, and sent no sound until a force stop (21 September) | Not before it happened; the bridge now detects a silent track and asks for a rejoin (18.9), and `JoiningTest` covers the app's side. |
-| The opening sentence played after the hold music (item 31) | Covered, by the test that came with the fix. |
-| Synthesis took 22 to 24 s a sentence while another job held the GPU (22 September) | No: it is load, not code. An alarm on the synthesis time would show it. None exists. |
-| A barge-in stopped the background subagents (item 4) | No: it is Claude Code's behaviour, outside this repo. |
-
-Done when Chris has weighed the open row, the synthesis alarm, and it has a
-test or a written reason that none is practical. Item 61 holds the `/play`
-fault.
-
 ## 35. Permissions stop the agent, and the spoken confirm word may not exist
 
 Noted 23 September 2026. Investigated 23 September 2026,
@@ -912,3 +843,21 @@ commit, and any finding that lived only in the item.
   does not cut the delay and adds a route on the tailnet that needs a token,
   so the screenshot stays in parts on the control channel. Not measured on
   the phone itself or on a real mobile link.
+- **26. Automated coverage for a barge-in / echo-cancellation regression,
+  before item 27.** Closed 28 September 2026 (15ed8e8, 9a49cb9, adfe8b0; spec
+  4.2.2, 18.13). Item 1 closed into it on 24 September. A unit test cannot
+  hear the phone, so there are three parts:
+
+  | Part | What it catches | Runs |
+  | --- | --- | --- |
+  | `Audio.kt` and `AudioTest` (4.2.2, 18.13.1) | an audio setup that has not passed the echo check, and an audio-path call outside `Audio.kt` | `./gradlew testDebugUnitTest` |
+  | `bun scripts/echo-check.ts` (18.13) | a canceller that does not hold; it refuses a cut microphone and a dead capture | the bridge machine, with the phone in the room |
+  | `test/echo-path.ts` (9a49cb9) | the bridge's side of an echo, through a modelled canceller into `Ear.frame` | `bun test` |
+
+  Limits: at peak 0.54 with 300 ms bursts and dips over 200 ms, the barge-in
+  gate never fires, so it guards only a canceller that fails outright, and a
+  canceller that leaks onsets leaves the words (18.10.1, 18.10.3) as the only
+  guard. The setup that ships passed the check in the car on 24 September
+  (`Audio.CHECKED_ON`); run it again before the audio setup changes. Chris
+  weighed the open row and the synthesis alarm and closed the item, with the
+  synthesis alarm not built.
