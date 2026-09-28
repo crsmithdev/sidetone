@@ -846,6 +846,17 @@ says what "small" and "independent" mean.
 Done when the rule is in `CLAUDE.md`, and in a spoken conversation a request
 for a small, independent task starts a job instead of running inline.
 
+## 65. A Sidetone command for the twelve-phrase model check
+
+Noted 28 September 2026. Test 17 in `docs/testing.md` has Chris read a fixed
+card of twelve phrases three times, muted, to score speech models against
+his own voice. He expects to repeat this, so it should be a command rather
+than a manual drive procedure: something like "sidetone, read the card" that
+walks the twelve lines and mutes/unmutes on its own.
+
+Done when there is a command for it, or a decision on what it should say and
+how it should pace itself between lines.
+
 ## Done
 
 One line for each item that shipped: the number, the title, the date, the
