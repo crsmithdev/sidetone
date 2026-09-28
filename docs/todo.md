@@ -617,6 +617,54 @@ A/B, all 24 turns read a source before they answered, with either wording.
 Done when a question about the record, asked by voice, gets a tool call that
 reads it before the answer.
 
+## 67. The card gets ahead of Chris, and a card of plain sentences
+
+Noted 28 September 2026, from the first read of the card (item 65) in the
+car, 16:06 to 16:10.
+
+### a. One split utterance moves the card one line ahead
+
+Chris heard the card say the next line before he had said the last one, late
+in round 1. The journal shows the cause. `readLine` in `src/conversation.ts`
+takes every utterance as the whole answer to the line, and says the next
+line at once. No timer and no echo drop are in it. When the ear ends an
+utterance on a pause in the middle of a line, the first part answers the
+line and the second part answers the next one, so the card is one line ahead
+of Chris for the rest of the round:
+
+| Line said | Heard | Speech in it |
+|---|---|---|
+| 4 female voice | "site." | 0.1 s |
+| 5 carry on | "Sidetone, female voice" | 0.8 s, 0.2 s quiet before |
+| 7 recap | "Sidetone" | 0.3 s |
+| 8 stats | "Say again." | 0.4 s, 0.3 s quiet before |
+
+After line 7 the card was two lines ahead. Chris's aside at line 10 ("hold
+up, hold up ... work the test") answered line 10, and he caught up at line 11.
+Rounds 2 and 3 had no split and kept pace. The echo drop (18.10.1) dropped
+nothing in the run. The labels of round 1, lines 4 to 10, are wrong for the
+scoring of test 17: fix them by hand from the heard texts.
+
+"Sidetone" at line 7 is the ear ending the turn on the pause after the wake
+word. What "site." at line 4 was is open: 0.1 s of speech, a false start or a
+noise.
+
+Open: how the card knows an utterance is the whole line. Candidates: say the
+line again when the heard text does not match it (`match`), join a short
+utterance to the next one, or wait longer for the end of speech while the
+card runs. Done when a card read in the car has no line answered by part of
+another.
+
+### b. A card of plain sentences
+
+Eleven of the twelve lines of test 17 are "sidetone, ..." commands, so the
+card mostly tests how each model hears the wake word. Chris wants a second
+card of ordinary sentences, so the check also scores plain speech. Open: the
+sentences, and how the command picks the card ("read the plain card", or a
+setting). The sentences should be like what Chris says to the agent in the
+car: file names, numbers, project words and a question or two. Done when
+"read the card" can read either card, and test 17 scores both.
+
 ## Done
 
 One line for each item that shipped: the number, the title, the date, the
