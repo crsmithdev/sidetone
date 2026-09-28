@@ -662,6 +662,29 @@ text and at the edges of a clip, and no data to rule transport in or out.
 Done when one report with a time is matched to its clip and its receive line,
 and the cause is named.
 
+## 67. Keep the session context across a service restart
+
+Noted 28 September 2026, after the service restarted and Chris asked what
+happened. Each start of the service begins a new `claude -p` session with no
+context. Chris wants a restart to keep the context, with the existing
+`/aleph:handoff` and `/aleph:pickup` skills: a handoff before the session
+stops, and a pickup when the new one starts.
+
+Two places would hold the hooks. The SIGTERM handler in `src/serve.ts` leaves
+the room and exits; a handoff turn would run there, before `bridge.stop()`,
+or as an `ExecStop=` in `~/.config/systemd/user/sidetone.service`. A pickup
+would be the first message the bridge sends to the new session. A crash or a
+restart after `StartLimitBurst` gets no handoff, and a handoff turn can take
+longer than systemd waits for a stop.
+
+Open questions: do two skills built for an interactive session make sense
+for a `claude -p` process under systemd? Is `--resume` with the last session
+id a simpler way to keep the context? Restarts are rare, so is the lost
+context a real cost?
+
+Done when there is a decision on whether to keep the context across a
+restart and how, or the item is dropped with a reason.
+
 ## Done
 
 One line for each item that shipped: the number, the title, the date, the
