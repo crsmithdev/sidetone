@@ -808,6 +808,9 @@ Not worth a change of its own. If item 63 edits `voiceInstruction`, add one
 sentence there: "Run lookups that do not depend on each other in one step."
 The hand check of 40 turns is a judgement and was not repeated.
 
+The sentence landed in `voiceInstruction` on 28 September 2026, after the
+rule to speak before a tool call.
+
 ## 63. Strengthen two rules in the voice instruction
 
 Noted 28 September 2026, from a live conversation where both were broken.

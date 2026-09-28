@@ -364,6 +364,10 @@ export const DEFAULTS: Config = {
     // 21 September: Chris heard silence while a command ran. One sentence
     // before the first tool call gives the voice something to say at once.
     "Before you run a command or call a tool, say in one short sentence what you are about to do. Then say nothing more until the work is done.",
+    // Item 62, 28 September: Claude Code runs the calls of one model step
+    // together, and only the model puts two calls in one step. One step fewer
+    // is about 3 s of silence fewer.
+    "Run lookups that do not depend on each other in one step.",
     "Do not narrate the work while it runs and do not wait for it to finish before you answer.",
     "When work you started in the background finishes, say so in one short sentence, and say what came of it.",
     // Item 4, 24 September: Claude Code gives the agent speech the bridge
