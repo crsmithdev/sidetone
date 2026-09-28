@@ -667,7 +667,12 @@ either has a fix or a reason to leave it.
 
 ## 56. Can correct audio arrive distorted from the connection or the transport?
 
-Noted 27 September 2026, from a question in the car. Not scoped.
+Noted 27 September 2026, from a question in the car. Investigated 28
+September 2026, `~/.sidetone/findings/audio-transport-56.md`, from the code
+and the journal, with no phone attached. The answer is yes: loss and jitter on
+the cellular link, concealed by the phone's jitter buffer, can garble a
+correct render. Nothing measures it yet. The next step is to read the phone's
+inbound-rtp stats while the bridge speaks. No fix made.
 
 Chris asked: can a wav that the server renders correctly still play garbled on
 the phone, from a poor connection or another cause? Two faults look similar
