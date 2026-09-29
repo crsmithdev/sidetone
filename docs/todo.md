@@ -418,6 +418,74 @@ exact thinking count and the cache counts to split them.
 Done when the record splits the median `agentMs` into its parts, and each part
 either has a fix or a reason to leave it.
 
+### Outcome, 28 September 2026
+
+Measured from the 123 `answered` lines of 25 to 28 September that have the
+stream fields, each matched to its Claude Code session by the time the text
+went in. Four probes used the bench's command line on the same afternoon:
+scratch copies of `scripts/first-word.ts` with `--resume <id>
+--fork-session`, `--effort`, and several processes at once.
+
+The 1.6 s median came from lines of 22 and 23 September, before the stream
+fields existed, so it cannot be split. On the lines that can be split, the
+median `agentMs` is 4.3 s for all turns and 2.1 s for turns with no tool
+before the first word. The tool-first turns (50 of 123, median 10.2 s) move
+the median for all turns. The table splits the no-tool turns: 71 turns
+under 10 s, mean 2.53 s, median 2.07 s.
+
+| Part | Mean share | Evidence | Fix or reason to leave |
+|---|---|---|---|
+| Request floor | 0.60 s | `requestMs` in a fast session is 0.5 to 0.7 s, the bench's whole number | Leave. It is the network and the server. |
+| Slow session | 0.70 s | See below: some sessions add about 1.2 s to every request | Fork the session when it is slow. See below. |
+| Thinking | about 1.2 s | 41 of 73 no-tool turns think. Each thinking token costs 11 ms (fit over those 41 turns). The median is 75 tokens | A setting for `--effort`, then a drive with `medium`. See below. |
+| The bridge and Claude Code before the request, and `message_start` to the first delta | 0.07 s median | `agentMs - requestMs` on turns with no thinking | Leave. This includes the note in front of the turn: `voiceInstruction` is in the cached system prompt, and the verbosity line is about 30 tokens. |
+| Context size | none | In a fast session, a fork at 128k tokens answers in 0.68 s against 0.6 s at 40k. The record shows fast sessions at 85k | Leave. |
+| Cache misses | none | Cache creation median is 280 tokens. The 6 no-tool turns that wrote more than 2k tokens took 1.2 to 2.6 s | Leave. |
+
+`requestMs` is the time from the `requesting` status to `message_start`. On
+the turns that start with text, it is all but 70 ms of `agentMs`.
+
+**Slow sessions.** `requestMs` depends on the session, not on the context or
+the hour. Four of the eight bridge sessions had a median of 0.58 to 0.70 s.
+The other four had 1.5 to 2.4 s. The slowest session was 6df73db9: 50 turns
+over two hours, and no request under 1.2 s. The probes show that the server
+keys the delay to the session id:
+
+| Probe, turns interleaved | `requestMs` median |
+|---|---|
+| A copy of slow session 79c65674, resumed under its own id | 1.57 s (1.40 to 2.40) |
+| A fork of the same transcript, which gets a new id | 0.57 s (0.51 to 0.73) |
+| 13 new sessions, 3 to 16 turns each | 2 slow (1.49 s, 1.75 s), 11 fast (0.53 to 0.74 s) |
+
+The fork has the same context and reads the same cache, so it costs no cache
+write. The proposed fix: when the first three requests of a session each take
+more than 1.2 s, the bridge starts the agent again with `--resume <id>
+--fork-session`, between turns. This is behaviour of the server, not a
+contract, so a drive has to show that it holds. Saves about 1.2 s per turn in
+about half of the sessions.
+
+**Thinking.** The bench prompts never thought, so its `--effort low` result
+did not test thinking. Real turns think in 56% of the no-tool turns. On six
+real voice prompts sent to a fork of 79c65674 (two rounds, and out of their
+context, so they thought more than in the car), thinking tokens were:
+
+| Effort | Thinking tokens, total | Median | Change |
+|---|---|---|---|
+| high (the default) | 12,292 | 721 | |
+| medium | 6,321 | 359 | -49% |
+| low | 3,873 | 251 | -68% |
+
+The proposed fix: an `effort` setting passed to `claude`, and a drive with
+`medium`, which checks the answers as well as the time. At 11 ms a token,
+`medium` saves about 0.6 s of the 1.2 s mean. This probe did not judge answer
+quality.
+
+**Tool-first turns.** Item 63a closes these: one sentence before the first
+tool call takes the tool time off `agentMs`. In Langfuse, the time from the
+end of a model call to the start of its tool is 0.48 s median (p90 2.9 s,
+104 calls in sessions 79c65674 and 6df73db9). This time is before the tool
+runs, and nothing explains it yet. It is a follow-up, not part of this item.
+
 ## 60. Set the level for speech from the noise in the car
 
 Noted 27 September 2026, from the architectural review of 25 September
