@@ -200,6 +200,65 @@
    ]
   },
   {
+   "said": "sidetone, model sonnet",
+   "want": "modelSonnet",
+   "heard": [
+    "Sidetone Model Sonnet",
+    "Sidetone, Model Sonnet"
+   ]
+  },
+  {
+   "said": "sidetone, model opus",
+   "want": "modelOpus",
+   "heard": [
+    "Sidetone Model Opus",
+    "Sidetone, Model Opus"
+   ]
+  },
+  {
+   "said": "sidetone, model haiku",
+   "want": "modelHaiku",
+   "heard": [
+    "Sidetone Model Haiku"
+   ]
+  },
+  {
+   "said": "sidetone, effort default",
+   "want": "effortDefault",
+   "heard": [
+    "Sidetone Effort Default",
+    "Sidetone effort default",
+    "Sidetone effort default.",
+    "Sidetone, Effort Default",
+    "Sidetone, Effort, Default"
+   ]
+  },
+  {
+   "said": "sidetone, effort low",
+   "want": "effortLow",
+   "heard": [
+    "Sidetone Effort Low",
+    "Sidetone effort low"
+   ]
+  },
+  {
+   "said": "sidetone, effort medium",
+   "want": "effortMedium",
+   "heard": [
+    "Sidetone Effort Media",
+    "Sidetone Effort Medium"
+   ]
+  },
+  {
+   "said": "sidetone, effort high",
+   "want": "effortHigh",
+   "heard": [
+    "Sidetone Effort High",
+    "Sidetone, Effort High",
+    "Sidetone, effort high."
+   ]
+  },
+  {
    "said": "sidetone, female voice",
    "want": "femaleVoice",
    "heard": [

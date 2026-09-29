@@ -115,6 +115,9 @@ talk button calls `Bridge` as it draws, and no `Bridge` runs in the test. A
 test that needs that button must call `newBridgeProcess()` and
 `Bridge.load(app)` first, as `BridgeTest` does.
 
+`OptionsTest` draws the options screen with its own `change`, so it checks
+the setting message that a tap sends, with no room.
+
 ## Score a drive
 
 A drive is a script that you read aloud in the car, and a score of the result:

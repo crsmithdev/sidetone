@@ -350,6 +350,50 @@ describe("the verbosity (item 37)", () => {
   });
 });
 
+/**
+ * Item 55 the model and the effort. Each is a flag of the agent process, so a
+ * change asks the agent for a new process; the setting itself goes the way the
+ * verbosity does.
+ */
+describe("the model and the effort (item 55)", () => {
+  test("the command sets the value, says so, keeps it, and reloads the agent", async () => {
+    const r = room();
+    await r.c.heard("sidetone effort medium");
+    await r.c.heard("sidetone model opus");
+    await settled();
+    expect(r.said).toContain("Effort medium.");
+    expect(r.said).toContain("Model opus.");
+    expect(r.patches).toEqual([{ effort: "medium" }, { model: "opus" }]);
+    expect(r.agent.calls.filter((call) => call.startsWith("reload"))).toEqual(["reload sonnet medium", "reload opus medium"]);
+  });
+
+  test("the same value again is said back, and reloads nothing", async () => {
+    const r = room();
+    await r.c.heard("sidetone model sonnet");
+    await settled();
+    expect(r.said).toContain("Model sonnet.");
+    expect(r.agent.calls.filter((call) => call.startsWith("reload"))).toEqual([]);
+  });
+
+  test("the app sets both by the same path, and a value that does not exist is ignored", async () => {
+    const r = room();
+    r.c.set({ model: "haiku" });
+    r.c.set({ effort: "high" });
+    r.c.set({ model: "gpt" });
+    r.c.set({ effort: "max" });
+    await settled();
+    expect(r.patches).toEqual([{ model: "haiku" }, { effort: "high" }]);
+    expect(r.agent.calls.filter((call) => call.startsWith("reload"))).toEqual(["reload haiku default", "reload haiku high"]);
+  });
+
+  test("a client reads both back in the settings message", async () => {
+    const r = room();
+    await r.c.heard("sidetone effort low");
+    const settings = r.told.filter((message) => message.kind === "settings").at(-1);
+    expect(settings).toMatchObject({ settings: { model: "sonnet", effort: "low" } });
+  });
+});
+
 describe("end the turn with no turn running (9.4.8)", () => {
   test("the command itself is a barge-in, and still it says nothing is running", async () => {
     const { c, said } = watched();

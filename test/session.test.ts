@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from "bun:test";
 import { DEFAULTS, type Config } from "../src/config.ts";
 import { forkLine } from "../src/fork.ts";
-import { Session, processRssBytes, type Process, type Spawn, type Turn } from "../src/session.ts";
+import { Session, processRssBytes, spawnClaude, type Process, type Spawn, type Turn } from "../src/session.ts";
 import { pass, settle } from "./clock.ts";
 import { replay } from "./harness.ts";
 
@@ -737,5 +737,79 @@ describe("the fork of a slow session (8.13)", () => {
     expect(one.forks.map((fork) => fork.requestMs)).toEqual([[1_300]]);
     r.s.stop();
     one.s.stop();
+  });
+});
+
+/**
+ * Item 55 the model and the effort are flags of the process, so a change
+ * needs a new one. It resumes the conversation of the one before, and it
+ * waits for the turn that runs.
+ */
+describe("a reload with new flags (item 55)", () => {
+  const INIT = (id: string) => `{"type":"system","subtype":"init","session_id":"${id}","model":"claude-sonnet-5"}`;
+  function flagged() {
+    const made: Array<{ p: ReturnType<typeof scripted>; model: string; effort: string; resume?: string }> = [];
+    const spawn: Spawn = (given) => {
+      const p = scripted();
+      const at = given.claudeArgs.indexOf("--resume");
+      made.push({ p, model: given.model, effort: given.effort, resume: at < 0 ? undefined : given.claudeArgs[at + 1] });
+      return p.process;
+    };
+    const s = new Session("/tmp", { ...config }, {}, spawn);
+    return { s, made, current: () => made[made.length - 1]! };
+  }
+
+  test("it waits for the turn, then starts a process with the flags that resumes the session", async () => {
+    const r = flagged();
+    const turn = r.s.ask("one");
+    r.current().p.prints(INIT("a7e0"));
+    r.s.reload({ model: "opus", effort: "medium" });
+    expect(r.made).toHaveLength(1);
+    r.current().p.prints(RESULT("done"));
+    expect((await turn).text).toBe("done");
+    expect(r.made.map(({ model, effort, resume }) => ({ model, effort, resume }))).toEqual([
+      { model: "sonnet", effort: "default", resume: undefined },
+      { model: "opus", effort: "medium", resume: "a7e0" },
+    ]);
+    // the next turn goes to the new process
+    const next = r.s.ask("two");
+    expect(r.current().p.written).toHaveLength(1);
+    r.current().p.prints(RESULT("two done"));
+    expect((await next).text).toBe("two done");
+    r.s.stop();
+  });
+
+  test("between turns it starts the new process at once", () => {
+    const r = flagged();
+    r.s.start();
+    r.s.reload({ model: "haiku", effort: "high" });
+    expect(r.made.map(({ model, effort }) => `${model} ${effort}`)).toEqual(["sonnet default", "haiku high"]);
+    r.s.stop();
+  });
+
+  test("a restart for a fault starts fresh, and takes the flags too", async () => {
+    const r = flagged();
+    const turn = r.s.ask("one");
+    r.current().p.prints(INIT("a7e0"));
+    r.s.reload({ model: "opus", effort: "low" });
+    r.s.restart("for the test");
+    await expect(turn).rejects.toThrow("restarted");
+    expect(r.made.slice(1).map(({ model, effort, resume }) => ({ model, effort, resume }))).toEqual([{ model: "opus", effort: "low", resume: undefined }]);
+    r.s.stop();
+  });
+});
+
+describe("the flags on the command line (item 55)", () => {
+  // echo prints the arguments it was given, which is the command line claude would get
+  const argv = async (overrides: Partial<Config>) => {
+    const p = spawnClaude({ ...config, claudeBin: "echo", claudeArgs: ["-p"], ...overrides }, "/tmp");
+    for await (const line of p.lines) return line;
+    return "";
+  };
+  test("the default effort passes no flag", async () => {
+    expect(await argv({})).toBe("-p --model sonnet");
+  });
+  test("an effort passes its flag", async () => {
+    expect(await argv({ model: "opus", effort: "medium" })).toBe("-p --model opus --effort medium");
   });
 });

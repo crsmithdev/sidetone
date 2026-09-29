@@ -217,7 +217,7 @@ This repository is Sidetone. The earlier project bridge is on the
 
 8.9 The bridge reads the context from Claude Code. It does not estimate the fill. The fill is the input, cache-read and cache-creation tokens of the last request of the latest turn: the last entry of `usage.iterations` in the result. The totals of `usage` add up every request of the turn, so they are not the fill. On 26 September a turn of three requests on claude 2.1.283 read 27,737 tokens in its last request, and its totals said 81,193. The window is `contextWindow` of the main model in the result's `modelUsage`: the entry that read the most tokens. The threshold is the window less the smaller of `maxOutputTokens` and 20,000, less 13,000. Claude Code 2.1.283 compacts at this number (the functions `B4` and `P7` in its code), but no event states it, so a later version can change the rule without a sign in the stream. Haiku gives 200,000 and 167,000; Sonnet gives 1,000,000 and 967,000. When an `autocompact_state` event arrives, its window and threshold win over the result. The bridge divides the fill by the threshold. It gives a soft warning once, after the turn, when the number reaches the context warning level, and again only after the number drops below the level. It gives a definite warning when it sees a compaction.
 
-8.10 The bridge lets Chris select the model with a spoken command.
+8.10 The bridge lets Chris select the model with a spoken command (9.4.16).
 
 8.11 The default model is Sonnet. This default is final. The model is a setting.
 
@@ -275,7 +275,7 @@ This repository is Sidetone. The earlier project bridge is on the
 
 9.4.8 End the turn. Chris uses this command if the automatic detection is wrong.
 
-9.4.9 A client can read the settings in force and change one. The bridge sends a settings message when a client joins and again whenever a setting changes, however it changed. A client changes a setting by sending one, and the bridge does exactly what the spoken command does, the voice's answer included: a switch on a screen and the words spoken aloud cannot end anywhere different. The bridge acts only on the settings it has a spoken command for — the tones, the hold music, interrupting, which of the two voices speaks, and the verbosity — and on the hold music volume (17.22.3), the hold music delay (17.22.7) and the three thresholds of the ear (17.22.5, 17.22.6). It ignores any other name.
+9.4.9 A client can read the settings in force and change one. The bridge sends a settings message when a client joins and again whenever a setting changes, however it changed. A client changes a setting by sending one, and the bridge does exactly what the spoken command does, the voice's answer included: a switch on a screen and the words spoken aloud cannot end anywhere different. The bridge acts only on the settings it has a spoken command for — the tones, the hold music, interrupting, which of the two voices speaks, the verbosity, the model and the effort — and on the hold music volume (17.22.3), the hold music delay (17.22.7) and the three thresholds of the ear (17.22.5, 17.22.6). It ignores any other name.
 
 9.4.9.1 Each settings message has a `seq`: the bridge's clock in milliseconds, or one more than the last `seq` when that is larger. So `seq` grows across restarts of the bridge. The app can get two data messages out of order. It ignores a settings message whose `seq` is not larger than the last one it used. A new room starts the count again.
 
@@ -311,6 +311,13 @@ This repository is Sidetone. The earlier project bridge is on the
 | `verbosityFull` | "verbosity full" | Sets the verbosity to full | no | 9.4.10 |
 | `shorter` | "shorter" | Moves the verbosity one level down | no | 9.4.10 |
 | `longer` | "longer" | Moves the verbosity one level up | no | 9.4.10 |
+| `modelSonnet` | "model sonnet" | Sets the model to sonnet | no | 9.4.16 |
+| `modelOpus` | "model opus" | Sets the model to opus | no | 9.4.16 |
+| `modelHaiku` | "model haiku", "model haikyuu" | Sets the model to haiku | no | 9.4.16 |
+| `effortDefault` | "effort default" | Sets the effort to default: no flag | no | 9.4.17 |
+| `effortLow` | "effort low" | Sets the effort to low | no | 9.4.17 |
+| `effortMedium` | "effort medium", "effort media" | Sets the effort to medium | no | 9.4.17 |
+| `effortHigh` | "effort high" | Sets the effort to high | no | 9.4.17 |
 | `femaleVoice` | "female", "woman" | Speaks in the female voice | no | 4.9 |
 | `maleVoice` | "male", "mail" | Speaks in the male voice | no | 4.9 |
 | `readCard` | "read card" | Mutes, and says the lines of the transcription card of test 17 for Chris to say after it | no | 9.4.15 |
@@ -318,6 +325,17 @@ This repository is Sidetone. The earlier project bridge is on the
 9.4.14 Report the round trip. The bridge says the time of the last answer, and the median and the worst time when there is more than one. It says how much of the last answer was the end-of-turn pause (11.5), and how long the agent, the first sentence and the voice took. It says the count of barge-ins, and how many of them heard nothing. It then says the quality of the connection at the phone and at the bridge. When the phone was poor or lost for a second or more in this session, it says for how long. `/diagnostics` gives the same numbers as data (12.7).
 
 9.4.15 Read the transcription card. Test 17 in `docs/testing.md` has one card, the transcription card, which scores speech models on Chris's voice. It is fifteen lines: twelve sentences that Chris says to the agent, with no wake word, and three commands that keep the wake word in the score. "read the card" and "read the transcription card" both read it. The bridge mutes, says how many times through it reads, and says "Round 1." and the first line in one clip, because "Round 1." alone garbles (5.6.2). Chris says the line after it. Each utterance is the answer to the line the bridge said last, and the bridge then says the next line; there is no timer, so a line the engine lost is said again and not skipped. After the last line the next round starts, and after three rounds the bridge unmutes and says "That is the card. Listening." A line that ends in a full stop or a question mark is said as it is, so the voice gives a question the tune of a question. While the card runs, no line acts, and only "unmute" is a command: it stops the card, and the bridge says "The card stopped." The journal names the round and the line that each utterance answers, which labels the kept clip (18.14.4). An utterance is an echo of the voice only when it began while the voice played (18.10.1), because Chris repeats the line he just heard, often within a second of its end.
+
+9.4.16 Set the model of the agent: sonnet, opus or haiku, as `claude --model` takes them. The default is sonnet (8.11). The commands are "model sonnet", "model opus" and "model haiku". The word "model" alone does nothing. The bridge says "Model opus." and the rest. The model is kept in the settings file, so it survives a restart of the bridge. A change starts a new agent process (9.4.18).
+
+9.4.17 Set the thinking effort of the agent: default, low, medium or high. Default passes no `--effort` flag to `claude`, which is the behaviour from before the setting. Each other level passes `--effort` with its name. The commands are "effort default", "effort low", "effort medium" and "effort high". The words "low" and "high" alone do nothing, because Chris says them to the agent. The bridge says "Effort medium." and the rest. The effort is kept in the settings file. A change starts a new agent process (9.4.18).
+
+9.4.18 The model and the effort are flags of the agent process, so a change of either starts a new process. The new process gets the new flags and `--resume` with the session id of the old process, so the conversation and its context go on. When a turn runs, the bridge starts the new process after the result of the turn is back, so no answer is cut. Between turns it starts the new process at once. When a fork of 8.13 is due at the same result, the new process takes its place: it keeps the old id, and the bridge times it as before. The same value again starts nothing. A restart costs this:
+
+- The first turn after it does not read the conversation from the prompt cache. Measured on 29 September on a conversation of three turns: after an effort change, the first turn wrote about 15,000 tokens of cache again, which a turn with no restart reads; after a change to haiku, the new model read nothing from the cache and wrote 21,700 tokens. A long conversation costs more, in money and in the time to the first word.
+- Work that runs inside the old process ends with it: a background shell or a monitor that Claude Code started. A job of `aleph job` runs outside the process and goes on.
+- A turn that nobody asked for (11.11), when the old process writes one at the change, is lost.
+- The start of the process falls in the pause before the next question. On the same runs, the answer after the change came as fast as the answer before it.
 
 9.5 By default, four commands work when the bridge is muted: mute, unmute, tones on and tones off. All other commands do not work when the bridge is muted, unless the setting of 9.6 adds them.
 
@@ -864,11 +882,11 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 
 17.21.4 The formatting of 17.19 stays. The grey starts at the length of the words up to the end of the sentence, once formatted. A sentence that ends inside a bold or code span can show a slightly wrong edge.
 
-17.22 The options screen opens from the gear at the end of the status row. Its accessibility name is "Options". The screen fills the window under the status row. The same tap on the gear or a back gesture closes it and shows the conversation again. The gear shows as selected while the screen is open. The controls are large for a moving car: each row fills the width, and each slider has a large thumb and a thick track. The screen holds the verbosity, the tones, the hold music volume, the hold music delay, the barge-in level, the quietest speech peak, the end-of-turn pause, "Leave", "Quit" and the build line (14.15), in that order. "Leave" shows only while the app is in the room. The voice choice and the audio switch are not in it, because each already has a command or a button.
+17.22 The options screen opens from the gear at the end of the status row. Its accessibility name is "Options". The screen fills the window under the status row. The same tap on the gear or a back gesture closes it and shows the conversation again. The gear shows as selected while the screen is open. The controls are large for a moving car: each row fills the width, and each slider has a large thumb and a thick track. The screen holds the verbosity, the model, the effort, the tones, the hold music volume, the hold music delay, the barge-in level, the quietest speech peak, the end-of-turn pause, "Leave", "Quit" and the build line (14.15), in that order. "Leave" shows only while the app is in the room. The voice choice and the audio switch are not in it, because each already has a command or a button.
 
 17.22.1 Each control sends the `setting` message (9.4.9). The bridge does what the spoken command does, the voice's answer included. The control does not change when it is tapped. It shows the value in the next `settings` message, so the screen shows only what the bridge holds. Until the bridge sends its settings, each control is disabled.
 
-17.22.2 The verbosity is a selector of three: brief, normal and full (9.4.10). The tones are a switch (15.4).
+17.22.2 The verbosity is a selector of three: brief, normal and full (9.4.10). The model is a selector of three: sonnet, opus and haiku (9.4.16). The effort is a selector of four: default, low, medium and high (9.4.17). The tones are a switch (15.4).
 
 17.22.3 The hold music volume is a slider from 0 to 1. It sets `holdMusicGain` (15.9), and no spoken command sets it. The slider sends one message when the finger lifts. The bridge gives no answer and keeps the value across restarts. The next track plays at the new volume. A track that plays keeps the old volume until it stops. The bridge ignores a value outside 0 to 1.
 

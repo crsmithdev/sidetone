@@ -15,6 +15,17 @@ import { join } from "node:path";
 export const VERBOSITIES = ["brief", "normal", "full"] as const;
 export type Verbosity = typeof VERBOSITIES[number];
 
+/** Item 55 the models Chris picks from, as `claude --model` takes them. */
+export const MODELS = ["sonnet", "opus", "haiku"] as const;
+export type Model = typeof MODELS[number];
+
+/**
+ * Item 55 how hard the agent thinks, as `claude --effort` takes it. `default`
+ * passes no flag, which is the behaviour from before the setting.
+ */
+export const EFFORTS = ["default", "low", "medium", "high"] as const;
+export type Effort = typeof EFFORTS[number];
+
 export interface Config {
   /** 8.4.3 no activity on any channel for this long and the process is dead */
   silenceMs: number;
@@ -27,8 +38,13 @@ export interface Config {
   ceilingMs: number;
   checkpointWindowMs: number;
   graceMs: number;
-  /** 8.11 final, and still a setting */
-  model: string;
+  /**
+   * 8.11 final, and still a setting. Item 55 Chris changes it by voice and
+   * from the app, and the agent process starts again with it (9.4.16).
+   */
+  model: Model;
+  /** Item 55 the agent's thinking effort; `default` passes no `--effort` (9.4.17) */
+  effort: Effort;
   /** 9.2 matched by sound, not spelling (9.3) */
   wakeWord: string;
   /** 9.3 the other things the engine writes when it hears the wake word (18.8) */
@@ -294,6 +310,7 @@ export const DEFAULTS: Config = {
   checkpointWindowMs: 15_000,
   graceMs: 30_000,
   model: "sonnet",
+  effort: "default",
   wakeWord: "sidetone",
   // 9.3 the forms small.en writes for "sidetone", from the corpus of 20
   // September: "side tone" a third of the time, and the rest when the /d/ goes
@@ -461,6 +478,7 @@ const IN_FORCE = [
   "audio", "holdMusic", "holdMusicAfterMs", "holdMusicGain", "holdMusicFadeMs", "holdMusicFadeInMs",
   "cueVolume", "ttsEngine", "ttsVoice", "sttModel", "sttVocabulary", "wakeWord",
   "chatterboxExaggeration", "chatterboxCfg", "verbosity", "tones",
+  "model", "effort",
 ] as const satisfies ReadonlyArray<keyof Config>;
 
 export function settingsInForce(config: Config): Record<string, unknown> {
@@ -548,6 +566,12 @@ export function checkConfig(merged: Config): Config {
   }
   if (!VERBOSITIES.includes(merged.verbosity)) {
     throw new Error(`verbosity must be one of ${VERBOSITIES.join(", ")}, not ${String(merged.verbosity)}`);
+  }
+  if (!MODELS.includes(merged.model)) {
+    throw new Error(`model must be one of ${MODELS.join(", ")}, not ${String(merged.model)}`);
+  }
+  if (!EFFORTS.includes(merged.effort)) {
+    throw new Error(`effort must be one of ${EFFORTS.join(", ")}, not ${String(merged.effort)}`);
   }
   // 9.6 the muted set is a list of commands, and a typo in it is a command
   // that quietly stops working while muted

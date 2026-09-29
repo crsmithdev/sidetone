@@ -12,6 +12,10 @@ each one, and the command that shows the answer.
 Read "Latency" in [`docs/design.md`](docs/design.md) when Chris asks about
 streaming, latency or the round trip.
 
+A change to the Android app gets a Compose UI test when the test setup can
+check it ("The Android app" in [`docs/testing.md`](docs/testing.md)). When it
+cannot, the summary says why.
+
 ## Jobs in a spoken conversation
 
 This section applies only when the conversation reaches Chris as speech

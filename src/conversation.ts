@@ -13,6 +13,7 @@
  * | what Chris said | the held speech | the turn |
  * |---|---|---|
  * | mute, unmute, tones, music, a voice, interrupt, verbosity | resumes after the acknowledgement | untouched |
+ * | a model, an effort | resumes after the acknowledgement | a new process after it, in the same conversation |
  * | read the card, or a line of it | resumes after the next line | untouched |
  * | usage, stats | resumes after the report | untouched |
  * | say that again | resumes after the repeat | untouched |
@@ -36,7 +37,7 @@ import { Answer } from "./answer.ts";
 import { Answers } from "./answers.ts";
 import type { Channel } from "./channel.ts";
 import { CARD_ROUNDS, TRANSCRIPTION_CARD, read, type CommandName, type Reading } from "./commands.ts";
-import { VERBOSITIES, type Config, type Verbosity } from "./config.ts";
+import { EFFORTS, MODELS, VERBOSITIES, type Config, type Effort, type Model, type Verbosity } from "./config.ts";
 import type { CueName } from "./cues.ts";
 import { ECHO_AFTER_MS, echoOf } from "./echo.ts";
 import { forkLine } from "./fork.ts";
@@ -65,6 +66,8 @@ export interface Agent {
   /** item 4 what Chris said, into the turn that runs; false when its result is already back */
   inject(text: string): boolean;
   restart(reason: string): void;
+  /** item 55 a new process with these flags, in the same conversation, once no turn runs */
+  reload(flags: Pick<Config, "model" | "effort">): void;
   /** 10.7 the answer to a permission request the agent sent */
   answer(id: string, allow: boolean, message?: string): void;
   readonly running: boolean;
@@ -778,6 +781,15 @@ export class Conversation {
       case "shorter": return this.setVerbosity(VERBOSITIES[Math.max(VERBOSITIES.indexOf(this.config.verbosity) - 1, 0)] as Verbosity);
       case "longer": return this.setVerbosity(VERBOSITIES[Math.min(VERBOSITIES.indexOf(this.config.verbosity) + 1, VERBOSITIES.length - 1)] as Verbosity);
 
+      // item 55 the flags of the agent process: a new one takes them after the turn
+      case "modelSonnet": return this.setModel("sonnet");
+      case "modelOpus": return this.setModel("opus");
+      case "modelHaiku": return this.setModel("haiku");
+      case "effortDefault": return this.setEffort("default");
+      case "effortLow": return this.setEffort("low");
+      case "effortMedium": return this.setEffort("medium");
+      case "effortHigh": return this.setEffort("high");
+
       case "endTurn":
         // no turn, but a replay from "carry on" may be playing, and it stops too
         if (!this.answers.busy) {
@@ -894,6 +906,28 @@ export class Conversation {
   }
 
   /**
+   * Item 55 the model and the effort are flags of the agent process, so a
+   * change starts a new one, which resumes the same conversation after the
+   * turn that runs. The same value again restarts nothing.
+   */
+  private setModel(model: Model): Hold {
+    return this.reloaded({ model }, `Model ${model}.`);
+  }
+
+  private setEffort(effort: Effort): Hold {
+    return this.reloaded({ effort }, `Effort ${effort}.`);
+  }
+
+  private reloaded(patch: Pick<Partial<Config>, "model" | "effort">, line: string): Hold {
+    const before = { model: this.config.model, effort: this.config.effort };
+    const hold = this.answered(patch, line);
+    if (this.config.model !== before.model || this.config.effort !== before.effort) {
+      this.agent.reload({ model: this.config.model, effort: this.config.effort });
+    }
+    return hold;
+  }
+
+  /**
    * 9.4.9 a setting a client changed. It goes through the same paths a spoken
    * command does, the voice's answer included, so tapping a switch and saying
    * the words cannot end anywhere different. A key it does not know is ignored:
@@ -911,6 +945,8 @@ export class Conversation {
     if (typeof patch.interruptOnSpeech === "boolean") this.setInterrupting(patch.interruptOnSpeech);
     if (patch.voice === "female" || patch.voice === "male") this.switchVoice(patch.voice);
     if (VERBOSITIES.includes(patch.verbosity as Verbosity)) this.setVerbosity(patch.verbosity as Verbosity);
+    if (MODELS.includes(patch.model as Model)) this.setModel(patch.model as Model);
+    if (EFFORTS.includes(patch.effort as Effort)) this.setEffort(patch.effort as Effort);
     if (typeof patch.holdMusicGain === "number" && patch.holdMusicGain >= 0 && patch.holdMusicGain <= 1) this.settings.change({ holdMusicGain: patch.holdMusicGain });
     if (typeof patch.holdMusicAfterMs === "number" && patch.holdMusicAfterMs > 0) this.settings.change({ holdMusicAfterMs: patch.holdMusicAfterMs });
     for (const key of THRESHOLDS) {

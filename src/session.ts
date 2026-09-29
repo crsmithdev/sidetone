@@ -96,7 +96,10 @@ export type Spawn = (config: Config, dir: string) => Process;
 
 /** The real thing: Claude Code, in the project directory, on stream-json both ways. */
 export const spawnClaude: Spawn = (config, dir) => {
-  const child = Bun.spawn([config.claudeBin, ...config.claudeArgs, "--model", config.model], {
+  const child = Bun.spawn([
+    config.claudeBin, ...config.claudeArgs, "--model", config.model,
+    ...(config.effort === "default" ? [] : ["--effort", config.effort]),
+  ], {
     cwd: dir,
     stdin: "pipe",
     stdout: "pipe",
@@ -140,6 +143,10 @@ export class Session {
   private replyText = "";
   private costUsd = 0;
   private timer: ReturnType<typeof setInterval> | null = null;
+  /** Item 55 the conversation the process holds, from its `init` line, which a respawn resumes */
+  private sessionId = "";
+  /** Item 55 a respawn waits for the turn that runs */
+  private respawnDue = false;
   /**
    * Item 4 what Chris said mid-turn was written into the turn, whether the
    * process has put it into the conversation (`heard`), and whether a message
@@ -177,7 +184,7 @@ export class Session {
     this.open([]);
   }
 
-  /** `args` go after the settings' own: 8.13 a fork's `--resume` */
+  /** `args` go after the settings' own: 8.13 a fork's `--resume`, item 55 a respawn's */
   private open(args: string[]): void {
     this.child = this.spawn(args.length ? { ...this.config, claudeArgs: [...this.config.claudeArgs, ...args] } : this.config, this.dir);
     // Bun does not fill in exitCode unless something awaits exited, so a child
@@ -213,6 +220,7 @@ export class Session {
     this.slow.event(event, now);
     this.hooks.onEvent?.(event);
     switch (event.kind) {
+      case "init": if (event.sessionId) this.sessionId = event.sessionId; break;
       case "toolStart": this.supervisor.toolStarted(event.id, now); this.narrator.started(event.id, event.tool, event.parentId, now); break;
       case "toolEnd": this.supervisor.toolEnded(event.id, now); this.narrator.ended(event.id); break;
       case "compaction": this.supervisor.compacted(now); break;
@@ -266,8 +274,10 @@ export class Session {
     if (!pending) this.hooks.onUnprompted?.(turn);
     else pending.resolve(turn);
     // 8.13.2 between turns: the result is in, and the next turn cannot start
-    // before the caller's await resumes, which is after this
-    this.fork();
+    // before the caller's await resumes, which is after this. A respawn
+    // (item 55) makes a new process too, so it takes the place of a fork.
+    if (this.respawnDue) this.respawn();
+    else this.fork();
   }
 
   /**
@@ -352,9 +362,29 @@ export class Session {
   }
 
   restart(reason: string): void {
+    this.respawnDue = false;
     this.stop();
     this.fail(new Error(`restarted: ${reason}`));
     this.start();
+  }
+
+  /**
+   * Item 55 a new process with the model and the effort in force, which
+   * carries on the same conversation (`--resume`). It waits for the turn that
+   * runs, so no answer is cut. A session that has not started yet has nothing
+   * to do: its first process reads the flags when it starts.
+   */
+  reload(flags: Pick<Config, "model" | "effort">): void {
+    Object.assign(this.config, flags);
+    if (this.pending) { this.respawnDue = true; return; }
+    this.respawn();
+  }
+
+  private respawn(): void {
+    this.respawnDue = false;
+    if (!this.child) return;
+    this.stop();
+    this.open(this.sessionId ? ["--resume", this.sessionId] : []);
   }
 
   stop(): void {

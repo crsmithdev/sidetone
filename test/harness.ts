@@ -67,6 +67,7 @@ function scripted(script: Script = {}) {
     interrupt: () => { calls.push("interrupt"); script.onInterrupt?.(); },
     inject: (text: string) => { calls.push(`inject ${text}`); return script.inject?.(text) ?? true; },
     restart: (reason: string) => calls.push(`restart ${reason}`),
+    reload: (flags) => calls.push(`reload ${flags.model} ${flags.effort}`),
     answer: (id: string, allow: boolean, message?: string) => { answers.push(message === undefined ? { id, allow } : { id, allow, message }); },
     running: true,
     turns: 1,

@@ -19,6 +19,8 @@ export type CommandName =
   | "carryOn" | "interruptOn" | "interruptOff"
   | "audioOn" | "audioOff"
   | "verbosityBrief" | "verbosityNormal" | "verbosityFull" | "shorter" | "longer"
+  | "modelSonnet" | "modelOpus" | "modelHaiku"
+  | "effortDefault" | "effortLow" | "effortMedium" | "effortHigh"
   | "readCard";
 
 export type Match =
@@ -88,6 +90,17 @@ const COMMANDS: Array<{ name: CommandName; any: string[][]; phrases: string[] }>
   { name: "verbosityFull", any: [["verbosity", "full"]], phrases: ["verbosity full"] },
   { name: "shorter", any: [["shorter"]], phrases: ["shorter"] },
   { name: "longer", any: [["longer"]], phrases: ["longer"] },
+  // item 55 the flags of the agent process. Two words each, as the verbosity:
+  // "high" and "low" alone are words Chris says.
+  { name: "modelSonnet", any: [["model", "sonnet"]], phrases: ["model sonnet"] },
+  { name: "modelOpus", any: [["model", "opus"]], phrases: ["model opus"] },
+  // "haikyuu" is what the engine wrote for the chatterbox voice, two characters off
+  { name: "modelHaiku", any: [["model", "haiku"], ["model", "haikyuu"]], phrases: ["model haiku"] },
+  { name: "effortDefault", any: [["effort", "default"]], phrases: ["effort default"] },
+  { name: "effortLow", any: [["effort", "low"]], phrases: ["effort low"] },
+  // "media" is what the engine wrote in noise, two characters from "medium"
+  { name: "effortMedium", any: [["effort", "medium"], ["effort", "media"]], phrases: ["effort medium"] },
+  { name: "effortHigh", any: [["effort", "high"]], phrases: ["effort high"] },
   { name: "femaleVoice", any: [["female"], ["woman"]], phrases: ["female voice"] },
   // 9.3 the forms the engine produces, not the spelling. small.en writes
   // "male voice" as "Mail Voice", and sometimes drops the second word, so

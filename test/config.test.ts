@@ -110,6 +110,11 @@ describe("a setting changed out loud is kept (9.4)", () => {
     saveSettings({ verbosity: "brief" }, path);
     expect(loadConfig(path).verbosity).toBe("brief");
   });
+  test("the model and the effort survive a restart (item 55)", () => {
+    const path = withFile("{}");
+    saveSettings({ model: "opus", effort: "high" }, path);
+    expect(loadConfig(path)).toMatchObject({ model: "opus", effort: "high" });
+  });
   test("with no file yet, the file is the patch", () => {
     const path = join(dir, "fresh.json");
     saveSettings({ ttsVoice: "bm_george" }, path);
@@ -126,6 +131,11 @@ describe("settings that arrive already checked", () => {
 
   test("a verbosity that is not a level is refused (item 37)", () => {
     expect(() => loadConfig(write({ verbosity: "loud" }))).toThrow(/verbosity/);
+  });
+
+  test("a model or an effort that is not on the list is refused (item 55)", () => {
+    expect(() => loadConfig(write({ model: "gpt" }))).toThrow(/model/);
+    expect(() => loadConfig(write({ effort: "max" }))).toThrow(/effort/);
   });
 
   test("a barge-in quieter than speech is refused, not obeyed", () => {

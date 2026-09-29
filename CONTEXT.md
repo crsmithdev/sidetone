@@ -129,6 +129,10 @@ _Avoid_: an instruction, a directive (those are for the agent).
 How much the agent says in a reply: brief, normal or full. The bridge names it in one line at the head of each turn's prompt (spec 9.4.10).
 _Avoid_: the length, the detail level.
 
+**The effort**:
+How hard the agent thinks: default, low, medium or high. It is the `--effort` flag of the agent process, and default passes none. A change of it, or of the model, starts a new process that resumes the same conversation (spec 9.4.18).
+_Avoid_: the thinking level, the reasoning budget.
+
 **A gated action**:
 An action the bridge does, or lets the agent do, only after Chris speaks the agreement word. It fails closed. The agent's gated actions are in spec 10.7.
 _Avoid_: a confirmation, an approval, a prompt.
@@ -154,7 +158,7 @@ What the app's status row says about the room: the colour of the dot, the status
 _Avoid_: the status (the status is one input), the indicator.
 
 **The options screen**:
-The screen behind the gear at the end of the app's status row. It fills the window under the row, and the gear or a back gesture closes it. It holds the verbosity, the hold music delay (`holdMusicAfterMs`), the tones, the hold music volume, the three thresholds of the ear, "Leave" and "Quit". Each control changes a setting by the path of the spoken command, and shows what the bridge sends back (spec 17.22).
+The screen behind the gear at the end of the app's status row. It fills the window under the row, and the gear or a back gesture closes it. It holds the verbosity, the model, the effort, the hold music delay (`holdMusicAfterMs`), the tones, the hold music volume, the three thresholds of the ear, "Leave" and "Quit". Each control changes a setting by the path of the spoken command, and shows what the bridge sends back (spec 17.22).
 _Avoid_: the options menu (the old name), the settings screen (the settings are what the bridge sends back), the preferences.
 
 **Leave, Rejoin, Quit**:

@@ -44,6 +44,12 @@ import kotlin.math.roundToInt
 /** 9.4.10 the levels of the verbosity, shortest first. */
 private val LEVELS = listOf("brief", "normal", "full")
 
+/** 9.4.16 the models of the agent. */
+private val MODELS = listOf("sonnet", "opus", "haiku")
+
+/** 9.4.17 the thinking efforts of the agent; `default` passes no flag. */
+private val EFFORTS = listOf("default", "low", "medium", "high")
+
 /** 17.22.7 the hold music delays on offer, in seconds. Zero, the music off, is the music button's (17.10.3). */
 private val DELAYS_S = listOf(3, 5, 8, 12)
 
@@ -69,7 +75,7 @@ fun OptionsGear(open: Boolean, onToggle: () -> Unit) {
  * Each shows what the bridge last sent back, and is disabled until the bridge
  * has sent it. `sent` counts the settings messages, for the sliders (17.22.5).
  * "Leave" keeps the app open (17.11.10) and "Quit" closes it (17.22.4); out of
- * the room only "Quit" shows.
+ * the room only "Quit" shows. `change` sends a setting; a test gives its own.
  */
 @Composable
 fun OptionsScreen(
@@ -80,17 +86,20 @@ fun OptionsScreen(
     onClose: () -> Unit,
     onQuit: () -> Unit,
     modifier: Modifier = Modifier,
+    change: (ByteArray) -> Unit = Bridge::change,
 ) {
     val context = LocalContext.current
     Column(modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Verbosity(settings.words["verbosity"])
-        Tones(settings.on["tones"])
+        Choice("Verbosity", "verbosity", LEVELS, settings.words["verbosity"], change)
+        Choice("Model", "model", MODELS, settings.words["model"], change)
+        Choice("Effort", "effort", EFFORTS, settings.words["effort"], change)
+        Tones(settings.on["tones"], change)
         HorizontalDivider()
-        Level("Hold music volume", "holdMusicGain", settings.numbers["holdMusicGain"], 0f..1f, sent)
-        MusicDelay(settings.numbers["holdMusicAfterMs"])
-        Level("Barge-in level", "bargeInLevel", settings.numbers["bargeInLevel"], 0f..0.2f, sent)
-        Level("Quietest speech peak", "minSpeechPeak", settings.numbers["minSpeechPeak"], 0f..0.5f, sent)
-        Pause(settings.numbers["endOfTurnPauseMs"])
+        Level("Hold music volume", "holdMusicGain", settings.numbers["holdMusicGain"], 0f..1f, sent, change)
+        MusicDelay(settings.numbers["holdMusicAfterMs"], change)
+        Level("Barge-in level", "bargeInLevel", settings.numbers["bargeInLevel"], 0f..0.2f, sent, change)
+        Level("Quietest speech peak", "minSpeechPeak", settings.numbers["minSpeechPeak"], 0f..0.5f, sent, change)
+        Pause(settings.numbers["endOfTurnPauseMs"], change)
         HorizontalDivider()
         if (inRoom) {
             FilledTonalButton(
@@ -114,20 +123,24 @@ fun OptionsScreen(
     }
 }
 
-/** 17.22.1 the three levels, as "verbosity brief", "verbosity normal" and "verbosity full" set them. */
+/**
+ * 17.22.2 the verbosity, as "verbosity brief" and the rest set it, and
+ * the model and the effort, as "model opus" and "effort medium" set them: one
+ * of a few words. It is disabled until the bridge has sent the setting.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun Verbosity(level: String?) {
+private fun Choice(title: String, name: String, values: List<String>, current: String?, change: (ByteArray) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Verbosity", style = MaterialTheme.typography.titleMedium)
+        Text(title, style = MaterialTheme.typography.titleMedium)
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-            LEVELS.forEachIndexed { index, each ->
+            values.forEachIndexed { index, each ->
                 SegmentedButton(
-                    selected = level == each,
-                    onClick = { Bridge.change(Outgoing.setting("verbosity", each)) },
-                    shape = SegmentedButtonDefaults.itemShape(index, LEVELS.size),
+                    selected = current == each,
+                    onClick = { change(Outgoing.setting(name, each)) },
+                    shape = SegmentedButtonDefaults.itemShape(index, values.size),
                     modifier = Modifier.heightIn(min = 56.dp),
-                    enabled = level != null,
+                    enabled = current != null,
                 ) { Text(each, style = MaterialTheme.typography.titleSmall) }
             }
         }
@@ -141,14 +154,14 @@ private fun Verbosity(level: String?) {
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun MusicDelay(ms: Double?) {
+private fun MusicDelay(ms: Double?, change: (ByteArray) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Hold music after", style = MaterialTheme.typography.titleMedium)
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
             DELAYS_S.forEachIndexed { index, seconds ->
                 SegmentedButton(
                     selected = ms?.roundToInt() == seconds * 1_000,
-                    onClick = { Bridge.change(Outgoing.musicDelay(seconds)) },
+                    onClick = { change(Outgoing.musicDelay(seconds)) },
                     shape = SegmentedButtonDefaults.itemShape(index, DELAYS_S.size),
                     modifier = Modifier.heightIn(min = 56.dp),
                     enabled = ms != null,
@@ -160,13 +173,13 @@ private fun MusicDelay(ms: Double?) {
 
 /** 17.22.2 the tones, as "tones on" and "tones off" set them. The whole row is the switch. */
 @Composable
-private fun Tones(on: Boolean?) {
+private fun Tones(on: Boolean?, change: (ByteArray) -> Unit) {
     Row(
         Modifier.fillMaxWidth().height(ROW).toggleable(
             value = on == true,
             enabled = on != null,
             role = Role.Switch,
-            onValueChange = { Bridge.change(Outgoing.setting("tones", it)) },
+            onValueChange = { change(Outgoing.setting("tones", it)) },
         ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -185,7 +198,7 @@ private fun Tones(on: Boolean?) {
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun Level(label: String, name: String, value: Double?, range: ClosedFloatingPointRange<Float>, sent: Int) {
+private fun Level(label: String, name: String, value: Double?, range: ClosedFloatingPointRange<Float>, sent: Int, change: (ByteArray) -> Unit) {
     var shown by remember(sent) { mutableFloatStateOf(value?.toFloat() ?: 0f) }
     val source = remember { MutableInteractionSource() }
     val enabled = value != null
@@ -199,7 +212,7 @@ private fun Level(label: String, name: String, value: Double?, range: ClosedFloa
             onValueChange = { shown = it },
             modifier = Modifier.fillMaxWidth().height(ROW),
             enabled = enabled,
-            onValueChangeFinished = { Bridge.change(Outgoing.setting(name, (shown * 100).roundToInt() / 100.0)) },
+            onValueChangeFinished = { change(Outgoing.setting(name, (shown * 100).roundToInt() / 100.0)) },
             interactionSource = source,
             thumb = { SliderDefaults.Thumb(source, enabled = enabled, thumbSize = DpSize(8.dp, 56.dp)) },
             track = { SliderDefaults.Track(it, modifier = Modifier.height(24.dp), enabled = enabled) },
@@ -215,7 +228,7 @@ private fun Level(label: String, name: String, value: Double?, range: ClosedFloa
  * value alone. The buttons stop at the ends of the range.
  */
 @Composable
-private fun Pause(ms: Double?) {
+private fun Pause(ms: Double?, change: (ByteArray) -> Unit) {
     val held = ms?.roundToInt()
     Row(
         Modifier.fillMaxWidth().height(ROW),
@@ -224,14 +237,14 @@ private fun Pause(ms: Double?) {
     ) {
         Text("End-of-turn pause", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
         FilledTonalButton(
-            onClick = { held?.let { Bridge.change(Outgoing.setting("endOfTurnPauseMs", it - PAUSE_STEP_MS)) } },
+            onClick = { held?.let { change(Outgoing.setting("endOfTurnPauseMs", it - PAUSE_STEP_MS)) } },
             enabled = held != null && held - PAUSE_STEP_MS >= PAUSE_MIN_MS,
             modifier = Modifier.size(ROW),
             contentPadding = PaddingValues(0.dp),
         ) { Text("−", style = MaterialTheme.typography.titleLarge) }
         Text(if (held == null) "—" else "${held / 100 / 10.0} s", style = MaterialTheme.typography.titleMedium)
         FilledTonalButton(
-            onClick = { held?.let { Bridge.change(Outgoing.setting("endOfTurnPauseMs", it + PAUSE_STEP_MS)) } },
+            onClick = { held?.let { change(Outgoing.setting("endOfTurnPauseMs", it + PAUSE_STEP_MS)) } },
             enabled = held != null && held + PAUSE_STEP_MS <= PAUSE_MAX_MS,
             modifier = Modifier.size(ROW),
             contentPadding = PaddingValues(0.dp),

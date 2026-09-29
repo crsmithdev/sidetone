@@ -224,6 +224,23 @@ describe("an utterance, read once (9.1, 9.5, 10.2)", () => {
   });
 });
 
+describe("the model and effort commands (item 55)", () => {
+  test("each value has its own command, and the word alone names none", () => {
+    expect(commandIn("model sonnet")).toBe("modelSonnet");
+    expect(commandIn("model opus")).toBe("modelOpus");
+    expect(commandIn("model haiku")).toBe("modelHaiku");
+    // what the engine wrote on a fake-phone run, 29 September
+    expect(commandIn("model, Haikyuu")).toBe("modelHaiku");
+    expect(commandIn("effort default")).toBe("effortDefault");
+    expect(commandIn("effort low")).toBe("effortLow");
+    expect(commandIn("effort medium")).toBe("effortMedium");
+    expect(commandIn("effort high")).toBe("effortHigh");
+    expect(commandIn("model")).toBe(null);
+    expect(commandIn("effort")).toBe(null);
+    expect(commandIn("high")).toBe(null);
+  });
+});
+
 describe("the verbosity commands (item 37)", () => {
   test("each level has its own command, and one level either way has a word", () => {
     expect(commandIn("verbosity brief")).toBe("verbosityBrief");

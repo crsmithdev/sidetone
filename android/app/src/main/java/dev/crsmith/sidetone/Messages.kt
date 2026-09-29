@@ -237,7 +237,7 @@ object Outgoing {
         put("patch", buildJsonObject { put(name, on) })
     })
 
-    /** Item 28 the verbosity (9.4.10), as "verbosity brief" and the rest do. */
+    /** Item 28 the verbosity (9.4.10), as "verbosity brief" and the rest do; item 55 the model and the effort (9.4.16, 9.4.17). */
     fun setting(name: String, word: String): ByteArray = encode(buildJsonObject {
         put("kind", "setting")
         put("patch", buildJsonObject { put(name, word) })
