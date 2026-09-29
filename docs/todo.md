@@ -1550,7 +1550,7 @@ and the cause is named.
 id: 70
 status: open
 created: 2026-09-28
-updated: 2026-09-28
+updated: 2026-09-29
 priority: medium
 labels: []
 ---
@@ -1574,6 +1574,10 @@ Places to check:
 
 Done when a start of a hold track rises from quiet to its level, seen in the
 car or in a recorded sample.
+
+### Notes
+
+- 2026-09-29 08:15: 29 September 2026, job fade-inverse. The bridge output is correct. A scratch run sent a real track (Summer Madness, gain 0.4, 48 kHz) through wavFromFile, fadeIn, encodeWav, decodeWav, resample and frameAt, as Mouth.music and Transport.frames do. RMS in 50 ms windows, first start: 0.0000, 0.0005, 0.0068, 0.0152, then 0.009 to 0.015 to 2 s. Resume at 30 s: 0.0055, 0.0152, 0.0586, 0.0681, then 0.03 to 0.08, the track's own level. Past 150 ms each window equals the track's own. The fade out of 15.10.2 does not start, because Mouth.music starts a track only when nothing is busy. Nothing falls after the start in the bridge. Second finding: five of the eight tracks open with 200 to 650 ms of silence (Let It Flow 650, Soulful Strut 550, Meditation 500, Feels So Good 300, Songbird 200). On a first start the 150 ms fade falls on the silence, and the music enters at full level. Likely cause downstream: a gain control on the received audio, in the car's hands-free unit or in the phone's call-mode downlink. It raises its gain through the silence, lets the first loud frames through, then turns the level down over about a second. The WebRTC gain control in Audio.kt acts on the microphone only, not on the received audio. Proposed fix, not built: (1) start the fade at the first sound of the track, not at sample 0, by skipping leading silence below about 0.003 RMS; (2) make holdMusicFadeInMs about 1500, so the level rises slower than the gain control falls. Checks before the build: set holdMusicFadeInMs to 1500 in ~/.sidetone/config.json, restart the bridge, and listen in the car; then listen on the phone's own speaker without the car. If it rises on the phone and falls in the car, the car causes it.
 
 ## 71. Look at how the transcription card works
 ---
