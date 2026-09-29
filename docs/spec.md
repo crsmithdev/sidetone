@@ -221,6 +221,20 @@ This repository is Sidetone. The earlier project bridge is on the
 
 8.11 The default model is Sonnet. This default is final. The model is a setting.
 
+8.12 The agent keeps its context across a restart of the bridge. Each start of the bridge starts a new agent process, and a new process has no context. So a stop asks the old agent for a handoff, and the next start gives it to the new agent.
+
+8.12.1 On SIGTERM or SIGINT the bridge leaves the room at once (17.11.11.4). Then it sends the agent one quiet turn, `/aleph:handoff sidetone`, and waits for its result. The skill writes `~/.aleph/handoffs/sidetone.md`. Then the bridge stops the agent and exits.
+
+8.12.2 A quiet turn is for the agent, not for Chris. Its words reach neither the voice nor the screen. A turn that Chris asks for while a quiet turn runs waits for it.
+
+8.12.3 A turn that runs at the stop is interrupted first, and the handoff follows its result. The stop is often the restart that the turn asked for.
+
+8.12.4 The stop waits at most 150 seconds for the handoff. `TimeoutStopSec=180` in `deploy/sidetone.service` gives the bridge time to stop the engines after that. A handoff that fails or runs over is lost, and the bridge stops without it.
+
+8.12.5 At a start, the first message to the new agent is the quiet turn `/aleph:pickup sidetone`, sent only when `~/.aleph/handoffs/sidetone.md` is there. The skill reads the file and archives it, so the file is not picked up twice. A crash or a kill writes no handoff, so the next start finds no file and sends no pickup.
+
+8.12.6 The setting `keepContext` turns the handoff and the pickup on and off. It is on by default.
+
 ## 9. Voice commands
 
 9.1 A voice command starts with a wake word. The wake word separates a command from normal speech.

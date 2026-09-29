@@ -7,15 +7,15 @@
  * no test reached, because the wiring they need was made inside `assemble`.
  */
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { decodeWav } from "../src/audio.ts";
-import { STARTED } from "../src/bridge.ts";
+import { HANDOFF, PICKUP, STARTED } from "../src/bridge.ts";
 import { DEFAULTS } from "../src/config.ts";
 import { SentClips } from "../src/sent.ts";
 import type { TurnDetector } from "../src/speech.ts";
-import { fakeClock, pass, settle, until } from "./clock.ts";
+import { fakeClock, finish, pass, settle, until } from "./clock.ts";
 import { bridge } from "./harness.ts";
 
 fakeClock();
@@ -410,5 +410,92 @@ describe("the utterances the bridge heard (18.14.4)", () => {
     const r = bridge({ overrides: { keepHeardClips: true, heardDir: file } });
     await speak(r);
     expect(r.journal.some((line) => line.includes("could not keep the utterance"))).toBe(true);
+  });
+});
+
+describe("item 72 the context outlives a restart", () => {
+  test("a stop sends the handoff as a quiet turn and waits for its result", async () => {
+    let answer = () => {};
+    const r = bridge({ script: { deltas: ["Handoff saved to ~/.aleph/handoffs/sidetone.md."], hold: new Promise<void>((resolve) => { answer = resolve; }) } });
+    await r.ready;
+    let done = null as boolean | null;
+    void r.handoff(10_000).then((value) => { done = value; });
+    await pass(500);
+    expect(r.agent.calls).toContain(`ask ${HANDOFF}`);
+    // it waits for the result
+    expect(done).toBeNull();
+    answer();
+    await until(() => done !== null);
+    expect(done).toBe(true);
+    // Chris hears none of it, and the screen shows none of it
+    await pass(200);
+    expect(r.said).toEqual([]);
+    expect(r.told.filter((m) => m.kind === "delta" || m.kind === "turn")).toEqual([]);
+  });
+
+  test("a handoff that runs over gives up at the time it was given", async () => {
+    const r = bridge({ script: { hold: new Promise<void>(() => {}) } });
+    await r.ready;
+    expect(await finish(r.handoff(1_000), 2_000)).toBe(false);
+    expect(r.agent.calls).toContain(`ask ${HANDOFF}`);
+  });
+
+  test("with keepContext off a stop asks for no handoff", async () => {
+    const r = bridge({ overrides: { keepContext: false } });
+    await r.ready;
+    expect(await r.handoff(1_000)).toBe(false);
+    expect(r.agent.calls.filter((call) => call.startsWith("ask"))).toEqual([]);
+  });
+
+  test("a turn that runs at the stop is interrupted, and the handoff follows it", async () => {
+    let release = () => {};
+    const r = bridge({ script: { hold: new Promise<void>((resolve) => { release = resolve; }), onInterrupt: () => release() } });
+    await r.ready;
+    void r.c.turn("restart the service");
+    await settle();
+    expect(await finish(r.handoff(10_000))).toBe(true);
+    const calls = r.agent.calls.filter((call) => call !== "start");
+    expect(calls[0]).toEndWith("restart the service");
+    expect(calls.slice(1)).toEqual(["interrupt", `ask ${HANDOFF}`]);
+  });
+
+  test("a start picks up the handoff when the last stop left one", async () => {
+    const file = join(mkdtempSync(join(tmpdir(), "sidetone-handoff-")), "sidetone.md");
+    writeFileSync(file, "# Handoff\n");
+    const r = bridge({ handoffFile: file, script: { deltas: ["Picking up where we left off."] } });
+    await r.ready;
+    await pass(200);
+    expect(r.agent.calls).toContain(`ask ${PICKUP}`);
+    expect(r.said).toEqual([]);
+  });
+
+  test("a start with no handoff, as after a crash, sends no pickup", async () => {
+    const r = bridge();
+    await r.ready;
+    await pass(200);
+    expect(r.agent.calls.filter((call) => call.startsWith("ask"))).toEqual([]);
+  });
+
+  test("with keepContext off a start sends no pickup, even with a handoff there", async () => {
+    const file = join(mkdtempSync(join(tmpdir(), "sidetone-handoff-")), "sidetone.md");
+    writeFileSync(file, "# Handoff\n");
+    const r = bridge({ handoffFile: file, overrides: { keepContext: false } });
+    await r.ready;
+    await pass(200);
+    expect(r.agent.calls.filter((call) => call.startsWith("ask"))).toEqual([]);
+  });
+
+  test("a turn Chris asks for during the pickup waits for it", async () => {
+    const file = join(mkdtempSync(join(tmpdir(), "sidetone-handoff-")), "sidetone.md");
+    writeFileSync(file, "# Handoff\n");
+    let answer = () => {};
+    const r = bridge({ handoffFile: file, script: { hold: new Promise<void>((resolve) => { answer = resolve; }) } });
+    await r.ready;
+    void r.c.turn("what were we doing");
+    await pass(200);
+    expect(r.agent.calls.filter((call) => call.startsWith("ask"))).toEqual([`ask ${PICKUP}`]);
+    answer();
+    await until(() => r.agent.calls.some((call) => call.endsWith("what were we doing")));
+    expect(r.agent.calls.filter((call) => call.startsWith("ask")).length).toBe(2);
   });
 });

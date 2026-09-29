@@ -114,6 +114,8 @@ export class Conversation {
   private lastReply = "";
   /** Item 4 the turn in flight, which a question waits for once the turn's result is back. */
   private running: Promise<void> | null = null;
+  /** Item 72 the quiet turn in flight (`quietly`), which a turn Chris asks for waits for. */
+  private quiet: Promise<boolean> | null = null;
   /** Which answer owns the mouth, and where the agent's words go. */
   private readonly answers: Answers;
   /**
@@ -175,13 +177,15 @@ export class Conversation {
       "--settings", JSON.stringify({ permissions: { ask: ASK_RULES } }),
     ];
     this.agent = makeAgent({
-      onDelta: (text) => this.answers.unasked().delta(text),
-      onBlockStart: (type) => this.answers.unasked().blockStart(type),
-      onBlockEnd: () => this.answers.current?.blockEnd(),
+      // item 72 a quiet turn's words reach neither the voice nor the screen
+      onDelta: (text) => { if (!this.quiet) this.answers.unasked().delta(text); },
+      onBlockStart: (type) => { if (!this.quiet) this.answers.unasked().blockStart(type); },
+      onBlockEnd: () => { if (!this.quiet) this.answers.current?.blockEnd(); },
       onEvent: (event) => this.measures.agent(event),
-      onNarration: (text) => this.channel.narrate(text),
+      onNarration: (text) => { if (!this.quiet) this.channel.narrate(text); },
       // 8.6.3 speak, say how long it has run, and report the usage with the ask (8.6.4)
       onCheckpoint: (ms) => {
+        if (this.quiet) return;
         this.checkpointOpen = true;
         this.reply(`This turn has run ${Math.round(ms / 60_000)} minutes and cost ${this.agent.totalCostUsd().toFixed(2)} dollars. Say ${config.agreementWord} to let it run on.`);
       },
@@ -514,6 +518,29 @@ export class Conversation {
     }, request.id);
   }
 
+  /**
+   * Item 72 one turn for the agent alone, such as the handoff at a stop and
+   * the pickup at a start. Its words reach neither the voice nor the screen,
+   * and a turn Chris asks for meanwhile waits for it. A turn that runs now is
+   * interrupted first: the stop is often the restart that turn asked for.
+   * True when the agent's result came back, false when the turn failed.
+   */
+  quietly(text: string): Promise<boolean> {
+    const before = this.quiet;
+    const done = (async () => {
+      await before;
+      if (this.answers.busy) {
+        this.mouth.discard();
+        this.agent.interrupt();
+        await this.running;
+      }
+      try { await this.agent.ask(text); return true; } catch { return false; }
+    })();
+    this.quiet = done;
+    void done.then(() => { if (this.quiet === done) this.quiet = null; });
+    return done;
+  }
+
   /** Not awaited by the caller: the microphone has to stay open through a turn. */
   async turn(said: string, note = ""): Promise<void> {
     const done = this.runTurn(said, note);
@@ -552,6 +579,7 @@ export class Conversation {
     const stopCue = this.cueWhileWaiting();
     const stopMusic = this.musicWhileWaiting(mine, () => answer.long);
     try {
+      if (this.quiet) await this.quiet;
       const turn = await this.agent.ask([VERBOSITY_LINES[this.config.verbosity], note, said].filter(Boolean).join("\n\n"));
       if (!mine()) return;
       // 15.15 the true end of the speech: the result is back, so no sentence

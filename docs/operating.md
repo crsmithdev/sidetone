@@ -292,6 +292,26 @@ systemctl --user enable --now sidetone.service sidetone-cert.timer sidetone-heal
 `/health` says whether the bridge works: the room is joined and the agent is
 alive.
 
+A stop of `sidetone.service` keeps the agent's context (spec 8.12). The bridge
+leaves the room, asks the agent for a handoff, and waits up to 150 seconds
+for it. The next start sends the agent `/aleph:pickup sidetone`. The journal
+shows each step:
+
+```
+[SIGTERM: leaving the room]
+[the agent writes its handoff]
+[the handoff is written]
+...
+[picking up the handoff of the last process]
+[picked up the handoff]
+```
+
+A crash writes no handoff, and the next start begins with no context. Set
+`keepContext` to `false` in the config file to turn both steps off. The unit
+waits 180 seconds for a stop (`TimeoutStopSec=180`), so copy
+`deploy/sidetone.service` again after an update and run
+`systemctl --user daemon-reload`.
+
 ### Test it
 
 The test suite, the scripts that check the page and the phone, and the
@@ -677,6 +697,7 @@ because each engine is already its own process.
 | the renewal compares fingerprints | the certificate lasts three months. A weekly restart would stop the voice mid-sentence 51 times a year for nothing |
 | the hourly card | on 22 September a coffee shop sent 70 unwanted turns to the agent in two hours. The record had the count, and nobody read it |
 | the record is on disk | on 14 September the service restarted twenty seconds after a drive, and the score was zeros |
+| `TimeoutStopSec=180` | the stop waits up to 150 seconds for the agent's handoff (spec 8.12). The default of 90 seconds would kill the process mid-handoff |
 
 ### Process management
 

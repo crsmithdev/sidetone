@@ -211,6 +211,14 @@ _Avoid_: the backlog, the replay buffer.
 A copy of one wav the bridge sent to the room, with the text it was made from. The agent checks it to learn whether the sound was bad at the bridge.
 _Avoid_: an outgoing clip, a recording.
 
+**The handoff**:
+The file the agent writes at a stop of the bridge, `~/.aleph/handoffs/sidetone.md`, with the skill `/aleph:handoff sidetone`. The next start gives it to the new agent with `/aleph:pickup sidetone`, so the agent keeps the context across a restart (spec 8.12).
+_Avoid_: the summary, the saved session.
+
+**A quiet turn**:
+A turn the bridge sends the agent for itself, not for Chris: the handoff and the pickup. Its words reach neither the voice nor the screen.
+_Avoid_: a hidden turn, a background turn.
+
 **The record**:
 Every event of a session, written to disk as it happens, so a session can be read after the process that ran it is gone.
 _Avoid_: the log file, telemetry.

@@ -148,6 +148,11 @@ export interface Config {
    */
   keepHeardClips: boolean;
   heardDir: string;
+  /**
+   * Item 72 whether the agent's context outlives a restart of the bridge: a
+   * stop asks the agent for a handoff, and the next start picks it up.
+   */
+  keepContext: boolean;
   /** 5.6 a run of text this long with no punctuation is spoken anyway */
   sentenceMaxChars: number;
   /** 11.5 the pause that ends a turn, and the level that counts as speech */
@@ -316,6 +321,7 @@ export const DEFAULTS: Config = {
   sentDir: join(homedir(), ".sidetone", "sent"),
   keepHeardClips: false,
   heardDir: join(homedir(), ".sidetone", "heard"),
+  keepContext: true,
   sentenceMaxChars: 240,
   endOfTurnPauseMs: 1_500,
   earlyTranscribeMs: 400,

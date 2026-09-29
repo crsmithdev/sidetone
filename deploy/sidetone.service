@@ -31,6 +31,8 @@ RestartSteps=5
 RestartMaxDelaySec=60
 # the engines take a moment and the models are large
 TimeoutStartSec=120
+# item 72 a stop waits up to 150 s for the agent to write its handoff
+TimeoutStopSec=180
 
 [Install]
 WantedBy=default.target

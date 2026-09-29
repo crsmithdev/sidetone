@@ -13,8 +13,8 @@
  * everything that differs between the car and a test: the engines, the record
  * and the agent. The room passes none of them and gets the real ones.
  */
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdtempSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { encodeWav } from "./audio.ts";
 import { Channel } from "./channel.ts";
@@ -41,6 +41,14 @@ import { Working, jobsRunning } from "./working.ts";
 
 /** 14.16.4 what the voice says when a new process of the bridge first has a listener */
 export const STARTED = "Sidetone started.";
+
+/**
+ * Item 72 the file the agent's handoff goes to at a stop, and the skills that
+ * write and read it. The name keeps it apart from a typed session's handoff.
+ */
+export const HANDOFF_FILE = join(homedir(), ".aleph", "handoffs", "sidetone.md");
+export const HANDOFF = "/aleph:handoff sidetone";
+export const PICKUP = "/aleph:pickup sidetone";
 
 /** 18 the session's own line, then every event after it, appended as it happens. */
 function recorder(config: Config): (event: Event) => void {
@@ -79,6 +87,12 @@ export interface Bridge {
    * what it runs with is the `device` message after its rejoin (14.15).
    */
   setup(message: Setup): void;
+  /**
+   * Item 72 the agent writes its handoff, as a quiet turn, before the process
+   * stops. True when the turn finished within `ms`; false when it failed, ran
+   * over, or `keepContext` is off.
+   */
+  handoff(ms: number): Promise<boolean>;
   stop(): void;
 }
 
@@ -116,6 +130,8 @@ export interface Parts {
   screenshots?: string;
   /** 14.15 the SHA-256 of the app the bridge serves now, or undefined when none is built */
   served?: () => Promise<string | undefined>;
+  /** item 72 the handoff a start picks up; unset, `HANDOFF_FILE` */
+  handoffFile?: string;
 }
 
 /**
@@ -244,6 +260,12 @@ export function assemble(
   }, earSettings, measures, say, guesses);
 
   conversation.start();
+  // item 72 the context of the last process, when its stop left a handoff. A
+  // crash leaves none, and the new session starts empty.
+  if (config.keepContext && existsSync(parts.handoffFile ?? HANDOFF_FILE)) {
+    say("[picking up the handoff of the last process]");
+    void conversation.quietly(PICKUP).then((done) => say(done ? "[picked up the handoff]" : "[the pickup turn failed]"));
+  }
   const watch = setInterval(() => channel.silence(ear.silence()), SILENCE_MS / 3);
   // 14.10 whether the agent works, said to the client whatever the audio does
   const working = new Working(() => conversation.busy, parts.jobs ?? (() => jobsRunning()), (on) => channel.tell({ kind: "working", on }));
@@ -279,6 +301,12 @@ export function assemble(
       channel.tell(message);
       channel.journal(`pushed the phone ${message.default ? "" : "an audio setup: "}${setupWords(message)}; the phone rejoins with it`);
       measures.setup(message.default ? null : { mode: message.mode, output: message.output, focus: message.focus, canceller: message.canceller, noiseSuppression: message.noiseSuppression, autoGainControl: message.autoGainControl });
+    },
+    async handoff(ms: number) {
+      if (!config.keepContext) return false;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const late = new Promise<false>((resolve) => { timer = setTimeout(() => resolve(false), ms); });
+      try { return await Promise.race([conversation.quietly(HANDOFF), late]); } finally { clearTimeout(timer); }
     },
     stop() { clearInterval(watch); clearInterval(work); conversation.stop(); stt.stop(); tts.stop(); turn?.stop(); },
   };

@@ -165,6 +165,8 @@ export interface Options {
    * turn goes through the session and not the script, and `agent` records nothing.
    */
   spawn?: Spawn;
+  /** item 72 the handoff a start picks up; unset, a file that is not there */
+  handoffFile?: string;
 }
 
 const built: Bridge[] = [];
@@ -247,6 +249,8 @@ export function bridge(options: Options = {}) {
     settings: (patch) => { patches.push(patch); },
     scratch: "/tmp",
     screenshots: mkdtempSync(join(tmpdir(), "sidetone-screenshots-")),
+    // a test never picks up the handoff the car left in the home directory
+    handoffFile: options.handoffFile ?? join(tmpdir(), "sidetone-no-handoff.md"),
   };
 
   const assembled = assemble("/tmp", config, RATE, speaker, (message) => told.push(message), (line) => journal.push(line), parts);

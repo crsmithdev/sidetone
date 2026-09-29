@@ -18,6 +18,13 @@ import { Pairing, routes } from "./routes.ts";
 import { RTC_RATE, Transport, roomSpeaker, tokenFor } from "./transport.ts";
 import { renderUnicodeCompact } from "uqr";
 
+/**
+ * Item 72 how long a stop waits for the handoff turn. It must end inside
+ * TimeoutStopSec in deploy/sidetone.service (180 s), with room to leave the
+ * room and stop the engines before systemd kills the process.
+ */
+const HANDOFF_MS = 150_000;
+
 /** 12.2 one pairing, then a long-lived token the client keeps. */
 function pairingCode(): string {
   const words = "amber,anchor,basalt,cedar,cobalt,dust,ember,fathom,garnet,harbour,indigo,jetty,kelp,lantern,marlin,north,onyx,pewter,quartz,rigging,slate,tide,umber,vellum,willow,zenith".split(",");
@@ -166,11 +173,23 @@ export async function serve(dir: string, config: Config): Promise<void> {
   // Leave the room on the way out. Without this the participant slot lingers,
   // and the process that replaces this one arrives to find itself already
   // there under another name.
+  // Item 72 then the agent writes its handoff, which the next start picks up.
+  // The room is left first: the phone sees the stop at once (17.11.11.4), and
+  // a closed room ends each sentence at once, so a cut turn drains.
+  let stopping = false;
   for (const signal of ["SIGTERM", "SIGINT"] as const) {
     process.on(signal, () => {
+      // a second signal, such as a second Ctrl-C, does not wait for the handoff
+      if (stopping) process.exit(0);
+      stopping = true;
       void (async () => {
         console.log(`[${signal}: leaving the room]`);
         try { await transport.close(); } catch { /* going anyway */ }
+        if (config.keepContext) {
+          console.log("[the agent writes its handoff]");
+          const done = await bridge.handoff(HANDOFF_MS);
+          console.log(done ? "[the handoff is written]" : "[no handoff: the turn failed or ran over]");
+        }
         bridge.stop();
         server.stop();
         process.exit(0);
