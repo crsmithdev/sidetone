@@ -43,6 +43,12 @@ describe("config (21)", () => {
     expect(() => loadConfig(withFile('{"warmTries":2.5}'))).toThrow(/warmTries/);
     expect(loadConfig(withFile('{"warmTries":3}')).warmTries).toBe(3);
   });
+  test("8.13 a session is forked when its first three requests each take over 1.2 s", () => {
+    expect(DEFAULTS.forkSlowMs).toBe(1_200);
+    expect(DEFAULTS.forkAfterRequests).toBe(3);
+    expect(() => loadConfig(withFile('{"forkAfterRequests":0}'))).toThrow(/forkAfterRequests/);
+    expect(() => loadConfig(withFile('{"forkSlowMs":0}'))).toThrow(/forkSlowMs/);
+  });
   test("a file overrides field by field", () => {
     const config = loadConfig(withFile('{"model":"opus","ceilingMs":60000}'));
     expect(config.model).toBe("opus");

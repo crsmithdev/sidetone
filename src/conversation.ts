@@ -39,6 +39,7 @@ import { CARD_ROUNDS, TRANSCRIPTION_CARD, read, type CommandName, type Reading }
 import { VERBOSITIES, type Config, type Verbosity } from "./config.ts";
 import type { CueName } from "./cues.ts";
 import { ECHO_AFTER_MS, echoOf } from "./echo.ts";
+import { forkLine } from "./fork.ts";
 import type { Ears } from "./ear.ts";
 import type { Measures } from "./measures.ts";
 import type { Mouth } from "./mouth.ts";
@@ -192,6 +193,7 @@ export class Conversation {
       onInterrupt: () => { this.checkpointOpen = false; },
       onUnprompted: (turn) => this.unprompted(turn),
       onRestart: () => this.cue("starting"),
+      onFork: (from, to, requestMs) => this.channel.journal(forkLine(from, to, requestMs)),
       onPermission: (request) => this.permission(request),
       onInjectedReply: () => this.injectedReply?.(),
       onPermissionCancel: (id) => {

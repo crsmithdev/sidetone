@@ -235,6 +235,18 @@ This repository is Sidetone. The earlier project bridge is on the
 
 8.12.6 The setting `keepContext` turns the handoff and the pickup on and off. It is on by default.
 
+8.13 The bridge forks a slow agent session (item 55). The server keys a delay of about 1.2 seconds to the session id. On 28 September a slow session stayed slow under its own id, and a fork of the same transcript under a new id was fast. The fork keeps the context and reads the same cache. This is behaviour of the server, not a contract, so only a drive shows that it holds.
+
+8.13.1 The bridge times each request of the agent: `requestMs`, from the `requesting` status to `message_start` (18.4.1). When each of the first `forkAfterRequests` requests of a session takes longer than `forkSlowMs`, the session is slow. The defaults are 3 requests and 1.2 seconds. A session with one request at or under the limit among its first three is fast, and the bridge times it no more.
+
+8.13.2 The fork happens between turns: when the result of a turn is in, before the next turn can start. The bridge stops the process and starts it again with `--resume <old id> --fork-session --session-id <new id>`. The bridge picks the new id. The turn number, the cost and the settings stay. A background task that the agent started in the old process ends with it, as it does at any restart.
+
+8.13.3 The bridge watches the fork as a new session. A fork that is slow is forked once more. After two forks in a row the bridge leaves the session as it is. A start with no fork, such as a restart of 8.6 or a clear of 8.8, starts a new count.
+
+8.13.4 A fork writes one line to the journal, with the old id, the new id and the times of the requests.
+
+8.13.5 Checked on 29 September with claude 2.1.285 and Haiku: the forked process reported the new id, remembered a word from before the fork, and read 24,712 tokens from the cache against 814 written.
+
 ## 9. Voice commands
 
 9.1 A voice command starts with a wake word. The wake word separates a command from normal speech.

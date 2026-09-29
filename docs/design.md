@@ -89,7 +89,10 @@ drive.
 Nothing in the pipeline shortens this. It depends on the model, the question
 and any thinking. A warm process gives its first word in 0.62 s at the median,
 so about a second of the agent's time on drives is not the model. Todo item 55
-holds that search.
+split it. About half of the sessions are slow on the server, by about 1.2 s on
+every request, and the bridge forks such a session onto a new id (spec 8.13).
+A drive has to show that the fork is fast. Thinking is the other part: item 55
+proposes an `effort` setting.
 
 #### D. A turn detector, to shorten the pause
 

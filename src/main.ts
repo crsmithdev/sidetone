@@ -14,6 +14,7 @@ import { mkdtempSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { DEFAULTS, configPath, loadConfig, type Config } from "./config.ts";
+import { forkLine } from "./fork.ts";
 import { Session, recorded, spawnClaude } from "./session.ts";
 import { keptLines } from "./mouth.ts";
 import { fetchCert } from "./keys.ts";
@@ -43,6 +44,7 @@ async function chat(dir: string, config: Config, recordStream = ""): Promise<voi
     onCheckpoint: (ms) => console.log(`\n[this turn has run ${Math.round(ms / 60_000)} minutes. say "${config.agreementWord}" to let it run]`),
     onInterrupt: (reason) => console.log(`\n[interrupting the turn: ${reason}]`),
     onRestart: (reason) => console.log(`\n[restarting Claude Code: ${reason}]`),
+    onFork: (from, to, requestMs) => console.log(`\n[${forkLine(from, to, requestMs)}]`),
   }, spawn);
   session.start();
   console.log(`Claude Code in ${dir}, model ${config.model}. Ctrl-D to leave.`);

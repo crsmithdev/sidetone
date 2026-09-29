@@ -5,9 +5,11 @@
  * audio. The supervisor drives it: this file only owns the pipes, the turn
  * numbers (14.5) and the restart.
  */
+import { randomUUID } from "node:crypto";
 import { appendFileSync, readFileSync } from "node:fs";
 import type { Subprocess } from "bun";
 import type { Config } from "./config.ts";
+import { SlowWatch } from "./fork.ts";
 import { Narrator } from "./narrator.ts";
 import { compactionThreshold, contextTokens, linesOf, parseLine, type Event, type Usage } from "./protocol.ts";
 import { Supervisor, type Action } from "./supervisor.ts";
@@ -46,6 +48,8 @@ export interface SessionHooks {
   /** 2.3 what the bridge says while a tool runs, so a long turn is not silence */
   onNarration?(text: string): void;
   onRestart?(reason: string): void;
+  /** 8.13 the session was slow, and the process starts again on a fork of it, with the new id `to` */
+  onFork?(from: string, to: string, requestMs: number[]): void;
   onInterrupt?(reason: string): void;
   /**
    * 11.11 a turn nobody asked for. Claude Code answers a task notification on
@@ -130,6 +134,7 @@ export class Session {
   private alive = false;
   private supervisor: Supervisor;
   private narrator: Narrator;
+  private slow: SlowWatch;
   private turnNumber = 0;
   private pending: { resolve(turn: Turn): void; reject(error: Error): void } | null = null;
   private replyText = "";
@@ -163,11 +168,18 @@ export class Session {
   ) {
     this.supervisor = new Supervisor(config);
     this.narrator = new Narrator(config);
+    this.slow = new SlowWatch(config);
   }
 
   start(): void {
     if (this.child) return;
-    this.child = this.spawn(this.config, this.dir);
+    this.slow.reset();
+    this.open([]);
+  }
+
+  /** `args` go after the settings' own: 8.13 a fork's `--resume` */
+  private open(args: string[]): void {
+    this.child = this.spawn(args.length ? { ...this.config, claudeArgs: [...this.config.claudeArgs, ...args] } : this.config, this.dir);
     // Bun does not fill in exitCode unless something awaits exited, so a child
     // that died still reads as running. Watch the exit instead, and check the
     // identity before recording it: a killed child's promise resolves after
@@ -198,6 +210,7 @@ export class Session {
 
   private handle(event: Event, now: number): void {
     this.supervisor.activity(now);
+    this.slow.event(event, now);
     this.hooks.onEvent?.(event);
     switch (event.kind) {
       case "toolStart": this.supervisor.toolStarted(event.id, now); this.narrator.started(event.id, event.tool, event.parentId, now); break;
@@ -250,8 +263,25 @@ export class Session {
     this.replyText = "";
     const pending = this.pending;
     this.pending = null;
-    if (!pending) { this.hooks.onUnprompted?.(turn); return; }
-    pending.resolve(turn);
+    if (!pending) this.hooks.onUnprompted?.(turn);
+    else pending.resolve(turn);
+    // 8.13.2 between turns: the result is in, and the next turn cannot start
+    // before the caller's await resumes, which is after this
+    this.fork();
+  }
+
+  /**
+   * 8.13 the session was slow: the process starts again on a fork of it. The
+   * fork keeps the context and reads the same cache; only the id is new. The
+   * bridge picks the new id, so the log line can name it now.
+   */
+  private fork(): void {
+    const slow = this.slow.take();
+    if (!slow) return;
+    const to = randomUUID();
+    this.hooks.onFork?.(slow.from, to, slow.requestMs);
+    this.stop();
+    this.open(["--resume", slow.from, "--fork-session", "--session-id", to]);
   }
 
   private fail(error: Error): void {

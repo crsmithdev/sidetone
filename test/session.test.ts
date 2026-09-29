@@ -1,7 +1,8 @@
-import { describe, expect, jest, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, jest, test } from "bun:test";
 import { DEFAULTS, type Config } from "../src/config.ts";
+import { forkLine } from "../src/fork.ts";
 import { Session, processRssBytes, type Process, type Spawn, type Turn } from "../src/session.ts";
-import { pass } from "./clock.ts";
+import { pass, settle } from "./clock.ts";
 import { replay } from "./harness.ts";
 
 const config: Config = { ...DEFAULTS };
@@ -620,5 +621,121 @@ describe("the context of a 2.1.283 run (8.9)", () => {
     expect(s.contextWindow).toBe(180_000);
     expect(s.contextThreshold).toBe(150_000);
     expect(s.contextUsed).toBe(27_737);
+  });
+});
+
+/**
+ * 8.13 item 55 a slow session is forked between turns. The scripted process
+ * prints the times: a request leaves at one moment, its message begins at
+ * the next, and the clock is set to each.
+ */
+describe("the fork of a slow session (8.13)", () => {
+  beforeEach(() => { jest.useFakeTimers(); jest.setSystemTime(0); });
+  afterEach(() => { jest.useRealTimers(); });
+
+  const INIT = (id: string) => `{"type":"system","subtype":"init","session_id":"${id}","model":"sonnet"}`;
+  const REQUESTING = '{"type":"system","subtype":"status","status":"requesting"}';
+  const MESSAGE_START = '{"type":"stream_event","event":{"type":"message_start","message":{"usage":{"input_tokens":3,"cache_read_input_tokens":88000,"cache_creation_input_tokens":200}}}}';
+
+  function forking(overrides: Partial<Config> = {}) {
+    const made: Array<{ p: ReturnType<typeof scripted>; args: string[] }> = [];
+    const spawn: Spawn = (given) => { const p = scripted(); made.push({ p, args: given.claudeArgs }); return p.process; };
+    const forks: Array<{ from: string; to: string; requestMs: number[] }> = [];
+    const s = new Session("/tmp", { ...config, ...overrides }, { onFork: (from, to, requestMs) => forks.push({ from, to, requestMs }) }, spawn);
+    let now = 0;
+    /**
+     * One turn: the process says its id, then makes one request for each of
+     * `requestMs`, each that long to its message. The id is the one a fork
+     * was started with, when the process is a fork.
+     */
+    async function turn(requestMs: number[]): Promise<void> {
+      const asked = s.ask("hello");
+      const { p, args } = made[made.length - 1] as (typeof made)[number];
+      const set = args.indexOf("--session-id");
+      p.prints(INIT(set >= 0 ? args[set + 1] as string : "first"));
+      for (const ms of requestMs) {
+        jest.setSystemTime(now += 10);
+        p.prints(REQUESTING);
+        await settle();
+        jest.setSystemTime(now += ms);
+        p.prints(MESSAGE_START);
+        await settle();
+      }
+      p.prints(RESULT("Hi."));
+      await asked;
+    }
+    return { s, made, forks, turn };
+  }
+
+  test("three slow requests fork the session once, between turns, onto a new id", async () => {
+    const r = forking();
+    await r.turn([1_500, 1_600]);
+    expect(r.made.length).toBe(1);
+    await r.turn([2_100]);
+    // the fork is made when the result is in, before the next turn asks
+    expect(r.forks).toEqual([{ from: "first", to: expect.any(String), requestMs: [1_500, 1_600, 2_100] }]);
+    expect(r.made.length).toBe(2);
+    const fork = r.forks[0] as (typeof r.forks)[number];
+    expect(r.made[1]?.args.slice(-5)).toEqual(["--resume", "first", "--fork-session", "--session-id", fork.to]);
+    // the turn after runs on the fork, which is fast: no second fork
+    await r.turn([600, 600, 600]);
+    await r.turn([600]);
+    expect(r.made.length).toBe(2);
+    expect(r.forks.length).toBe(1);
+    r.s.stop();
+  });
+
+  test("a fast session never forks, and neither does one with a single fast request among the first three", async () => {
+    const r = forking();
+    for (let i = 0; i < 5; i++) await r.turn([600]);
+    expect(r.forks).toEqual([]);
+    const mixed = forking();
+    await mixed.turn([1_500, 900, 1_700]);
+    await mixed.turn([1_900, 1_900, 1_900]);
+    expect(mixed.forks).toEqual([]);
+    expect(mixed.made.length).toBe(1);
+    r.s.stop();
+    mixed.s.stop();
+  });
+
+  test("a fork that is slow as well is forked once more, then left: two forks in a row at most", async () => {
+    const r = forking();
+    await r.turn([1_500, 1_500, 1_500]);
+    await r.turn([1_500, 1_500, 1_500]);
+    await r.turn([1_500, 1_500, 1_500]);
+    await r.turn([1_500, 1_500, 1_500]);
+    expect(r.forks.length).toBe(2);
+    expect(r.forks[1]?.from).toBe(r.forks[0]?.to as string);
+    expect(r.made.length).toBe(3);
+    r.s.stop();
+  });
+
+  test("a restart with no fork starts a new lineage, which is watched again", async () => {
+    const r = forking();
+    await r.turn([1_500, 1_500, 1_500]);
+    await r.turn([1_500, 1_500, 1_500]);
+    expect(r.forks.length).toBe(2);
+    r.s.restart("cleared by voice");
+    // the plain restart resumes nothing
+    expect(r.made[3]?.args).not.toContain("--resume");
+    await r.turn([1_500, 1_500, 1_500]);
+    expect(r.forks.length).toBe(3);
+    expect(r.forks[2]?.from).toBe("first");
+    r.s.stop();
+  });
+
+  test("the log line names both ids and the three times", () => {
+    expect(forkLine("a", "b", [1_500, 1_620, 2_104])).toBe("the agent's session a was slow, 1.50, 1.62, 2.10 s to its first messages: forked it as b");
+  });
+
+  test("the two settings move the line: a longer limit, and fewer requests", async () => {
+    const r = forking({ forkSlowMs: 2_000, forkAfterRequests: 1 });
+    await r.turn([1_500]);
+    expect(r.forks).toEqual([]);
+    const one = forking({ forkAfterRequests: 1 });
+    await one.turn([1_300]);
+    expect(one.forks.map((fork) => fork.requestMs)).toEqual([[1_300]]);
+    r.s.stop();
+    one.s.stop();
   });
 });

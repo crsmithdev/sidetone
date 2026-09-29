@@ -153,6 +153,12 @@ export interface Config {
    * stop asks the agent for a handoff, and the next start picks it up.
    */
   keepContext: boolean;
+  /**
+   * 8.13 item 55 a session whose first `forkAfterRequests` requests each take
+   * longer than `forkSlowMs` to their first message is forked between turns
+   */
+  forkSlowMs: number;
+  forkAfterRequests: number;
   /** 5.6 a run of text this long with no punctuation is spoken anyway */
   sentenceMaxChars: number;
   /** 11.5 the pause that ends a turn, and the level that counts as speech */
@@ -322,6 +328,8 @@ export const DEFAULTS: Config = {
   keepHeardClips: false,
   heardDir: join(homedir(), ".sidetone", "heard"),
   keepContext: true,
+  forkSlowMs: 1_200,
+  forkAfterRequests: 3,
   sentenceMaxChars: 240,
   endOfTurnPauseMs: 1_500,
   earlyTranscribeMs: 400,
@@ -495,7 +503,7 @@ export function loadConfig(path = configPath()): Config {
  * bridge takes live goes into the file, and the next start reads it back.
  */
 export function checkConfig(merged: Config): Config {
-  for (const key of ["silenceMs", "ceilingMs", "checkpointWindowMs", "graceMs", "compactionWindowMs", "narrationDelayMs"] as const) {
+  for (const key of ["silenceMs", "ceilingMs", "checkpointWindowMs", "graceMs", "compactionWindowMs", "narrationDelayMs", "forkSlowMs"] as const) {
     if (typeof merged[key] !== "number" || !(merged[key] > 0)) throw new Error(`${key} must be a positive number of milliseconds`);
   }
   // 10.3 a reflex or a bad transcription must not be able to say the agreement word
@@ -525,6 +533,9 @@ export function checkConfig(merged: Config): Config {
   }
   if (!Number.isInteger(merged.warmTries) || merged.warmTries < 1) {
     throw new Error(`warmTries (${String(merged.warmTries)}) must be a whole number of at least one`);
+  }
+  if (!Number.isInteger(merged.forkAfterRequests) || merged.forkAfterRequests < 1) {
+    throw new Error(`forkAfterRequests (${String(merged.forkAfterRequests)}) must be a whole number of at least one`);
   }
   // zero is a real value for each: a delay of 0 turns the music off (15.7), a fade of 0 is none
   for (const key of ["holdMusicAfterMs", "holdMusicFadeMs", "holdMusicFadeInMs"] as const) {
