@@ -1324,9 +1324,9 @@ restart and how, or the item is dropped with a reason.
 ## 67. The card gets ahead of Chris, and a card of plain sentences
 ---
 id: 67
-status: open
+status: dropped
 created: 2026-09-28
-updated: 2026-09-28
+updated: 2026-09-29
 priority: medium
 labels: []
 ---
@@ -1413,6 +1413,10 @@ the twelve sentences, then three "sidetone, ..." commands ("end the turn",
 "male voice", "recap"), because the command card was the only part of test 17
 that scored the wake word. "read the card" and "read the transcription card"
 both read it (spec 9.4.15), and "read the plain card" is gone.
+
+### Notes
+
+- 2026-09-29 08:13: Superseded by item 71.
 
 ## 69. A blip of garbled speech at the start or the end of an answer
 ---
