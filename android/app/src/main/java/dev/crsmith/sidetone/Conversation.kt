@@ -71,6 +71,10 @@ class Conversation(val transcript: Transcript = Transcript()) {
     var screenshots: Map<String, String> = emptyMap()
         private set
 
+    /** 17.23 the files the agent showed, by id. */
+    var files: Map<String, ShownFile> = emptyMap()
+        private set
+
     /** 17.11 whether the bridge says the agent works. */
     var sign: Sign = Sign.OFF
         private set
@@ -117,6 +121,11 @@ class Conversation(val transcript: Transcript = Transcript()) {
                 if (message.id !in screenshots) transcript.onLines("screenshot", at, Line(Line.Kind.SCREENSHOT, message.id))
                 else transcript.onEvent("screenshot", "${message.id} ${message.state}", at)
                 screenshots = screenshots + (message.id to message.state)
+            }
+            is Incoming.Show -> {
+                // 17.23.4 the card joins the transcript once, on the agent's side
+                if (message.file.id !in files) transcript.onLines("show", at, Line(Line.Kind.FILE, message.file.id))
+                files = files + (message.file.id to message.file)
             }
             is Incoming.Settings -> {
                 val last = settingsSeq
@@ -200,6 +209,7 @@ class Conversation(val transcript: Transcript = Transcript()) {
             sign = sign,
             screenshotWords = screenshots.mapNotNull { (id, state) -> screenshotWords(state)?.let { id to it } }.toMap(),
             pending = screenshots.filterValues { it == "pending" }.keys,
+            files = files,
             // 17.10.6 the saved settings are the bridge's: on until it says otherwise, and each button waits for it
             audioOn = settingsOn["audio"] ?: true,
             audioEnabled = "audio" in settingsOn,
@@ -223,6 +233,7 @@ class Conversation(val transcript: Transcript = Transcript()) {
         settingsSeq = null
         spoken = null
         screenshots = emptyMap()
+        files = emptyMap()
     }
 }
 
@@ -243,6 +254,8 @@ data class OnScreen(
     val screenshotWords: Map<String, String> = emptyMap(),
     /** 14.12.7 the ids of the pending screenshots, which a tap drops. */
     val pending: Set<String> = emptySet(),
+    /** 17.23 the shown files, by id, for the cards and the viewer. */
+    val files: Map<String, ShownFile> = emptyMap(),
     /** 11.12 whether the bridge makes any sound, or only writes its answers, as the bridge last said (17.10.6). */
     val audioOn: Boolean = true,
     /** 17.10.6 the Audio button waits for the bridge to send the setting. */

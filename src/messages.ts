@@ -77,6 +77,13 @@ export type Outgoing =
    */
   | { kind: "screenshot"; id: string; state: "pending" | "sent" | "expired" | "dropped" }
   /**
+   * 17.23 a shown file: the agent ran `sidetone show`. `name` is the path from
+   * the project, or the absolute path of a file outside it. Text and markdown
+   * come whole in `text`; a PDF is downloaded from `url`, and `bytes` is its size.
+   */
+  | { kind: "show"; id: string; name: string; format: "text" | "markdown"; text: string }
+  | { kind: "show"; id: string; name: string; format: "pdf"; url: string; bytes: number }
+  /**
    * 18.15 the phone's audio setup, changed with no build. A `default` of true
    * carries no other field: it sends the phone back to the setup in its own
    * code. The app rejoins the room to apply either.

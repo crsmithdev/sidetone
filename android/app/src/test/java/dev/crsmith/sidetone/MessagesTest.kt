@@ -180,6 +180,9 @@ class MessagesTest {
         assertTrue(Incoming.Starting(false) in decoded)
         assertTrue(Incoming.Screenshot("1789999559000", "pending") in decoded)
         assertTrue(Incoming.Screenshot("1789999559000", "sent") in decoded)
+        // 17.23 a shown markdown file comes whole, and a PDF as an address
+        assertTrue(Incoming.Show(ShownFile("5f0c1d2e-0000-4000-8000-000000000001", "docs/plan.md", ShownFile.Format.MARKDOWN, text = "# Plan\n\n- **one**\n")) in decoded)
+        assertTrue(Incoming.Show(ShownFile("5f0c1d2e-0000-4000-8000-000000000002", "docs/paper.pdf", ShownFile.Format.PDF, url = "https://bridge:3100/shown/5f0c1d2e-0000-4000-8000-000000000002", bytes = 18214)) in decoded)
         val history = decoded.filterIsInstance<Incoming.History>().last()
         assertEquals(listOf("look and tell me", "Let me look. Found it.", "and again", "The build is green."), history.lines.map { it.text })
     }

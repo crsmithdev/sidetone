@@ -49,7 +49,9 @@ export function decode(message) {
     case "delta":
     case "blockEnd":
     // 18.15 the app changes its audio setup on this. The page has none to change.
-    case "setup": return {};
+    case "setup":
+    // 17.23 the app shows the file the agent named. The page does not.
+    case "show": return {};
     default: return { line: [`(unknown message: ${message.kind})`, "note"] };
   }
 }

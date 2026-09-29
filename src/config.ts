@@ -421,6 +421,8 @@ export const DEFAULTS: Config = {
     "Run lookups that do not depend on each other in one step.",
     "Do not narrate the work while it runs and do not wait for it to finish before you answer.",
     "When work you started in the background finishes, say so in one short sentence, and say what came of it.",
+    // 17.23 item 78: the agent is the one that knows which file it talks about
+    `To put a text, markdown or PDF file on Chris's phone screen while you talk about it, run \`bun ${new URL("./main.ts", import.meta.url).pathname} show <path>\`. Do this when he asks to see a file, or when he has to read it to follow you.`,
     // Item 4, 24 September: Claude Code gives the agent speech the bridge
     // writes into a running turn as a system reminder beside a tool result.
     // It is not told to trust that shape of text in general: a file or a page

@@ -16,6 +16,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { encodeWav } from "../src/audio.ts";
 import { Pairing, routes } from "../src/routes.ts";
+import { Shown } from "../src/shown.ts";
 import { fakeClock, settle, until } from "./clock.ts";
 import { bridge, RATE } from "./harness.ts";
 
@@ -36,6 +37,7 @@ describe("drive test 10: the record knows which setting was in force", () => {
       page: "",
       files: { sdk: "/nowhere", decoder: "/nowhere", apk: "/nowhere" },
       health: () => ({ room: true, speech: true, transcription: true, microphone: true, sinceSound: 0 }),
+      shown: new Shown("/nowhere", "https://bridge:3100"),
       startedAt: Date.now(),
     });
     const diagnostics = async () => (await (await handle(new Request("http://bridge/diagnostics"), "127.0.0.1")).json()) as { settings: Record<string, unknown> };

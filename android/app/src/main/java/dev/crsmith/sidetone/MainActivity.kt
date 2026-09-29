@@ -2,6 +2,7 @@ package dev.crsmith.sidetone
 
 import android.Manifest
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInstaller
 import android.content.pm.PackageManager
@@ -242,7 +243,20 @@ private fun Pairing(error: String?) {
 }
 
 @Composable
-internal fun Conversation(state: Bridge.State, onQuit: () -> Unit) {
+internal fun Conversation(
+    state: Bridge.State,
+    onQuit: () -> Unit,
+    /** 17.23.5 opens a shown PDF; a test gives pages of its own */
+    pages: suspend (Context, ShownFile) -> Pages = ::downloadPages,
+) {
+    val context = LocalContext.current
+    // 17.23.5 the shown file the viewer shows, by id; a back gesture or Close goes back
+    var viewing by rememberSaveable { mutableStateOf<String?>(null) }
+    BackHandler(enabled = viewing != null) { viewing = null }
+    state.screen.files[viewing]?.let { file ->
+        FileViewer(file, onClose = { viewing = null }, pages = { pages(context, it) })
+        return
+    }
     var draft by remember { mutableStateOf("") }
     // 17.22 the options screen takes the window under the status row; the gear or a back gesture closes it
     var options by rememberSaveable { mutableStateOf(false) }
@@ -301,6 +315,7 @@ internal fun Conversation(state: Bridge.State, onQuit: () -> Unit) {
             LazyColumn(Modifier.fillMaxSize(), state = list, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 itemsIndexed(shown) { i, line ->
                     if (line.kind == Line.Kind.SCREENSHOT) ScreenshotLine(line, state.thumbnails[line.text], screen.screenshotWords[line.text], line.text in screen.pending)
+                    else if (line.kind == Line.Kind.FILE) screen.files[line.text]?.let { FileCard(it, onOpen = { viewing = it.id }) }
                     else TranscriptLine(line, screen.spoken?.takeIf { it.first == i }?.second)
                 }
             }
@@ -539,8 +554,8 @@ private fun TranscriptLine(line: Line, spokenEnd: Int? = null) {
                 color = colors.onSurfaceVariant,
             )
         }
-        // 17.18.5 the list shows a screenshot with ScreenshotLine
-        Line.Kind.SCREENSHOT -> Unit
+        // 17.18.5 the list shows a screenshot with ScreenshotLine, and 17.23.4 a shown file with FileCard
+        Line.Kind.SCREENSHOT, Line.Kind.FILE -> Unit
         Line.Kind.YOU, Line.Kind.BRIDGE -> {
             val you = line.kind == Line.Kind.YOU
             val ink = if (you) colors.onPrimaryContainer else colors.onSurface

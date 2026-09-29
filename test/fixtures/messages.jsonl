@@ -37,6 +37,8 @@
 {"kind":"rejoin"}
 {"kind":"setup","default":false,"mode":"normal","output":"media","focus":"none","canceller":"software","noiseSuppression":true,"autoGainControl":true}
 {"kind":"setup","default":true}
+{"kind":"show","id":"5f0c1d2e-0000-4000-8000-000000000001","name":"docs/plan.md","format":"markdown","text":"# Plan\n\n- **one**\n"}
+{"kind":"show","id":"5f0c1d2e-0000-4000-8000-000000000002","name":"docs/paper.pdf","format":"pdf","url":"https://bridge:3100/shown/5f0c1d2e-0000-4000-8000-000000000002","bytes":18214}
 {"kind":"protocol","endTurn":"sidetone end the turn"}
 {"kind":"starting","on":false}
 {"kind":"settings","seq":1789999559002,"settings":{"speechLevel":0.02,"speechOnsetMs":50,"endOfTurnPauseMs":1500,"earlyTranscribeMs":400,"turnDetector":"off","bargeInLevel":0.05,"bargeInMs":400,"bargeInGapMs":200,"minSpeechPeak":0.15,"wakeHoldMs":6000,"interruptOnSpeech":false,"holdBackstopMs":10000,"sentenceMaxChars":240,"audioCueDelayMs":4000,"audioCueEveryMs":6000,"audio":true,"holdMusic":false,"holdMusicAfterMs":8000,"holdMusicGain":0.4,"holdMusicFadeMs":300,"holdMusicFadeInMs":1500,"cueVolume":0.1,"ttsEngine":"chatterbox","ttsVoice":"som_00295","sttModel":"medium.en","sttVocabulary":["Sidetone","aleph","Cloud Chamber","Beamline","Voiceover","Claude","LiveKit","Kokoro","Chatterbox","worktree"],"wakeWord":"sidetone","chatterboxExaggeration":0.5,"chatterboxCfg":0.5,"verbosity":"normal","tones":true,"model":"sonnet","effort":"default"}}

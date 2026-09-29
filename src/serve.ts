@@ -9,6 +9,7 @@
  * not to hand-build a canceller.
  */
 import { ApkHash, watchApk } from "./apk.ts";
+import { Shown } from "./shown.ts";
 import { assemble } from "./bridge.ts";
 import { Outbound } from "./outbound.ts";
 import type { Config } from "./config.ts";
@@ -127,6 +128,7 @@ export async function serve(dir: string, config: Config): Promise<void> {
       microphone,
       sinceSound: ear.sinceSound,
     }),
+    shown: new Shown(dir, origin),
     startedAt,
   });
 

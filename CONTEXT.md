@@ -31,6 +31,10 @@ _Avoid_: the frontend, the UI, the app (the app is one client of two).
 The directory the agent runs in. Its own instructions file gives the agent its rules; the bridge is told nothing about it.
 _Avoid_: the workspace, the repo.
 
+**A shown file**:
+A file the agent puts on the phone's screen with `sidetone show`, as a card in the transcript. A tap on the card opens **the viewer**, which shows the whole file. Read only.
+_Avoid_: a preview, an attachment, a document.
+
 **The room**:
 Where the bridge and the client meet, and what carries audio between them.
 _Avoid_: the call, the session, the channel, the connection.

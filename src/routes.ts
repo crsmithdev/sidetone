@@ -11,6 +11,7 @@ import { wavFromFile } from "./audio.ts";
 import type { Bridge } from "./bridge.ts";
 import { settingsInForce, type Config } from "./config.ts";
 import { readSetup } from "./setup.ts";
+import type { Shown } from "./shown.ts";
 import { RTC_RATE } from "./transport.ts";
 
 /**
@@ -87,6 +88,8 @@ export interface Site {
   files: { sdk: string; decoder: string; apk: string };
   /** whether the room is joined, and whether each engine is warm */
   health: () => { room: boolean; speech: boolean; transcription: boolean; microphone: boolean; sinceSound: number | null };
+  /** 17.23 the files the agent showed the phone */
+  shown: Shown;
   startedAt: number;
 }
 
@@ -217,6 +220,30 @@ export function routes(site: Site): (request: Request, ip: string | undefined) =
       if (!setup) return Response.json({ error: "a setup is mode call|normal, output voice|media, focus gain|none, canceller hardware|software, noiseSuppression and autoGainControl true|false; or default true" }, { status: 400 });
       bridge.setup(setup);
       return Response.json({ pushed: setup }, { status: 202 });
+    }
+    /**
+     * 17.23 show the phone a file. `sidetone show` calls it. The same guard
+     * as /say: a shell on this machine only.
+     */
+    if (url.pathname === "/show" && request.method === "POST") {
+      if (!isLocal(ip)) return new Response("not found", { status: 404 });
+      const body = await request.json().catch(() => ({})) as { file?: string };
+      const showing = await site.shown.show(body.file ?? "");
+      if ("error" in showing) return Response.json({ error: showing.error }, { status: showing.status });
+      bridge.channel.tell(showing.message);
+      bridge.channel.journal(`showed the phone ${showing.message.name}`);
+      return Response.json({ shown: showing.message.name }, { status: 202 });
+    }
+    /**
+     * 17.23.3 a shown PDF, for the app to download. The phone is on the
+     * tailnet, so this is open to it, as /sidetone.apk is. The id is a random
+     * UUID that only the `show` message carries, and it names only a file the
+     * agent showed.
+     */
+    if (url.pathname.startsWith("/shown/") && request.method === "GET") {
+      const file = site.shown.pdf(url.pathname.slice("/shown/".length));
+      if (!file || !(await Bun.file(file).exists())) return new Response("not found", { status: 404 });
+      return new Response(Bun.file(file), { headers: { "content-type": "application/pdf" } });
     }
     // 12.1 the boundary. Everything below here needs the code or a token.
     if (url.pathname === "/pair" && request.method === "POST") {

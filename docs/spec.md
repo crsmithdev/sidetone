@@ -491,6 +491,8 @@ This repository is Sidetone. The earlier project bridge is on the
 | `POST /say` | local | Queues one line for the voice. The body is `{"text": "<line>"}`. The voice says the line when no turn runs and Chris does not talk. The bridge also sends the line to the client at once (17.17.1). 202. |
 | `POST /tell` | local | Queues one line of job news for the agent (14.10.6). The body is as for `/say`. 202. |
 | `POST /setup` | local | Pushes an audio setup to the phone (18.15.5). 202, or 400 for a setup the bridge cannot read. |
+| `POST /show` | local | Shows the phone a file (17.23). The body is `{"file": "<absolute path>"}`. 202 with the name the card shows; 400 for a path that is not absolute or does not exist, 413 for a text too large for one message, 415 for a file that is not text, markdown or a PDF. |
+| `GET /shown/<id>` | any | A PDF that `/show` showed, for the app to download (17.23.3). 404 for any other id. |
 
 ## 13. Cost control
 
@@ -897,6 +899,27 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 17.22.6 The end-of-turn pause is two buttons and the bridge's value between them, not a slider, because a pause is tried a step at a time. Each tap sends `endOfTurnPauseMs` (11.5) moved by 100 milliseconds. The buttons stop at 0.5 and 3 seconds. The bridge refuses a pause that the early transcription (18.4) would outrun, and otherwise takes it as 17.22.5 takes a level.
 
 17.22.7 The hold music delay is a selector of four times: 3, 5, 8 and 12 seconds. It sets `holdMusicAfterMs` (15.7.6), and no spoken command sets it. A tap sends the time in milliseconds. The bridge gives no answer and keeps the time across restarts. When the bridge holds a time that is not one of the four, no choice shows as selected. The selector does not offer 0, because the "Music" button turns the music off (17.10.3).
+
+17.23 The app shows a file that the agent names: a shown file (item 78). Chris reads it on the screen while the agent talks about it. The app only shows the file. It does not show images and does not edit.
+
+17.23.1 The agent names the file with a command: `bun src/main.ts show <path>`, the `sidetone show` of the package. The path is from the directory the command runs in, or absolute. The command sends the absolute path to `POST /show` (12.7) and prints the bridge's answer: the name that the card shows, or the reason for a refusal. It exits 1 on a refusal, and when the bridge does not answer. The voice instruction gives the agent the command with the absolute path of `src/main.ts`, and says to use it when Chris asks to see a file or has to read it to follow the agent. The agent decides, because only the agent knows which file it talks about.
+
+17.23.2 The bridge sends the client a `show` message. Each show gets a new `id`, a random UUID. `name` is the path of the file from the project (6.6), or the absolute path of a file outside the project. `format` is `markdown` for a name that ends in `.md` or `.markdown`, `pdf` for `.pdf`, and `text` for any other file that is UTF-8 with no NUL byte. The bridge refuses any other file with 415, and a `.pdf` that does not start with `%PDF-`.
+
+| `format` | The other fields |
+| --- | --- |
+| `text`, `markdown` | `text`: the whole file |
+| `pdf` | `url`: where the app downloads the file; `bytes`: its size |
+
+17.23.2.1 Text and markdown go whole in the message. One data message carries at most 60,000 bytes (14.11), so the bridge measures the encoded message and refuses a larger one with 413. Most instruction files and notes are well under this.
+
+17.23.3 A PDF does not fit one message, so the bridge serves it at `/shown/<id>` and the message carries that address under the bridge's origin, as for the app (17.15). The route is open to the tailnet, as `/sidetone.apk` is, because the app downloads it. It serves only a file that `/show` showed. The id is a random UUID that only the `show` message carries. The bridge keeps the ids in memory, so a restart ends them. It reads the file when the app asks, so the app gets the file as it is then.
+
+17.23.4 The app shows a card in the transcript, on the agent's side, for each `show` message. The card shows the name, the format ("markdown", "text", or "PDF" and the size), and for text the first six lines. Markdown is formatted as in a bubble (17.19). A tap on the card opens the viewer. The page does not show the file.
+
+17.23.5 The viewer fills the window. It shows the name and a Close button. Close or a back gesture goes back to the conversation. Text and markdown show whole, in a column that scrolls, and the words are selectable (17.14). A PDF downloads to the app's cache when the viewer opens, once for each id. `PdfRenderer` draws each page as wide as the window. One finger scrolls the pages; two fingers zoom, up to five times, and pan. While a page is zoomed, one finger pans, and a pan past the top or the bottom of the page scrolls on. A label in the bottom corner shows the number of the top page on the screen and the count of pages, for example "page 2 of 12". A PDF that does not download or does not open says why in the viewer.
+
+17.23.6 A client that joins later does not get the cards again: the history (14.8) holds only what was said. A shown file that Chris missed is shown again with the command.
 
 ## 18. Measurements and diagnostics
 

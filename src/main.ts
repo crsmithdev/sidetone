@@ -9,6 +9,7 @@
  *   bun src/main.ts chat <dir> --record-stream <file>
  *                                         the same, with every line Claude Code prints kept as a fixture
  *   bun src/main.ts config                the settings and where they come from
+ *   bun src/main.ts show <path>           17.23 show a file on the phone, through the running bridge
  */
 import { mkdtempSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
@@ -19,6 +20,7 @@ import { Session, recorded, spawnClaude } from "./session.ts";
 import { keptLines } from "./mouth.ts";
 import { fetchCert } from "./keys.ts";
 import { endpoints, livekitConfig, serve } from "./serve.ts";
+import { showFile } from "./shown.ts";
 import { clipCutter } from "./carrier.ts";
 import { clipChecker } from "./sent.ts";
 import { LocalWhisper, SpokenAhead, textToSpeech } from "./speech.ts";
@@ -129,7 +131,14 @@ if (command === "config") {
   const dir = rest[0];
   if (!dir) { console.error("usage: bun src/main.ts serve <project-dir>"); process.exit(2); }
   await serve(dir, config);
+} else if (command === "show") {
+  const path = rest[0];
+  if (!path) { console.error("usage: bun src/main.ts show <path>"); process.exit(2); }
+  const scheme = config.tlsCert && config.tlsKey ? "https" : "http";
+  const result = await showFile(path, process.cwd(), `${scheme}://127.0.0.1:${config.servePort}`);
+  console.log(result.line);
+  if (!result.ok) process.exit(1);
 } else {
-  console.error("usage: bun src/main.ts <chat <dir> | serve <dir> | warm | livekit | cert | config>");
+  console.error("usage: bun src/main.ts <chat <dir> | serve <dir> | show <path> | warm | livekit | cert | config>");
   process.exit(2);
 }

@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { encodeWav } from "../src/audio.ts";
 import { ANNOUNCE_POLL_MS } from "../src/mouth.ts";
 import { Pairing, routes, type Pass } from "../src/routes.ts";
+import { Shown } from "../src/shown.ts";
 import { fakeClock, pass } from "./clock.ts";
 import { bridge } from "./harness.ts";
 
@@ -17,8 +18,9 @@ const HERE = "127.0.0.1";
 const TAILNET = "100.68.96.43";
 const PASS: Pass = { token: "t", url: "wss://bridge:7880", room: "sidetone" };
 
-function site(options: { slept?: number[]; microphone?: boolean; sinceSound?: number | null } = {}) {
+function site(options: { slept?: number[]; microphone?: boolean; sinceSound?: number | null; dir?: string } = {}) {
   const r = bridge();
+  let ids = 0;
   const pairing = new Pairing("kelp-cedar-jetty", async () => PASS, async (ms) => { options.slept?.push(ms); });
   const handle = routes({
     config: r.config,
@@ -33,6 +35,7 @@ function site(options: { slept?: number[]; microphone?: boolean; sinceSound?: nu
       microphone: options.microphone ?? true,
       sinceSound: options.sinceSound === undefined ? 120 : options.sinceSound,
     }),
+    shown: new Shown(options.dir ?? "/nowhere", "https://bridge:3100", () => `id-${++ids}`),
     startedAt: Date.now(),
   });
   const post = (path: string, body: unknown, ip = HERE) =>
@@ -73,7 +76,7 @@ describe("pairing, the boundary (12.1, ADR 0005)", () => {
 });
 
 describe("the routes for this machine only (12.1)", () => {
-  for (const [method, path] of [["GET", "/diagnostics"], ["POST", "/say"], ["POST", "/tell"], ["POST", "/play"], ["POST", "/setup"]] as const) {
+  for (const [method, path] of [["GET", "/diagnostics"], ["POST", "/say"], ["POST", "/tell"], ["POST", "/play"], ["POST", "/setup"], ["POST", "/show"]] as const) {
     test(`${method} ${path} is not found from the tailnet`, async () => {
       const s = site();
       const response = method === "GET" ? await s.get(path, TAILNET) : await s.post(path, { text: "x", file: "/x" }, TAILNET);

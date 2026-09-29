@@ -17,9 +17,19 @@ import kotlinx.serialization.json.put
  * One line of the transcript (14.7). `at` is the time in milliseconds since 1970
  * that the line shows on its bubble (17.9), and null while nothing has stamped it.
  * 17.18.5 a [Kind.SCREENSHOT] line shows the thumbnail of a screenshot, and its text is the screenshot's id.
+ * 17.23 a [Kind.FILE] line shows the card of a shown file, and its text is the file's id.
  */
 data class Line(val kind: Kind, val text: String, val at: Long? = null) {
-    enum class Kind { YOU, BRIDGE, NOTE, SCREENSHOT }
+    enum class Kind { YOU, BRIDGE, NOTE, SCREENSHOT, FILE }
+}
+
+/**
+ * 17.23 a shown file: a file the agent put on the screen with `sidetone show`.
+ * `name` is its path from the project. Text and markdown come whole in `text`;
+ * a PDF comes as `url` to download, and `bytes` is its size.
+ */
+data class ShownFile(val id: String, val name: String, val format: Format, val text: String = "", val url: String = "", val bytes: Long = 0) {
+    enum class Format { TEXT, MARKDOWN, PDF }
 }
 
 /** 4.3 a message on the control channel, from the bridge. */
@@ -100,6 +110,9 @@ sealed interface Incoming {
      * takes it, then "sent", or "expired", or "dropped" when Chris tapped it.
      */
     data class Screenshot(val id: String, val state: String) : Incoming
+
+    /** 17.23 the agent showed a file. */
+    data class Show(val file: ShownFile) : Incoming
 }
 
 fun decode(payload: ByteArray): Incoming? {
@@ -119,6 +132,7 @@ fun decode(payload: ByteArray): Incoming? {
         return Incoming.Setup(setupNames(message) ?: return null)
     }
     if (kind == "screenshot") return Incoming.Screenshot(message.string("id") ?: return null, message.string("state") ?: return null)
+    if (kind == "show") return Incoming.Show(shownOf(message) ?: return null)
     if (kind == "speaking") return Incoming.Speaking(message.string("text") ?: return null, message.int("answer"))
     if (kind == "settings") {
         val settings = message["settings"] as? JsonObject ?: return Incoming.Settings(emptyMap(), emptyMap())
@@ -157,6 +171,18 @@ fun decode(payload: ByteArray): Incoming? {
         return lineOf(message)?.let { Incoming.Turn(it, answer) } ?: Incoming.Unknown(kind)
     }
     return lineOf(message)?.let(Incoming::Said) ?: Incoming.Unknown(kind)
+}
+
+/** 17.23 a `show` message: text and markdown carry `text`, a PDF carries `url` and `bytes`. */
+private fun shownOf(message: JsonObject): ShownFile? {
+    val id = message.string("id") ?: return null
+    val name = message.string("name") ?: return null
+    return when (message.string("format")) {
+        "text" -> ShownFile(id, name, ShownFile.Format.TEXT, text = message.string("text") ?: return null)
+        "markdown" -> ShownFile(id, name, ShownFile.Format.MARKDOWN, text = message.string("text") ?: return null)
+        "pdf" -> ShownFile(id, name, ShownFile.Format.PDF, url = message.string("url") ?: return null, bytes = message.long("bytes") ?: 0)
+        else -> null
+    }
 }
 
 /** 18.15 the six names of a setup, from the `setup` message or the store; null when one is missing. */

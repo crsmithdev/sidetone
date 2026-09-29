@@ -291,6 +291,22 @@ class ConversationTest {
     }
 
     @Test
+    fun aShownFileIsOneCardLineAndTheScreenCarriesTheFile() {
+        send("""{"kind":"show","id":"f1","name":"docs/plan.md","format":"markdown","text":"# Plan"}""", at = 1_000)
+        send("""{"kind":"show","id":"f2","name":"paper.pdf","format":"pdf","url":"https://bridge:3100/shown/f2","bytes":2048}""", at = 2_000)
+        assertEquals(listOf(Line(Line.Kind.FILE, "f1", 1_000), Line(Line.Kind.FILE, "f2", 2_000)), c.lines)
+        val screen = c.onScreen()
+        assertEquals(listOf("f1", "f2"), screen.lines.map { it.text })
+        assertEquals(ShownFile("f2", "paper.pdf", ShownFile.Format.PDF, url = "https://bridge:3100/shown/f2", bytes = 2048), screen.files["f2"])
+        assertEquals(listOf("show", "show"), logKinds())
+        // a show with no format this app knows is not a card
+        send("""{"kind":"show","id":"f3","name":"a.png","format":"image"}""")
+        assertEquals(2, c.lines.size)
+        c.clear()
+        assertEquals(emptyMap<String, ShownFile>(), c.onScreen().files)
+    }
+
+    @Test
     fun aDroppedScreenshotKeepsItsLineSoAGrowingAnswerStaysPut() {
         send("""{"kind":"blockStart","answer":1,"block":1}""")
         send("""{"kind":"delta","text":"Let me ","answer":1,"block":1}""")

@@ -78,6 +78,9 @@ async function scenes(): Promise<Outgoing[]> {
     // 18.15 an audio setup pushed to the phone, and the phone sent back to the one in its code
     r.setup({ kind: "setup", default: false, mode: "normal", output: "media", focus: "none", canceller: "software", noiseSuppression: true, autoGainControl: true });
     r.setup({ kind: "setup", default: true });
+    // 17.23 the agent shows the phone a markdown file, then a PDF
+    r.channel.tell({ kind: "show", id: "5f0c1d2e-0000-4000-8000-000000000001", name: "docs/plan.md", format: "markdown", text: "# Plan\n\n- **one**\n" });
+    r.channel.tell({ kind: "show", id: "5f0c1d2e-0000-4000-8000-000000000002", name: "docs/paper.pdf", format: "pdf", url: "https://bridge:3100/shown/5f0c1d2e-0000-4000-8000-000000000002", bytes: 18214 });
     // 14.8 a client that comes back is told what it missed
     r.channel.joined();
     await r.mouth.drained();
@@ -107,7 +110,7 @@ describe("the control channel fixture (4.3, ADR 0007)", () => {
     expect(sent).toEqual(await read());
     // every kind the bridge may send is in it, so no decoder can skip one
     const kinds = new Set(sent.map((m) => m.kind));
-    const every: Array<Outgoing["kind"]> = ["heard", "sentence", "turn", "blockStart", "delta", "blockEnd", "narration", "error", "history", "rejoin", "working", "starting", "protocol", "settings", "speaking", "apk", "screenshot", "setup"];
+    const every: Array<Outgoing["kind"]> = ["heard", "sentence", "turn", "blockStart", "delta", "blockEnd", "narration", "error", "history", "rejoin", "working", "starting", "protocol", "settings", "speaking", "apk", "screenshot", "setup", "show"];
     expect([...kinds].sort()).toEqual([...every].sort());
   }, 10_000);
 
