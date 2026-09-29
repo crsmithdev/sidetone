@@ -691,6 +691,37 @@ context a real cost?
 Done when there is a decision on whether to keep the context across a
 restart and how, or the item is dropped with a reason.
 
+## 70. Look at how the transcription card works
+
+Noted 28 September 2026, after a read of the card at 16:47 that Chris took
+for a broken bridge. After a restart, "sidetone, read the card" started the
+card. From then on, the card took each thing Chris said as a line, and the
+next line sounded like an answer. "Something is very seriously wrong with
+the bridge, right?" got "Ask Claude to build the APK and run bun test."
+
+| Time | What Chris said | The line the card read next |
+|---|---|---|
+| 16:47:36 | "I'm sorry, no, I want to run the transcription test" | "What does item 67 say?" |
+| 16:50:42 | "Did we just have an issue with the service?…" | "Check the worktree for changes before you rebase onto main." |
+| 16:50:57 | "Something is very seriously wrong with the bridge, right?" | "Ask Claude to build the APK and run bun test." |
+
+Three things to look at:
+
+- **No way out that Chris can find.** On the card, every utterance except
+  "sidetone, unmute" is a line (`src/conversation.ts:331`), and nothing says
+  the card is still running. Stop the card on any wake command, or on an
+  utterance far from its line?
+- **Held speech resumes inside the card.** A barge-in held the agent's
+  sentence, and the card said it after line 1, so it sounded like a line.
+  The card start should drop the held speech.
+- **Five empty transcripts, 16:53 to 16:56.** Up to 8.4 s of speech each,
+  all from the early guess in 0 ms. The cause is not known.
+
+The vault note is "The Transcription Card Takes Every Utterance Until
+Unmute".
+
+Done when each of the three has a fix or a reason to leave it.
+
 ## Done
 
 One line for each item that shipped: the number, the title, the date, the
