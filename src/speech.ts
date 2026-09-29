@@ -26,6 +26,16 @@ export interface HeardWord {
   end: number;
 }
 
+/** Replace each misheard word in `corrections` with what Chris said, on word boundaries and in any case. */
+export function correctHeard(text: string, corrections: Record<string, string>): string {
+  let out = text;
+  for (const [heard, said] of Object.entries(corrections)) {
+    const escaped = heard.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    out = out.replace(new RegExp(`\\b${escaped}\\b`, "gi"), said);
+  }
+  return out;
+}
+
 /** 4.8 the seam. A local engine only: there is no cloud engine to put here. */
 export interface SpeechToText {
   start(): Promise<void>;
@@ -169,7 +179,7 @@ export class LocalWhisper implements SpeechToText {
   /** what the warmup cost, so 18.4 has a number to report */
   warmupSeconds = 0;
 
-  constructor(config: Config, scriptDir: string) {
+  constructor(private readonly config: Config, scriptDir: string) {
     this.worker = new Worker(config.pythonBin, [
       join(scriptDir, "stt_worker.py"), config.sttModel, config.modelsDir, config.sttVocabulary.join(", "),
     ]);
@@ -182,13 +192,13 @@ export class LocalWhisper implements SpeechToText {
 
   async transcribe(wavPath: string): Promise<string> {
     const reply = await this.worker.request({ wav: wavPath });
-    return typeof reply.text === "string" ? reply.text : "";
+    return correctHeard(typeof reply.text === "string" ? reply.text : "", this.config.sttCorrections);
   }
 
   async transcribeWords(wavPath: string): Promise<{ text: string; words: HeardWord[] }> {
     const reply = await this.worker.request({ wav: wavPath, words: true });
     const words = Array.isArray(reply.words) ? reply.words as HeardWord[] : [];
-    return { text: typeof reply.text === "string" ? reply.text : "", words };
+    return { text: correctHeard(typeof reply.text === "string" ? reply.text : "", this.config.sttCorrections), words };
   }
 
   stop(): void { this.worker.stop(); }

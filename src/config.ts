@@ -73,6 +73,12 @@ export interface Config {
    */
   sttVocabulary: string[];
   /**
+   * Whole words or phrases the engine mishears, and what Chris said. Each is
+   * replaced in the transcript, whatever its case. Add only a spelling that is
+   * not a real word: "alphabet" must not be here.
+   */
+  sttCorrections: Record<string, string>;
+  /**
    * 4.9 which engine speaks. kokoro is on the GPU; piper is the CPU fallback;
    * chatterbox clones a voice from a recording and costs twenty times kokoro.
    */
@@ -293,6 +299,7 @@ export const DEFAULTS: Config = {
   modelsDir: join(homedir(), ".sidetone", "models"),
   sttModel: "medium.en",
   sttVocabulary: ["Sidetone", "aleph", "Cloud Chamber", "Beamline", "Voiceover", "Claude", "LiveKit", "Kokoro", "Chatterbox", "worktree"],
+  sttCorrections: { jaletha: "aleph", alef: "aleph", aleff: "aleph", alif: "aleph", aleth: "aleph", "a leph": "aleph", "a-leph": "aleph" },
   ttsEngine: "chatterbox",
   // 4.9 the engine names its voices; the table in speech.ts is the one place they are written
   ...ENGINES.chatterbox.voices,
