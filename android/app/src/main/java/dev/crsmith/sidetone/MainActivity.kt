@@ -233,7 +233,7 @@ private fun Pairing(error: String?) {
 }
 
 @Composable
-private fun Conversation(state: Bridge.State, onQuit: () -> Unit) {
+internal fun Conversation(state: Bridge.State, onQuit: () -> Unit) {
     var draft by remember { mutableStateOf("") }
     // 17.22 the options screen takes the window under the status row; the gear or a back gesture closes it
     var options by rememberSaveable { mutableStateOf(false) }

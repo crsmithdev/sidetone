@@ -49,4 +49,9 @@ dependencies {
     testImplementation("io.livekit:livekit-android-test:2.28.2")
     // the harness's rules hand out a TestScope; the version is the app's coroutines
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
+    // UI tests: the Compose test rule, under Robolectric
+    testImplementation(platform("androidx.compose:compose-bom:2026.09.00"))
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    // the empty activity the Compose test rule starts
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }

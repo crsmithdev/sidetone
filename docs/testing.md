@@ -91,6 +91,30 @@ It pairs with a bridge of its own, restarts it, and joins at once with the
 kept token, as the app does. It prints one line for each pass condition of
 test 13. In a worktree, link `.venv` to the main checkout's first.
 
+### The Android app
+
+```bash
+cd android && ./gradlew testDebugUnitTest
+```
+
+The app's tests run under Robolectric on this machine, with no phone and no
+emulator. The UI tests are in the same run. They draw a composable with the
+Compose test rule and find its parts by their text:
+
+```bash
+./gradlew testDebugUnitTest --tests dev.crsmith.sidetone.ScreenTest
+```
+
+Add a UI test when a change adds, removes or relabels a part of the screen,
+or makes a part show only in some states. Draw the composable from a
+`Bridge.State`, as `ScreenTest` does. Do not add a UI test for a rule of the
+client: test the rule in `ClientRoom` or the file that holds it.
+
+`ScreenTest` draws the screen out of the room (`Status.LEFT`). The hold to
+talk button calls `Bridge` as it draws, and no `Bridge` runs in the test. A
+test that needs that button must call `newBridgeProcess()` and
+`Bridge.load(app)` first, as `BridgeTest` does.
+
 ## Score a drive
 
 A drive is a script that you read aloud in the car, and a score of the result:
