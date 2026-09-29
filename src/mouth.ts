@@ -54,7 +54,7 @@ function listTracks(folder: string, say?: (line: string) => void): HoldTrack[] {
  * from nothing to full over `length` samples. The decoded track stays whole,
  * because the next start fades from another place.
  */
-function fadeIn(samples: Int16Array, length: number): Int16Array {
+export function fadeIn(samples: Int16Array, length: number): Int16Array {
   if (length <= 0) return samples;
   const out = samples.slice();
   for (let i = 0; i < Math.min(length, out.length); i++) out[i] = Math.round(out[i]! * i / length);
