@@ -907,7 +907,7 @@ today.
 ## 55. About a second of the agent's time is not the model
 ---
 id: 55
-status: open
+status: done
 created: 2026-09-26
 updated: 2026-09-29
 priority: medium
@@ -1002,6 +1002,7 @@ runs, and nothing explains it yet. It is a follow-up, not part of this item.
 ### Notes
 
 - 2026-09-29 13:19: 29 Sep: Chris agreed to both fixes. Job agent-settings adds the model and effort settings (drive with medium checks answer quality). Job fork-slow builds the session fork.
+- 2026-09-29 13:49: job agent-settings landed as 0bcf36a
 
 ## 56. Can correct audio arrive distorted from the connection or the transport?
 ---
@@ -1705,3 +1706,7 @@ updated: 2026-09-29
 priority: medium
 labels: [design, app]
 ---
+
+### Notes
+
+- 2026-09-29 13:48: Plan: the agent runs a command 'sidetone show <path>'; the bridge reads the file and sends the app a show message. Markdown and text render inline with Markdown.kt. A PDF is served by the bridge over HTTP and rendered with PdfRenderer. Each file shows as a card in the conversation, and a tap opens a full-screen viewer with pinch zoom, pan and page scroll. Read only. Images and editing are out of scope.
