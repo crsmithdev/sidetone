@@ -37,7 +37,7 @@ import { Answer } from "./answer.ts";
 import { Answers } from "./answers.ts";
 import type { Channel } from "./channel.ts";
 import { CARD_ROUNDS, TRANSCRIPTION_CARD, read, type CommandName, type Reading } from "./commands.ts";
-import { EFFORTS, MODELS, VERBOSITIES, type Config, type Effort, type Model, type Verbosity } from "./config.ts";
+import { EFFORTS, MODELS, NOTIFICATION_LEVELS, VERBOSITIES, type Config, type Effort, type Model, type NotificationLevel, type Verbosity } from "./config.ts";
 import type { CueName } from "./cues.ts";
 import { ECHO_AFTER_MS, echoOf } from "./echo.ts";
 import { forkLine } from "./fork.ts";
@@ -934,7 +934,7 @@ export class Conversation {
    * a client may not reach the settings the car has no command for.
    *
    * Each has a control and no command, and no answer: the control shows where
-   * it landed. The hold music volume (item 28), from 0 to 1. The hold music
+   * it landed. The notifications level (item 76). The hold music volume (item 28), from 0 to 1. The hold music
    * delay (15.7.6), which a turn reads when it starts; zero is not taken, as
    * the music button turns the music off (17.10.3). The three thresholds of
    * the ear (item 44), which `Settings` checks by the rules of the file.
@@ -947,6 +947,7 @@ export class Conversation {
     if (VERBOSITIES.includes(patch.verbosity as Verbosity)) this.setVerbosity(patch.verbosity as Verbosity);
     if (MODELS.includes(patch.model as Model)) this.setModel(patch.model as Model);
     if (EFFORTS.includes(patch.effort as Effort)) this.setEffort(patch.effort as Effort);
+    if (NOTIFICATION_LEVELS.includes(patch.notifications as NotificationLevel)) this.settings.change({ notifications: patch.notifications as NotificationLevel });
     if (typeof patch.holdMusicGain === "number" && patch.holdMusicGain >= 0 && patch.holdMusicGain <= 1) this.settings.change({ holdMusicGain: patch.holdMusicGain });
     if (typeof patch.holdMusicAfterMs === "number" && patch.holdMusicAfterMs > 0) this.settings.change({ holdMusicAfterMs: patch.holdMusicAfterMs });
     for (const key of THRESHOLDS) {

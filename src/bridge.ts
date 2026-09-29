@@ -29,6 +29,7 @@ import { Measures } from "./measures.ts";
 import type { Outgoing, Setup } from "./messages.ts";
 import { Mouth, keptLines, type Speaker } from "./mouth.ts";
 import { receivedLine } from "./network.ts";
+import { newsTurn } from "./news.ts";
 import { Recorder } from "./record.ts";
 import { Screens } from "./screen.ts";
 import { Settings } from "./settings.ts";
@@ -276,9 +277,15 @@ export function assemble(
   const news: string[] = [];
   const deliver = () => {
     if (news.length === 0 || !idle()) return;
-    const lines = news.splice(0).map((line) => `[job news] ${line}`).join("\n");
-    channel.journal(`the bridge gave the agent job news: ${lines}`);
-    void conversation.turn(lines);
+    const lines = news.splice(0);
+    // item 76 the notifications level decides what of the news reaches the agent
+    const turn = newsTurn(lines, config.notifications);
+    if (turn === null) {
+      channel.journal(`the bridge held back job news, as notifications are ${config.notifications}: ${lines.join("; ")}`);
+      return;
+    }
+    channel.journal(`the bridge gave the agent job news: ${turn}`);
+    void conversation.turn(turn);
   };
   const work = setInterval(() => {
     working.tick();

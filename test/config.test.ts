@@ -31,6 +31,8 @@ describe("config (21)", () => {
     expect(DEFAULTS.holdMusic).toBe(true);
     // item 37 normal is the behaviour from before the setting existed
     expect(DEFAULTS.verbosity).toBe("normal");
+    // item 76 full is the job news from before the setting existed
+    expect(DEFAULTS.notifications).toBe("full");
     expect(DEFAULTS.holdMusicFolder.endsWith("/.sidetone/hold")).toBe(true);
     // 9.6 the set is a setting, and the tones are on it: you mute because the
     // car is loud, and the tones are the next noise you want gone.
@@ -110,6 +112,11 @@ describe("a setting changed out loud is kept (9.4)", () => {
     saveSettings({ verbosity: "brief" }, path);
     expect(loadConfig(path).verbosity).toBe("brief");
   });
+  test("the notifications level survives a restart (item 76)", () => {
+    const path = withFile("{}");
+    saveSettings({ notifications: "brief" }, path);
+    expect(loadConfig(path).notifications).toBe("brief");
+  });
   test("the model and the effort survive a restart (item 55)", () => {
     const path = withFile("{}");
     saveSettings({ model: "opus", effort: "high" }, path);
@@ -131,6 +138,10 @@ describe("settings that arrive already checked", () => {
 
   test("a verbosity that is not a level is refused (item 37)", () => {
     expect(() => loadConfig(write({ verbosity: "loud" }))).toThrow(/verbosity/);
+  });
+
+  test("a notifications level that is not a level is refused (item 76)", () => {
+    expect(() => loadConfig(write({ notifications: "normal" }))).toThrow(/notifications/);
   });
 
   test("a model or an effort that is not on the list is refused (item 55)", () => {

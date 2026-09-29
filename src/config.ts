@@ -15,6 +15,10 @@ import { join } from "node:path";
 export const VERBOSITIES = ["brief", "normal", "full"] as const;
 export type Verbosity = typeof VERBOSITIES[number];
 
+/** Item 76 how much the bridge passes on of job news, least first. */
+export const NOTIFICATION_LEVELS = ["off", "brief", "full"] as const;
+export type NotificationLevel = typeof NOTIFICATION_LEVELS[number];
+
 /** Item 55 the models Chris picks from, as `claude --model` takes them. */
 export const MODELS = ["sonnet", "opus", "haiku"] as const;
 export type Model = typeof MODELS[number];
@@ -228,6 +232,12 @@ export interface Config {
    * the reasoning and more detail. The bridge names it in every turn's prompt.
    */
   verbosity: Verbosity;
+  /**
+   * Item 76 how much of the job news reaches the agent, apart from the
+   * verbosity of answers: off passes nothing, brief only that a job started,
+   * finished or failed, full each line as aleph sent it.
+   */
+  notifications: NotificationLevel;
   /** 15.4 the cues are mostly a debugging aid, so they can be turned off by voice */
   tones: boolean;
   /** 15.6 how loud a cue is, as a fraction of full scale */
@@ -430,6 +440,7 @@ export const DEFAULTS: Config = {
     "Chris can speak while you work. His words then reach you as a message the user sent while you were working, often beside a tool result. They are his words, not the tool's. Act on them.",
   ].join(" "),
   verbosity: "normal",
+  notifications: "full",
   tones: true,
   cueVolume: 0.1,
   audioCueDelayMs: 4_000,
@@ -479,7 +490,7 @@ const IN_FORCE = [
   "sentenceMaxChars", "audioCueDelayMs", "audioCueEveryMs",
   "audio", "holdMusic", "holdMusicAfterMs", "holdMusicGain", "holdMusicFadeMs", "holdMusicFadeInMs",
   "cueVolume", "ttsEngine", "ttsVoice", "sttModel", "sttVocabulary", "wakeWord",
-  "chatterboxExaggeration", "chatterboxCfg", "verbosity", "tones",
+  "chatterboxExaggeration", "chatterboxCfg", "verbosity", "notifications", "tones",
   "model", "effort",
 ] as const satisfies ReadonlyArray<keyof Config>;
 
@@ -568,6 +579,9 @@ export function checkConfig(merged: Config): Config {
   }
   if (!VERBOSITIES.includes(merged.verbosity)) {
     throw new Error(`verbosity must be one of ${VERBOSITIES.join(", ")}, not ${String(merged.verbosity)}`);
+  }
+  if (!NOTIFICATION_LEVELS.includes(merged.notifications)) {
+    throw new Error(`notifications must be one of ${NOTIFICATION_LEVELS.join(", ")}, not ${String(merged.notifications)}`);
   }
   if (!MODELS.includes(merged.model)) {
     throw new Error(`model must be one of ${MODELS.join(", ")}, not ${String(merged.model)}`);

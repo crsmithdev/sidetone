@@ -4,6 +4,7 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import org.junit.Assert.assertEquals
@@ -57,9 +58,23 @@ class OptionsTest {
     }
 
     @Test
+    fun theNotificationsLevelShowsWhatTheBridgeSentAndATapSendsIt() {
+        show(mapOf("verbosity" to "normal", "notifications" to "brief"))
+        compose.onNodeWithText("Notifications").assertExists()
+        // "brief" and "full" are also levels of the verbosity, which is first on the screen
+        compose.onAllNodesWithText("brief")[1].assertIsSelected()
+        compose.onNodeWithText("off").assertIsNotSelected()
+        compose.onNodeWithText("off").performClick()
+        assertEquals(listOf(Outgoing.setting("notifications", "off").decodeToString()), sent)
+        // the app keeps no copy: the screen waits for the bridge's settings message
+        compose.onAllNodesWithText("brief")[1].assertIsSelected()
+    }
+
+    @Test
     fun beforeTheBridgeSendsThemTheyAreDisabled() {
         show(mapOf("verbosity" to "normal"))
         compose.onNodeWithText("opus").assertIsNotEnabled()
         compose.onNodeWithText("low").assertIsNotEnabled()
+        compose.onNodeWithText("off").assertIsNotEnabled()
     }
 }

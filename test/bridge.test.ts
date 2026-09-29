@@ -189,6 +189,46 @@ describe("the bridge, assembled as the car assembles it", () => {
     await until(() => r.said.includes("Job research finished."), 2_000);
   });
 
+  describe("the notifications level on job news (item 76)", () => {
+    const asks = (r: ReturnType<typeof bridge>) => r.agent.calls.filter((call) => call.startsWith("ask "));
+
+    test("full gives the agent each line as aleph sent it", async () => {
+      const r = bridge({ overrides: { notifications: "full" } });
+      r.tell("sidetone/alpha needs-you which branch?");
+      await until(() => asks(r).length === 1, 3_000);
+      expect(asks(r)[0]).toEndWith("[job news] sidetone/alpha needs-you which branch?");
+    });
+
+    test("brief gives the agent only that a job finished, and says to say only that", async () => {
+      const r = bridge({ overrides: { notifications: "brief" } });
+      r.tell("sidetone/alpha landed; check open");
+      await until(() => asks(r).length === 1, 3_000);
+      expect(asks(r)[0]).toContain("notifications are brief");
+      expect(asks(r)[0]).toEndWith("[job news] sidetone/alpha finished");
+    });
+
+    test("brief holds back a question, and off holds back everything", async () => {
+      for (const [level, line] of [["brief", "sidetone/alpha needs-you which branch?"], ["off", "sidetone/alpha failed"]] as const) {
+        const r = bridge({ overrides: { notifications: level } });
+        r.tell(line);
+        await pass(1_100);
+        expect(asks(r)).toHaveLength(0);
+        expect(r.journal.some((entry) => entry.includes(`as notifications are ${level}`))).toBe(true);
+      }
+    });
+
+    test("a client sets it, with no answer, and the answer verbosity stays", async () => {
+      const r = bridge();
+      r.channel.receive({ kind: "setting", patch: { notifications: "off" } });
+      expect(r.patches).toEqual([{ notifications: "off" }]);
+      expect(r.config.verbosity).toBe("normal");
+      r.channel.receive({ kind: "setting", patch: { notifications: "loud" } });
+      expect(r.patches).toEqual([{ notifications: "off" }]);
+      await pass(600);
+      expect(r.said).toEqual([]);
+    });
+  });
+
   test("a setting a client sends does what the spoken command does (9.4.9)", async () => {
     const r = bridge();
     r.channel.receive({ kind: "setting", patch: { holdMusic: true } });

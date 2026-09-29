@@ -44,6 +44,9 @@ import kotlin.math.roundToInt
 /** 9.4.10 the levels of the verbosity, shortest first. */
 private val LEVELS = listOf("brief", "normal", "full")
 
+/** 9.4.19 the levels of the notifications, least first. */
+private val NOTIFICATIONS = listOf("off", "brief", "full")
+
 /** 9.4.16 the models of the agent. */
 private val MODELS = listOf("sonnet", "opus", "haiku")
 
@@ -91,6 +94,7 @@ fun OptionsScreen(
     val context = LocalContext.current
     Column(modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Choice("Verbosity", "verbosity", LEVELS, settings.words["verbosity"], change)
+        Choice("Notifications", "notifications", NOTIFICATIONS, settings.words["notifications"], change)
         Choice("Model", "model", MODELS, settings.words["model"], change)
         Choice("Effort", "effort", EFFORTS, settings.words["effort"], change)
         Tones(settings.on["tones"], change)
@@ -124,8 +128,8 @@ fun OptionsScreen(
 }
 
 /**
- * 17.22.2 the verbosity, as "verbosity brief" and the rest set it, and
- * the model and the effort, as "model opus" and "effort medium" set them: one
+ * 17.22.2 the verbosity, as "verbosity brief" and the rest set it, the
+ * notifications level, and the model and the effort, as "model opus" and "effort medium" set them: one
  * of a few words. It is disabled until the bridge has sent the setting.
  */
 @OptIn(ExperimentalMaterial3Api::class)
