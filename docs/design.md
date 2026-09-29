@@ -242,7 +242,7 @@ This is the research of 18 September. Sections 1 and 5 describe the bridge on th
 |---|---|---|
 | Frames arrive at 48 kHz | `src/transport.ts` `onAudio` | nothing |
 | Utterance ends | `src/audio.ts` `Utterances.push` | `endOfTurnPauseMs` = 1500 ms of quiet after the last loud frame (`endOfTurnPauseMs` in `src/config.ts`) |
-| Transcription | `src/ear.ts` `said` -> `stt.transcribe(wav)` | the whole utterance, written to a wav, then one request to `speech/stt_worker.py`. faster-whisper `small.en`, `vad_filter=True`, no partial results |
+| Transcription | `src/ear.ts` `said` -> `stt.transcribe(wav)` | the whole utterance, written to a wav, then one request to `speech/stt_worker.py`. faster-whisper `medium.en`, `vad_filter=True`, no partial results |
 | The agent starts | `src/conversation.ts` `runTurn` -> `Session.ask` | the final transcript. `Session.ask` rejects a second question while one is pending (`Session.ask` in `src/session.ts`) |
 | Sentences | `src/sentences.ts` `SentenceCollector` | `.`, `!`, `?` followed by whitespace, or a newline, or 240 chars |
 | Synthesis | `src/speech.ts` `SpokenAhead.take` | the whole sentence becomes a whole wav in one worker request. The worker takes one request at a time |
@@ -375,7 +375,7 @@ What: at a short quiet (about 300 ms) start transcribing the recording so far. I
 
 #### B. Streaming STT model (bridge)
 
-What: replace `small.en` with Kyutai STT 1B (0.5 s delay, semantic VAD) or a chunked faster-whisper.
+What: replace `medium.en` with Kyutai STT 1B (0.5 s delay, semantic VAD) or a chunked faster-whisper.
 
 - Saves: the same 338 ms as A, plus a possible cut of the pause from its semantic VAD. Not more than A on transcription.
 - Costs: a new worker and model; the command corpus in `test/fixtures/heard.json` is tied to what `small.en` writes (ADR 0006) and must be regenerated; the `vad_filter` phantom guard goes.

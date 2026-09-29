@@ -974,7 +974,7 @@ Section 19 repeated decisions that other sections hold. Section 20 recorded two 
 | --- | --- | --- |
 | `claudeArgs` | `-p --verbose --input-format stream-json --output-format stream-json --include-partial-messages --replay-user-messages`. The bridge adds `--model`, `--append-system-prompt` with the voice instruction, `--permission-prompt-tool stdio` and `--settings` with the ask rules. | 10.8, 11.9.3, 16.7 |
 | `ttsEngine`, `ttsVoice`, `voiceChoices` | chatterbox, `som_00295`; female `sof_01208`, male `som_00295`. Local only. | 4.9 |
-| `sttModel` | faster-whisper `small.en`, local only | 4.6 |
+| `sttModel` | faster-whisper `medium.en`, local only; the scores are in [`whisper-scores.md`](whisper-scores.md) | 4.6 |
 | `wakeWordVariants` | "side tone", "sigh tone", "sight tone", "cytone", "sitone", "site on", "side don't" | 9.3 |
 | `endOfTurnPauseMs` | 1.5 seconds | 11.5 |
 | `speechLevel` | 0.02 of full scale: the level that counts as speech | 11.5 |

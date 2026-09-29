@@ -435,8 +435,8 @@ include:
 
 Everything in the voice path is local. 4.5 makes that a constraint: there is
 no cloud engine behind the interface of 4.8, and no fallback to one. Speech to
-text is faster-whisper with `small.en` on the GPU, about 657 MiB and 27 times
-real time. Each engine runs as a long-lived worker, because each costs
+text is faster-whisper with `medium.en` on the GPU, about 2.1 GiB and a
+median of about 200 ms an utterance (see [`whisper-scores.md`](whisper-scores.md)). Each engine runs as a long-lived worker, because each costs
 seconds to load. The bridge loads them at startup.
 
 The bridge cuts the reply at sentence ends. It speaks each sentence while the

@@ -291,7 +291,7 @@ export const DEFAULTS: Config = {
   narrationDelayMs: 5_000,
   pythonBin: new URL("../.venv/bin/python", import.meta.url).pathname,
   modelsDir: join(homedir(), ".sidetone", "models"),
-  sttModel: "small.en",
+  sttModel: "medium.en",
   sttVocabulary: ["Sidetone", "aleph", "Cloud Chamber", "Beamline", "Voiceover", "Claude", "LiveKit", "Kokoro", "Chatterbox", "worktree"],
   ttsEngine: "chatterbox",
   // 4.9 the engine names its voices; the table in speech.ts is the one place they are written
