@@ -170,7 +170,7 @@ private fun App(onQuit: () -> Unit) {
         if (microphone && state.paired) Bridge.join(context)
     }
 
-    Box(Modifier.fillMaxSize().safeDrawingPadding().imePadding().padding(16.dp)) {
+    Frame {
         when {
             !microphone -> Centered {
                 Text("The bridge needs the microphone.", style = MaterialTheme.typography.titleMedium)
@@ -180,6 +180,15 @@ private fun App(onQuit: () -> Unit) {
             else -> Conversation(state, onQuit)
         }
     }
+}
+
+/**
+ * The screen inside the system bars. The keyboard shrinks it from the bottom;
+ * the manifest sets adjustResize, so the window does not pan under the status bar.
+ */
+@Composable
+internal fun Frame(content: @Composable () -> Unit) {
+    Box(Modifier.fillMaxSize().safeDrawingPadding().imePadding().padding(16.dp)) { content() }
 }
 
 @Composable
