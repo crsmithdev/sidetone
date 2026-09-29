@@ -8,6 +8,7 @@ import { Ear } from "../src/ear.ts";
 import { Measures } from "../src/measures.ts";
 import { RTC_RATE, Transport, fadeOut, frameAt, resample, roomSpeaker, tokenFor, uniqueIdentity, type Player } from "../src/transport.ts";
 import type { Fade } from "../src/mouth.ts";
+import { fakeClock, until } from "./clock.ts";
 
 /**
  * The pure half of the transport. These two functions carry the fault that
@@ -99,6 +100,58 @@ describe("the identity the bridge joins under", () => {
 
   test("it still says what it is, for a log that has to be read", () => {
     expect(uniqueIdentity()).toStartWith("bridge-");
+  });
+});
+
+/**
+ * 14.1 the join at boot: LiveKit's container may not listen yet when the
+ * bridge starts, so a refused join is waited out, up to the deadline. On the
+ * fake clock, with a join that fails as a closed port does.
+ */
+describe("the join at boot waits for LiveKit (14.1)", () => {
+  fakeClock();
+  const keys = { url: "ws://127.0.0.1:7880", apiKey: "key", apiSecret: "secret" };
+
+  /** A transport whose join is refused `refusals` times, then taken. */
+  function refusing(refusals: number) {
+    const transport = new Transport();
+    const tries: Array<{ at: number; identity: string }> = [];
+    const started = Date.now();
+    transport.join = async (_keys, _room, identity = "") => {
+      tries.push({ at: Date.now() - started, identity });
+      if (tries.length <= refusals) throw new Error("connection refused");
+    };
+    const said: string[] = [];
+    return { transport, tries, said, say: (line: string) => said.push(line) };
+  }
+
+  test("a join that is refused is tried again, twice as long after each time, under one identity", async () => {
+    const r = refusing(3);
+    let joined = false;
+    void r.transport.joinWhenReady(keys, "sidetone", 30_000, r.say).then(() => { joined = true; });
+    await until(() => joined, 10_000);
+    expect(joined).toBe(true);
+    expect(r.tries.map((t) => t.at)).toEqual([0, 500, 1_500, 3_500]);
+    expect(new Set(r.tries.map((t) => t.identity)).size).toBe(1);
+    expect(r.said).toEqual(Array(3).fill("waiting for livekit at ws://127.0.0.1:7880: connection refused"));
+  });
+
+  test("the wait between tries stops growing at five seconds", async () => {
+    const r = refusing(6);
+    let joined = false;
+    void r.transport.joinWhenReady(keys, "sidetone", 60_000, r.say).then(() => { joined = true; });
+    await until(() => joined, 30_000, 50);
+    expect(r.tries.map((t) => t.at)).toEqual([0, 500, 1_500, 3_500, 7_500, 12_500, 17_500]);
+  });
+
+  test("a LiveKit that never comes fails with its own error before the deadline", async () => {
+    const r = refusing(Infinity);
+    let failed = "";
+    void r.transport.joinWhenReady(keys, "sidetone", 3_000, r.say).catch((error: Error) => { failed = error.message; });
+    await until(() => failed !== "", 10_000);
+    expect(failed).toBe("connection refused");
+    // the third wait would end past the deadline, so there is no fourth try
+    expect(r.tries.map((t) => t.at)).toEqual([0, 500, 1_500]);
   });
 });
 

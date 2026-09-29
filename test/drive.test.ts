@@ -16,14 +16,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { encodeWav } from "../src/audio.ts";
 import { Pairing, routes } from "../src/routes.ts";
+import { fakeClock, settle, until } from "./clock.ts";
 import { bridge, RATE } from "./harness.ts";
 
-const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
-
-async function until(done: () => boolean, ms = 2_000): Promise<void> {
-  const stop = Date.now() + ms;
-  while (!done() && Date.now() < stop) await Bun.sleep(2);
-}
+fakeClock();
+const tick = settle;
 
 /** The `setting` lines of the record, as the drive card greps them. */
 const settingLines = (r: ReturnType<typeof bridge>) => r.measures.recent(200).flatMap((e) => (e.kind === "setting" ? [e] : []));
@@ -97,16 +94,23 @@ describe("drive test 14: interrupting a finished answer stays quiet about it", (
   test("talking over an answer still playing is the one time it is said", async () => {
     let end = () => {};
     const r = bridge({
-      script: { deltas: ["One. ", "Two. ", "Three."], hold: new Promise<void>((resolve) => { end = resolve; }) },
+      script: {
+        during: (hooks) => { for (const delta of ["The first sentence is here. ", "The second one follows it. ", "A third ends it. "]) hooks.onDelta?.(delta); },
+        hold: new Promise<void>((resolve) => { end = resolve; }),
+      },
       overrides: { interruptOnSpeech: true },
     });
+    r.stt.transcribe = async () => "stop, another question";
+    // the first sentence is still playing when Chris talks over it
+    r.blockSay(true);
     const turn = r.c.turn("count to three");
-    await tick();
-    r.c.ears.stopSpeaking();
-    r.mouth.say("Two.", 1); r.mouth.say("Three.", 1);
-    await r.c.heard("stop, another question");
+    await until(() => r.said.length > 0);
+    r.talk();
+    r.hush();
     await until(() => r.journal.some((line) => line.includes("not spoken:")));
     expect(r.journal.filter((line) => line.includes("not spoken:"))).toHaveLength(1);
+    r.blockSay(false);
+    r.release();
     end();
     await turn;
   });
@@ -168,6 +172,8 @@ describe("drive test 15: the agent plays a file and talks about it in the same t
       overrides: { holdMusicAfterMs: 20, holdMusicFadeMs: 20, holdMusicFadeInMs: 0 },
       music: { folder, lasts: 600 },
     });
+    // the decode is ffmpeg's real time, which the fake clock would run past: do it before the turn
+    await r.mouth.music(() => true);
     // one source, as in the room: a track that plays holds it, and another is refused until it ends
     const events = () => r.measures.recent(200).flatMap((e) => (e.kind === "track" ? [e] : []));
     const source = setInterval(() => {

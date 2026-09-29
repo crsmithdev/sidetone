@@ -15,9 +15,15 @@ describe("what the health probe calls well (11.13)", () => {
    * the bridge, and the engines never finished. The bridge was in a restart
    * loop for eleven minutes.
    */
-  test("an engine still loading is not a fault", () => {
+  test("an engine still loading is not a fault, for longer than the load it covers", () => {
     expect(wellEnough(true, true, false, 8 * SECOND)).toBe(true);
     expect(wellEnough(true, true, false, 3 * MINUTE)).toBe(true);
+    // the allowance has to clear the real load time, or it buys nothing:
+    // chatterbox loaded in 146 s on a quiet machine and 240 s on a busy one,
+    // both measured 23 September 2026
+    expect(wellEnough(true, true, false, 146 * SECOND)).toBe(true);
+    expect(wellEnough(true, true, false, 240 * SECOND)).toBe(true);
+    expect(wellEnough(true, true, false, 6 * MINUTE)).toBe(true);
   });
 
   test("an engine that never loads is a fault, so a stuck bridge is still recovered", () => {
@@ -29,14 +35,5 @@ describe("what the health probe calls well (11.13)", () => {
     expect(wellEnough(true, false, true, 10 * MINUTE)).toBe(false);
     // and the warm-up does not excuse them
     expect(wellEnough(false, true, false, 8 * SECOND)).toBe(false);
-  });
-
-  /** The allowance has to clear the real load time, or it buys nothing. */
-  test("the allowance is longer than the load it covers", () => {
-    // chatterbox loaded in 146 s on a quiet machine and 240 s on a busy one,
-    // both measured 23 September 2026
-    expect(wellEnough(true, true, false, 146 * SECOND)).toBe(true);
-    expect(wellEnough(true, true, false, 240 * SECOND)).toBe(true);
-    expect(wellEnough(true, true, false, 6 * MINUTE)).toBe(true);
   });
 });

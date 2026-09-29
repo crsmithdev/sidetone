@@ -1,6 +1,7 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, jest, test } from "bun:test";
 import { DEFAULTS, type Config } from "../src/config.ts";
 import { Session, processRssBytes, type Process, type Spawn, type Turn } from "../src/session.ts";
+import { pass } from "./clock.ts";
 import { replay } from "./harness.ts";
 
 const config: Config = { ...DEFAULTS };
@@ -560,6 +561,8 @@ describe("speech written into a running turn (item 4)", () => {
   });
 
   test("8.6 the silence timer runs on across the result of the answer spoken over", async () => {
+    // the watchdog looks once a second, so this test runs on the fake clock
+    jest.useFakeTimers();
     const restarts: string[] = [];
     const made: Array<ReturnType<typeof scripted>> = [];
     const s = new Session("/tmp", { ...config, silenceMs: 50 }, { onRestart: (reason) => restarts.push(reason) }, () => { const p = scripted(); made.push(p); return p.process; });
@@ -567,7 +570,14 @@ describe("speech written into a running turn (item 4)", () => {
     s.inject("two");
     (made[0] as ReturnType<typeof scripted>).prints(RESULT("the old answer"));
     // the process never begins the reply: the watchdog restarts it, and the turn fails
-    await expect(turn).rejects.toThrow("restarted");
+    // `rejects` would wait on the real clock, so the failure is caught here
+    const failure = turn.then(() => "", (error: Error) => error.message);
+    try {
+      await pass(1_000, 100);
+    } finally {
+      jest.useRealTimers();
+    }
+    expect(await failure).toContain("restarted");
     expect(restarts).toHaveLength(1);
     s.stop();
   });

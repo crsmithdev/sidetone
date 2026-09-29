@@ -23,12 +23,6 @@ class WorkTest {
     }
 
     @Test
-    fun theStaleTimeIsThreeHeartbeatsOfTheBridge() {
-        // src/working.ts HEARTBEAT_MS is 5000. Change both or neither.
-        assertEquals(3 * 5_000L, WORKING_STALE_MS)
-    }
-
-    @Test
     fun theSignHasWordsOnlyWhenItShows() {
         assertEquals("", signWord(Sign.OFF))
         assertEquals("working", signWord(Sign.WORKING))

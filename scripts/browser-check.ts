@@ -14,6 +14,9 @@
  *   bun scripts/browser-check.ts http://127.0.0.1:3102 <code> mic.wav
  *
  * Add PHONE=1 to check it at phone width, which is the size that matters.
+ *
+ * It exits 1 when the bridge does not answer, when the page is wider than the
+ * screen, or when the page logs an error, and 0 when none of them happens.
  */
 import { chromium } from "playwright";
 
@@ -76,13 +79,13 @@ console.log("token stored for next time:", await page.evaluate(() => !!localStor
  * line after that. With no history the note is absent, lastIndexOf returns -1,
  * and every line counts, which is what a fresh room should do.
  */
-await page.waitForFunction(() => {
+const answered = await page.waitForFunction(() => {
   const lines = [...document.querySelectorAll("#log .line")];
   const boundary = lines.map((el) => el.textContent?.trim()).lastIndexOf("now");
   return lines.slice(boundary + 1).some((el) => el.classList.contains("bridge"));
 }, null, { timeout: 90_000 })
-  .then(() => console.log("the bridge answered, after the replay"))
-  .catch(() => console.log("NO ANSWER within 90s"));
+  .then(() => { console.log("the bridge answered, after the replay"); return true; })
+  .catch(() => { console.log("NO ANSWER within 90s"); return false; });
 
 const lines = await page.locator("#log .line").allTextContents();
 console.log("transcript on the page:");
@@ -93,4 +96,10 @@ const overflow = await page.evaluate(() => document.documentElement.scrollWidth 
 console.log("horizontal overflow:", overflow);
 console.log("problems:", problems.length ? problems : "none");
 await browser.close();
-process.exit(0);
+const failures = [
+  ...(answered ? [] : ["no answer"]),
+  ...(overflow ? ["horizontal overflow"] : []),
+  ...(problems.length ? [`${problems.length} page errors`] : []),
+];
+console.log(failures.length ? `FAIL: ${failures.join(", ")}` : "PASS");
+process.exit(failures.length ? 1 : 0);

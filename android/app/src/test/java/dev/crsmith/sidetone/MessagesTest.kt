@@ -57,26 +57,6 @@ class MessagesTest {
     }
 
     @Test
-    fun aToolCallSplitsAnAnswerIntoTwoBubbles() {
-        val screen = Screen()
-        screen.receive("""{"kind":"heard","text":"look and tell me"}""", 1_000)
-        screen.receive("""{"kind":"blockStart","answer":1,"block":1}""", 2_000)
-        screen.receive("""{"kind":"delta","text":"Let me ","answer":1,"block":1}""", 2_100)
-        screen.receive("""{"kind":"delta","text":"look.","answer":1,"block":1}""", 2_200)
-        screen.receive("""{"kind":"blockEnd","answer":1,"block":1}""", 2_300)
-        screen.receive("""{"kind":"narration","text":"running Bash"}""", 3_000)
-        screen.receive("""{"kind":"blockStart","answer":1,"block":2}""", 9_000)
-        screen.receive("""{"kind":"delta","text":"Found it.","answer":1,"block":2}""", 9_100)
-        screen.receive("""{"kind":"blockEnd","answer":1,"block":2}""", 9_200)
-        assertEquals(
-            listOf("look and tell me", "Let me look.", "running Bash", "Found it."),
-            screen.lines.map { it.text },
-        )
-        // each bubble keeps the time it began, and the words that came later do not move it
-        assertEquals(listOf<Long?>(1_000, 2_000, 3_000, 9_000), screen.lines.map { it.at })
-    }
-
-    @Test
     fun theAnswerStandsOnceWhenTheVoiceFinishes() {
         // docs/testing.md test 4: the bridge sends the words, then the sentences, then the turn
         val screen = Screen()

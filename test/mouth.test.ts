@@ -6,6 +6,7 @@ import { Measures } from "../src/measures.ts";
 import { ANNOUNCE_POLL_MS, Mouth, type Speaker } from "../src/mouth.ts";
 import { DEFAULTS } from "../src/config.ts";
 import { LocalVoice, SpokenAhead, type TextToSpeech } from "../src/speech.ts";
+import { fakeClock, pass } from "./clock.ts";
 
 /**
  * A speaker that can be made to block mid-sentence and to report a sentence
@@ -546,7 +547,8 @@ describe("the voice (4.9)", () => {
 });
 
 describe("an announcement from outside the conversation", () => {
-  const poll = () => Bun.sleep(ANNOUNCE_POLL_MS + 50);
+  fakeClock();
+  const poll = () => pass(ANNOUNCE_POLL_MS + 50);
 
   test("it waits for the turn to end", async () => {
     const m = scripted();

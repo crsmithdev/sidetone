@@ -1,7 +1,8 @@
-import { describe, expect, setSystemTime, test } from "bun:test";
+import { describe, expect, jest, setSystemTime, test } from "bun:test";
 import { decode } from "../client/decode.js";
 import { DEFAULTS, type Config } from "../src/config.ts";
 import type { Outgoing } from "../src/messages.ts";
+import { until } from "./clock.ts";
 import { bridge, type Script } from "./harness.ts";
 
 /**
@@ -22,13 +23,11 @@ import { bridge, type Script } from "./harness.ts";
 const FIXTURE = new URL("./fixtures/messages.jsonl", import.meta.url).pathname;
 const config: Config = { ...DEFAULTS, historyMaxAgeMs: 60 * 60_000 };
 
-async function until(done: () => boolean): Promise<void> {
-  for (let i = 0; i < 400 && !done(); i++) await new Promise((resolve) => setTimeout(resolve, 5));
-}
 
 /** Every kind the bridge sends, from the scenes that send it, in order. */
 async function scenes(): Promise<Outgoing[]> {
-  // 14.8 a kept line carries the time it was kept; a fixed clock keeps the file still
+  // 14.8 a kept line carries the time it was kept; a fake clock from a fixed time keeps the file still
+  jest.useFakeTimers();
   setSystemTime(new Date("2026-09-21T14:05:59Z"));
   try {
     const script: Script = {};
@@ -94,6 +93,7 @@ async function scenes(): Promise<Outgoing[]> {
     // a working message is left out of the scenes above for the same reason
     return [...r.told.filter((m) => m.kind !== "working"), slow.told.find((m) => m.kind === "working")!];
   } finally {
+    jest.useRealTimers();
     setSystemTime();
   }
 }

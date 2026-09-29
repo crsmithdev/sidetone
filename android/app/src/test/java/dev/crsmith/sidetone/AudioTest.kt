@@ -29,8 +29,10 @@ class AudioTest {
 
     @Test
     fun `a setup with no focus asks for no mode`() {
-        // the handler sets the mode only in the call that asks for focus
-        if (setup.focus == null) assertEquals(AudioManager.MODE_NORMAL, setup.mode)
+        // the handler sets the mode only in the call that asks for focus, so a mode with no focus is never set
+        for ((name, held) in listOf("setup" to setup, "checked" to Audio.checked)) {
+            assertTrue("Audio.$name asks for a mode it takes no focus to set", held.focus != null || held.mode == AudioManager.MODE_NORMAL)
+        }
     }
 
     @Test

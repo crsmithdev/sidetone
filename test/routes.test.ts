@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { encodeWav } from "../src/audio.ts";
 import { ANNOUNCE_POLL_MS } from "../src/mouth.ts";
 import { Pairing, routes, type Pass } from "../src/routes.ts";
+import { fakeClock, pass } from "./clock.ts";
 import { bridge } from "./harness.ts";
 
 /**
@@ -40,7 +41,7 @@ function site(options: { slept?: number[]; microphone?: boolean; sinceSound?: nu
   return { ...r, post, get };
 }
 
-const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const wait = pass;
 
 describe("pairing, the boundary (12.1, ADR 0005)", () => {
   test("the right code gets the pass, whatever its case and spaces", async () => {
@@ -101,6 +102,8 @@ describe("the routes for this machine only (12.1)", () => {
 });
 
 describe("/say is one announcement (17.17)", () => {
+  fakeClock();
+
   test("the client gets the words at once, and the voice says them when the bridge is free", async () => {
     const s = site();
     const response = await s.post("/say", { text: " Job build finished. " });
@@ -119,6 +122,8 @@ describe("/say is one announcement (17.17)", () => {
 });
 
 describe("/tell is job news for the agent (14.10.6)", () => {
+  fakeClock();
+
   test("the line goes to the agent as a turn, marked as news, and not to the voice", async () => {
     const s = site();
     const response = await s.post("/tell", { text: " sidetone/app-queue passed " });
@@ -161,6 +166,8 @@ describe("/setup pushes the phone an audio setup (18.15)", () => {
 });
 
 describe("/play goes through the mouth (15.12)", () => {
+  fakeClock();
+
   test("a path that is not absolute, or not there, is refused", async () => {
     const s = site();
     expect((await s.post("/play", { file: "hold.mp3" })).status).toBe(400);

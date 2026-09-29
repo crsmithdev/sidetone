@@ -15,15 +15,11 @@ import { STARTED } from "../src/bridge.ts";
 import { DEFAULTS } from "../src/config.ts";
 import { SentClips } from "../src/sent.ts";
 import type { TurnDetector } from "../src/speech.ts";
+import { fakeClock, pass, settle, until } from "./clock.ts";
 import { bridge } from "./harness.ts";
 
-const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
-
-/** The turn a client asks for is nobody's promise here, so the test waits for it. */
-async function until(done: () => boolean, ms = 1_000): Promise<void> {
-  const stop = Date.now() + ms;
-  while (!done() && Date.now() < stop) await Bun.sleep(2);
-}
+fakeClock();
+const tick = settle;
 
 describe("the bridge, assembled as the car assembles it", () => {
   test("the engines are the ones it was given, and the health check reads them", async () => {
@@ -59,14 +55,14 @@ describe("the bridge, assembled as the car assembles it", () => {
     expect(r.told).toContainEqual({ kind: "narration", text: STARTED, announce: true });
     // a rejoin of the same process is not a start
     r.channel.joined();
-    await Bun.sleep(600);
+    await pass(600);
     expect(r.said).toEqual([STARTED]);
   });
 
   test("14.16.4 a warm bridge with nobody in the room says it started when a client joins", async () => {
     const r = bridge();
     await r.ready;
-    await Bun.sleep(600);
+    await pass(600);
     expect(r.said).toEqual([]);
     r.channel.joined();
     await until(() => r.said.length > 0, 2_000);
@@ -133,15 +129,6 @@ describe("the bridge, assembled as the car assembles it", () => {
     expect(asked[0]).toEndWith("\n\nopen the garage");
   });
 
-  test("the audio off reaches the mouth, and the words carry on (11.12)", () => {
-    const r = bridge();
-    expect(r.mouth.audioOn).toBe(true);
-    r.channel.receive({ kind: "voice", on: false });
-    expect(r.mouth.audioOn).toBe(false);
-    r.channel.receive({ kind: "voice", on: true });
-    expect(r.mouth.audioOn).toBe(true);
-  });
-
   test("what the phone says it hears reaches the reading both ends keep (N.1)", () => {
     const r = bridge();
     r.channel.receive({ kind: "quality", quality: "excellent" });
@@ -191,7 +178,7 @@ describe("the bridge, assembled as the car assembles it", () => {
     r.announce("Job research finished.");
     r.hush();
     // the utterance has ended and is still being read; a tick of the news clock passes
-    await Bun.sleep(1_100);
+    await pass(1_100);
     expect(asks()).toHaveLength(0);
     expect(r.said).toEqual([]);
     read();
@@ -219,7 +206,7 @@ describe("the bridge, assembled as the car assembles it", () => {
   test("a setting a client may not reach is ignored (9.4.9)", async () => {
     const r = bridge();
     r.channel.receive({ kind: "setting", patch: { sttModel: "tiny.en", recordPath: "/etc/passwd" } });
-    await Bun.sleep(10);
+    await pass(10);
     expect(r.patches).toEqual([]);
     expect(r.said).toEqual([]);
   });

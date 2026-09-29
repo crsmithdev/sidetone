@@ -1,18 +1,24 @@
 package dev.crsmith.sidetone
 
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
 class PairingTest {
-    // the shape test/pairing.test.ts pins on the bridge side
+    /** The link the bridge prints, which `test/pairing.test.ts` checks against the bridge. */
+    private val fixture = Json.parseToJsonElement(File("../../test/fixtures/pairing.json").readText()).jsonObject
+
     @Test
     fun readsTheLinkTheBridgePrints() {
         assertEquals(
-            Link("https://lightbox2.tail15c879.ts.net:3100", "kelp-cedar-jetty"),
-            parseLink("https://lightbox2.tail15c879.ts.net:3100/#pair=kelp-cedar-jetty"),
+            Link(fixture.getValue("origin").jsonPrimitive.content, fixture.getValue("code").jsonPrimitive.content),
+            parseLink(fixture.getValue("link").jsonPrimitive.content),
         )
         assertEquals(Link("http://10.0.2.2:3102", "onyx-tide-slate"), parseLink(" http://10.0.2.2:3102/#pair=onyx-tide-slate\n"))
     }

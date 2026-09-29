@@ -3,6 +3,7 @@ import { Ear, type EarOptions } from "../src/ear.ts";
 import { Measures } from "../src/measures.ts";
 import type { TurnGuess } from "../src/diagnostics.ts";
 import { TurnGuesses, type TurnScore } from "../src/turn.ts";
+import { fakeClock, pass } from "./clock.ts";
 
 const OPTIONS: EarOptions = {
   sampleRate: 16_000,
@@ -23,10 +24,11 @@ function frame(level: number, ms = 20): Int16Array {
 }
 const speech = (frames: number) => Array.from({ length: frames }, () => frame(0.4));
 const quiet = (frames: number) => Array.from({ length: frames }, () => frame(0.001));
-const settle = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
-/** Frames as a room sends them: each one after the event loop has turned. */
+fakeClock();
+const settle = (ms = 0) => pass(ms);
+/** Frames one after another, a millisecond apart, as the event loop of the real clock gave them. */
 async function play(ear: Ear, frames: Int16Array[]): Promise<void> {
-  for (const f of frames) { ear.frame(f); await settle(0); }
+  for (const f of frames) { ear.frame(f); await settle(1); }
 }
 
 /**

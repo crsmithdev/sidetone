@@ -46,7 +46,8 @@ bun scripts/browser-check.ts http://127.0.0.1:3102 <code> mic.wav
 ```
 
 `browser-check` drives the real page in Chromium, with the wav as the
-microphone. It refuses a URL with `3100` in it unless you set `LIVE=1`.
+microphone. It exits 1 when the bridge does not answer in 90 seconds, when
+the page is wider than the screen, or when the page logs an error. It refuses a URL with `3100` in it unless you set `LIVE=1`.
 `PHONE=1` runs it at phone width. `INSECURE=1` accepts a self-signed
 certificate.
 

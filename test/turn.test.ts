@@ -1,4 +1,4 @@
-import { describe, expect, setSystemTime, test } from "bun:test";
+import { describe, expect, jest, setSystemTime, test } from "bun:test";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -7,6 +7,7 @@ import type { Config } from "../src/config.ts";
 import type { Outgoing } from "../src/messages.ts";
 import type { SessionHooks } from "../src/session.ts";
 import { Working } from "../src/working.ts";
+import { fakeClock, finish, pass, until } from "./clock.ts";
 import { bridge, replay, type Music, type Script } from "./harness.ts";
 
 const config: Partial<Config> = { audioCueDelayMs: 10, audioCueEveryMs: 10 };
@@ -723,21 +724,15 @@ describe("what the bridge answers from itself (9.4.5, 9.4.7)", () => {
   });
 });
 
-/**
- * 15.7 hold music. Real timers, as the cue test above: the times are tens of
- * milliseconds, and the margins are wider than the timers' jitter.
- */
+/** 15.7 hold music, on the fake clock. */
 describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
   const folder = mkdtempSync(join(tmpdir(), "hold-"));
   writeFileSync(join(folder, "hold.wav"), encodeWav(new Int16Array(4_800).fill(1_000), 48_000));
   const AFTER = 100;
   /** 15.7.5 a tool call and no words, so the turn is long and no sentence has moved the silence */
   const TOOL = (hooks: SessionHooks) => { hooks.onBlockStart?.("tool_use"); hooks.onBlockEnd?.(); };
-  const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-  /** a track that is due is waited for, so a slow machine does not fail a test that is right */
-  async function until(done: () => boolean): Promise<void> {
-    for (let i = 0; i < 200 && !done(); i++) await wait(10);
-  }
+  fakeClock();
+  const wait = pass;
   /**
    * A turn that runs until `end()`, in a room whose track lasts until it is cut.
    * The file is decoded before the turn starts, so the times below are the
@@ -757,7 +752,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
     await until(() => r.tracks.length > 0);
     expect(r.tracks).toHaveLength(1);
     r.end();
-    await r.turn;
+    await finish(r.turn);
   });
 
   test("a sentence moves the start of the silence to its end", async () => {
@@ -771,7 +766,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
     await until(() => r.tracks.length > 0);
     expect(r.tracks).toHaveLength(1);
     r.end();
-    await r.turn;
+    await finish(r.turn);
   });
 
   test("a setting of zero turns it off", async () => {
@@ -779,7 +774,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
     await wait(AFTER * 2);
     expect(r.tracks).toHaveLength(0);
     r.end();
-    await r.turn;
+    await finish(r.turn);
   });
 
   test("switched off, it does not start (15.7.3)", async () => {
@@ -787,7 +782,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
     await wait(AFTER * 3);
     expect(r.tracks).toHaveLength(0);
     r.end();
-    await r.turn;
+    await finish(r.turn);
   });
 
   test("\"music off\" in the middle of a turn stops the track and keeps it off (15.7.3)", async () => {
@@ -799,7 +794,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
     await wait(AFTER * 4);
     expect(r.tracks).toHaveLength(1);
     r.end();
-    await r.turn;
+    await finish(r.turn);
   });
 
   test("the app's music button stops the track as the command does (17.10)", async () => {
@@ -811,7 +806,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
     await wait(AFTER * 4);
     expect(r.tracks).toHaveLength(1);
     r.end();
-    await r.turn;
+    await finish(r.turn);
   });
 
   test("\"music on\" in the middle of a turn starts it again (15.7.3)", async () => {
@@ -822,7 +817,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
     await until(() => r.tracks.length > 0);
     expect(r.tracks).toHaveLength(1);
     r.end();
-    await r.turn;
+    await finish(r.turn);
   });
 
   test("it plays once per silent stretch, and a sentence starts a new one", async () => {
@@ -836,7 +831,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
     await until(() => r.tracks.length > 1);
     expect(r.tracks).toHaveLength(2);
     r.end();
-    await r.turn;
+    await finish(r.turn);
   });
 
   test("Chris talking stops it", async () => {
@@ -847,7 +842,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
     await wait(20);
     expect(r.tracks[0]?.stopped).toBe(true);
     r.end();
-    await r.turn;
+    await finish(r.turn);
   });
 
   test("it does not start while Chris is talking", async () => {
@@ -856,7 +851,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
     await wait(AFTER * 2);
     expect(r.tracks).toHaveLength(0);
     r.end();
-    await r.turn;
+    await finish(r.turn);
   });
 
   test("a sentence fades it out, and does not cut it (15.10.2)", async () => {
@@ -868,7 +863,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
     await until(() => r.tracks[0]?.stopped === true);
     expect(r.tracks[0]?.stopped).toBe(true);
     r.end();
-    await r.turn;
+    await finish(r.turn);
   });
 
   test("Chris talking cuts it in the middle of a fade", async () => {
@@ -881,7 +876,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
     await wait(20);
     expect(r.tracks[0]?.stopped).toBe(true);
     r.end();
-    await r.turn;
+    await finish(r.turn);
   });
 
   test("the audio off stops it at once, and it does not start again (11.12)", async () => {
@@ -894,7 +889,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
     await wait(AFTER * 4);
     expect(r.tracks).toHaveLength(1);
     r.end();
-    await r.turn;
+    await finish(r.turn);
   });
 
   test("with the audio off it does not start at all (11.12)", async () => {
@@ -906,7 +901,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
     await until(() => r.tracks.length > 0);
     expect(r.tracks).toHaveLength(1);
     r.end();
-    await r.turn;
+    await finish(r.turn);
   });
 
   test("the end of the turn stops it", async () => {
@@ -914,7 +909,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
     await until(() => r.tracks.length > 0);
     expect(r.tracks[0]?.stopped).toBe(false);
     r.end();
-    await r.turn;
+    await finish(r.turn);
     await wait(20);
     expect(r.tracks[0]?.stopped).toBe(true);
   });
@@ -928,7 +923,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
     await wait(AFTER * 2);
     expect(r.tracks).toHaveLength(0);
     r.end();
-    await r.turn;
+    await finish(r.turn);
   });
 
   test("a muted bridge is left in peace", async () => {
@@ -945,7 +940,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
     await wait(AFTER * 3);
     expect(r.tracks).toHaveLength(0);
     r.end();
-    await r.turn;
+    await finish(r.turn);
   });
 
   test("a gated action waits in silence too", async () => {
@@ -954,7 +949,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
     await wait(AFTER * 3);
     expect(r.tracks).toHaveLength(0);
     r.end();
-    await r.turn;
+    await finish(r.turn);
   });
 
   test("a source that is in use is asked again, and the track plays when it is free", async () => {
@@ -966,7 +961,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
     await until(() => r.tracks.length > 0);
     expect(r.tracks).toHaveLength(1);
     r.end();
-    await r.turn;
+    await finish(r.turn);
   });
 
   test("a folder that is missing is said once and never tried again", async () => {
@@ -977,7 +972,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
     expect(r.tracks).toHaveLength(0);
     expect(r.journal.filter((line) => line.startsWith("[no hold music:"))).toHaveLength(1);
     end();
-    await turn;
+    await finish(turn);
   });
 
   test("a turn with no tool call gets no music, however slow (15.7.5)", async () => {
@@ -985,7 +980,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
     await wait(AFTER * 3);
     expect(r.tracks).toHaveLength(0);
     r.end();
-    await r.turn;
+    await finish(r.turn);
   });
 
   test("a turn that starts with a sentence and calls no tool gets no music (15.7.5)", async () => {
@@ -994,7 +989,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
     expect(r.said).toEqual(["Checking that now."]);
     expect(r.tracks).toHaveLength(0);
     r.end();
-    await r.turn;
+    await finish(r.turn);
   });
 
   test("a reply that starts with a tool call is long, and the words after it are spoken as written (15.7.5)", async () => {
@@ -1009,7 +1004,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
     expect(r.tracks).toHaveLength(1);
     expect(r.said).toEqual(["That is done."]);
     end();
-    await turn;
+    await finish(turn);
   });
 
   test("a tool call partway through a reply makes the rest of the turn long (15.7.5)", async () => {
@@ -1024,7 +1019,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
     expect(r.tracks).toHaveLength(1);
     expect(r.said).toEqual(["Checking now."]);
     end();
-    await turn;
+    await finish(turn);
   });
 
   /**
@@ -1051,7 +1046,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
     await until(() => r.tracks.length > 0);
     expect(r.said).toEqual(["I'll check the worktrees."]);
     end();
-    await turn;
+    await finish(turn);
     expect(r.said).toEqual(["I'll check the worktrees.", "Yes, there are two."]);
   });
 
@@ -1064,7 +1059,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
         hooks.onBlockEnd?.();
       },
     }, { holdMusicAfterMs: AFTER }, { folder });
-    await r.c.turn("how much");
+    await finish(r.c.turn("how much"));
     expect(r.said).toEqual(["It costs 3.5 cents.", "Then more."]);
   });
   /**
@@ -1124,6 +1119,8 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
     });
 
     test("a track resumes two seconds before where it stopped", async () => {
+      // the frozen time of setSystemTime, which the fake clock cannot hold still while a poll sees the cut
+      jest.useRealTimers();
       const r = music();
       const now = Date.now();
       setSystemTime(new Date(now));
@@ -1173,6 +1170,8 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
     });
 
     test("a resume fades in too (item 52)", async () => {
+      // the frozen time of setSystemTime, which the fake clock cannot hold still while a poll sees the cut
+      jest.useRealTimers();
       const r = music({}, { holdMusicFadeInMs: 100 });
       const now = Date.now();
       setSystemTime(new Date(now));
@@ -1221,10 +1220,8 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
  * one second in.
  */
 describe("the voice reaching a sentence (14.13)", () => {
-  const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-  async function until(done: () => boolean): Promise<void> {
-    for (let i = 0; i < 200 && !done(); i++) await wait(10);
-  }
+  fakeClock();
+  const wait = pass;
 
   test("a client is told as each sentence starts, with the answer it belongs to", async () => {
     const r = room({ deltas: ["Part one here. ", "Part two here. "] });
@@ -1261,10 +1258,8 @@ describe("the voice reaching a sentence (14.13)", () => {
 
 describe("a track asked for (15.12)", () => {
   const wav = new Uint8Array(64);
-  const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-  async function until(done: () => boolean): Promise<void> {
-    for (let i = 0; i < 200 && !done(); i++) await wait(10);
-  }
+  fakeClock();
+  const wait = pass;
 
   test("it waits for the sentence instead of being cut off by it", async () => {
     const r = room({}, {}, { folder: "/nowhere" });

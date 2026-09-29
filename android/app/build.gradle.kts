@@ -26,6 +26,13 @@ android {
     buildFeatures {
         compose = true
     }
+
+    // Robolectric reads the app's resources, such as the notification's title
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+        // Robolectric sets file descriptors through a JDK class that Java 21 does not export
+        unitTests.all { it.jvmArgs("--add-exports=java.base/jdk.internal.access=ALL-UNNAMED") }
+    }
 }
 
 dependencies {
@@ -37,4 +44,9 @@ dependencies {
     implementation(platform("androidx.compose:compose-bom:2026.09.00"))
     implementation("androidx.compose.material3:material3")
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.17")
+    // LiveKit's own harness: a Room over a mocked WebRTC and signal socket, under Robolectric
+    testImplementation("io.livekit:livekit-android-test:2.28.2")
+    // the harness's rules hand out a TestScope; the version is the app's coroutines
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
 }

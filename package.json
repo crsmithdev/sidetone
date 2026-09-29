@@ -4,6 +4,9 @@
   "type": "module",
   "private": true,
   "license": "MIT",
+  "engines": {
+    "bun": ">=1.4.2"
+  },
   "bin": {
     "sidetone": "src/main.ts"
   },

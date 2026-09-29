@@ -30,7 +30,7 @@ reads and writes text only. The bridge makes every decision about voice.
 ## Requirements
 
 - Linux or WSL2, with an NVIDIA GPU and CUDA
-- [Bun](https://bun.sh) and [uv](https://docs.astral.sh/uv/)
+- [Bun](https://bun.sh) 1.4.2 or later (the tests use its fake timers) and [uv](https://docs.astral.sh/uv/)
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code), signed in
 - Docker, to run the LiveKit server
 - HTTPS that the phone trusts. A phone browser gives no microphone to a page
