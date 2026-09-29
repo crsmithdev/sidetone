@@ -15,7 +15,6 @@ priority: medium
 labels: []
 ---
 
-
 with item 25 merged in. Closed 24
 September 2026, answered by the echo work of 23 and 24 September (15ed8e8,
 adfe8b0). The level on the phone alone is a property of call mode, and the
@@ -27,13 +26,12 @@ jump has no case on record; item 26 says how to get one.
 ## 4. Long jobs and the subagent interrupt
 ---
 id: 4
-status: open
+status: done
 created: 2026-09-21
-updated: 2026-09-21
+updated: 2026-09-29
 priority: medium
 labels: []
 ---
-
 
 Noted 21 September 2026. Part b, a setup for long jobs, is done and deleted.
 Part a waits for Chris to decide.
@@ -89,6 +87,10 @@ that shape.
 Done when it has been used in the car and a correction mid-turn reached the
 agent with no re-run of a job.
 
+### Notes
+
+- 2026-09-29 07:36: Tested live in the days before 29 September 2026, by Chris.
+
 ## 5. Faster speech from the good voices
 ---
 id: 5
@@ -98,7 +100,6 @@ updated: 2026-09-21
 priority: medium
 labels: []
 ---
-
 
 Noted 21 September 2026. Step one measured 21 September. One part built 24
 September 2026:
@@ -151,7 +152,6 @@ priority: medium
 labels: []
 ---
 
-
 Landed 24 September
 2026 (1a9228a, spec 15.15). A fourth cue: two clicks dark to bright, quieter
 and shorter than the others, the pair of `thinking`. The true end is the line
@@ -165,17 +165,20 @@ three rising clicks. `tones off` silences it.
 id: 19
 status: done
 created: 2026-09-23
-updated: 2026-09-23
+updated: 2026-09-29
 priority: medium
 labels: []
 ---
-
 
 Landed 23 September
 2026 (cdab5b1, spec 17.21). Not yet seen on a phone. Two limits not in the
 spec: the grey follows only the newest spoken sentence, so the unheard end of
 a cut answer goes to full weight when the next answer speaks; and a sentence
 that repeats in one bubble matches its first place.
+
+### Notes
+
+- 2026-09-29 07:36: Tested live by Chris in the days before 29 September 2026; the 'not yet tried' line above is out of date.
 
 ## 20. More hold music tracks, cycled, each resuming where it left off
 ---
@@ -186,7 +189,6 @@ updated: 2026-09-23
 priority: medium
 labels: []
 ---
-
 
 Landed 23 September 2026 (ca27825, spec 15.10.1). Every audio file in
 `~/.sidetone/hold/` is a track, in file-name order, wrapping; the position is
@@ -203,7 +205,6 @@ updated: 2026-09-22
 priority: medium
 labels: []
 ---
-
 
 Noted 22 September 2026. Designed 23 September. Not started.
 
@@ -252,7 +253,6 @@ updated: 2026-09-22
 priority: medium
 labels: []
 ---
-
 
 Noted 22 September 2026. Lower priority. Discussed 23 September. Not started.
 
@@ -305,7 +305,6 @@ priority: medium
 labels: []
 ---
 
-
 Closed 28 September 2026 (15ed8e8, 9a49cb9, adfe8b0; spec
 4.2.2, 18.13). Item 1 closed into it on 24 September. A unit test cannot
 hear the phone, so there are three parts:
@@ -334,7 +333,6 @@ priority: medium
 labels: []
 ---
 
-
 Closed 24 September 2026 (a991872; the work in
 15ed8e8, adfe8b0, cd636d6). The app cannot give it, and the reason is the
 car. Call mode over Bluetooth SCO passes the echo check, but the car hears an
@@ -359,7 +357,6 @@ priority: medium
 labels: []
 ---
 
-
 with item 50 merged in.
 Closed 28 September 2026 (010a92d, spec 17.22; 9df5cc8). The gear opens an
 options screen under the status row with the verbosity selector, the tones
@@ -373,11 +370,10 @@ the setting. Chris used the screen on the phone, and every control worked.
 id: 30
 status: done
 created: 2026-09-23
-updated: 2026-09-23
+updated: 2026-09-29
 priority: medium
 labels: []
 ---
-
 
 Landed 23
 September 2026 (1815e29, spec 17.11.6). One dot: colour for the room state,
@@ -385,6 +381,10 @@ motion for the work, the ring for the quality; "Leave" into the menu. Item 45
 changed the word rule the same day: the word shows in every state. Not yet
 read in the car. The thought of a reconnect button in place of "Leave" went
 to item 49.
+
+### Notes
+
+- 2026-09-29 07:36: Tested live by Chris in the days before 29 September 2026; the 'not yet tried' line above is out of date.
 
 ## 33. Garbled speech: first, let the agent hear the audio it sent
 ---
@@ -395,7 +395,6 @@ updated: 2026-09-24
 priority: medium
 labels: []
 ---
-
 
 with
 items 32 and 34 merged in. Parts a and b landed 23 September 2026 (ad0a0bc,
@@ -414,13 +413,12 @@ words, and the bridge now joins or checks them (spec 5.6.2, 11.6.5).
 ## 35. Permissions stop the agent, and the spoken confirm word may not exist
 ---
 id: 35
-status: open
+status: done
 created: 2026-09-23
-updated: 2026-09-23
+updated: 2026-09-29
 priority: medium
 labels: []
 ---
-
 
 Noted 23 September 2026. Investigated 23 September 2026,
 `~/.sidetone/findings/permissions-35.md`. The finding answers both questions.
@@ -492,6 +490,10 @@ Done when a job started by `aleph job` from a spoken turn does not stop on a
 permission, and a gated action has been agreed and refused once by voice in
 the room.
 
+### Notes
+
+- 2026-09-29 07:36: Tested live in the days before 29 September 2026, by Chris.
+
 ## 36. Review every wake-word command
 ---
 id: 36
@@ -501,7 +503,6 @@ updated: 2026-09-24
 priority: medium
 labels: []
 ---
-
 
 Closed 24 September 2026. The review
 is `~/.sidetone/findings/wake-36.md`. The clashes landed in 59343d6 and
@@ -519,7 +520,6 @@ priority: medium
 labels: []
 ---
 
-
 Bridge landed 23
 September 2026 (c621b40, spec 9.4.10), the app selector with item 28
 (010a92d). Three levels, one line at the head of each turn's prompt, saved
@@ -536,7 +536,6 @@ priority: medium
 labels: []
 ---
 
-
 Closed 28 September 2026 (ad48d25, spec 14.12.5 to 14.12.7,
 17.18.5). The double was the job lines: a barge-in during the job tool call
 made Claude Code report it "rejected" after it ran, and the agent started
@@ -550,13 +549,12 @@ stays.
 ## 39. The app sends no crash report, and nobody has checked it for stability
 ---
 id: 39
-status: open
+status: done
 created: 2026-09-23
-updated: 2026-09-23
+updated: 2026-09-29
 priority: medium
 labels: []
 ---
-
 
 Noted 23 September 2026. Part 1 built and landed 23 September 2026 (dbd43d7,
 spec 14.14, 17.20), not tried on the phone. Part 2 investigated 23 September
@@ -605,16 +603,19 @@ Done when a forced crash on the phone gives a file in `~/.sidetone/crashes/`
 with the stack trace, the exit reasons are sent, and the Mic button cannot end
 the process.
 
+### Notes
+
+- 2026-09-29 07:36: Tested live in the days before 29 September 2026, by Chris.
+
 ## 40. The app learns of a new build only when it joins the room
 ---
 id: 40
 status: done
 created: 2026-09-23
-updated: 2026-09-23
+updated: 2026-09-29
 priority: medium
 labels: []
 ---
-
 
 Landed 23
 September 2026 (3b35cbe, spec 17.15.5, 17.15.6). The bridge looks at the
@@ -622,16 +623,19 @@ file every 2 seconds and sends `apk` when the hash changes and two looks
 agree. Not yet tried on the phone: a build while in the room, and the button
 within about 4 seconds.
 
+### Notes
+
+- 2026-09-29 07:36: Tested live by Chris in the days before 29 September 2026; the 'not yet tried' line above is out of date.
+
 ## 41. Voice input after the app was closed for a while
 ---
 id: 41
-status: open
+status: done
 created: 2026-09-23
-updated: 2026-09-23
+updated: 2026-09-29
 priority: medium
 labels: []
 ---
-
 
 Noted 23 September 2026. Investigated 24 September 2026,
 `~/.sidetone/findings/voice-input-41.md`. The background was not the cause. At
@@ -680,6 +684,10 @@ throws. Read `~/.sidetone/findings/stability-39b.md` first.
 Done when a test with the app in the background for an hour, then in front
 again, gives a working microphone with no touch, or a fix for the cause.
 
+### Notes
+
+- 2026-09-29 07:36: Tested live in the days before 29 September 2026, by Chris.
+
 ## 42. The bridge cannot tell which build of the app is running
 ---
 id: 42
@@ -689,7 +697,6 @@ updated: 2026-09-23
 priority: medium
 labels: []
 ---
-
 
 Landed 23
 September 2026 (5ff60c1, spec 14.15). The leftover was bigger than the
@@ -708,7 +715,6 @@ priority: medium
 labels: []
 ---
 
-
 Landed
 23 September 2026 (e33ec3c, spec 14.9.2.1). Not the connection: the LiveKit
 Android SDK posts each data message on `Dispatchers.Default`, so two sent a
@@ -725,7 +731,6 @@ priority: medium
 labels: []
 ---
 
-
 Closed 28
 September 2026. The phone half landed 24 September 2026 (c051f12, spec
 18.15): a pushed `setup` message changes the audio setup, and the app
@@ -740,16 +745,19 @@ threshold from the menu, and the next turn used it with no restart.
 id: 45
 status: done
 created: 2026-09-23
-updated: 2026-09-23
+updated: 2026-09-29
 priority: medium
 labels: []
 ---
-
 
 Landed 23 September 2026 (98d96a8, spec 17.11.7). The word never
 showed because 17.11.7 withheld it for every state Chris expects, which is
 every state that lasts; it now shows in every state. The dot is 26 dp, from
 32, and a tap opens the legend. Only the phone can judge the size.
+
+### Notes
+
+- 2026-09-29 07:36: Tested live by Chris in the days before 29 September 2026; the 'not yet tried' line above is out of date.
 
 ## 46. Replace the three-dot menu with a gear that opens settings
 ---
@@ -760,7 +768,6 @@ updated: 2026-09-23
 priority: medium
 labels: []
 ---
-
 
 Landed
 23 September 2026 (98d96a8). Same name for a screen reader, opens the menu
@@ -775,7 +782,6 @@ updated: 2026-09-23
 priority: medium
 labels: []
 ---
-
 
 Landed 23
 September 2026 (9b6861f, spec 9.5.2). `Utterances.held` stops the
@@ -792,7 +798,6 @@ priority: medium
 labels: []
 ---
 
-
 Landed 23 September 2026 (e72fec5). Both causes were
 measured: the LiveKit `AudioSource` holds about 1000 ms, so a cut left 787 ms
 playing, now under 500; and "Audio off." waited on the whole queue, so the
@@ -808,7 +813,6 @@ updated: 2026-09-28
 priority: medium
 labels: []
 ---
-
 
 Closed 28
 September 2026 (4d15b13). Takes over what was left of item 27. "Leave" ends
@@ -828,7 +832,6 @@ priority: medium
 labels: []
 ---
 
-
 Closed 28
 September 2026 (9df5cc8, spec 17.11). Before, four of the seven states were
 amber. The colour now says whether the bridge hears Chris, a slow pulse says
@@ -846,7 +849,6 @@ priority: medium
 labels: []
 ---
 
-
 Closed 28 September 2026 (e782b4c, spec
 15.10.4). Each start of a track, the first and each resume, fades in on a
 straight line over `holdMusicFadeInMs`, default 150 ms, where 0 starts at
@@ -861,7 +863,6 @@ updated: 2026-09-26
 priority: medium
 labels: []
 ---
-
 
 Noted 26 September 2026, from the round trip plan of 25 September and the
 voice bridge field survey (vault: Voice Bridge Field Survey 2026-09-26). The
@@ -912,7 +913,6 @@ updated: 2026-09-26
 priority: medium
 labels: []
 ---
-
 
 Noted 26 September 2026, from the first word bench (vault: Agent First Word
 Bench 2026-09-26, `scripts/first-word.ts`, 8791a00).
@@ -1009,7 +1009,6 @@ priority: medium
 labels: []
 ---
 
-
 Closed 28 September 2026 (cee9eb2) with the finding
 `~/.sidetone/findings/audio-transport-56.md`, from the code and the journal.
 Yes: loss and jitter on the cellular link, concealed by the phone's jitter
@@ -1027,7 +1026,6 @@ priority: medium
 labels: []
 ---
 
-
 Closed 27 September 2026 as a rule in `CLAUDE.md`, under the spoken
 conversation. No code: it is the agent's habit in a spoken turn.
 
@@ -1040,7 +1038,6 @@ updated: 2026-09-28
 priority: medium
 labels: []
 ---
-
 
 Closed 28
 September 2026 (spec 10.7.6). A shell with no `-c` and no script file, or
@@ -1057,7 +1054,6 @@ updated: 2026-09-28
 priority: medium
 labels: []
 ---
-
 
 Closed 28
 September 2026 with a measurement; the change is not kept. A branch had
@@ -1092,7 +1088,6 @@ priority: medium
 labels: []
 ---
 
-
 Noted 27 September 2026, from the architectural review of 25 September
 (section 7, long term). The levels that decide speech, `speechLevel` and
 `bargeInLevel` in `src/config.ts`, are fixed numbers. The
@@ -1104,13 +1099,12 @@ frames, over one drive, by minute.
 ## 61. `/play` says it plays a file and then drops it
 ---
 id: 61
-status: open
+status: done
 created: 2026-09-27
-updated: 2026-09-27
+updated: 2026-09-29
 priority: medium
 labels: []
 ---
-
 
 Noted 27 September 2026, from `docs/testing.md` test 15 in the car (vault: Voice
 Bridge Car Test 4). The test failed.
@@ -1141,6 +1135,10 @@ Done when `docs/testing.md` test 15 passes in the car: the track and the
 sentence both play in full, with a `track` event for the file that says it
 finished.
 
+### Notes
+
+- 2026-09-29 07:36: Tested live in the days before 29 September 2026, by Chris.
+
 ## 62. Investigate batching for Sidetone's own tool calls
 ---
 id: 62
@@ -1150,7 +1148,6 @@ updated: 2026-09-28
 priority: medium
 labels: []
 ---
-
 
 Closed 28
 September 2026 (7ae9476, the measurement; 94bbe0a, the line). Batching saves
@@ -1163,13 +1160,12 @@ step." Item 63a covers the turn that calls tools before it speaks.
 ## 63. Strengthen two rules in the voice instruction
 ---
 id: 63
-status: open
+status: done
 created: 2026-09-28
-updated: 2026-09-28
+updated: 2026-09-29
 priority: medium
 labels: []
 ---
-
 
 Noted 28 September 2026, from a live conversation where both were broken.
 The agent called a tool with no sentence first, so the voice went silent
@@ -1218,16 +1214,19 @@ A/B, all 24 turns read a source before they answered, with either wording.
 Done when a question about the record, asked by voice, gets a tool call that
 reads it before the answer.
 
+### Notes
+
+- 2026-09-29 07:36: Tested live in the days before 29 September 2026, by Chris.
+
 ## 64. Push small, independent tasks to a background job
 ---
 id: 64
 status: done
 created: 2026-09-28
-updated: 2026-09-28
+updated: 2026-09-29
 priority: medium
 labels: []
 ---
-
 
 Closed 28
 September 2026. A rule in `CLAUDE.md`, under "Jobs in a spoken
@@ -1238,16 +1237,19 @@ turn needs. Chris rescinded the small-task half on 28 September 2026: a
 small edit or lookup is done inline again, and a job is for exploration,
 research or a build. Not yet tried in the car since the rule.
 
+### Notes
+
+- 2026-09-29 07:36: Tested live by Chris in the days before 29 September 2026; the 'not yet tried' line above is out of date.
+
 ## 65. A Sidetone command for the twelve-phrase model check
 ---
 id: 65
 status: done
 created: 2026-09-28
-updated: 2026-09-28
+updated: 2026-09-29
 priority: medium
 labels: []
 ---
-
 
 Landed 28
 September 2026 (90b13c0, spec 9.4.15). "sidetone, read the card" mutes, says
@@ -1260,22 +1262,29 @@ it. On the card an echo is only what began while the voice played: Chris
 repeats the line within a second of its end, which the usual 1 s grace
 would drop. Not yet tried in the car.
 
+### Notes
+
+- 2026-09-29 07:36: Tested live by Chris in the days before 29 September 2026; the 'not yet tried' line above is out of date.
+
 ## 66. Say something when the service restarts
 ---
 id: 66
 status: done
 created: 2026-09-28
-updated: 2026-09-28
+updated: 2026-09-29
 priority: medium
 labels: []
 ---
-
 
 Closed 28 September 2026
 (spec 14.16.4). A new process of the bridge says "Sidetone started." once,
 when its workers are warm and a client is in the room, or when the first
 client joins after that. It is spoken, not a cue, so `tones off` leaves it
 on. The tests cover the timing; Chris has not heard it in the room yet.
+
+### Notes
+
+- 2026-09-29 07:36: Tested live by Chris in the days before 29 September 2026; the 'not yet tried' line above is out of date.
 
 ## 72. Keep the session context across a service restart
 ---
@@ -1286,7 +1295,6 @@ updated: 2026-09-29
 priority: medium
 labels: []
 ---
-
 
 Noted 28 September 2026, after the service restarted and Chris asked what
 happened. Each start of the service begins a new `claude -p` session with no
@@ -1322,7 +1330,6 @@ updated: 2026-09-28
 priority: medium
 labels: []
 ---
-
 
 Noted 28 September 2026, from the first read of the card (item 65) in the
 car, 16:06 to 16:10.
@@ -1410,13 +1417,12 @@ both read it (spec 9.4.15), and "read the plain card" is gone.
 ## 69. A blip of garbled speech at the start or the end of an answer
 ---
 id: 69
-status: open
+status: done
 created: 2026-09-28
-updated: 2026-09-28
+updated: 2026-09-29
 priority: medium
 labels: []
 ---
-
 
 Noted 28 September 2026, from Chris in the car at 16:12 (record, `heard` at
 1790637127671). In his words: "there are these moments where it's like this
@@ -1531,6 +1537,10 @@ check at 0.82 and is not caught. None of this is tried in the car yet.
 Done when one report with a time is matched to its clip and its receive line,
 and the cause is named.
 
+### Notes
+
+- 2026-09-29 07:36: Tested live in the days before 29 September 2026, by Chris.
+
 ## 70. The hold music fades the wrong way round
 ---
 id: 70
@@ -1540,7 +1550,6 @@ updated: 2026-09-28
 priority: medium
 labels: []
 ---
-
 
 Noted 28 September 2026. Chris hears each start of a hold track come in loud
 and then get softer. Item 52 (e782b4c, spec 15.10.4) says the opposite: each
@@ -1571,7 +1580,6 @@ updated: 2026-09-28
 priority: medium
 labels: []
 ---
-
 
 Noted 28 September 2026, after a read of the card at 16:47 that Chris took
 for a broken bridge. After a restart, "sidetone, read the card" started the
