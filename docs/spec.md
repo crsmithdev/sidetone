@@ -627,7 +627,7 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 
 15.10.3 Chris talking, the audio going off (11.12), the music going off (15.7.3) and the end of the turn cut the track at once. They do not fade it.
 
-15.10.4 Each start of a track fades in: the first start and each resume. The level rises in a straight line from zero to full. The fade-in time is a setting. The default is 150 milliseconds. The value 0 starts the track at full level. The bridge applies the fade to the samples before it plays them, so the fade costs nothing at play time. A resume starts mid-phrase (15.10.1), and without the fade it cuts in.
+15.10.4 Each start of a track fades in: the first start and each resume. The start skips the silence that leads it: the fade begins at the first 10-millisecond block louder than 0.003 RMS at the track's own level. The level rises in a straight line from zero to full. The fade-in time is a setting. The default is 1500 milliseconds, so the level rises slower than a gain control after the bridge turns it down (item 70). The value 0 starts the track at full level. The bridge applies the fade to the samples before it plays them, so the fade costs nothing at play time. A resume starts mid-phrase (15.10.1), and without the fade it cuts in.
 
 15.11 The hold music does not play when no turn is running, when the turn is not long (15.7.5), when the bridge is muted, when the audio is off (11.12), or when a track from the /play route is playing. It does not play while the bridge waits for the agreement word, because the bridge has asked Chris a question (8.6.3, 10.1).
 

@@ -29,7 +29,7 @@ import { basename, join } from "node:path";
 import { decodeWav, encodeWav, wavFromFile } from "../src/audio.ts";
 import { loadConfig } from "../src/config.ts";
 import { Measures } from "../src/measures.ts";
-import { Mouth, fadeIn } from "../src/mouth.ts";
+import { Mouth, fadeIn, firstSound } from "../src/mouth.ts";
 import { endpoints } from "../src/serve.ts";
 import { RTC_RATE, Transport, resample, roomSpeaker } from "../src/transport.ts";
 
@@ -101,7 +101,7 @@ if (recording) {
   }
   // a first start as the bridge sends it: the track at its gain, faded in, from its first sound
   const track = decodeWav(await wavFromFile(join(config.holdMusicFolder, name), RTC_RATE, config.holdMusicGain)).samples;
-  const faded = fadeIn(track, (RTC_RATE * config.holdMusicFadeInMs) / 1000);
+  const faded = fadeIn(track.subarray(firstSound(track, 0, RTC_RATE, config.holdMusicGain)), (RTC_RATE * config.holdMusicFadeInMs) / 1000);
   const sent = windows(faded, RTC_RATE, onset(faded));
   const ratios = recorded.map((level, i) => level / Math.max(sent[i]!, 1e-6));
   const median = ratios.toSorted((a, b) => a - b)[ratios.length >> 1]!;
@@ -141,6 +141,8 @@ const speaker = roomSpeaker({
 }, () => {});
 const mouth = new Mouth(speaker, {} as never, {} as never, new Measures(), {
   ...config,
+  // the room is the script's own: the live audio switch does not apply
+  audio: true,
   music: { folder, gain: config.holdMusicGain, rate: RTC_RATE, fadeMs: config.holdMusicFadeMs, fadeInMs: config.holdMusicFadeInMs },
   say: (line) => console.log(line),
 });

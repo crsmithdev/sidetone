@@ -1065,7 +1065,8 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
   /**
    * Item 20: every audio file in the folder is a track. Each sample of a test
    * track holds its own time into the track in milliseconds, plus 10 000 for
-   * "b", so the first sample played says which track played and from where.
+   * "b" and 1 000 for "a", so the first sample played says which track played
+   * and from where. No sample is silence (15.10.4), so no start skips any.
    */
   describe("more than one track (item 20)", () => {
     const RATE = 16_000;
@@ -1073,7 +1074,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
     const ramp = (base: number) => encodeWav(Int16Array.from({ length: RATE * 5 }, (_, i) => base + Math.floor(i * 1_000 / RATE)), RATE);
     // written out of order, so the order below is the names' and not the writes'
     writeFileSync(join(tracks, "b.wav"), ramp(10_000));
-    writeFileSync(join(tracks, "a.wav"), ramp(0));
+    writeFileSync(join(tracks, "a.wav"), ramp(1_000));
     writeFileSync(join(tracks, "notes.txt"), "not a track");
     const first = (track: { wav: Uint8Array } | undefined) => decodeWav(track!.wav).samples[0];
 
@@ -1115,7 +1116,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
     test("the tracks play in file-name order, one a stretch, and wrap around", async () => {
       const r = music();
       for (let i = 0; i < 3; i++) { await r.play(); await r.cut(); }
-      expect(r.tracks.map(first)).toEqual([0, 10_000, 0]);
+      expect(r.tracks.map(first)).toEqual([1_000, 10_000, 1_000]);
     });
 
     test("a track resumes two seconds before where it stopped", async () => {
@@ -1135,7 +1136,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
         setSystemTime();
       }
       await r.cut();
-      expect(r.tracks.map(first)).toEqual([0, 10_000, 1_500]);
+      expect(r.tracks.map(first)).toEqual([1_000, 10_000, 2_500]);
       // the rest of the track from there, not the whole track
       expect(decodeWav(r.tracks[2]!.wav).samples.length).toBe(RATE * 5 - RATE * 1.5);
     });
@@ -1147,7 +1148,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
       // out of range: not a volume the slider can send
       r.c.set({ holdMusicGain: 2 });
       await r.play(); await r.cut();
-      expect(r.tracks.map(first)).toEqual([0, 5_000]);
+      expect(r.tracks.map(first)).toEqual([1_000, 5_000]);
       expect(r.patches).toEqual([{ holdMusicGain: 0.5 }]);
       expect(r.said).toEqual([]);
     });
@@ -1160,7 +1161,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
       for (let i = 0; i < 3; i++) { await r.play(); await r.cut(); }
       const length = RATE / 10;
       // a, then b, then a again from the start: the fade is on a copy, so the third is faded once, not twice
-      for (const [n, base] of [[0, 0], [1, 10_000], [2, 0]] as const) {
+      for (const [n, base] of [[0, 1_000], [1, 10_000], [2, 1_000]] as const) {
         const samples = decodeWav(r.tracks[n]!.wav).samples;
         const own = at(base, 0);
         expect(samples[0]).toBe(0);
@@ -1187,10 +1188,40 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
       }
       await r.cut();
       const samples = decodeWav(r.tracks[2]!.wav).samples;
-      const own = at(0, 1_500);
+      const own = at(1_000, 1_500);
       expect(samples[0]).toBe(0);
       expect(samples[800]).toBe(Math.round(own(800) / 2));
       expect(samples[RATE / 10]).toBe(own(RATE / 10));
+    });
+
+    test("a start skips the silence that leads a track and fades in from its first sound (item 70)", async () => {
+      // 300 ms at 50, about 0.0015 RMS, then the track's own time plus 1 000
+      const lead = RATE * 3 / 10;
+      const quiet = mkdtempSync(join(tmpdir(), "tracks-"));
+      writeFileSync(join(quiet, "c.wav"), encodeWav(Int16Array.from({ length: RATE * 5 }, (_, i) => i < lead ? 50 : 1_000 + Math.floor(i * 1_000 / RATE)), RATE));
+      // the frozen time of setSystemTime, which the fake clock cannot hold still while a poll sees the cut
+      jest.useRealTimers();
+      const r = music({ folder: quiet }, { holdMusicFadeInMs: 100 });
+      const now = Date.now();
+      setSystemTime(new Date(now));
+      try {
+        await r.play();
+        setSystemTime(new Date(now + 3_500));
+        await r.cut();
+        await r.play();
+      } finally {
+        setSystemTime();
+      }
+      await r.cut();
+      const own = at(1_000, 300);
+      const samples = decodeWav(r.tracks[0]!.wav).samples;
+      expect(samples.length).toBe(RATE * 5 - lead);
+      expect(samples[0]).toBe(0);
+      expect(samples[800]).toBe(Math.round(own(800) / 2));
+      expect(samples[RATE / 10]).toBe(own(RATE / 10));
+      // the resume counts from the first sound: 300 ms + 3.5 s - 2 s
+      expect(first(r.tracks[1])).toBe(0);
+      expect(decodeWav(r.tracks[1]!.wav).samples[RATE / 10]).toBe(at(1_000, 1_800)(RATE / 10));
     });
 
     test("a fade in of zero leaves the samples as they were (item 52)", async () => {
@@ -1208,7 +1239,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
       await until(() => Date.now() - now > 40);
       await r.play(); await r.cut();
       await r.play(); await r.cut();
-      expect(r.tracks.map(first)).toEqual([0, 10_000, 0]);
+      expect(r.tracks.map(first)).toEqual([1_000, 10_000, 1_000]);
     });
   });
 });

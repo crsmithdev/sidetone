@@ -220,7 +220,7 @@ export interface Config {
   holdMusicGain: number;
   /** 15.10.2 how long the track takes to fade out when a sentence stops it. Zero cuts it at once. */
   holdMusicFadeMs: number;
-  /** 15.10.4 how long each start of a track takes to rise from nothing to full level. Zero starts it at full level. */
+  /** 15.10.4 how long each start of a track takes to rise from nothing to full level, from its first sound. Zero starts it at full level. */
   holdMusicFadeInMs: number;
   /** 13.2 the reported rate-limit use that earns a spoken warning */
   usageWarnFraction: number;
@@ -400,7 +400,7 @@ export const DEFAULTS: Config = {
   holdMusicFolder: join(homedir(), ".sidetone", "hold"),
   holdMusicGain: 0.4,
   holdMusicFadeMs: 300,
-  holdMusicFadeInMs: 150,
+  holdMusicFadeInMs: 1_500,
   usageWarnFraction: 0.8,
   contextWarnFraction: 0.8,
   livekitUrl: process.env.LIVEKIT_URL ?? "",

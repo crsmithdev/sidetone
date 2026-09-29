@@ -27,7 +27,7 @@ describe("config (21)", () => {
     expect(DEFAULTS.holdMusicAfterMs).toBe(8_000);
     expect(DEFAULTS.holdMusicGain).toBe(0.4);
     expect(DEFAULTS.holdMusicFadeMs).toBe(300);
-    expect(DEFAULTS.holdMusicFadeInMs).toBe(150);
+    expect(DEFAULTS.holdMusicFadeInMs).toBe(1_500);
     expect(DEFAULTS.holdMusic).toBe(true);
     // item 37 normal is the behaviour from before the setting existed
     expect(DEFAULTS.verbosity).toBe("normal");

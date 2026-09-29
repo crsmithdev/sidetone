@@ -49,6 +49,28 @@ function listTracks(folder: string, say?: (line: string) => void): HoldTrack[] {
   return names.map((name) => ({ file: join(folder, name), samples: null, gain: 0, at: 0 }));
 }
 
+/** 15.10.4 a stretch of a track quieter than this RMS, on the file's own level, is silence. */
+const HOLD_SILENCE_RMS = 0.003;
+
+/**
+ * 15.10.4 the first sound in a track from `from`: the start of the first 10 ms
+ * block louder than `HOLD_SILENCE_RMS` at `gain`. Five of the eight tracks
+ * open with 200 to 650 ms of silence, and a fade in that falls on the silence
+ * lets the music enter at full level (item 70). A track with no sound after
+ * `from` starts at `from`.
+ */
+export function firstSound(samples: Int16Array, from: number, rate: number, gain: number): number {
+  const block = Math.round(rate / 100);
+  const floor = HOLD_SILENCE_RMS * gain * 32768;
+  for (let at = from; at < samples.length; at += block) {
+    const end = Math.min(at + block, samples.length);
+    let sum = 0;
+    for (let i = at; i < end; i++) sum += samples[i]! * samples[i]!;
+    if (Math.sqrt(sum / (end - at)) > floor) return at;
+  }
+  return from;
+}
+
 /**
  * 15.10.4 the start of a track, on a copy: the level rises in a straight line
  * from nothing to full over `length` samples. The decoded track stays whole,
@@ -472,7 +494,7 @@ export class Mouth {
    * `HOLD_RESUME_BACK_MS` before where it stopped; one that ended plays from
    * the start. The positions live only in this process.
    *
-   * 15.10.4 every start fades in, the first and each resume.
+   * 15.10.4 every start fades in, the first and each resume, from its first sound.
    */
   async music(stop: () => boolean): Promise<boolean> {
     const { music } = this.settings;
@@ -493,7 +515,7 @@ export class Mouth {
     if (!samples) { this.nextHoldTrack++; return false; }
     // the first decode takes seconds: a sentence may have come since
     if (!this.audio || this.occupied() || stop()) return false;
-    const from = track.at;
+    const from = firstSound(samples, track.at, music.rate, music.gain);
     const playing = this.speaker.track(encodeWav(fadeIn(samples.subarray(from), music.rate * music.fadeInMs / 1_000), music.rate), () => this.cutOff() || stop(), { when: () => this.busy || this.tracks.length > 0, ms: music.fadeMs });
     if (playing) {
       this.nextHoldTrack++;
