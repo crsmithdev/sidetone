@@ -691,7 +691,7 @@ context a real cost?
 Done when there is a decision on whether to keep the context across a
 restart and how, or the item is dropped with a reason.
 
-## 70. Look at how the transcription card works
+## 71. Look at how the transcription card works
 
 Noted 28 September 2026, after a read of the card at 16:47 that Chris took
 for a broken bridge. After a restart, "sidetone, read the card" started the
