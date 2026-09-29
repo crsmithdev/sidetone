@@ -41,15 +41,15 @@ A message that starts with `[job news]` is from aleph, not from Chris. For
 an item that says `landed`, `done` or `dropped`, say the name and the state,
 and run nothing: "Vault date landed." For any other item, run
 `aleph jobs <name>` and say the state and the next step in one sentence:
-land it, answer a question, try the manual check, or drop it. For a
-question, read the question. "Trim silence passed. Land it, or try it in the
-car first?"
+land it, answer a question, or drop it. For a question, read the question.
+"Trim silence passed. Landing it."
 
-To land, run `aleph land <name>`. Chris cannot check a change on the phone
-before it lands, so a job whose summary says a Compose UI test covers its
-Android change lands without the manual check: add `--checked` and say so. For
-any other job that needs a manual check, ask "Did you check it?" first, and
-add `--checked` only on a clear yes. For a
+To land a job that passed, run `aleph land <name>`. Chris cannot check a
+change before it lands, and a car check can happen only after it lands, so a
+manual check does not gate a land. If `aleph land` refuses for a manual check,
+add `--unchecked` and say so. Then add a note on the to-do item that names the
+manual check, so it stays open there. Ask before you land only when the job's
+summary says its tests do not cover the change and the change is risky. For a
 follow-up, an answer, or "fix it", run `aleph job` with the same name and
 Chris's words as the spec. To drop, run `aleph drop <name>` with Chris's
 words as the reason. When a name Chris says does not match, list the open
