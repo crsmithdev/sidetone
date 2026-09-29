@@ -180,6 +180,29 @@ function checker(...verdicts: boolean[]) {
   return { check, checked };
 }
 
+describe("a short sentence is checked before it plays (11.6.5)", () => {
+  test("a short sentence the check refuses is made once more, and the second take plays", async () => {
+    const { tts, asked } = engine();
+    const { check, checked } = checker(false, false);
+    const ahead = new SpokenAhead(tts, scratchDir(), { dir: scratchDir(), signature: "test", lines: [], check });
+    const first = await ahead.take("Round 1.");
+    expect(asked).toEqual(["Round 1.", "Round 1."]);
+    // the second take is not checked: the answer does not wait for a third
+    expect(checked).toEqual(["Round 1."]);
+    expect(existsSync(first)).toBe(true);
+  });
+
+  test("a clean short sentence is made once, and a long one is not checked", async () => {
+    const { tts, asked } = engine();
+    const { check, checked } = checker();
+    const ahead = new SpokenAhead(tts, scratchDir(), { dir: scratchDir(), signature: "test", lines: [], check });
+    await ahead.take("sidetone, interrupt on.");
+    await ahead.take("That is the card, and the bridge listens again.");
+    expect(asked).toEqual(["sidetone, interrupt on.", "That is the card, and the bridge listens again."]);
+    expect(checked).toEqual(["sidetone, interrupt on."]);
+  });
+});
+
 describe("a kept line is checked before it is kept (11.6.1)", () => {
   test("a line the check refuses still plays, is not kept, and is made again next time", async () => {
     const dir = scratchDir();

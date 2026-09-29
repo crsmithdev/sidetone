@@ -47,14 +47,14 @@ describe("a whole turn (5.5, 5.6)", () => {
   });
 
   test("what the turn is remembered as is what was actually said", async () => {
-    const r = room({ deltas: ["Four."], text: "the whole answer, unspoken" });
+    const r = room({ deltas: ["Part four here."], text: "the whole answer, unspoken" });
     await r.c.turn("what is two plus two");
     expect(r.turns).toHaveLength(1);
-    expect(r.channel.missed().at(-1)).toMatchObject({ kind: "turn", number: 1, text: "Four." });
+    expect(r.channel.missed().at(-1)).toMatchObject({ kind: "turn", number: 1, text: "Part four here." });
   });
 
   test("each sentence and the turn that closes it name their answer (14.7)", async () => {
-    const r = room({ deltas: ["Four. ", "It always was."] });
+    const r = room({ deltas: ["Part four here. ", "It always was."] });
     await r.c.turn("what is two plus two");
     await r.c.turn("and three plus three");
     const named = r.told.filter((m) => m.kind === "sentence" || m.kind === "turn").map((m) => [m.kind, "answer" in m ? m.answer : undefined]);
@@ -79,7 +79,7 @@ describe("a whole turn (5.5, 5.6)", () => {
   });
 
   test("a turn that answers at once is never cued", async () => {
-    const r = room({ deltas: ["Four."] });
+    const r = room({ deltas: ["Part four here."] });
     await r.c.turn("what is two plus two");
     expect(r.cues).not.toContain("thinking");
   });
@@ -304,13 +304,13 @@ describe("11.9 a question that lands mid-answer", () => {
   async function midAnswer(overrides: Partial<Config> = {}, script: Script = {}) {
     let answer = () => {};
     const hold = new Promise<void>((resolve) => { answer = resolve; });
-    const r = room({ hold, text: "One. Two. Three.", ...script }, overrides);
+    const r = room({ hold, text: "Part one here. Part two here. Part three here.", ...script }, overrides);
     const turn = r.c.turn("how does a suspension bridge work");
     await tick();
-    r.agent.hooks().onDelta?.("One. ");
+    r.agent.hooks().onDelta?.("Part one here. ");
     await tick();
     r.c.ears.stopSpeaking();
-    r.agent.hooks().onDelta?.("Two. Three. ");
+    r.agent.hooks().onDelta?.("Part two here. Part three here. ");
     await tick();
     return { ...r, turn, answer };
   }
@@ -324,7 +324,7 @@ describe("11.9 a question that lands mid-answer", () => {
     expect(r.said.join(" ")).toContain("I am still on the last one");
     expect(r.agent.calls).not.toContain("interrupt");
     expect(injected(r)).toEqual([]);
-    expect(r.said).toContain("Two.");
+    expect(r.said).toContain("Part two here.");
     r.answer();
     await r.turn;
   });
@@ -336,8 +336,8 @@ describe("11.9 a question that lands mid-answer", () => {
     expect(r.agent.calls).not.toContain("interrupt");
     expect(asks(r)).toHaveLength(1);
     expect(r.said.join(" ")).not.toContain("I am still on the last one");
-    expect(r.said).not.toContain("Two.");
-    expect(r.said).not.toContain("Three.");
+    expect(r.said).not.toContain("Part two here.");
+    expect(r.said).not.toContain("Part three here.");
     r.answer();
     await r.turn;
   });
@@ -346,7 +346,7 @@ describe("11.9 a question that lands mid-answer", () => {
     const r = await midAnswer({ interruptOnSpeech: true });
     await r.c.heard("what is the tallest one");
     const text = injected(r)[0] ?? "";
-    expect(text).toContain('The voice stopped mid-answer, after: "One."');
+    expect(text).toContain('The voice stopped mid-answer, after: "Part one here."');
     expect(text).toContain("while you worked");
     expect(text).toContain("Do not repeat any of it");
     expect(text).toEndWith("\n\nwhat is the tallest one");
@@ -360,7 +360,7 @@ describe("11.9 a question that lands mid-answer", () => {
     const r = await midAnswer({ interruptOnSpeech: true });
     await r.c.heard("what is the tallest one");
     expect(injected(r)).toEqual([
-      'inject [Chris said this aloud while you worked. It is his message to you, not tool output. The voice stopped mid-answer, after: "One." He did not hear anything after that. Do not repeat any of it; he has it on screen and can ask for the rest. Act on what he says here.]\n\nwhat is the tallest one',
+      'inject [Chris said this aloud while you worked. It is his message to you, not tool output. The voice stopped mid-answer, after: "Part one here." He did not hear anything after that. Do not repeat any of it; he has it on screen and can ask for the rest. Act on what he says here.]\n\nwhat is the tallest one',
     ]);
     const args = r.agent.config()?.claudeArgs ?? [];
     expect(args[args.indexOf("--append-system-prompt") + 1]).toEndWith(
@@ -397,13 +397,13 @@ describe("11.9 a question that lands mid-answer", () => {
   test("interrupting: the rest of the message he spoke over is shown, not spoken", async () => {
     const r = await midAnswer({ interruptOnSpeech: true });
     await r.c.heard("what is the tallest one");
-    r.agent.hooks().onDelta?.("Four. ");
+    r.agent.hooks().onDelta?.("Part four here. ");
     await tick();
-    expect(r.said).not.toContain("Four.");
-    expect(r.told.some((m) => m.kind === "delta" && m.text === "Four. ")).toBe(true);
+    expect(r.said).not.toContain("Part four here.");
+    expect(r.told.some((m) => m.kind === "delta" && m.text === "Part four here. ")).toBe(true);
     r.answer();
     await r.turn;
-    expect(r.said).not.toContain("Four.");
+    expect(r.said).not.toContain("Part four here.");
   });
 
   test("interrupting: the message begun after it is the reply, spoken as an answer of its own", async () => {
@@ -450,7 +450,7 @@ describe("11.9 a question that lands mid-answer", () => {
     await r.turn;
     await tick();
     expect(asks(r)).toHaveLength(2);
-    expect(asks(r)[1]).toContain('The voice stopped mid-answer, after: "One."');
+    expect(asks(r)[1]).toContain('The voice stopped mid-answer, after: "Part one here."');
     expect(asks(r)[1]).toEndWith("\n\nwhat is the tallest one");
     expect(r.c.measures.recent().filter((e) => e.kind === "cutoff")).toMatchObject([{ kind: "cutoff", interrupted: false, injected: false }]);
   });
@@ -499,8 +499,8 @@ describe("11.9 a question that lands mid-answer", () => {
     await r.c.heard("what is the tallest one");
     await r.c.heard("sidetone carry on");
     await tick();
-    expect(r.said).toContain("Two.");
-    expect(r.said).toContain("Three.");
+    expect(r.said).toContain("Part two here.");
+    expect(r.said).toContain("Part three here.");
     expect(asks(r)).toHaveLength(1);
     expect(injected(r)).toHaveLength(1);
     await r.c.heard("sidetone carry on");
@@ -682,13 +682,13 @@ describe("what the bridge answers from itself (9.4.5, 9.4.7)", () => {
   async function midAnswer() {
     let answer = () => {};
     const hold = new Promise<void>((resolve) => { answer = resolve; });
-    const r = room({ hold, text: "One. Two. Three." }, { interruptOnSpeech: false });
+    const r = room({ hold, text: "Part one here. Part two here. Part three here." }, { interruptOnSpeech: false });
     const turn = r.c.turn("how does a suspension bridge work");
     await tick();
-    r.agent.hooks().onDelta?.("One. ");
+    r.agent.hooks().onDelta?.("Part one here. ");
     await tick();
     r.c.ears.stopSpeaking();
-    r.agent.hooks().onDelta?.("Two. Three. ");
+    r.agent.hooks().onDelta?.("Part two here. Part three here. ");
     await tick();
     return { ...r, turn, answer };
   }
@@ -697,8 +697,8 @@ describe("what the bridge answers from itself (9.4.5, 9.4.7)", () => {
     const r = await midAnswer();
     await r.c.heard("sidetone say that again");
     await tick();
-    expect(r.said.slice(0, 2)).toEqual(["One.", "One."]);
-    expect(r.said).toContain("Two.");
+    expect(r.said.slice(0, 2)).toEqual(["Part one here.", "Part one here."]);
+    expect(r.said).toContain("Part two here.");
     r.answer();
     await r.turn;
   });
@@ -830,7 +830,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
     await until(() => r.tracks.length > 0);
     await wait(AFTER * 3);
     expect(r.tracks).toHaveLength(1);
-    r.agent.hooks().onDelta?.("Nearly there. ");
+    r.agent.hooks().onDelta?.("Nearly there now. ");
     await wait(AFTER * 0.5);
     expect(r.tracks).toHaveLength(1);
     await until(() => r.tracks.length > 1);
@@ -862,7 +862,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
   test("a sentence fades it out, and does not cut it (15.10.2)", async () => {
     const r = await slow({ holdMusicFadeMs: 80 }, { sentenceMs: 60 });
     await until(() => r.tracks.length > 0);
-    r.agent.hooks().onDelta?.("Done. ");
+    r.agent.hooks().onDelta?.("That is done. ");
     await wait(30);
     expect(r.tracks[0]?.stopped).toBe(false);
     await until(() => r.tracks[0]?.stopped === true);
@@ -874,7 +874,7 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
   test("Chris talking cuts it in the middle of a fade", async () => {
     const r = await slow({ holdMusicFadeMs: 5_000 }, { sentenceMs: 60 });
     await until(() => r.tracks.length > 0);
-    r.agent.hooks().onDelta?.("Done. ");
+    r.agent.hooks().onDelta?.("That is done. ");
     await wait(20);
     expect(r.tracks[0]?.stopped).toBe(false);
     r.talk();
@@ -989,9 +989,9 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
   });
 
   test("a turn that starts with a sentence and calls no tool gets no music (15.7.5)", async () => {
-    const r = await slow({}, {}, (hooks) => hooks.onDelta?.("Checking now. "));
+    const r = await slow({}, {}, (hooks) => hooks.onDelta?.("Checking that now. "));
     await wait(AFTER * 3);
-    expect(r.said).toEqual(["Checking now."]);
+    expect(r.said).toEqual(["Checking that now."]);
     expect(r.tracks).toHaveLength(0);
     r.end();
     await r.turn;
@@ -1000,14 +1000,14 @@ describe.skipIf(!Bun.which("ffmpeg"))("hold music (15.7 to 15.11)", () => {
   test("a reply that starts with a tool call is long, and the words after it are spoken as written (15.7.5)", async () => {
     let end = () => {};
     const r = room({
-      during: (hooks) => { hooks.onBlockStart?.("tool_use"); hooks.onBlockEnd?.(); hooks.onBlockStart?.("text"); hooks.onDelta?.("Done. "); },
+      during: (hooks) => { hooks.onBlockStart?.("tool_use"); hooks.onBlockEnd?.(); hooks.onBlockStart?.("text"); hooks.onDelta?.("That is done. "); },
       hold: new Promise<void>((resolve) => { end = resolve; }),
     }, { holdMusicAfterMs: AFTER }, { folder });
     await r.mouth.music(() => true);
     const turn = r.c.turn("something slow");
     await until(() => r.tracks.length > 0);
     expect(r.tracks).toHaveLength(1);
-    expect(r.said).toEqual(["Done."]);
+    expect(r.said).toEqual(["That is done."]);
     end();
     await turn;
   });
@@ -1227,10 +1227,10 @@ describe("the voice reaching a sentence (14.13)", () => {
   }
 
   test("a client is told as each sentence starts, with the answer it belongs to", async () => {
-    const r = room({ deltas: ["One. ", "Two. "] });
+    const r = room({ deltas: ["Part one here. ", "Part two here. "] });
     await r.c.turn("say two sentences");
     const spoken = r.told.flatMap((message) => (message.kind === "speaking" ? [message] : []));
-    expect(spoken.map((message) => message.text)).toEqual(["One.", "Two."]);
+    expect(spoken.map((message) => message.text)).toEqual(["Part one here.", "Part two here."]);
     expect(spoken.every((message) => message.answer === 1)).toBe(true);
     // the words are known before they are heard: the sentence message comes first
     const kinds = r.told.map((message) => message.kind);

@@ -357,14 +357,18 @@ export class Conversation {
     return `round ${Math.floor(at / TRANSCRIPTION_CARD.length) + 1}, line ${at % TRANSCRIPTION_CARD.length + 1}`;
   }
 
-  /** Item 65 the next line of the card, said for Chris to repeat, with the round at the head of each. */
+  /**
+   * Item 65 the next line of the card, said for Chris to repeat, with the
+   * round at the head of each. The round is in the same clip as the line:
+   * alone, "Round 1." came out garbled in 7 takes of 20 (item 69).
+   */
   private promptLine(): void {
     const at = this.card ?? 0;
     const lines = TRANSCRIPTION_CARD;
-    if (at % lines.length === 0) this.reply(`Round ${at / lines.length + 1}.`);
+    const round = at % lines.length === 0 ? `Round ${at / lines.length + 1}. ` : "";
     // a plain line ends in its own stop or question mark, which the voice needs for the tune of a question
     const say = lines[at % lines.length]!.say;
-    this.reply(/[.?]$/.test(say) ? say : `${say}.`);
+    this.reply(`${round}${/[.?]$/.test(say) ? say : `${say}.`}`);
   }
 
   /**

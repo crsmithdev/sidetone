@@ -49,7 +49,10 @@ export class SentenceCollector {
   private boundary(): number {
     for (let i = 0; i < this.buffer.length; i++) {
       const ch = this.buffer[i] as string;
-      if (ch === "\n") return i + 1;
+      if (ch === "\n") {
+        if (short(this.buffer.slice(0, i))) continue;
+        return i + 1;
+      }
       if (ch !== "." && ch !== "!" && ch !== "?") continue;
       // 3.5 and 1.2.3 are numbers, not the ends of sentences
       if (ch === "." && /\d/.test(this.buffer[i - 1] ?? "") && /\d/.test(this.buffer[i + 1] ?? "")) continue;
@@ -57,10 +60,33 @@ export class SentenceCollector {
       while (j < this.buffer.length && CLOSERS.includes(this.buffer[j] as string)) j++;
       // the punctuation is the last thing here: more text may still make it a number or an ellipsis
       if (j >= this.buffer.length) return -1;
+      // 5.6.1 a full stop inside a quotation does not end the sentence that quotes it
+      if (quoteOpen(this.buffer.slice(0, j)) || short(this.buffer.slice(0, j))) continue;
       if (/\s/.test(this.buffer[j] as string)) return j;
     }
     return -1;
   }
+}
+
+/**
+ * 5.6.2 a sentence of one or two words is not a clip of its own: it joins the
+ * sentence after it. On 28 September the cloning voice garbled "Added." alone
+ * in 19 takes of 20, "Okay." in 16 and "Round 1." in 7. Joined to the next
+ * sentence, as in "Added. It's item 70 in the todo file.", the same words
+ * were garbled in 3 takes of 140.
+ */
+function short(text: string): boolean {
+  return (text.match(/[\p{L}\p{N}]+/gu) ?? []).length < 3;
+}
+
+/**
+ * 5.6.1 whether a double quotation is still open at the end of this text.
+ * On 28 September the agent wrote `says "That is the card. Listening."`, the
+ * cut at "card." made `Listening."` a clip of one word, and the cloning voice
+ * garbled it in 17 takes of 20. The whole sentence was clean in 20 of 20.
+ */
+function quoteOpen(text: string): boolean {
+  return text.split('"').length % 2 === 0;
 }
 
 /**

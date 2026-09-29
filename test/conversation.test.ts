@@ -753,17 +753,17 @@ describe("the cue at the end of the speech (15.15)", () => {
   const silent: Script = { deltas: [] };
 
   test("it plays once, after the last sentence has played, and never between two", async () => {
-    const r = room({}, { deltas: ["One. ", "Two."] });
+    const r = room({}, { deltas: ["Part one here. ", "Part two here."] });
     r.blockSay(true);
     const turn = r.c.turn("what is two plus two");
     await tick();
     // the agent's result is back and both sentences are queued: the first is playing
-    expect(r.said).toEqual(["One."]);
+    expect(r.said).toEqual(["Part one here."]);
     expect(r.cues).toEqual([]);
     r.release();
     await tick();
     // between the sentences of one turn: nothing
-    expect(r.said).toEqual(["One.", "Two."]);
+    expect(r.said).toEqual(["Part one here.", "Part two here."]);
     expect(r.cues).toEqual([]);
     r.release();
     await turn;
@@ -778,10 +778,10 @@ describe("the cue at the end of the speech (15.15)", () => {
   });
 
   test("tones off silences it, like the others (15.4)", async () => {
-    const r = room({}, { deltas: ["Four."] });
+    const r = room({}, { deltas: ["Part four here."] });
     await r.c.heard("sidetone tones off");
     await r.c.turn("what is two plus two");
-    expect(r.said).toEqual(["Tones off.", "Four."]);
+    expect(r.said).toEqual(["Tones off.", "Part four here."]);
     expect(r.cues).toEqual([]);
   });
 
@@ -805,7 +805,7 @@ describe("the cue at the end of the speech (15.15)", () => {
   });
 
   test("a hold is not the end: the cue waits for the held rest", async () => {
-    const r = room({}, { deltas: ["One. ", "Two."] });
+    const r = room({}, { deltas: ["Part one here. ", "Part two here."] });
     r.blockSay(true);
     const turn = r.c.turn("what is two plus two");
     await tick();
@@ -819,7 +819,7 @@ describe("the cue at the end of the speech (15.15)", () => {
     expect(r.cues).toEqual([]);
     await r.c.heard("sidetone mute");
     await turn;
-    expect(r.said).toEqual(["One.", "Muted.", "One.", "Two."]);
+    expect(r.said).toEqual(["Part one here.", "Muted.", "Part one here.", "Part two here."]);
     expect(r.cues).toEqual(["done"]);
   });
 
@@ -896,7 +896,7 @@ describe("the agent's timings (18.4.1)", () => {
         hooks.onEvent?.({ kind: "messageStart", usage: { inputTokens: 2, outputTokens: 3, cacheReadTokens: 10221, cacheCreationTokens: 16037 } });
         hooks.onEvent?.({ kind: "blockStart", type: "text" });
       },
-      deltas: ["Four."],
+      deltas: ["Part four here."],
     });
     const now = Date.now();
     r.measures.speechEnded(now - 1_500, now);
@@ -913,7 +913,7 @@ describe("the transcription card of test 17 (items 65, 67)", () => {
     await tick();
     expect(r.c.isMuted).toBe(true);
     expect(r.c.readingCard).toBe(true);
-    expect(r.said).toEqual(["Reading the transcription card, 3 times through. Say each line after me.", "Round 1.", "Drop that job."]);
+    expect(r.said).toEqual(["Reading the transcription card, 3 times through. Say each line after me.", "Round 1. Drop that job."]);
     for (let round = 0; round < CARD_ROUNDS; round++) {
       for (const line of TRANSCRIPTION_CARD) await r.c.heard(line.say);
     }
@@ -922,9 +922,9 @@ describe("the transcription card of test 17 (items 65, 67)", () => {
     expect(r.c.readingCard).toBe(false);
     // no line acted: no voice switch, no verbosity, and the speech never reached the agent
     expect(r.patches).toEqual([]);
-    // the opening, a round mark and the lines each round, and the close
-    expect(r.said).toHaveLength(1 + CARD_ROUNDS * (1 + TRANSCRIPTION_CARD.length) + 1);
-    expect(r.said.filter((line) => line.startsWith("Round "))).toEqual(["Round 1.", "Round 2.", "Round 3."]);
+    // the opening, the lines each round, and the close; the round is in the clip of the first line: alone it garbles (item 69)
+    expect(r.said).toHaveLength(1 + CARD_ROUNDS * TRANSCRIPTION_CARD.length + 1);
+    expect(r.said.filter((line) => line.startsWith("Round "))).toEqual(["Round 1. Drop that job.", "Round 2. Drop that job.", "Round 3. Drop that job."]);
     expect(r.said).toContain("What does item 67 say?");
     expect(r.said.at(-2)).toBe("sidetone, recap.");
     expect(r.said.at(-1)).toBe("That is the card. Listening.");
@@ -939,7 +939,7 @@ describe("the transcription card of test 17 (items 65, 67)", () => {
     await r.c.heard("sidetone, read the transcription card");
     await tick();
     expect(r.c.readingCard).toBe(true);
-    expect(r.said).toEqual(["Reading the transcription card, 3 times through. Say each line after me.", "Round 1.", "Drop that job."]);
+    expect(r.said).toEqual(["Reading the transcription card, 3 times through. Say each line after me.", "Round 1. Drop that job."]);
   });
 
   test("unmute stops it, and nothing after is a line", async () => {

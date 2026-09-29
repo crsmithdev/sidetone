@@ -650,6 +650,46 @@ Most of it was the card of item 65: short lines, each one its own clip.
 So the drive has a likely cause for some reports, a render fault on short
 text and at the edges of a clip, and no data to rule transport in or out.
 
+### What the takes show, and what changed
+
+Measured 28 September, after the drive. The speech worker transcribed the 55
+kept clips again: the same five are garbled. Each text was then made 20 times
+with the drive's voice and checked the same way:
+
+| Text | Garbled alone | Garbled in the form now sent |
+|------|---------------|------------------------------|
+| `Listening."` | 17 of 20 | 0 of 20, inside its whole sentence |
+| "Round 1." | 7 of 20 | 2 of 60, with the first line of the round |
+| "sidetone, female voice." | 0 of 20 | 0 of 20, checked |
+| "sidetone, stats." | 4 of 20 | 1 of 20, checked |
+| "sidetone, interrupt on." | 0 of 20 | 0 of 20, checked |
+| "Added." | 19 of 20 | 1 of 20, as "Added. It's item 70 in the todo file." |
+| "Okay." | 16 of 20 | 0 of 20, as "Okay. I'll check tonight's logs." |
+
+The cause is the length of the text. The cloning voice garbles a clip of one
+word most of the time and a clip of two words often; three words and more
+were clean in 40 fresh takes, though the drive had two bad takes of three.
+The same text is clean in one take and garbled in the next: "sidetone,
+stats." was garbled in round 2 only. It is not the lower-case first letter
+(chatterbox makes it upper case) and not the connection. The record has 99
+spoken sentences of one word and 141 of two, so the agent makes such clips
+too, often at the start of an answer, which is where Chris hears the blip.
+
+Three changes:
+
+- The splitter does not cut at a full stop inside a quotation (spec 5.6.1).
+- A sentence of one or two words joins the sentence after it (spec 5.6.2).
+  The card says "Round N." in the clip of the first line (9.4.15).
+- A made sentence of four words or fewer is checked by the speech worker
+  before it plays, and made once more when the check refuses it (spec
+  11.6.5). The journal says "the voice garbled ...; it is made again".
+
+Not fixed: a short sentence alone at the end of a text block, such as one
+before a tool call, still goes alone, and one more take does not save a word
+the voice nearly always garbles ("Listening." alone still played garbled in
+11 of 20). "Logging that one too" at 16:12:20 ("Log in at 1.2") passed the
+check at 0.82 and is not caught. None of this is tried in the car yet.
+
 ### What to capture next time
 
 1. Install the current APK on the phone before the next drive, so the app
@@ -789,7 +829,9 @@ commit, and any finding that lived only in the item.
   rechecked on 24 September. Chatterbox loops on ".ts": a sentence with a path
   garbled in 30 of 50 takes and looped in 14, and "src" comes out as "erks";
   a path spelled in upper case with spaces was clean in 30 of 30. The next
-  report of garbled speech is settled from `bun scripts/sent-check.ts`.
+  report of garbled speech is settled from `bun scripts/sent-check.ts`. On
+  28 September item 69 found the same fault in live sentences of one or two
+  words, and the bridge now joins or checks them (spec 5.6.2, 11.6.5).
 - **36. Review every wake-word command.** Closed 24 September 2026. The review
   is `~/.sidetone/findings/wake-36.md`. The clashes landed in 59343d6 and
   e066b4c; in the wake-word hold, a command now needs its exact words. Spec

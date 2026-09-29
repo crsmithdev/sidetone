@@ -68,9 +68,9 @@ describe("which answer owns the mouth (11.9, 11.11, 15.15)", () => {
     const r = rig();
     const a = r.answers.unasked();
     expect(r.answers.unasked()).toBe(a);
-    a.delta("News. ");
+    a.delta("Some news here. ");
     a.delta("More");
-    expect(r.said).toEqual([{ sentence: "News.", id: a.id, asked: false }]);
+    expect(r.said).toEqual([{ sentence: "Some news here.", id: a.id, asked: false }]);
     expect(r.answers.busy).toBe(false);
     expect(r.answers.release()).toBe(a);
     expect(r.answers.current).toBeNull();

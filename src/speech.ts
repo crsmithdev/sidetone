@@ -580,10 +580,32 @@ export class SpokenAhead {
         await rename(path, keeping);
         return keeping;
       })
-      : this.tts.synthesize(text, wav);
+      : this.tts.synthesize(text, wav).then((path) => this.again(text, path));
     // a rejection here is answered where the wav is awaited, and an unobserved
     // prefetch must not take the process down with it
     made.catch(() => {});
     return made;
   }
+
+  /**
+   * 11.6.5 a short sentence made for this answer is checked as a kept line is
+   * (11.6.1), and made once more when the check refuses it. The second take
+   * plays whatever the check would say of it: the answer cannot wait longer.
+   */
+  private async again(text: string, path: string): Promise<string> {
+    const check = this.kept?.check;
+    if (!check || text.split(/\s+/).length > SHORT_WORDS || await check(path, text)) return path;
+    console.log(`the voice garbled "${text}"; it is made again`);
+    await unlink(path).catch(() => {});
+    return this.tts.synthesize(text, join(this.scratch, `say-${++this.counter}.wav`));
+  }
 }
+
+/**
+ * 11.6.5 the most words a sentence has for the check before it plays. The
+ * five garbled clips of the drive of 28 September had three words or fewer,
+ * and its 24 clips of five words or more were clean. Fresh takes on 28 September: one word garbled in
+ * 12 to 17 of 20, two words in 4 to 7 of 20, three words in none of 40. The
+ * check of a short clip costs about 0.1 s of the speech worker.
+ */
+const SHORT_WORDS = 4;
