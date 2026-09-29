@@ -1321,6 +1321,7 @@ restart and how, or the item is dropped with a reason.
 
 - 2026-09-29 00:52: Renumbered from 67 to 72; 67 was taken by the transcription card item, which has 67b sub-parts in b4eda34 and 77a7a74. Commit e1821cf calls this item 67.
 - 2026-09-29 11:49: Checked the skills 29 September. Changed in aleph: /aleph:handoff and /aleph:pickup take an optional name (the bridge uses sidetone), so the bridge file is ~/.aleph/handoffs/sidetone.md and cannot collide with a typed session; with a name the handoff ends with 'Handoff saved to <path>.' and no /clear line. The handoff must run as a turn in the live session, because it writes from the conversation. ExecStop= cannot do it; the SIGTERM handler in src/serve.ts must send the turn and wait inside systemd's stop timeout.
+- 2026-09-29 11:56: Built on job/restart-context 29 September: keepContext (default true); SIGTERM leaves the room, then a quiet turn /aleph:handoff sidetone with a 150 s limit; a start sends /aleph:pickup sidetone when ~/.aleph/handoffs/sidetone.md exists; a running turn is interrupted first; TimeoutStopSec=180 (installed unit updated). Spec 8.12. Tests in test/bridge.test.ts. Checked: claude -p on stream-json runs /aleph:pickup <name>. Manual check left: restart the service, then ask what we were talking about.
 
 ## 67. The card gets ahead of Chris, and a card of plain sentences
 ---
