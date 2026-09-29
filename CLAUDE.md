@@ -45,8 +45,11 @@ land it, answer a question, try the manual check, or drop it. For a
 question, read the question. "Trim silence passed. Land it, or try it in the
 car first?"
 
-To land, run `aleph land <name>`. For a job that needs a manual check, ask
-"Did you check it?" first, and add `--checked` only on a clear yes. For a
+To land, run `aleph land <name>`. Chris cannot check a change on the phone
+before it lands, so a job whose summary says a Compose UI test covers its
+Android change lands without the manual check: add `--checked` and say so. For
+any other job that needs a manual check, ask "Did you check it?" first, and
+add `--checked` only on a clear yes. For a
 follow-up, an answer, or "fix it", run `aleph job` with the same name and
 Chris's words as the spec. To drop, run `aleph drop <name>` with Chris's
 words as the reason. When a name Chris says does not match, list the open
