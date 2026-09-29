@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { DEFAULTS } from "../src/config.ts";
-import { TRANSCRIPTION_CARD, afterWakeWord, commandIn, match, read } from "../src/commands.ts";
+import { TRANSCRIPTION_CARD, afterWakeWord, commandIn, match, projectIn, read } from "../src/commands.ts";
+import { projectNamed } from "../src/project.ts";
 
 const WAKE = DEFAULTS.wakeWord;
 const MUTED = DEFAULTS.mutedCommands;
@@ -387,5 +388,34 @@ describe("the transcription card of test 17 (items 65, 67)", () => {
   });
   test("the wake word stays on the card: some lines are commands", () => {
     expect(TRANSCRIPTION_CARD.filter((line) => line.say.startsWith("sidetone, ")).length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe("switch to a project (item 77)", () => {
+  const PROJECTS = [{ name: "sidetone", dir: "/a" }, { name: "cloudchamber", dir: "/b" }, { name: "aleph", dir: "/c" }];
+  const named = (said: string) => projectNamed(projectIn(said, DEFAULTS), PROJECTS)?.name ?? null;
+
+  test("the two words name the command, and the words after them the project", () => {
+    expect(match("Sidetone, switch to cloud chamber.", WAKE, false, MUTED)).toEqual({ kind: "command", name: "switchProject" });
+    expect(projectIn("Sidetone, switch to cloud chamber.", DEFAULTS)).toBe("cloud chamber");
+    expect(named("Sidetone, switch to cloud chamber.")).toBe("cloudchamber");
+    expect(named("sidetone, switch to side tone")).toBe("sidetone");
+    expect(named("sidetone, switch to Aleph.")).toBe("aleph");
+  });
+
+  test("a name one character off is the project; a name far off is none", () => {
+    expect(named("sidetone, switch to alep")).toBe("aleph");
+    expect(named("sidetone, switch to banana")).toBeNull();
+    expect(named("sidetone, switch to")).toBeNull();
+  });
+
+  test("the wake-word hold reads the command with no wake word in front", () => {
+    expect(read("switch to aleph", DEFAULTS, false, true)).toMatchObject({ kind: "command", name: "switchProject" });
+    expect(named("switch to aleph")).toBe("aleph");
+  });
+
+  test("a voice or a model named after the two words stays that command", () => {
+    expect(commandIn("switch to the male voice")).toBe("maleVoice");
+    expect(commandIn("switch to model opus")).toBe("modelOpus");
   });
 });

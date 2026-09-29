@@ -28,7 +28,7 @@ The page or the app on the phone. It opens the microphone and plays what comes b
 _Avoid_: the frontend, the UI, the app (the app is one client of two).
 
 **The project**:
-The directory the agent runs in. Its own instructions file gives the agent its rules; the bridge is told nothing about it.
+The directory the agent runs in. Its own instructions file gives the agent its rules; the bridge is told nothing about it. Each project has a name, from the aleph repo registry. The active project is the one the agent runs in now; "sidetone, switch to <name>" changes it (spec 9.4.20).
 _Avoid_: the workspace, the repo.
 
 **A shown file**:
@@ -220,7 +220,7 @@ A copy of one wav the bridge sent to the room, with the text it was made from. T
 _Avoid_: an outgoing clip, a recording.
 
 **The handoff**:
-The file the agent writes at a stop of the bridge, `~/.aleph/handoffs/sidetone.md`, with the skill `/aleph:handoff sidetone`. The next start gives it to the new agent with `/aleph:pickup sidetone`, so the agent keeps the context across a restart (spec 8.12).
+The file the agent writes at a stop of the bridge or at a switch of the project, `~/.aleph/handoffs/<project>.md`, with the skill `/aleph:handoff <project>`. The next agent in that project gets it with `/aleph:pickup <project>`, so the agent keeps the context across a restart (spec 8.12) and a switch (spec 9.4.20).
 _Avoid_: the summary, the saved session.
 
 **A quiet turn**:

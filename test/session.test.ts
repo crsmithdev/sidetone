@@ -799,6 +799,31 @@ describe("a reload with new flags (item 55)", () => {
   });
 });
 
+/**
+ * Item 77 a switch to another project: a new process in that project's
+ * directory, so its CLAUDE.md loads, with a conversation of its own.
+ */
+describe("a move to another project (item 77)", () => {
+  const INIT = (id: string) => `{"type":"system","subtype":"init","session_id":"${id}","model":"claude-sonnet-5"}`;
+  test("the new process runs in the new directory and resumes nothing of the old one", async () => {
+    const made: Array<{ p: ReturnType<typeof scripted>; dir: string; args: string[] }> = [];
+    const spawn: Spawn = (given, dir) => { const p = scripted(); made.push({ p, dir, args: given.claudeArgs }); return p.process; };
+    const s = new Session("/home/one", { ...config }, {}, spawn);
+    s.start();
+    made[0]!.p.prints(INIT("a7e0"));
+    await tick();
+    s.move("/home/two");
+    // a reload after the move resumes the new project's conversation, not the old
+    s.reload({ model: "opus", effort: "default" });
+    expect(made.map(({ dir, args }) => ({ dir, resume: args.includes("--resume") }))).toEqual([
+      { dir: "/home/one", resume: false },
+      { dir: "/home/two", resume: false },
+      { dir: "/home/two", resume: false },
+    ]);
+    s.stop();
+  });
+});
+
 describe("the flags on the command line (item 55)", () => {
   // echo prints the arguments it was given, which is the command line claude would get
   const argv = async (overrides: Partial<Config>) => {

@@ -294,14 +294,17 @@ alive.
 
 A stop of `sidetone.service` keeps the agent's context (spec 8.12). The bridge
 leaves the room, asks the agent for a handoff, and waits up to 150 seconds
-for it. The next start sends the agent `/aleph:pickup sidetone`. The journal
-shows each step:
+for it. The next start sends the agent `/aleph:pickup <project>`, where
+`<project>` is the active project (spec 9.4.20), `sidetone` until Chris
+switches. `~/.sidetone/project.json` holds the active project; delete it to
+start in the directory that `serve` is given. The journal shows each step:
 
 ```
 [SIGTERM: leaving the room]
 [the agent writes its handoff]
 [the handoff is written]
 ...
+[the agent works in sidetone, /home/crsmi/sidetone]
 [picking up the handoff of the last process]
 [picked up the handoff]
 ```

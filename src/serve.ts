@@ -162,7 +162,7 @@ export async function serve(dir: string, config: Config): Promise<void> {
   // 17.15.5 a build that ends while a client is in the room; the process exit stops it
   watchApk(apkHash, (sha256) => channel.tell({ kind: "apk", apk: { url: `${origin}/sidetone.apk`, sha256 } }));
 
-  console.log(`bridge on ${origin}, room ${config.room}, Claude Code in ${dir}`);
+  console.log(`bridge on ${origin}, room ${config.room}, Claude Code in ${bridge.conversation.projects.current.dir}`);
   console.log(`the phone reaches LiveKit at ${clientUrl}`);
   if (origin.startsWith("http://") && !origin.includes("127.0.0.1") && !origin.includes("localhost")) {
     // saying this plainly here is cheaper than finding it on the phone

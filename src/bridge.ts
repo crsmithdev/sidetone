@@ -13,8 +13,8 @@
  * everything that differs between the car and a test: the engines, the record
  * and the agent. The room passes none of them and gets the real ones.
  */
-import { existsSync, mkdtempSync } from "node:fs";
-import { homedir, tmpdir } from "node:os";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { encodeWav } from "./audio.ts";
 import { Channel } from "./channel.ts";
@@ -28,6 +28,7 @@ import { Ear, SILENCE_MS } from "./ear.ts";
 import { Measures } from "./measures.ts";
 import type { Outgoing, Setup } from "./messages.ts";
 import { Mouth, keptLines, type Speaker } from "./mouth.ts";
+import { PROJECT_FILES, Projects, handoffOf, pickupOf, type ProjectFiles } from "./project.ts";
 import { receivedLine } from "./network.ts";
 import { newsTurn } from "./news.ts";
 import { Recorder } from "./record.ts";
@@ -42,14 +43,6 @@ import { Working, jobsRunning } from "./working.ts";
 
 /** 14.16.4 what the voice says when a new process of the bridge first has a listener */
 export const STARTED = "Sidetone started.";
-
-/**
- * Item 72 the file the agent's handoff goes to at a stop, and the skills that
- * write and read it. The name keeps it apart from a typed session's handoff.
- */
-export const HANDOFF_FILE = join(homedir(), ".aleph", "handoffs", "sidetone.md");
-export const HANDOFF = "/aleph:handoff sidetone";
-export const PICKUP = "/aleph:pickup sidetone";
 
 /** 18 the session's own line, then every event after it, appended as it happens. */
 function recorder(config: Config): (event: Event) => void {
@@ -131,8 +124,8 @@ export interface Parts {
   screenshots?: string;
   /** 14.15 the SHA-256 of the app the bridge serves now, or undefined when none is built */
   served?: () => Promise<string | undefined>;
-  /** item 72 the handoff a start picks up; unset, `HANDOFF_FILE` */
-  handoffFile?: string;
+  /** item 77 the registry, the active project and the handoffs; unset, `PROJECT_FILES` */
+  projects?: ProjectFiles;
 }
 
 /**
@@ -225,7 +218,9 @@ export function assemble(
   // is serve's to report: it stops the bridge.
   ready.then(() => channel.ready(), () => {});
 
-  const conversation: Conversation = new Conversation(dir, settings, mouth, channel, {
+  // item 77 `dir` is the project only until a switch names another
+  const projects = new Projects(parts.projects ?? PROJECT_FILES, dir);
+  const conversation: Conversation = new Conversation(projects, settings, mouth, channel, {
     onTurn: (turn) => say(`[turn ${turn.number}, $${conversation.agent.totalCostUsd().toFixed(4)} this session]`),
     // 14.12.6 the pending screenshots join the turn Chris asks for next
     screenshots: () => screenshots.take(),
@@ -262,10 +257,12 @@ export function assemble(
 
   conversation.start();
   // item 72 the context of the last process, when its stop left a handoff. A
-  // crash leaves none, and the new session starts empty.
-  if (config.keepContext && existsSync(parts.handoffFile ?? HANDOFF_FILE)) {
+  // crash leaves none, and the new session starts empty. Item 77 the handoff
+  // is the active project's.
+  say(`[the agent works in ${projects.current.name}, ${projects.current.dir}]`);
+  if (config.keepContext && projects.hasHandoff(projects.current.name)) {
     say("[picking up the handoff of the last process]");
-    void conversation.quietly(PICKUP).then((done) => say(done ? "[picked up the handoff]" : "[the pickup turn failed]"));
+    void conversation.quietly(pickupOf(projects.current.name)).then((done) => say(done ? "[picked up the handoff]" : "[the pickup turn failed]"));
   }
   const watch = setInterval(() => channel.silence(ear.silence()), SILENCE_MS / 3);
   // 14.10 whether the agent works, said to the client whatever the audio does
@@ -313,7 +310,7 @@ export function assemble(
       if (!config.keepContext) return false;
       let timer: ReturnType<typeof setTimeout> | undefined;
       const late = new Promise<false>((resolve) => { timer = setTimeout(() => resolve(false), ms); });
-      try { return await Promise.race([conversation.quietly(HANDOFF), late]); } finally { clearTimeout(timer); }
+      try { return await Promise.race([conversation.quietly(handoffOf(projects.current.name)), late]); } finally { clearTimeout(timer); }
     },
     stop() { clearInterval(watch); clearInterval(work); conversation.stop(); stt.stop(); tts.stop(); turn?.stop(); },
   };

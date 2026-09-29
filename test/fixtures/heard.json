@@ -282,6 +282,30 @@
    ]
   },
   {
+   "said": "sidetone, switch to sidetone",
+   "want": "switchProject",
+   "heard": [
+    "Sidetone, switch to Sidetone",
+    "Sidetone, switch to Sidetone."
+   ]
+  },
+  {
+   "said": "sidetone, switch to cloud chamber",
+   "want": "switchProject",
+   "heard": [
+    "Sidetone, switch to Cloud Chamber"
+   ]
+  },
+  {
+   "said": "sidetone, switch to aleph",
+   "want": "switchProject",
+   "heard": [
+    "Sidetone, switch to Aleph",
+    "Sidetone, switch to aleph",
+    "Sidetone, switch to aleph."
+   ]
+  },
+  {
    "said": "sidetonemute",
    "want": "mute",
    "heard": [

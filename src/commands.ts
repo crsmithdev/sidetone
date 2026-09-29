@@ -21,7 +21,7 @@ export type CommandName =
   | "verbosityBrief" | "verbosityNormal" | "verbosityFull" | "shorter" | "longer"
   | "modelSonnet" | "modelOpus" | "modelHaiku"
   | "effortDefault" | "effortLow" | "effortMedium" | "effortHigh"
-  | "readCard";
+  | "readCard" | "switchProject";
 
 export type Match =
   /** 9.4 a command to do */
@@ -112,14 +112,18 @@ const COMMANDS: Array<{ name: CommandName; any: string[][]; phrases: string[] }>
   // is a word Chris says, and "card" is one character from "car". "read the
   // transcription card" is the same command (item 67).
   { name: "readCard", any: [["read", "card"]], phrases: ["read the card"] },
+  // item 77 another project, named after the two words. Last, so "switch to
+  // the male voice" stays a voice. The name is not in the table: the registry
+  // holds the names, and `projectIn` reads the words after these.
+  { name: "switchProject", any: [["switch", "to"]], phrases: ["switch to sidetone", "switch to cloud chamber", "switch to aleph"] },
 ];
 
 /** Letters and spaces only, collapsed: what the sound was, not how it was written. */
-function normalize(text: string): string {
+export function normalize(text: string): string {
   return text.toLowerCase().replace(/[^a-z\s]/g, " ").replace(/\s+/g, " ").trim();
 }
 
-function editDistance(a: string, b: string): number {
+export function editDistance(a: string, b: string): number {
   let previous = Array.from({ length: b.length + 1 }, (_, i) => i);
   for (let i = 1; i <= a.length; i++) {
     const current = [i];
@@ -136,7 +140,7 @@ function editDistance(a: string, b: string): number {
 }
 
 /** How much of a spelling difference to forgive: longer words earn more. */
-function tolerance(word: string): number {
+export function tolerance(word: string): number {
   return word.length <= 5 ? 1 : Math.min(3, Math.floor(word.length / 4));
 }
 
@@ -307,6 +311,16 @@ function agrees(plain: string, words: Words): boolean {
     while (rest.includes(` ${form} `)) rest = rest.replace(` ${form} `, " ");
   }
   return rest.trim() === "";
+}
+
+/**
+ * Item 77 the words after "switch to", which name the project. With no wake
+ * word, as in the wake-word hold, the whole utterance is read.
+ */
+export function projectIn(said: string, words: Words): string {
+  const rest = (afterWakeWord(said, words.wakeWord, words.wakeWordVariants) ?? normalize(said)).split(" ").filter(Boolean);
+  const at = rest.findIndex((word, i) => editDistance(word, "switch") <= tolerance("switch") && editDistance(rest[i + 1] ?? "", "to") <= tolerance("to"));
+  return at < 0 ? "" : rest.slice(at + 2).join(" ");
 }
 
 /** One utterance, read once: what it matched, and whether it is the agreement word (10.2). */

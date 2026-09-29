@@ -170,6 +170,7 @@ Test 15 failed. The vault page has each verdict. These are open:
 | 15 | a rerun after to-do item 61 lands |
 | 16 | a drive with the microphone open, for the turn detector and the names |
 | 17 | all; needs `keepHeardClips` on for a whole drive, not this one |
+| 18 | all: the first switch to a project by voice |
 
 Run them in this order: 1, 4, 7, then 10, 11, 12 and 14, then the restart of
 test 8 with test 13 last. Test 16 changes how test 1 behaves, so ask Chris at
@@ -515,6 +516,37 @@ and with all but letters and digits removed, as `match` compares words: so
 for "car cue". "sixty-seven" is wrong for "67", because the agent reads the
 digits. A clip kept at the tentative end (18.4) that is only part of a line
 gets no label of its own.
+
+### 18. Does "switch to" move the agent to another project?
+
+To-do item 77. The switch runs a handoff and a pickup, each a quiet turn of
+the agent, so there is no voice between "Switching to" and "Now in". At the
+desk on 29 September that gap was 8 to 25 seconds with scratch projects; a
+real project has a longer handoff.
+
+**Do.** Say "sidetone, switch to banana". Then "sidetone, switch to cloud
+chamber". When the bridge says "Now in cloudchamber.", ask "which project is
+this, and what does its CLAUDE.md say it is?" Then "sidetone, switch to
+sidetone".
+
+**Pass.** "banana" gets "There is no project called banana." and the list,
+and nothing else happens. The switch says "Switching to cloudchamber.", then
+"Now in cloudchamber.", and the agent answers about Cloud Chamber. The switch
+back picks up the sidetone handoff. The journal has each step:
+
+```
+journalctl --user -u sidetone.service --since "-15 min" | grep -E "moved from|handoff of|pickup of"
+cat ~/.sidetone/project.json
+ls -l ~/.aleph/handoffs/
+```
+
+**At the desk.** Passes in `bun test`: "item 77 switch to a project" in
+`test/bridge.test.ts`, with a scripted agent. Then `bun scripts/switch-check.ts`
+runs a real bridge and a real agent against two scratch projects: typed
+lines, the real handoff and pickup skills, a restart, and "banana". It takes
+about a minute and ten turns of the model, and prints one PASS or FAIL line for
+each check. The car adds whisper hearing the names, a real project's handoff,
+and the gap as heard.
 
 ### If it goes wrong mid-drive
 

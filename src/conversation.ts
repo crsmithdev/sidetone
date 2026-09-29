@@ -27,6 +27,8 @@
  * | carry on | the kept rest is said | untouched |
  * | end the turn | dropped, a replay too | interrupted |
  * | clear the context | held until the gate answers | dies with the process |
+ * | switch to a project | dropped | interrupted; a new process in the project, after the handoff |
+ * | switch to a name the registry lacks | resumes | untouched |
  * | the agreement word, at the gate | dropped | dies with the process |
  * | the agreement word, at the agent's gate | resumes | the action runs |
  * | anything else, at the agent's gate | handled as what it was | the action is denied |
@@ -36,7 +38,7 @@
 import { Answer } from "./answer.ts";
 import { Answers } from "./answers.ts";
 import type { Channel } from "./channel.ts";
-import { CARD_ROUNDS, TRANSCRIPTION_CARD, read, type CommandName, type Reading } from "./commands.ts";
+import { CARD_ROUNDS, TRANSCRIPTION_CARD, projectIn, read, type CommandName, type Reading } from "./commands.ts";
 import { EFFORTS, MODELS, NOTIFICATION_LEVELS, VERBOSITIES, type Config, type Effort, type Model, type NotificationLevel, type Verbosity } from "./config.ts";
 import type { CueName } from "./cues.ts";
 import { ECHO_AFTER_MS, echoOf } from "./echo.ts";
@@ -45,6 +47,7 @@ import type { Ears } from "./ear.ts";
 import type { Measures } from "./measures.ts";
 import type { Mouth } from "./mouth.ts";
 import { Network } from "./network.ts";
+import { handoffOf, pickupOf, projectNamed, type Project, type Projects } from "./project.ts";
 import type { Settings } from "./settings.ts";
 import { ASK_RULES, gatedAction } from "./gated.ts";
 import { Session, spawnClaude, type Permission, type SessionHooks, type Spawn, type Turn } from "./session.ts";
@@ -68,6 +71,8 @@ export interface Agent {
   restart(reason: string): void;
   /** item 55 a new process with these flags, in the same conversation, once no turn runs */
   reload(flags: Pick<Config, "model" | "effort">): void;
+  /** item 77 a new process in this directory, with a new conversation */
+  move(dir: string): void;
   /** 10.7 the answer to a permission request the agent sent */
   answer(id: string, allow: boolean, message?: string): void;
   readonly running: boolean;
@@ -79,13 +84,14 @@ export interface Agent {
 
 /**
  * How an agent is made. The conversation decides what the agent is told about
- * being in a spoken conversation (6.5) and hands the amended settings over; the
- * caller decides what the agent is and where it runs.
+ * being in a spoken conversation (6.5) and hands the amended settings over,
+ * with the directory of the active project (item 77); the caller decides what
+ * the agent is.
  */
-export type MakeAgent = (hooks: SessionHooks, config: Config) => Agent;
+export type MakeAgent = (hooks: SessionHooks, config: Config, dir: string) => Agent;
 
 /** The agent of ADR 0001: one Claude Code process, in the project directory. A test gives the process. */
-export const claudeCode = (dir: string, spawn: Spawn = spawnClaude): MakeAgent => (hooks, config) => new Session(dir, config, hooks, spawn);
+export const claudeCode = (spawn: Spawn = spawnClaude): MakeAgent => (hooks, config, dir) => new Session(dir, config, hooks, spawn);
 
 /** What an utterance does to the sentences a barge-in held. */
 export type Hold = "resume" | "discard" | "keep";
@@ -118,8 +124,8 @@ export class Conversation {
   private lastReply = "";
   /** Item 4 the turn in flight, which a question waits for once the turn's result is back. */
   private running: Promise<void> | null = null;
-  /** Item 72 the quiet turn in flight (`quietly`), which a turn Chris asks for waits for. */
-  private quiet: Promise<boolean> | null = null;
+  /** Item 72 the quiet work in flight (`alone`), which a turn Chris asks for waits for. */
+  private quiet: Promise<unknown> | null = null;
   /** Which answer owns the mouth, and where the agent's words go. */
   private readonly answers: Answers;
   /**
@@ -155,14 +161,15 @@ export class Conversation {
   private readonly config: Config;
 
   constructor(
-    private readonly dir: string,
+    /** item 77 the project the agent works in, and the others Chris can switch to */
+    readonly projects: Projects,
     private readonly settings: Settings,
     /** what the bridge says, from a sentence to the sound of it, in whichever voice */
     private readonly mouth: Mouth,
     /** 4.3 what the client is told, and what a returning one is owed */
     private readonly channel: Channel,
     hooks: ConversationHooks = {},
-    makeAgent: MakeAgent = claudeCode(dir),
+    makeAgent: MakeAgent = claudeCode(),
   ) {
     this.measures = mouth.measures;
     const config = this.config = settings.values;
@@ -204,7 +211,7 @@ export class Conversation {
         this.refuseGate("the request was taken back");
         this.apply("resume");
       },
-    }, { ...config, claudeArgs: args });
+    }, { ...config, claudeArgs: args }, projects.current.dir);
     const self = this;
     this.ears = {
       get isMuted() { return self.muted; },
@@ -400,7 +407,7 @@ export class Conversation {
   private decide(said: string, reading: Reading): Outcome {
     if (reading.kind === "command") {
       this.measures.matched(said, reading.name);
-      return { hold: this.run(reading.name) };
+      return { hold: this.run(reading.name, said) };
     }
     // 9.7 the wake word came through and the command did not. Wait for it
     // rather than complaining: the pause between the two is usually the reason.
@@ -504,7 +511,7 @@ export class Conversation {
    * while a question is open is denied, and the agent is told why.
    */
   private permission(request: Permission): void {
-    const what = gatedAction(request.tool, request.input, this.dir);
+    const what = gatedAction(request.tool, request.input, this.projects.current.dir);
     const action = `${request.tool} ${JSON.stringify(typeof request.input.command === "string" ? request.input.command : request.input)}`;
     const answer = (allow: boolean, why: string, message?: string) => {
       this.agent.answer(request.id, allow, message);
@@ -531,6 +538,20 @@ export class Conversation {
    * True when the agent's result came back, false when the turn failed.
    */
   quietly(text: string): Promise<boolean> {
+    return this.alone(() => this.ask(text));
+  }
+
+  /** The agent's result came back for a quiet turn. */
+  private async ask(text: string): Promise<boolean> {
+    try { await this.agent.ask(text); return true; } catch { return false; }
+  }
+
+  /**
+   * Work on the agent that no turn of Chris's may come between, such as a
+   * quiet turn, or the steps of a switch (item 77). A turn that runs now is
+   * interrupted first, and a turn Chris asks for meanwhile waits.
+   */
+  private alone<T>(work: () => Promise<T>): Promise<T> {
     const before = this.quiet;
     const done = (async () => {
       await before;
@@ -539,7 +560,7 @@ export class Conversation {
         this.agent.interrupt();
         await this.running;
       }
-      try { await this.agent.ask(text); return true; } catch { return false; }
+      return work();
     })();
     this.quiet = done;
     void done.then(() => { if (this.quiet === done) this.quiet = null; });
@@ -695,7 +716,7 @@ export class Conversation {
    * 9.4 the commands. Each answers out loud, because silence is ambiguous
    * (15.1), and each says what becomes of a held answer.
    */
-  private run(name: CommandName): Hold {
+  private run(name: CommandName, said: string): Hold {
     switch (name) {
       // A setting changed and the answer did not, so the answer carries on.
       case "mute": this.muted = true; this.reply("Muted."); return "resume";
@@ -810,7 +831,43 @@ export class Conversation {
           return "discard";
         });
         return "keep";
+
+      case "switchProject": return this.switchProject(said);
     }
+  }
+
+  /**
+   * Item 77 another project. The agent writes the handoff of this one, then a
+   * new process starts in the other's directory, so its CLAUDE.md loads, and
+   * picks up that project's own handoff. The state file keeps the choice for
+   * the next start. A name the registry does not hold changes nothing.
+   */
+  private switchProject(said: string): Hold {
+    const heard = projectIn(said, this.config);
+    const all = this.projects.all();
+    const project = projectNamed(heard, all);
+    if (!project) {
+      const names = all.length ? `The projects are ${spokenList(all.map((one) => one.name))}.` : "The registry holds no projects.";
+      this.reply(heard ? `There is no project called ${heard}. ${names}` : `Say which project. ${names}`);
+      return "resume";
+    }
+    if (project.name === this.projects.current.name) { this.reply(`Already in ${project.name}.`); return "resume"; }
+    this.reply(`Switching to ${project.name}.`);
+    void this.alone(() => this.moveTo(project));
+    return "discard";
+  }
+
+  /** Item 77 the steps of a switch, which `alone` keeps together. */
+  private async moveTo(project: Project): Promise<void> {
+    const from = this.projects.current.name;
+    if (this.config.keepContext && !(await this.ask(handoffOf(from)))) this.channel.journal(`the handoff of ${from} failed; the switch goes on without it`);
+    this.projects.select(project);
+    this.agent.move(project.dir);
+    this.channel.journal(`the agent moved from ${from} to ${project.name}, in ${project.dir}`);
+    if (this.config.keepContext && this.projects.hasHandoff(project.name) && !(await this.ask(pickupOf(project.name)))) {
+      this.channel.journal(`the pickup of ${project.name} failed; the agent starts with no context`);
+    }
+    this.reply(`Now in ${project.name}.`);
   }
 
   /**
@@ -972,6 +1029,11 @@ export const VERBOSITY_LINES: Record<Verbosity, string> = {
   normal: "[From the bridge, not from Chris: verbosity is normal. Answer as you usually do.]",
   full: "[From the bridge, not from Chris: verbosity is full. Give your reasoning and more detail.]",
 };
+
+/** "a", "a and b", "a, b and c": names as a sentence says them. */
+function spokenList(names: string[]): string {
+  return names.length < 2 ? names.join("") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
+}
 
 function firstSentence(text: string): string {
   const at = text.search(/[.!?]\s/);

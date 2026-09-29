@@ -634,7 +634,8 @@ describe("the wake-word hold", () => {
  * This says every fixed line a command answers with from a fresh start, and
  * checks the list has it. A line with a number in it is not fixed and is not
  * checked, and neither is the one that names the agreement word, which is
- * built from a setting; usage and clear the context say nothing else.
+ * built from a setting; usage and clear the context say nothing else. Every
+ * line of a switch names a project from the registry, so none is fixed (item 77).
  */
 describe("the kept lines (11.6)", () => {
   const first = new Map<string, string>();
@@ -646,7 +647,7 @@ describe("the kept lines (11.6)", () => {
       await c.heard(first.get(name) as string);
       await settled();
       expect(said.length).toBeGreaterThan(0);
-      const fixed = said.filter((line) => !/\d/.test(line) && !line.includes(config.agreementWord));
+      const fixed = name === "switchProject" ? [] : said.filter((line) => !/\d/.test(line) && !line.includes(config.agreementWord));
       for (const line of fixed) expect(KEPT_LINES as readonly string[]).toContain(line);
     });
   }

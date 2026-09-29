@@ -168,7 +168,7 @@ export class Session {
   rateLimit: { fiveHour: number; sevenDay: number } = { fiveHour: 0, sevenDay: 0 };
 
   constructor(
-    private readonly dir: string,
+    private dir: string,
     private readonly config: Config,
     private readonly hooks: SessionHooks = {},
     private readonly spawn: Spawn = spawnClaude,
@@ -378,6 +378,17 @@ export class Session {
     Object.assign(this.config, flags);
     if (this.pending) { this.respawnDue = true; return; }
     this.respawn();
+  }
+
+  /**
+   * Item 77 a new process in another project's directory, with a new
+   * conversation, so that project's CLAUDE.md loads. A turn that runs is
+   * failed, as at a restart; the caller interrupts it first.
+   */
+  move(dir: string): void {
+    this.dir = dir;
+    this.sessionId = "";
+    this.restart(`moved to ${dir}`);
   }
 
   private respawn(): void {

@@ -7,19 +7,31 @@
  * no test reached, because the wiring they need was made inside `assemble`.
  */
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { decodeWav } from "../src/audio.ts";
-import { HANDOFF, PICKUP, STARTED } from "../src/bridge.ts";
+import { STARTED } from "../src/bridge.ts";
 import { DEFAULTS } from "../src/config.ts";
+import { handoffOf, pickupOf, type ProjectFiles } from "../src/project.ts";
 import { SentClips } from "../src/sent.ts";
 import type { TurnDetector } from "../src/speech.ts";
 import { fakeClock, finish, pass, settle, until } from "./clock.ts";
-import { bridge } from "./harness.ts";
+import { bridge, projectFiles } from "./harness.ts";
 
 fakeClock();
 const tick = settle;
+
+/** Item 72 the handoff of the harness's one project, and the pickup of it */
+const HANDOFF = handoffOf("sidetone");
+const PICKUP = pickupOf("sidetone");
+
+/** Item 72 project files with a handoff left for each project named */
+function withHandoff(files: ProjectFiles, ...names: string[]): ProjectFiles {
+  mkdirSync(files.handoffs, { recursive: true });
+  for (const name of names) writeFileSync(join(files.handoffs, `${name}.md`), "# Handoff\n");
+  return files;
+}
 
 describe("the bridge, assembled as the car assembles it", () => {
   test("the engines are the ones it was given, and the health check reads them", async () => {
@@ -500,9 +512,8 @@ describe("item 72 the context outlives a restart", () => {
   });
 
   test("a start picks up the handoff when the last stop left one", async () => {
-    const file = join(mkdtempSync(join(tmpdir(), "sidetone-handoff-")), "sidetone.md");
-    writeFileSync(file, "# Handoff\n");
-    const r = bridge({ handoffFile: file, script: { deltas: ["Picking up where we left off."] } });
+    const files = withHandoff(projectFiles(), "sidetone");
+    const r = bridge({ projects: files, script: { deltas: ["Picking up where we left off."] } });
     await r.ready;
     await pass(200);
     expect(r.agent.calls).toContain(`ask ${PICKUP}`);
@@ -517,19 +528,17 @@ describe("item 72 the context outlives a restart", () => {
   });
 
   test("with keepContext off a start sends no pickup, even with a handoff there", async () => {
-    const file = join(mkdtempSync(join(tmpdir(), "sidetone-handoff-")), "sidetone.md");
-    writeFileSync(file, "# Handoff\n");
-    const r = bridge({ handoffFile: file, overrides: { keepContext: false } });
+    const files = withHandoff(projectFiles(), "sidetone");
+    const r = bridge({ projects: files, overrides: { keepContext: false } });
     await r.ready;
     await pass(200);
     expect(r.agent.calls.filter((call) => call.startsWith("ask"))).toEqual([]);
   });
 
   test("a turn Chris asks for during the pickup waits for it", async () => {
-    const file = join(mkdtempSync(join(tmpdir(), "sidetone-handoff-")), "sidetone.md");
-    writeFileSync(file, "# Handoff\n");
+    const files = withHandoff(projectFiles(), "sidetone");
     let answer = () => {};
-    const r = bridge({ handoffFile: file, script: { hold: new Promise<void>((resolve) => { answer = resolve; }) } });
+    const r = bridge({ projects: files, script: { hold: new Promise<void>((resolve) => { answer = resolve; }) } });
     await r.ready;
     void r.c.turn("what were we doing");
     await pass(200);
@@ -537,5 +546,107 @@ describe("item 72 the context outlives a restart", () => {
     answer();
     await until(() => r.agent.calls.some((call) => call.endsWith("what were we doing")));
     expect(r.agent.calls.filter((call) => call.startsWith("ask")).length).toBe(2);
+  });
+});
+
+describe("item 77 switch to a project", () => {
+  /** Two projects in the registry, each with a directory of its own */
+  function two() {
+    const cloud = mkdtempSync(join(tmpdir(), "sidetone-cloud-"));
+    return { files: projectFiles({ sidetone: "/tmp", cloudchamber: cloud }), cloud };
+  }
+
+  test("a known project: the handoff of this one, then the agent starts in the other's directory and picks up its handoff", async () => {
+    const { files, cloud } = two();
+    withHandoff(files, "cloudchamber");
+    const r = bridge({ projects: files });
+    await r.ready;
+    await r.c.heard("sidetone, switch to cloud chamber");
+    await until(() => r.said.includes("Now in cloudchamber."));
+    expect(r.agent.calls.filter((call) => call !== "start")).toEqual([
+      `ask ${handoffOf("sidetone")}`,
+      `move ${cloud}`,
+      `ask ${pickupOf("cloudchamber")}`,
+    ]);
+    expect(r.said).toEqual(["Switching to cloudchamber.", "Now in cloudchamber."]);
+    expect(r.c.projects.current).toEqual({ name: "cloudchamber", dir: cloud });
+    expect(JSON.parse(readFileSync(files.state, "utf8"))).toEqual({ project: "cloudchamber" });
+    // the handoff at a stop is the new project's now
+    await r.handoff(1_000);
+    expect(r.agent.calls.at(-1)).toBe(`ask ${handoffOf("cloudchamber")}`);
+  });
+
+  test("a project with no handoff gets no pickup", async () => {
+    const { files, cloud } = two();
+    const r = bridge({ projects: files });
+    await r.ready;
+    await r.c.heard("sidetone, switch to cloudchamber");
+    await until(() => r.said.includes("Now in cloudchamber."));
+    expect(r.agent.calls.filter((call) => call !== "start")).toEqual([`ask ${handoffOf("sidetone")}`, `move ${cloud}`]);
+  });
+
+  test("an unknown name is refused, says what is known, and changes nothing", async () => {
+    const { files } = two();
+    const r = bridge({ projects: files });
+    await r.ready;
+    await r.c.heard("sidetone, switch to banana");
+    await pass(200);
+    expect(r.said).toEqual(["There is no project called banana. The projects are sidetone and cloudchamber."]);
+    expect(r.agent.calls.filter((call) => call !== "start")).toEqual([]);
+    expect(r.c.projects.current.name).toBe("sidetone");
+    expect(existsSync(files.state)).toBe(false);
+  });
+
+  test("the project already in use changes nothing", async () => {
+    const r = bridge({ projects: two().files });
+    await r.ready;
+    await r.c.heard("sidetone, switch to sidetone");
+    await pass(200);
+    expect(r.said).toEqual(["Already in sidetone."]);
+    expect(r.agent.calls.filter((call) => call !== "start")).toEqual([]);
+  });
+
+  test("a turn that runs is interrupted first, and a turn asked for during the switch goes to the new project", async () => {
+    const { files, cloud } = two();
+    let release = () => {};
+    const r = bridge({ projects: files, script: { hold: new Promise<void>((resolve) => { release = resolve; }), onInterrupt: () => release() } });
+    await r.ready;
+    void r.c.turn("a long job");
+    await settle();
+    await r.c.heard("sidetone, switch to cloudchamber");
+    void r.c.turn("what is here");
+    await until(() => r.agent.calls.some((call) => call.endsWith("what is here")));
+    const calls = r.agent.calls.filter((call) => call !== "start");
+    expect(calls[0]).toEndWith("a long job");
+    expect(calls.slice(1, 4)).toEqual(["interrupt", `ask ${handoffOf("sidetone")}`, `move ${cloud}`]);
+    expect(calls[4]).toEndWith("what is here");
+  });
+
+  test("the active project survives a restart: the next start runs the agent in its directory and picks up its handoff", async () => {
+    const { files, cloud } = two();
+    const first = bridge({ projects: files });
+    await first.ready;
+    await first.c.heard("sidetone, switch to cloudchamber");
+    await until(() => first.said.includes("Now in cloudchamber."));
+    first.stop();
+    // the stop writes the new project's handoff, which the next start picks up
+    withHandoff(files, "cloudchamber");
+    const dirs: string[] = [];
+    const spawn = (_config: unknown, dir: string) => { dirs.push(dir); return { pid: undefined, lines: (async function* () {})(), write: () => {}, kill: () => {}, exited: new Promise(() => {}) }; };
+    const next = bridge({ projects: files, spawn });
+    await next.ready;
+    await pass(200);
+    expect(next.c.projects.current).toEqual({ name: "cloudchamber", dir: cloud });
+    expect(dirs[0]).toBe(cloud);
+    expect(next.journal).toContain(`[the agent works in cloudchamber, ${cloud}]`);
+    expect(next.journal).toContain("[picking up the handoff of the last process]");
+  });
+
+  test("a saved project the registry no longer holds falls back to the directory the bridge was given", async () => {
+    const files = projectFiles();
+    writeFileSync(files.state, JSON.stringify({ project: "gone" }));
+    const r = bridge({ projects: files });
+    await r.ready;
+    expect(r.c.projects.current).toEqual({ name: "sidetone", dir: "/tmp" });
   });
 });

@@ -223,7 +223,7 @@ This repository is Sidetone. The earlier project bridge is on the
 
 8.12 The agent keeps its context across a restart of the bridge. Each start of the bridge starts a new agent process, and a new process has no context. So a stop asks the old agent for a handoff, and the next start gives it to the new agent.
 
-8.12.1 On SIGTERM or SIGINT the bridge leaves the room at once (17.11.11.4). Then it sends the agent one quiet turn, `/aleph:handoff sidetone`, and waits for its result. The skill writes `~/.aleph/handoffs/sidetone.md`. Then the bridge stops the agent and exits.
+8.12.1 On SIGTERM or SIGINT the bridge leaves the room at once (17.11.11.4). Then it sends the agent one quiet turn, `/aleph:handoff <project>`, and waits for its result. `<project>` is the name of the active project (9.4.20), which is `sidetone` until Chris switches. The skill writes `~/.aleph/handoffs/<project>.md`. Then the bridge stops the agent and exits.
 
 8.12.2 A quiet turn is for the agent, not for Chris. Its words reach neither the voice nor the screen. A turn that Chris asks for while a quiet turn runs waits for it.
 
@@ -231,7 +231,7 @@ This repository is Sidetone. The earlier project bridge is on the
 
 8.12.4 The stop waits at most 150 seconds for the handoff. `TimeoutStopSec=180` in `deploy/sidetone.service` gives the bridge time to stop the engines after that. A handoff that fails or runs over is lost, and the bridge stops without it.
 
-8.12.5 At a start, the first message to the new agent is the quiet turn `/aleph:pickup sidetone`, sent only when `~/.aleph/handoffs/sidetone.md` is there. The skill reads the file and archives it, so the file is not picked up twice. A crash or a kill writes no handoff, so the next start finds no file and sends no pickup.
+8.12.5 At a start, the first message to the new agent is the quiet turn `/aleph:pickup <project>` for the active project, sent only when `~/.aleph/handoffs/<project>.md` is there. The skill reads the file and archives it, so the file is not picked up twice. A crash or a kill writes no handoff, so the next start finds no file and sends no pickup.
 
 8.12.6 The setting `keepContext` turns the handoff and the pickup on and off. It is on by default.
 
@@ -321,6 +321,7 @@ This repository is Sidetone. The earlier project bridge is on the
 | `femaleVoice` | "female", "woman" | Speaks in the female voice | no | 4.9 |
 | `maleVoice` | "male", "mail" | Speaks in the male voice | no | 4.9 |
 | `readCard` | "read card" | Mutes, and says the lines of the transcription card of test 17 for Chris to say after it | no | 9.4.15 |
+| `switchProject` | "switch to" | Moves the agent to the project named after the two words | no | 9.4.20 |
 
 9.4.14 Report the round trip. The bridge says the time of the last answer, and the median and the worst time when there is more than one. It says how much of the last answer was the end-of-turn pause (11.5), and how long the agent, the first sentence and the voice took. It says the count of barge-ins, and how many of them heard nothing. It then says the quality of the connection at the phone and at the bridge. When the phone was poor or lost for a second or more in this session, it says for how long. `/diagnostics` gives the same numbers as data (12.7).
 
@@ -338,6 +339,22 @@ This repository is Sidetone. The earlier project bridge is on the
 - The start of the process falls in the pause before the next question. On the same runs, the answer after the change came as fast as the answer before it.
 
 9.4.19 Set the notifications level: how much of the job news (14.10.6) reaches the agent. It is apart from the verbosity of answers (9.4.10), which it does not change. The levels are off, brief and full. Off passes nothing, and the journal says what was held back. Brief passes only that a job started, finished or failed: each line is cut to the name and one of those three words, and a line of news in another state, such as a question or a drop, is held back. A brief news turn starts with one line from the bridge that tells the agent to say only the name and the word, and to run nothing. Full passes each line as aleph sent it, which is the behaviour from before the setting and the default. The setting has a control on the options screen (17.22.2) and no spoken command. It is kept in the settings file. A `/say` line (12.7) is not job news, and the level does not change it.
+
+9.4.20 Switch to a project. Chris says "sidetone, switch to cloudchamber", and the agent works in that project until he switches again.
+
+9.4.20.1 A project is an entry of the aleph repo registry, `~/.aleph/repos.json`. Its key is the name, and its `path` is the directory. `$ALEPH_REPOS` moves the registry, as it does for aleph. Chris adds a project to the registry by hand, or asks the agent to add it. The bridge reads the registry at each switch, so a new entry needs no restart.
+
+9.4.20.2 The words after "switch to" name the project. The spaces close up, so "cloud chamber" is `cloudchamber`, and the name can be one spelling step off, or more for a long name (9.4.13). The closest name wins. The command is last in the table, so "switch to the male voice" is the voice command.
+
+9.4.20.3 A name that the registry does not hold changes nothing. The bridge says "There is no project called banana. The projects are sidetone, cloudchamber and aleph." With no name, it says "Say which project." and the list. A held answer resumes.
+
+9.4.20.4 The active project again changes nothing. The bridge says "Already in sidetone."
+
+9.4.20.5 For a known project the bridge says "Switching to cloudchamber." and drops a held answer. A turn that runs is interrupted. Then the old agent writes the handoff of the old project, as a quiet turn (8.12.2). Then the bridge starts a new agent process in the directory of the new project, with a new conversation, so the `CLAUDE.md` of that project loads. When the new project has a handoff (8.12.5), the first message to the new agent is its pickup, as a quiet turn. Then the bridge says "Now in cloudchamber." A turn that Chris asks for during the switch waits for it and goes to the new agent. A failed handoff or pickup does not stop the switch; the journal says so.
+
+9.4.20.6 The bridge keeps the active project in `~/.sidetone/project.json` (`$SIDETONE_PROJECT` moves it), so it survives a restart of the bridge. A start runs the agent in the directory of that project and picks up its handoff. When the file names no project, or a project that the registry no longer holds, the project is the directory that `serve` was given.
+
+9.4.20.7 With `keepContext` off (8.12.6) a switch writes no handoff and sends no pickup, and the new agent starts with no context.
 
 9.5 By default, four commands work when the bridge is muted: mute, unmute, tones on and tones off. All other commands do not work when the bridge is muted, unless the setting of 9.6 adds them.
 

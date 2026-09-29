@@ -11,13 +11,14 @@
  * wants Chris talking makes him talk rather than setting a flag.
  */
 import { afterEach } from "bun:test";
-import { mkdtempSync, readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { assemble, type Bridge, type Parts } from "../src/bridge.ts";
 import { DEFAULTS, type Config } from "../src/config.ts";
 import { claudeCode, type Agent, type MakeAgent } from "../src/conversation.ts";
 import type { Outgoing } from "../src/messages.ts";
+import type { ProjectFiles } from "../src/project.ts";
 import type { Fade, Speaker } from "../src/mouth.ts";
 import type { SessionHooks, Spawn, Turn } from "../src/session.ts";
 import type { TurnDetector } from "../src/speech.ts";
@@ -68,6 +69,7 @@ function scripted(script: Script = {}) {
     inject: (text: string) => { calls.push(`inject ${text}`); return script.inject?.(text) ?? true; },
     restart: (reason: string) => calls.push(`restart ${reason}`),
     reload: (flags) => calls.push(`reload ${flags.model} ${flags.effort}`),
+    move: (dir: string) => calls.push(`move ${dir}`),
     answer: (id: string, allow: boolean, message?: string) => { answers.push(message === undefined ? { id, allow } : { id, allow, message }); },
     running: true,
     turns: 1,
@@ -166,8 +168,20 @@ export interface Options {
    * turn goes through the session and not the script, and `agent` records nothing.
    */
   spawn?: Spawn;
-  /** item 72 the handoff a start picks up; unset, a file that is not there */
-  handoffFile?: string;
+  /**
+   * item 77 the registry, the active project and the handoffs. Unset, a
+   * folder of its own with a registry that names one project, sidetone, in
+   * /tmp, and no state and no handoff.
+   */
+  projects?: ProjectFiles;
+}
+
+/** Item 77 a folder of project files for a test: a registry of these projects, by name and directory. */
+export function projectFiles(registry: Record<string, string> = { sidetone: "/tmp" }): ProjectFiles {
+  const dir = mkdtempSync(join(tmpdir(), "sidetone-projects-"));
+  const files = { registry: join(dir, "repos.json"), state: join(dir, "project.json"), handoffs: join(dir, "handoffs") };
+  writeFileSync(files.registry, JSON.stringify(Object.fromEntries(Object.entries(registry).map(([name, path]) => [name, { path }]))));
+  return files;
 }
 
 const built: Bridge[] = [];
@@ -244,14 +258,14 @@ export function bridge(options: Options = {}) {
     },
     cues: { file: (name) => name, build: async () => {} },
     record: () => {},
-    makeAgent: options.spawn ? claudeCode("/tmp", options.spawn) : agent.make,
+    makeAgent: options.spawn ? claudeCode(options.spawn) : agent.make,
     jobs: () => 0,
     // 9.4 a test never writes the config file the car keeps its settings in
     settings: (patch) => { patches.push(patch); },
     scratch: "/tmp",
     screenshots: mkdtempSync(join(tmpdir(), "sidetone-screenshots-")),
-    // a test never picks up the handoff the car left in the home directory
-    handoffFile: options.handoffFile ?? join(tmpdir(), "sidetone-no-handoff.md"),
+    // a test never reads the registry, the project or the handoff the car left in the home directory
+    projects: options.projects ?? projectFiles(),
   };
 
   const assembled = assemble("/tmp", config, RATE, speaker, (message) => told.push(message), (line) => journal.push(line), parts);
