@@ -731,6 +731,28 @@ context a real cost?
 Done when there is a decision on whether to keep the context across a
 restart and how, or the item is dropped with a reason.
 
+## 70. The hold music fades the wrong way round
+
+Noted 28 September 2026. Chris hears each start of a hold track come in loud
+and then get softer. Item 52 (e782b4c, spec 15.10.4) says the opposite: each
+start, the first and each resume, rises from nothing to its level over
+`holdMusicFadeInMs` (default 150 ms). Nobody has looked into it yet.
+
+Places to check:
+
+- The gain and the fade in the bridge. `wavFromFile` in `src/audio.ts` decodes
+  a track at `holdMusicGain` (read on each start, item 28), and `fadeIn` ramps
+  a copy of the samples before `Mouth.music` gives them to `speaker.track`.
+  The fade out of 15.10.2 (`fadeOut` in `src/transport.ts`, `holdMusicFadeMs`)
+  must start only when a sentence stops the track, not at its start.
+- The phone's audio path. `Audio.kt` plays the bridge's audio as a voice
+  call (`MODE_IN_COMMUNICATION`, `USAGE_VOICE_COMMUNICATION`), and the car
+  takes it over Bluetooth. A gain control on the phone, in WebRTC or in the
+  car can let the first loud frames through and then turn the level down.
+
+Done when a start of a hold track rises from quiet to its level, seen in the
+car or in a recorded sample.
+
 ## 71. Look at how the transcription card works
 
 Noted 28 September 2026, after a read of the card at 16:47 that Chris took
