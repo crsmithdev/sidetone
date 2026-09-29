@@ -1666,3 +1666,17 @@ labels: [stt, privacy]
 ### Notes
 
 - 2026-09-29 10:58: Chris keeps the clips in ~/.sidetone/heard/ for future use
+
+## 76. A separate verbosity level for job news and other notifications
+---
+id: 76
+status: open
+created: 2026-09-29
+updated: 2026-09-29
+priority: medium
+labels: [voice, design]
+---
+
+### Notes
+
+- 2026-09-29 11:52: Noted 29 September 2026. Chris wants the verbosity of job news and similar notifications set apart from the verbosity of answers. To design later.
