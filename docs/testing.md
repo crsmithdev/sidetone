@@ -78,6 +78,18 @@ It drives the real `claude` with the bridge's flags, text in. It prints one
 line for each fact: the runs that held, the runs in all, and the claude
 version. It costs money and needs the network, so it is not in `bun test`.
 
+`test/drive.test.ts` runs the drive card's bridge checks in `bun test`, one
+describe for each test. Drive test 13 also needs the real process, because
+only `serve.ts` shows the order of the join and the handlers:
+
+```bash
+bun scripts/warm-join.ts          # needs LiveKit on 7880 and the speech engines
+```
+
+It pairs with a bridge of its own, restarts it, and joins at once with the
+kept token, as the app does. It prints one line for each pass condition of
+test 13. In a worktree, link `.venv` to the main checkout's first.
+
 ## Score a drive
 
 A drive is a script that you read aloud in the car, and a score of the result:
@@ -125,7 +137,7 @@ Test 15 failed. The vault page has each verdict. These are open:
 | 1 | "sidetone, end the turn" during a replay |
 | 4 | an answer with a tool call: two bubbles |
 | 7 | the Mic button and Android Auto's voice input |
-| 10 to 14 | all; 9 is answered without a drive |
+| 10 to 14 | the hearing only; 9 is answered without a drive, and 14 passes at the desk |
 | 6 | only if Android Auto's audio stays blocked after the app leaves the room |
 | 15 | a rerun after to-do item 61 lands |
 | 16 | a drive with the microphone open, for the turn detector and the names |
@@ -167,6 +179,10 @@ The barge-in and the replay parts passed on 27 September. One part is left.
 20 September "that's enough" ended a replay with no `[stopped: ...]` line, so
 this phrase is not confirmed yet.
 
+**At the desk.** The bridge's part passes in `bun test`: "a replay from carry
+on is stopped, and the stop is heard at once" in `test/conversation.test.ts`.
+The car checks whether whisper hears the phrase over the replay.
+
 ### 4. Does the answer arrive on the screen ahead of the voice?
 
 The plain answer passed on 27 September. The tool call case is left.
@@ -181,6 +197,11 @@ once, not twice.
 **Evidence.** `jq -c '{time,kind,bubble,text}' ~/.sidetone/screen/latest.jsonl`
 shows two bubble numbers for the one turn.
 
+**At the desk.** Both ends pass: "a tool call splits the answer" in
+`test/turn.test.ts` gives the blocks, and `aToolCallSplitsAnAnswerIntoTwoBubbles`
+in the app's `ConversationTest` makes two bubbles of them. The phone checks
+what the screen shows.
+
 ### 7. Does cutting the microphone leave the conversation usable?
 
 **Do.** Tap Mic, use Android Auto's voice input, tap Mic again, speak.
@@ -188,6 +209,10 @@ shows two bubble numbers for the one turn.
 **Pass.** Android Auto hears you while the microphone is cut, and the bridge
 hears you after it is open again: `[the room has a microphone track, TR_...]`
 and then a `> ` line.
+
+**At the desk.** The bridge's half passes in `test/drive.test.ts` (drive
+test 7): after a cut and an open, the next utterance reaches the agent. The
+car checks Android Auto's voice input and the new track.
 
 ### 9. How often would a shorter pause have cut a sentence?
 
@@ -209,6 +234,9 @@ grep '"setting"' ~/.sidetone/record.jsonl
 curl -sk https://127.0.0.1:3100/diagnostics | python3 -c "import json,sys; print(json.load(sys.stdin)['settings']['ttsVoice'])"
 ```
 
+**At the desk.** Passes in `test/drive.test.ts` (drive test 10), through the
+same `/diagnostics` route. The car adds only whisper hearing the command.
+
 ### 11. Does "end the turn" with nothing running say so?
 
 Before 19 September your own command counted as a barge-in, so this said
@@ -217,6 +245,10 @@ Before 19 September your own command counted as a barge-in, so this said
 **Do.** With nothing playing, say "sidetone, end the turn".
 
 **Pass.** "Nothing is running." Nothing else is said.
+
+**At the desk.** Passes in `bun test`: "end the turn with no turn running
+(9.4.8)" in `test/conversation.test.ts`. The car adds only whisper hearing the
+command.
 
 ### 12. Does the audio go off and come back?
 
@@ -234,6 +266,10 @@ tap the next answer is spoken. The journal has
 grep '"setting"' ~/.sidetone/record.jsonl | grep '"audio"'
 ```
 
+**At the desk.** Passes in `test/drive.test.ts` (drive test 12), with the
+button's `voice` message as the phone sends it. The car checks the button and
+what Chris hears.
+
 ### 14. Does interrupting a finished answer stay quiet about it?
 
 Before 19 September an interrupt of a turn whose answer had fully played
@@ -244,6 +280,9 @@ a follow-up.
 
 **Pass.** No `not spoken:` narration appears for the follow-up. The one time
 it should appear is when you talk over an answer that is still playing.
+
+**At the desk.** Both cases pass in `test/drive.test.ts` (drive test 14). The
+car can skip this test.
 
 ### 8. Does the app come back after a restart?
 
@@ -286,6 +325,14 @@ thing you say once the engines are warm is heard.
 join before whisper's ready line; `/health` reports `engines.transcription`
 false in that window and true after.
 
+**At the desk.** The bridge's part passes in `bun scripts/warm-join.ts` and
+`test/drive.test.ts` (drive test 13): the protocol, the settings and the
+history arrive before the engines are warm, and the microphone cut lands. On
+29 September the phone joined 20 s before the bridge was warm. After a
+restart the history holds no turns, because the bridge keeps it in memory;
+the earlier turns on the screen are the app's own lines (17.11.10). The
+phone checks the button and those lines.
+
 ### 6. What holds Android Auto's audio? (needs adb)
 
 Run this only if the fault returns. In call mode the car parks its own media
@@ -318,6 +365,12 @@ the same turn.
 **Pass.** The track and the sentence both play in full, one after the other,
 with no retry. The record has a `track` event for the file that says it
 finished.
+
+**At the desk.** Passes in `test/drive.test.ts` (drive test 15): two tracks
+asked for during a turn with the hold music on both play whole, then the
+sentence. The test has one source, as the room has, and on the code before
+item 61 it loses the second track, as the drive did. The car checks what
+Chris hears.
 
 ### 16. Open microphone: turn detector data, and the names
 
