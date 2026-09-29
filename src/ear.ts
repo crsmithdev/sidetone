@@ -9,10 +9,10 @@
  * It was written twice before, once in each of two loops, in closures that no
  * test could enter: `serve.ts` and `main.ts` at 0b4478b.
  */
-import { level, tooQuiet, Utterances, type Utterance, type UtteranceOptions } from "./audio.ts";
+import { joinUtterances, level, tooQuiet, Utterances, type Utterance, type UtteranceOptions } from "./audio.ts";
 import type { CueName } from "./cues.ts";
 import type { Measures } from "./measures.ts";
-import type { TurnGuesses } from "./turn.ts";
+import type { TurnGuesses, TurnScore } from "./turn.ts";
 
 /** What the ear tells. `Conversation` is the one that listens. */
 export interface Ears {
@@ -22,6 +22,12 @@ export interface Ears {
   /** `startedAt` is when the utterance began, in milliseconds since the epoch. */
   heard(text: string, startedAt?: number): Promise<void>;
   heardNothing(): void;
+  /**
+   * 18.18 Chris went on talking after the detector ended his turn: cancel the
+   * turn his words started. False when it cannot go: its voice started, it ran
+   * a tool that changes something, or the words did not start a turn.
+   */
+  retract(): boolean;
 }
 
 /**
@@ -33,6 +39,10 @@ export interface Ears {
 export interface EarOptions extends UtteranceOptions {
   /** 4.6 under this, whisper is writing words for near-silence */
   minSpeechPeak: number;
+  /** 18.18 "end" lets the detector end a turn; anything else leaves it to the pause */
+  turnDetector?: "off" | "shadow" | "end";
+  turnEndProbability?: number;
+  turnJoinMs?: number;
 }
 
 /** How long a dead microphone has to stay dead before the bridge says so. */
@@ -68,6 +78,14 @@ export class Ear {
   private early: { speechMs: number; text: Promise<string | null> } | null = null;
   /** 14.10.6 how many utterances are ended and still being read into words */
   private reading = 0;
+  /**
+   * 18.18 the utterance the detector ended, while the join window is open:
+   * the quiet since Chris's last word, whether its words went to the
+   * conversation, and whether its turn was retracted.
+   */
+  private ended: { utterance: Utterance; quietMs: number; sent: boolean; retracted: boolean } | null = null;
+  /** 18.18 a retracted utterance, which the next one joins */
+  private joining: Utterance | null = null;
 
   constructor(
     private readonly to: Ears,
@@ -180,13 +198,68 @@ export class Ear {
     // worth a transcription now either.
     const tentative = this.utterances.tentativeEnd();
     if (tentative && !tooQuiet(tentative, this.options.minSpeechPeak)) {
-      this.early = { speechMs: tentative.speechMs, text: this.transcribe(tentative).catch(() => null) };
-      this.turns?.tentative(tentative, this.early.text);
+      const early = this.early = { speechMs: tentative.speechMs, text: this.transcribe(tentative).catch(() => null) };
+      const guess = this.turns?.tentative(tentative, early.text);
+      if (guess && this.options.turnDetector === "end") void guess.then((score) => this.endOnGuess(score, early));
     }
+    this.window((frame.length / this.options.sampleRate) * 1000);
     if (said) {
       this.turns?.ended(said.endedBy);
-      void this.said(said);
+      void this.said(this.join(said));
     }
+  }
+
+  /**
+   * 18.18 the guess came back: at `turnEndProbability` or more the utterance
+   * ends now, and the join window opens. Speech that came back first, or a
+   * newer tentative end, leaves it to the pause.
+   */
+  private endOnGuess(score: TurnScore | null, early: Ear["early"]): void {
+    if (!score || score.probability < (this.options.turnEndProbability ?? 1) || this.early !== early) return;
+    const ended = this.utterances.endByDetector();
+    if (!ended) return;
+    this.turns?.ended("detector");
+    const utterance = this.join(ended);
+    this.ended = { utterance, quietMs: ended.quietMs, sent: false, retracted: false };
+    void this.said(utterance);
+  }
+
+  /**
+   * 18.18 the join window, one frame at a time. Speech that the bridge hears
+   * inside it retracts the detector end, and the next utterance joins it. After
+   * it, or when the turn cannot be retracted, the speech is a new utterance
+   * and a plain barge-in.
+   */
+  private window(ms: number): void {
+    const ended = this.ended;
+    if (!ended) return;
+    const joinMs = this.options.turnJoinMs ?? 0;
+    if (!this.utterances.active) {
+      ended.quietMs += ms;
+      if (ended.quietMs > joinMs) this.ended = null;
+      return;
+    }
+    this.ended = null;
+    // words not yet read into text reached nobody: nothing to cancel
+    if (ended.sent && !this.to.retract()) {
+      this.note(`speech came back ${Math.round(ended.quietMs)} ms after a detector end, and the turn could not be retracted`);
+      return;
+    }
+    ended.retracted = true;
+    this.joining = ended.utterance;
+    this.note(`speech came back ${Math.round(ended.quietMs)} ms after a detector end: the turn was retracted, and the next utterance joins it`);
+  }
+
+  /** 18.18 the retracted utterance and this one, as one; or this one alone. */
+  private join(utterance: Utterance): Utterance {
+    const first = this.joining;
+    this.joining = null;
+    return first ? joinUtterances(first, utterance) : utterance;
+  }
+
+  private note(text: string): void {
+    this.measures.note(text);
+    this.say(`[${text}]`);
   }
 
   /**
@@ -207,6 +280,7 @@ export class Ear {
     // other line, so the journal did not show that the ear heard nothing
     if (release && barged && !said) this.say("[a barge-in and no utterance: the press recorded nothing]");
     this.utterances.reset();
+    this.ended = null;
     this.barging = false;
     this.unrecordedMs = null;
     this.frameAt = 0;
@@ -214,12 +288,16 @@ export class Ear {
     if (said) {
       this.turns?.ended(said.endedBy);
       // `said` takes the guess made at the tentative end, and clears it
-      void this.said(said);
+      void this.said(this.join(said));
       return;
     }
     this.turns?.cut();
     this.early = null;
     this.to.heardNothing();
+    // 18.18 the cut took the rest, so the retracted part goes alone
+    const first = this.joining;
+    this.joining = null;
+    if (first) void this.said(first);
   }
 
   /** One whole utterance, however it arrived. */
@@ -228,6 +306,8 @@ export class Ear {
     const startedAt = Date.now() - utterance.ms;
     const early = this.early;
     this.early = null;
+    // 18.18 a detector end, whose join window may retract it while it is read
+    const ended = this.ended?.utterance === utterance ? this.ended : null;
     // 4.6 whisper writes words for near-silence even with its voice detector
     // on, and each invention costs a turn. Real speech is louder than this.
     if (tooQuiet(utterance, this.options.minSpeechPeak)) {
@@ -257,8 +337,11 @@ export class Ear {
       const transcribeMs = Date.now() - readAt;
       this.measures.utterance(utterance, text, transcribeMs);
       this.say(this.shape(utterance, text, transcribeMs, guessed !== null));
+      // 18.18 retracted before its words were read: the joined utterance carries them
+      if (ended?.retracted) return;
       // 11.3 road noise that carried no words must give the passage back
       if (!text) { this.to.heardNothing(); return; }
+      if (ended) ended.sent = true;
       await this.to.heard(text, startedAt);
     } catch (error) {
       this.to.heardNothing();

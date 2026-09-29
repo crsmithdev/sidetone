@@ -226,14 +226,14 @@ export function assemble(
     screenshots: () => screenshots.take(),
   }, parts.makeAgent);
 
-  // 18.16 the turn detector in shadow. Nothing waits for it to load: until it
-  // has, and forever if it fails, the ear makes no guesses.
+  // 18.16 the turn detector, in shadow or 18.18 ending turns. Nothing waits for
+  // it to load: until it has, and forever if it fails, the ear makes no guesses.
   const guesses = new TurnGuesses(sampleRate, (line) => measures.turnGuess(line));
-  const turn = config.turnDetector === "shadow" ? parts.turn ?? new SmartTurn(config, speechDir) : null;
+  const turn = config.turnDetector !== "off" ? parts.turn ?? new SmartTurn(config, speechDir) : null;
   turn?.start().then(
     () => {
       guesses.score = (pcm, rate) => turn.score(pcm, rate);
-      say(`[turn detector in shadow, loaded in ${turn.loadSeconds}s]`);
+      say(`[turn detector ${config.turnDetector === "end" ? "ending turns" : "in shadow"}, loaded in ${turn.loadSeconds}s]`);
     },
     (error: Error) => say(`[turn detector off: it did not load: ${error.message}]`),
   );

@@ -33,6 +33,18 @@ The test skips without `SIDETONE_GPU=1`. It also skips when the kokoro model or
 its environment is absent, and the chatterbox part skips when its reference
 wav or environment is absent. A skip prints the path it did not find.
 
+One file needs the saved utterances and the turn detector, on the CPU:
+
+```bash
+SIDETONE_TURN=1 bun test turn.smoke
+```
+
+It plays the clips in `~/.sidetone/heard` through the real ear and Smart Turn
+in `end` mode, to a stand-in agent, and prints what ended early, what was
+joined and what was cut off (spec 18.18.5). It takes about ten seconds. It
+skips without `SIDETONE_TURN=1`, and when the model, the Python environment or
+the saved clips are absent. A worktree uses the main checkout's environment.
+
 `bun test` cannot reach the page, so two scripts do what a unit test cannot.
 Run both against a bridge of your own, never the live bridge on 3100. The
 fake phone starts its own bridge. For `browser-check`, start one on another

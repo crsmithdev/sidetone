@@ -149,6 +149,14 @@ export class Conversation {
     request?: string;
     timer: ReturnType<typeof setTimeout>;
   } | null = null;
+  /**
+   * 18.18 the turn the last utterance started, which the ear may retract,
+   * whether it asked the agent yet, whether it ran a tool that changes
+   * something, and whether it was retracted. Null once anything else is heard.
+   */
+  private retractable: { answer: Answer; asked: boolean; acted: boolean; gone: boolean } | null = null;
+  /** 18.18 the retracted turns that have not ended yet: the next turn waits for them */
+  private retracted: Promise<void> | null = null;
   /** 9.4.7 the last three request and reply pairs, which the bridge answers from itself */
   private readonly recent: Array<{ said: string; reply: string }> = [];
 
@@ -192,7 +200,10 @@ export class Conversation {
       onDelta: (text) => { if (!this.quiet) this.answers.unasked().delta(text); },
       onBlockStart: (type) => { if (!this.quiet) this.answers.unasked().blockStart(type); },
       onBlockEnd: () => { if (!this.quiet) this.answers.current?.blockEnd(); },
-      onEvent: (event) => this.measures.agent(event),
+      onEvent: (event) => {
+        this.measures.agent(event);
+        if (event.kind === "toolStart" && !READ_ONLY_TOOLS.has(event.tool) && this.retractable) this.retractable.acted = true;
+      },
       onNarration: (text) => { if (!this.quiet) this.channel.narrate(text); },
       // 8.6.3 speak, say how long it has run, and report the usage with the ask (8.6.4)
       onCheckpoint: (ms) => {
@@ -219,6 +230,7 @@ export class Conversation {
       stopSpeaking: () => this.mouth.hold(),
       heard: (text, startedAt) => this.heard(text, startedAt),
       heardNothing: () => this.heardNothing(),
+      retract: () => this.retract(),
     };
     this.onTurn = hooks.onTurn;
     this.screenshots = hooks.screenshots;
@@ -308,6 +320,7 @@ export class Conversation {
 
   /** The utterance held nothing a person said. Road noise must not cost a passage. */
   heardNothing(): void {
+    this.retractable = null;
     this.measures.bargeInWas("nothing");
     this.apply("resume");
   }
@@ -317,6 +330,7 @@ export class Conversation {
    * when the utterance began, which only the ear knows.
    */
   async heard(said: string, startedAt?: number): Promise<void> {
+    this.retractable = null;
     // 18.10 an utterance that repeats what the voice just said is the room, not
     // Chris: the phone's echo canceller let the speaker through. It is dropped
     // only when it began while the voice played or just after, because a
@@ -448,7 +462,31 @@ export class Conversation {
     }
     this.measures.matched(said, "speech");
     const shots = this.attached();
-    return { hold: "discard", then: async () => { void this.turn(said, shots); } };
+    return { hold: "discard", then: async () => { void this.turn(said, shots, true); } };
+  }
+
+  /**
+   * 18.18 Chris went on talking after the turn detector ended his turn. The
+   * turn his words started goes, and the ear sends them again joined to the
+   * rest. It stays when its voice has started, when it ran a tool that changes
+   * something, or when it is over.
+   */
+  retract(): boolean {
+    const turn = this.retractable;
+    this.retractable = null;
+    if (!turn || turn.acted || !this.answers.busy || !this.answers.owns(turn.answer)) return false;
+    if (this.mouth.speaking || this.mouth.said.length > 0) return false;
+    turn.gone = true;
+    this.answers.retract(turn.answer);
+    this.mouth.discard();
+    // a turn still waiting for an earlier one never asks, so there is nothing to interrupt
+    if (turn.asked) this.agent.interrupt();
+    // an earlier retracted turn may still be ending, and this one may not be waiting for it
+    const before = this.retracted;
+    const running = this.running;
+    this.retracted = before && running ? Promise.all([before, running]).then(() => {}) : running;
+    this.channel.journal("the bridge retracted the turn: Chris went on talking");
+    return true;
   }
 
   /**
@@ -567,9 +605,12 @@ export class Conversation {
     return done;
   }
 
-  /** Not awaited by the caller: the microphone has to stay open through a turn. */
-  async turn(said: string, note = ""): Promise<void> {
-    const done = this.runTurn(said, note);
+  /**
+   * Not awaited by the caller: the microphone has to stay open through a turn.
+   * 18.18 `retractable` marks the turn an utterance started, which the ear may retract.
+   */
+  async turn(said: string, note = "", retractable = false): Promise<void> {
+    const done = this.runTurn(said, note, retractable);
     this.running = done;
     await done;
   }
@@ -586,8 +627,10 @@ export class Conversation {
    * the turn does not make a new turn: the turn stays the mouth's, and its
    * reply is a new answer inside it, so `answer` is the turn's latest.
    */
-  private async runTurn(said: string, note: string): Promise<void> {
+  private async runTurn(said: string, note: string, retractable: boolean): Promise<void> {
     let answer = this.answers.ask();
+    const retracting: typeof this.retractable = retractable ? { answer, asked: false, acted: false, gone: false } : null;
+    if (retracting) this.retractable = retracting;
     const mine = () => this.answers.owns(answer);
     this.mouth.newTurn();
     // Item 4 the agent began a message after Chris spoke into the turn. It
@@ -606,6 +649,17 @@ export class Conversation {
     const stopMusic = this.musicWhileWaiting(mine, () => answer.long);
     try {
       if (this.quiet) await this.quiet;
+      // 18.18 retracted before it asked: the words go in the turn that joins them
+      if (retracting?.gone) return;
+      // 18.18 the agent still holds the start of what Chris said, cut short
+      const retracted = this.retracted;
+      if (retracted) {
+        this.retracted = null;
+        await retracted;
+        if (retracting?.gone) return;
+        note = [RETRACTED_NOTE, note].filter(Boolean).join("\n\n");
+      }
+      if (retracting) retracting.asked = true;
       const turn = await this.agent.ask([VERBOSITY_LINES[this.config.verbosity], note, said].filter(Boolean).join("\n\n"));
       if (!mine()) return;
       // 15.15 the true end of the speech: the result is back, so no sentence
@@ -1016,6 +1070,15 @@ export class Conversation {
   start(): void { this.agent.start(); }
   stop(): void { this.agent.stop(); }
 }
+
+/**
+ * 18.18 the tools that change nothing. A turn that ran only these can still
+ * be retracted; any other tool may have changed something Chris can see.
+ */
+const READ_ONLY_TOOLS = new Set(["Read", "Grep", "Glob", "WebSearch", "WebFetch"]);
+
+/** 18.18 the head of a turn that replaces a retracted one. */
+const RETRACTED_NOTE = "[From the bridge, not from Chris: the bridge sent the start of this message too soon, while he was still talking, and stopped that turn. This message is all of what he said. Answer it, not the part before.]";
 
 /** Item 44 the settings of the ear that the options screen changes, and no command does. */
 const THRESHOLDS = ["bargeInLevel", "minSpeechPeak", "endOfTurnPauseMs"] as const;

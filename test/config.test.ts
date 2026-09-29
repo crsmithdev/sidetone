@@ -178,12 +178,20 @@ describe("settings that arrive already checked", () => {
     expect(loadConfig(write({ mutedCommands: ["mute", "tonesOff"] })).mutedCommands).toEqual(["mute", "tonesOff"]);
   });
 
-  test("18.16 the turn detector runs in shadow by default, and takes only off or shadow", () => {
+  test("18.16 the turn detector runs in shadow by default, and takes only off, shadow or end", () => {
     expect(DEFAULTS.turnDetector).toBe("shadow");
     expect(DEFAULTS.turnModel).toEndWith("smart-turn-v3.2-cpu.onnx");
     expect(loadConfig(write({ turnDetector: "off" })).turnDetector).toBe("off");
+    expect(loadConfig(write({ turnDetector: "end" })).turnDetector).toBe("end");
     expect(() => loadConfig(write({ turnDetector: "live" }))).toThrow(/turnDetector/);
     expect(Object.keys(settingsInForce(DEFAULTS))).toContain("turnDetector");
+  });
+
+  test("18.18 the threshold is a chance and the window a length of quiet", () => {
+    expect(loadConfig(write({ turnEndProbability: 0.9, turnJoinMs: 1_000 }))).toMatchObject({ turnEndProbability: 0.9, turnJoinMs: 1_000 });
+    expect(() => loadConfig(write({ turnEndProbability: 1.5 }))).toThrow(/turnEndProbability/);
+    expect(() => loadConfig(write({ turnJoinMs: -1 }))).toThrow(/turnJoinMs/);
+    expect(Object.keys(settingsInForce(DEFAULTS))).toEqual(expect.arrayContaining(["turnEndProbability", "turnJoinMs"]));
   });
 
   test("every setting the voice path reads is in the record", () => {

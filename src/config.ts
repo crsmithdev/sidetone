@@ -195,9 +195,15 @@ export interface Config {
    * 18.16 the turn detector, Pipecat Smart Turn v3 on the CPU. "shadow" asks
    * it at each tentative end and writes its guess to the record; the pause
    * still ends every turn. It stays off, after one line in the journal, when
-   * its worker does not load. "off" does not start the worker.
+   * its worker does not load. "off" does not start the worker. 18.18 "end"
+   * ends a turn at the tentative end when the guess is `turnEndProbability`
+   * or more, and joins speech that comes back inside `turnJoinMs`.
    */
-  turnDetector: "off" | "shadow";
+  turnDetector: "off" | "shadow" | "end";
+  /** 18.18 the guess at or above which "end" ends a turn */
+  turnEndProbability: number;
+  /** 18.18 the quiet, from Chris's last word, inside which more speech retracts a detector end and joins it */
+  turnJoinMs: number;
   /** 18.16 the model file, from Hugging Face pipecat-ai/smart-turn-v3 */
   turnModel: string;
   /** the level that counts as speech, as a fraction of full scale */
@@ -361,6 +367,8 @@ export const DEFAULTS: Config = {
   endOfTurnPauseMs: 1_500,
   earlyTranscribeMs: 400,
   turnDetector: "shadow",
+  turnEndProbability: 0.8,
+  turnJoinMs: 1_500,
   turnModel: join(homedir(), ".cache", "sidetone", "smart-turn", "smart-turn-v3.2-cpu.onnx"),
   speechLevel: 0.02,
   speechOnsetMs: 50,
@@ -484,6 +492,7 @@ export const DEFAULTS: Config = {
  */
 const IN_FORCE = [
   "speechLevel", "speechOnsetMs", "endOfTurnPauseMs", "earlyTranscribeMs", "turnDetector",
+  "turnEndProbability", "turnJoinMs",
   "bargeInLevel", "bargeInMs", "bargeInGapMs",
   "minSpeechPeak", "wakeHoldMs", "interruptOnSpeech",
   "holdBackstopMs",
@@ -574,8 +583,14 @@ export function checkConfig(merged: Config): Config {
       throw new Error(`${key} (${String(merged[key])}) must be zero or a positive number of milliseconds`);
     }
   }
-  if (merged.turnDetector !== "off" && merged.turnDetector !== "shadow") {
-    throw new Error(`turnDetector must be off or shadow, not ${String(merged.turnDetector)}`);
+  if (merged.turnDetector !== "off" && merged.turnDetector !== "shadow" && merged.turnDetector !== "end") {
+    throw new Error(`turnDetector must be off, shadow or end, not ${String(merged.turnDetector)}`);
+  }
+  if (typeof merged.turnEndProbability !== "number" || !(merged.turnEndProbability >= 0 && merged.turnEndProbability <= 1)) {
+    throw new Error(`turnEndProbability (${String(merged.turnEndProbability)}) must be a number from 0 to 1`);
+  }
+  if (typeof merged.turnJoinMs !== "number" || !(merged.turnJoinMs >= 0)) {
+    throw new Error(`turnJoinMs (${String(merged.turnJoinMs)}) must be zero or a positive number of milliseconds`);
   }
   if (!VERBOSITIES.includes(merged.verbosity)) {
     throw new Error(`verbosity must be one of ${VERBOSITIES.join(", ")}, not ${String(merged.verbosity)}`);

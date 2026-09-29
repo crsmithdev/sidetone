@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { Utterance } from "../src/audio.ts";
 import { Ear, type EarOptions } from "../src/ear.ts";
 import { Measures } from "../src/measures.ts";
 import type { TurnGuess } from "../src/diagnostics.ts";
@@ -47,6 +48,7 @@ function room(score: ((pcm: Int16Array, rate: number) => Promise<TurnScore>) | n
     stopSpeaking: () => told.push("stop"),
     heard: async (text: string) => { told.push(`heard ${text}`); },
     heardNothing: () => told.push("nothing"),
+    retract: () => { told.push("retract"); return true; },
   };
   const ear = new Ear(to, transcribe, { ...OPTIONS }, measures, () => {}, guesses);
   return { told, lines, ear };
@@ -165,5 +167,87 @@ describe("the detector never holds up the ear (18.16)", () => {
     await settle(80);
     expect(lines.find((line) => line.outcome === "resumed")).toMatchObject({ text: null });
     expect(lines.find((line) => line.outcome === "ended")).toMatchObject({ text: "later" });
+  });
+});
+
+/**
+ * 18.18 the detector ends the turn at the tentative end. Speech that the
+ * bridge hears inside the join window retracts the turn, and the rest joins
+ * the first part as one utterance. After the window, or once the turn cannot
+ * go, it is a plain barge-in.
+ */
+describe("ending a turn on the guess (18.18)", () => {
+  /**
+   * The ear in "end" mode. Each transcription says how much speech it read, so
+   * a join shows. 400 ms of speech is a barge-in, so each test starts with a stop.
+   */
+  function ending(joinMs: number, options: { retract?: () => boolean; probability?: number; transcribe?: (utterance: Utterance) => Promise<string> } = {}) {
+    const told: string[] = [];
+    const lines: TurnGuess[] = [];
+    const guesses = new TurnGuesses(OPTIONS.sampleRate, (line) => lines.push(line), 50);
+    guesses.score = sure(options.probability ?? 0.9);
+    const to = {
+      isMuted: false,
+      cue: () => {},
+      stopSpeaking: () => told.push("stop"),
+      heard: async (text: string) => { told.push(`heard ${text}`); },
+      heardNothing: () => told.push("nothing"),
+      retract: () => { const gone = options.retract?.() ?? true; told.push(`retract ${gone}`); return gone; },
+    };
+    const transcribe = options.transcribe ?? (async (utterance: Utterance) => `${utterance.speechMs} ms of speech`);
+    const ear = new Ear(to, transcribe, { ...OPTIONS, turnDetector: "end", turnEndProbability: 0.5, turnJoinMs: joinMs }, new Measures(), () => {}, guesses);
+    return { told, lines, ear };
+  }
+
+  test("the guess ends the utterance at the tentative end, not at the pause", async () => {
+    const { told, lines, ear } = ending(600);
+    await play(ear, [...speech(20), ...quiet(12)]);
+    await settle(10);
+    // 240 ms of quiet, where the pause is 900
+    expect(told).toEqual(["stop", "heard 400 ms of speech"]);
+    expect(lines).toMatchObject([{ probability: 0.9, outcome: "ended", endedBy: "detector" }]);
+  });
+
+  test("a guess under the threshold leaves the utterance to the pause", async () => {
+    const { told, ear } = ending(600, { probability: 0.3 });
+    await play(ear, [...speech(20), ...quiet(20)]);
+    await settle(10);
+    expect(told).toEqual(["stop"]);
+    await play(ear, quiet(30));
+    await settle(10);
+    expect(told).toEqual(["stop", "heard 400 ms of speech"]);
+  });
+
+  test("a resume inside the window retracts the turn and sends one utterance, joined", async () => {
+    const { told, ear } = ending(600);
+    // the bridge hears him again 360 ms after his last word: 300 of quiet and the onset
+    await play(ear, [...speech(20), ...quiet(15), ...speech(10), ...quiet(50)]);
+    await settle(10);
+    expect(told).toEqual(["stop", "heard 400 ms of speech", "retract true", "heard 600 ms of speech"]);
+  });
+
+  test("a resume after the window is a barge-in, and a new utterance", async () => {
+    const { told, ear } = ending(250);
+    await play(ear, [...speech(20), ...quiet(15), ...speech(25), ...quiet(50)]);
+    await settle(10);
+    expect(told).toEqual(["stop", "heard 400 ms of speech", "stop", "heard 500 ms of speech"]);
+  });
+
+  test("a turn that has spoken is not retracted: the resume is a barge-in", async () => {
+    const { told, ear } = ending(600, { retract: () => false });
+    await play(ear, [...speech(20), ...quiet(15), ...speech(25), ...quiet(50)]);
+    await settle(10);
+    expect(told).toEqual(["stop", "heard 400 ms of speech", "retract false", "stop", "heard 500 ms of speech"]);
+  });
+
+  test("words still being read when he goes on reach nobody: the joined utterance carries them", async () => {
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const { told, ear } = ending(600, { transcribe: async (utterance) => { if (utterance.speechMs === 400) await gate; return `${utterance.speechMs} ms of speech`; } });
+    await play(ear, [...speech(20), ...quiet(15), ...speech(10)]);
+    release();
+    await play(ear, quiet(50));
+    await settle(10);
+    expect(told).toEqual(["stop", "heard 600 ms of speech"]);
   });
 });

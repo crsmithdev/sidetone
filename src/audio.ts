@@ -152,8 +152,8 @@ export interface Utterance {
   peak: number;
   /** quiet before this one began, which is the pause that ended the one before */
   gapMs: number;
-  /** what finished it: the end-of-turn pause, or the stream ending */
-  endedBy: "pause" | "flush";
+  /** what finished it: the end-of-turn pause, the stream ending, or 18.18 the turn detector */
+  endedBy: "pause" | "flush" | "detector";
   /**
    * 18.4 the quiet at its end. Chris stopped this long before the bridge
    * could tell: the pause in force for a pause, and whatever quiet came
@@ -167,6 +167,28 @@ export interface Utterance {
    * drive can say how often that would happen before any detector is built.
    */
   falseEnds: number;
+}
+
+/**
+ * 18.18 two utterances as one: the first, which the turn detector ended, and
+ * the rest, which Chris said inside the join window. The quiet between them
+ * is not kept.
+ */
+export function joinUtterances(first: Utterance, rest: Utterance): Utterance {
+  const samples = new Int16Array(first.samples.length + rest.samples.length);
+  samples.set(first.samples);
+  samples.set(rest.samples, first.samples.length);
+  return {
+    samples,
+    ms: first.ms + rest.ms,
+    speechMs: first.speechMs + rest.speechMs,
+    peak: Math.max(first.peak, rest.peak),
+    gapMs: first.gapMs,
+    endedBy: rest.endedBy,
+    quietMs: rest.quietMs,
+    // the detector end was a false end too
+    falseEnds: first.falseEnds + rest.falseEnds + 1,
+  };
 }
 
 /**
@@ -288,7 +310,17 @@ export class Utterances {
     return this.snapshot("pause");
   }
 
-  private snapshot(endedBy: "pause" | "flush"): Utterance {
+  /**
+   * 18.18 the turn detector says the turn is over: the utterance ends now, at
+   * the tentative end, and not at the pause. Null when speech came back after
+   * the tentative end, or the hold to talk button is down.
+   */
+  endByDetector(): Utterance | null {
+    if (!this.speaking || !this.tentativeTaken || this.held) return null;
+    return this.finish("detector");
+  }
+
+  private snapshot(endedBy: Utterance["endedBy"]): Utterance {
     return {
       samples: concat(this.recording),
       ms: Math.round(this.ranMs),
@@ -301,7 +333,7 @@ export class Utterances {
     };
   }
 
-  private finish(endedBy: "pause" | "flush"): Utterance {
+  private finish(endedBy: Utterance["endedBy"]): Utterance {
     const utterance = this.snapshot(endedBy);
     this.reset();
     return utterance;

@@ -418,6 +418,7 @@ describe("one microphone track per participant (18.9.7)", () => {
       stopSpeaking: () => told.push("stop"),
       heard: async (text) => { told.push(`heard ${text}`); },
       heardNothing: () => told.push("nothing"),
+      retract: () => false,
     }, async () => "right now", {
       sampleRate: RATE, endOfTurnPauseMs: 900, speechOnsetMs: 50, speechLevel: 0.02,
       bargeInLevel: 0.05, bargeInMs: 400, bargeInGapMs: 120, minSpeechPeak: 0.15, earlyTranscribeMs: 200,

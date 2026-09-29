@@ -36,6 +36,7 @@ function listener(muted = false) {
     stopSpeaking: () => told.push("stop"),
     heard: async (text: string) => { told.push(`heard ${text}`); },
     heardNothing: () => told.push("nothing"),
+    retract: () => { told.push("retract"); return true; },
   };
 }
 

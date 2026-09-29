@@ -70,11 +70,15 @@ export class TurnGuesses {
     private readonly waitMs = GUESS_WAIT_MS,
   ) {}
 
-  /** A tentative end: ask the model, and never wait for it. `text` is the early transcription. */
-  tentative(utterance: Utterance, text: Promise<string | null>, at = Date.now()): void {
+  /**
+   * A tentative end: ask the model, and never wait for it. `text` is the early
+   * transcription. The guess, for 18.18 to act on; null with the detector off.
+   */
+  tentative(utterance: Utterance, text: Promise<string | null>, at = Date.now()): Promise<TurnScore | null> | null {
     const score = this.score;
-    if (!score) return;
+    if (!score) return null;
     this.open = { at, quietMs: utterance.quietMs, score: this.ask(score, utterance.samples), text };
+    return this.open.score;
   }
 
   private ask(score: (pcm: Int16Array, rate: number) => Promise<TurnScore>, samples: Int16Array): Promise<TurnScore | null> {
@@ -95,8 +99,8 @@ export class TurnGuesses {
     this.close({ outcome: "resumed", resumedAfterMs: afterMs });
   }
 
-  /** The utterance ended on this pause, or on a release. */
-  ended(endedBy: "pause" | "flush"): void {
+  /** The utterance ended on this pause, on a release, or 18.18 on this guess. */
+  ended(endedBy: Utterance["endedBy"]): void {
     this.close({ outcome: "ended", endedBy });
   }
 

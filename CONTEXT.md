@@ -258,8 +258,20 @@ A tentative end that Chris then talks through. The journal counts them on each l
 _Avoid_: a false stop, a cut-off.
 
 **The turn detector**:
-The part that guesses at each tentative end whether Chris has finished. It runs in shadow and writes a `turnGuess` line to the record (spec 18.16).
+The part that guesses at each tentative end whether Chris has finished. It runs in shadow by default and writes a `turnGuess` line to the record (spec 18.16).
 _Avoid_: the endpointer, the end-of-speech model.
+
+**A detector end**:
+An utterance that the turn detector ended at a tentative end, without the end-of-turn pause (`endedBy: "detector"`, spec 18.18). Only `turnDetector: "end"` makes one.
+_Avoid_: an early end, an early cut.
+
+**The join window**:
+The quiet after a detector end, up to `turnJoinMs` from Chris's last word, in which more speech retracts the turn and joins the two utterances into one (spec 18.18).
+_Avoid_: the grace period, the undo window.
+
+**To retract a turn**:
+To cancel the turn that a detector end started, before its voice starts or it runs a tool that changes something. The answer goes and the agent gets an interrupt (spec 18.18).
+_Avoid_: to undo, to roll back.
 
 **A kept line**:
 A short line the bridge makes once, checks, and keeps on disk under `~/.sidetone/spoken/`. `bun src/main.ts warm` makes each kept line that is missing.

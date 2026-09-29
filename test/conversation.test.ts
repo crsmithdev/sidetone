@@ -1016,3 +1016,86 @@ describe("the transcription card of test 17 (items 65, 67)", () => {
     expect(card()).toHaveLength(2);
   });
 });
+
+/**
+ * 18.18 the ear asks to retract a turn that the detector ended too soon. It
+ * goes only when it started from the last thing heard, its voice has not
+ * started, and it ran no tool that changes something.
+ */
+describe("retracting a turn (18.18)", () => {
+  /** A turn that runs until the agent takes the interrupt, and what the agent did in it first. */
+  function running(during?: Script["during"]) {
+    let end = () => {};
+    const hold = new Promise<void>((resolve) => { end = resolve; });
+    return room({}, { hold, during, onInterrupt: () => end() });
+  }
+  const asked = (r: ReturnType<typeof room>) => r.agent.calls.filter((call) => call.startsWith("ask ") || call === "interrupt");
+
+  test("a turn with no voice yet goes, and the joined words are one new turn that says so", async () => {
+    const r = running();
+    await r.c.heard("what is the");
+    await tick();
+    expect(r.c.ears.retract()).toBe(true);
+    await r.c.heard("what is the tallest bridge");
+    await tick();
+    await settled();
+    const calls = asked(r);
+    expect(calls).toHaveLength(3);
+    expect(calls[0]).toEndWith("what is the");
+    expect(calls[1]).toBe("interrupt");
+    expect(calls[2]).toContain("sent the start of this message too soon");
+    expect(calls[2]).toEndWith("what is the tallest bridge");
+    expect(r.said).not.toContain("That turn did not finish.");
+    expect(r.journal).toContain("[the bridge retracted the turn: Chris went on talking]");
+  });
+
+  test("a turn retracted before it reached the agent never reaches it, and the words after it are one turn", async () => {
+    // the process takes a while to end a turn after the interrupt, as a real one does
+    let end = () => {};
+    const r = room({}, { hold: new Promise<void>((resolve) => { end = resolve; }) });
+    await r.c.heard("what is the");
+    await tick();
+    expect(r.c.ears.retract()).toBe(true);
+    // the joined words wait for the first turn to end, and Chris goes on again
+    await r.c.heard("what is the tallest");
+    await tick();
+    expect(r.c.ears.retract()).toBe(true);
+    end();
+    await r.c.heard("what is the tallest bridge");
+    await tick();
+    await settled();
+    const calls = asked(r);
+    expect(calls).toHaveLength(3);
+    expect(calls[0]).toEndWith("what is the");
+    expect(calls[1]).toBe("interrupt");
+    expect(calls[2]).toContain("sent the start of this message too soon");
+    expect(calls[2]).toEndWith("what is the tallest bridge");
+  });
+
+  test("a turn whose voice started stays", async () => {
+    const r = running((hooks) => hooks.onDelta?.("The first sentence. "));
+    await r.c.heard("what is the");
+    await tick();
+    expect(r.said).toEqual(["The first sentence."]);
+    expect(r.c.ears.retract()).toBe(false);
+    expect(r.agent.calls).not.toContain("interrupt");
+  });
+
+  test("a turn that ran a tool that changes something stays; one that only read goes", async () => {
+    const tool = (name: string): Script["during"] => (hooks) => hooks.onEvent?.({ kind: "toolStart", id: "t1", tool: name, parentId: null });
+    const edited = running(tool("Edit"));
+    await edited.c.heard("fix the");
+    await tick();
+    expect(edited.c.ears.retract()).toBe(false);
+    const read = running(tool("Read"));
+    await read.c.heard("read the");
+    await tick();
+    expect(read.c.ears.retract()).toBe(true);
+  });
+
+  test("words that started no turn have nothing to retract", async () => {
+    const r = running();
+    await r.c.heard("sidetone mute");
+    expect(r.c.ears.retract()).toBe(false);
+  });
+});

@@ -17,7 +17,7 @@ import { handoffOf, pickupOf, type ProjectFiles } from "../src/project.ts";
 import { SentClips } from "../src/sent.ts";
 import type { TurnDetector } from "../src/speech.ts";
 import { fakeClock, finish, pass, settle, until } from "./clock.ts";
-import { bridge, projectFiles } from "./harness.ts";
+import { bridge, projectFiles, RATE } from "./harness.ts";
 
 fakeClock();
 const tick = settle;
@@ -414,6 +414,39 @@ describe("the turn detector in shadow (18.16)", () => {
     await tick();
     expect(started).toBe(0);
     expect(r.journal.some((line) => line.startsWith("[turn detector"))).toBe(false);
+  });
+});
+
+/**
+ * 18.18 the detector ends a turn, and Chris goes on inside the window: the
+ * whole path from frames to the agent, with the real ear and conversation.
+ */
+describe("the turn detector ending turns (18.18)", () => {
+  const scores = (probability: number): TurnDetector => ({ start: async () => {}, loadSeconds: 0.4, score: async () => ({ probability, inferenceMs: 12 }), stop: () => {} });
+
+  test("the first part goes to the agent, the resume retracts it, and the joined words are one turn", async () => {
+    let end = () => {};
+    const hold = new Promise<void>((resolve) => { end = resolve; });
+    const r = bridge({ turn: scores(0.9), overrides: { turnDetector: "end", turnJoinMs: 1_500 }, script: { hold, onInterrupt: () => end() } });
+    await tick();
+    expect(r.journal).toContain("[turn detector ending turns, loaded in 0.4s]");
+    // half a second of speech is the first part; more than that is the whole
+    r.stt.transcribe = async (wav) => decodeWav(await Bun.file(wav).bytes()).samples.length > RATE ? "what is the tallest bridge" : "what is the";
+    /** Frames at a level, one at a time, so the guess and the transcription land between them. */
+    const say = async (level: number, ms: number) => {
+      for (let i = 0; i < ms / 20; i++) { r.ear.frame(new Int16Array(320).fill(Math.round(level * 32768))); await pass(2); }
+    };
+    await say(0.4, 500);
+    await say(0.001, 600);
+    await until(() => r.agent.calls.some((call) => call.endsWith("what is the")));
+    await say(0.4, 500);
+    await say(0.001, 1_600);
+    await until(() => r.agent.calls.some((call) => call.endsWith("what is the tallest bridge")));
+    const calls = r.agent.calls.filter((call) => call.startsWith("ask ") || call === "interrupt");
+    expect(calls).toHaveLength(3);
+    expect(calls[1]).toBe("interrupt");
+    expect(calls[2]).toContain("sent the start of this message too soon");
+    expect(r.measures.recent().find((event) => event.kind === "turnGuess")).toMatchObject({ outcome: "ended", endedBy: "detector" });
   });
 });
 

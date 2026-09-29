@@ -58,6 +58,18 @@ export class Answers {
     this.latest++;
   }
 
+  /**
+   * 18.18 the turn of `answer` is retracted: Chris had not finished. No
+   * answer owns the mouth and no turn runs, so what he says next is a new
+   * turn, and the retracted one ends in silence.
+   */
+  retract(answer: Answer): void {
+    if (!this.owns(answer)) return;
+    this.latest++;
+    this.words = null;
+    this.running = false;
+  }
+
   owns(answer: Answer): boolean {
     return this.owner(answer.id);
   }

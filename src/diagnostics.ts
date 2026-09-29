@@ -25,7 +25,7 @@ export interface Heard {
   peak: number;
   /** the quiet before it, which is the pause that ended the one before */
   gapMs: number;
-  endedBy: "pause" | "flush";
+  endedBy: "pause" | "flush" | "detector";
   /** quiet stretches inside it that speech went on after: where a shorter pause would have cut it */
   falseEnds: number;
   /** what the engine made of it, and how long that took */
@@ -98,13 +98,14 @@ export interface Track { kind: "track"; at: number; what: "music" | "file"; on: 
  * happened. `at` is the tentative end. `probability` and `inferenceMs` are
  * null when the worker gave no answer in time. `quietMs` is the quiet at the
  * guess. `resumed` means speech came back after `resumedAfterMs` of quiet;
- * `ended` means the utterance ended on this pause or on a release (`endedBy`);
+ * `ended` means the utterance ended on this pause, on a release, or 18.18 on
+ * this guess (`endedBy`);
  * `cut` means the microphone was cut and the recording dropped. `text` is what
  * the early transcription made of the audio the guess saw, or null.
  */
 export interface TurnGuess {
   kind: "turnGuess"; at: number; probability: number | null; inferenceMs: number | null; quietMs: number;
-  outcome: "resumed" | "ended" | "cut"; resumedAfterMs?: number; endedBy?: "pause" | "flush"; text: string | null;
+  outcome: "resumed" | "ended" | "cut"; resumedAfterMs?: number; endedBy?: "pause" | "flush" | "detector"; text: string | null;
 }
 export type Event = Heard | Matched | Barged | Answered | Cutoff | Spoke | Note | Setting | Track | Echo | Device | SetupPushed | TurnGuess;
 
