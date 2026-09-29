@@ -798,7 +798,7 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 
 17.16.1 The text is the status word, then what is cut, then the working sign (17.11), joined by " · ". An example is "listening · mic off · working". A stalled bridge (17.11.3) is the status word "stalled", so the text starts with it and the sign adds no word.
 
-17.16.2 The buttons are "Mic off" or "Mic on", "Audio off" or "Audio on", and "End turn". Each does what the same control in the app does (9.5, 17.10, 9.4.8). "End turn" shows only while the app is in the room.
+17.16.2 The buttons are "Mic off" or "Mic on", "Audio off" or "Audio on", and "End turn". "Mic" and "Audio" each do what the same control in the app does (9.5, 17.10). "End turn" sends the words of the end turn command (4.3.2, 9.4.8). The app screen has no end turn button. "End turn" shows only while the app is in the room.
 
 17.16.3 The channel has default importance, with no sound and no vibration, so that the phone does not hide it as a silent notification. The notification alerts only once. It stays for as long as the app is in the room. A leave (17.11.10) takes it, because no room holds the microphone.
 

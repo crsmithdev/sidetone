@@ -318,7 +318,7 @@ that window got no protocol, no history, and its microphone cut was dropped.
 **Do.** After the restart of test 8, reopen the app within five seconds,
 before the bridge can hear.
 
-**Pass.** The End the turn button is enabled at once and the earlier turns
+**Pass.** The notification shows "End turn" at once and the earlier turns
 appear on the screen, before `[turn` lines resume in the journal. The first
 thing you say once the engines are warm is heard.
 
