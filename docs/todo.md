@@ -909,7 +909,7 @@ today.
 id: 55
 status: open
 created: 2026-09-26
-updated: 2026-09-26
+updated: 2026-09-29
 priority: medium
 labels: []
 ---
@@ -998,6 +998,10 @@ tool call takes the tool time off `agentMs`. In Langfuse, the time from the
 end of a model call to the start of its tool is 0.48 s median (p90 2.9 s,
 104 calls in sessions 79c65674 and 6df73db9). This time is before the tool
 runs, and nothing explains it yet. It is a follow-up, not part of this item.
+
+### Notes
+
+- 2026-09-29 13:19: 29 Sep: Chris agreed to both fixes. Job agent-settings adds the model and effort settings (drive with medium checks answer quality). Job fork-slow builds the session fork.
 
 ## 56. Can correct audio arrive distorted from the connection or the transport?
 ---
@@ -1681,3 +1685,23 @@ labels: [voice, design]
 ### Notes
 
 - 2026-09-29 11:52: Noted 29 September 2026. Chris wants the verbosity of job news and similar notifications set apart from the verbosity of answers. To design later.
+
+## 77. Project switching: Chris says 'switch to project X' and the agent applies that project's context to every later turn until he switches again. Needs design: how the bridge stores the active project, and how it differs from per-message context.
+---
+id: 77
+status: open
+created: 2026-09-29
+updated: 2026-09-29
+priority: medium
+labels: [design]
+---
+
+## 78. File preview in the app: when the agent talks about a file (for example a CLAUDE.md to pare down), the app shows that file on screen so Chris can read it while he listens. Needs design: how the agent names the file to show, how the bridge sends it, and how the app renders it.
+---
+id: 78
+status: open
+created: 2026-09-29
+updated: 2026-09-29
+priority: medium
+labels: [design, app]
+---
