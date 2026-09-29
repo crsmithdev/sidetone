@@ -1578,13 +1578,14 @@ car or in a recorded sample.
 ### Notes
 
 - 2026-09-29 08:15: 29 September 2026, job fade-inverse. The bridge output is correct. A scratch run sent a real track (Summer Madness, gain 0.4, 48 kHz) through wavFromFile, fadeIn, encodeWav, decodeWav, resample and frameAt, as Mouth.music and Transport.frames do. RMS in 50 ms windows, first start: 0.0000, 0.0005, 0.0068, 0.0152, then 0.009 to 0.015 to 2 s. Resume at 30 s: 0.0055, 0.0152, 0.0586, 0.0681, then 0.03 to 0.08, the track's own level. Past 150 ms each window equals the track's own. The fade out of 15.10.2 does not start, because Mouth.music starts a track only when nothing is busy. Nothing falls after the start in the bridge. Second finding: five of the eight tracks open with 200 to 650 ms of silence (Let It Flow 650, Soulful Strut 550, Meditation 500, Feels So Good 300, Songbird 200). On a first start the 150 ms fade falls on the silence, and the music enters at full level. Likely cause downstream: a gain control on the received audio, in the car's hands-free unit or in the phone's call-mode downlink. It raises its gain through the silence, lets the first loud frames through, then turns the level down over about a second. The WebRTC gain control in Audio.kt acts on the microphone only, not on the received audio. Proposed fix, not built: (1) start the fade at the first sound of the track, not at sample 0, by skipping leading silence below about 0.003 RMS; (2) make holdMusicFadeInMs about 1500, so the level rises slower than the gain control falls. Checks before the build: set holdMusicFadeInMs to 1500 in ~/.sidetone/config.json, restart the bridge, and listen in the car; then listen on the phone's own speaker without the car. If it rises on the phone and falls in the car, the car causes it.
+- 2026-09-29 09:22: 29 September 2026, job fade-inverse, second run. The transport does not cause it either. scripts/hold-level.ts (7e12bfa) plays Summer Madness through a real Mouth.music and a real Transport in a room of its own, and a second Transport receives it as the phone does. Received RMS equals sent RMS to within the codec's error, for the first start (0.0000, 0.0005, 0.0060, 0.0146, then 0.009 to 0.015) and for a resume (0.0086, 0.0200, 0.0282, 0.0334, then the track's own 0.02 to 0.07). No window falls after the start in the bridge or on the wire. So the cause is after the transport: the phone's call-mode playback (VoIP downlink processing in the audio HAL under MODE_IN_COMMUNICATION) or the car's hands-free unit (downlink gain control or noise suppression, which takes steady music for noise and turns it down over about a second). The WebRTC gain control in Audio.kt acts on the microphone only. Also, a 150 ms rise is too short to hear as a rise; it is heard as the onset. Proposed fix, not built: skip leading silence below about 0.003 RMS before the fade, and make holdMusicFadeInMs about 1500 so the level rises slower than a downstream gain control falls. The phone's audio setup stays as it is (item 26). Desk test: (1) Restart the bridge, so the first hold track is the first in file-name order, Feels So Good. (2) Phone on the desk, Bluetooth off, the app on its loudspeaker, call volume at the middle. Laptop microphone 30 cm from the phone, the room quiet. (3) Say: run sleep 40 in the shell, then tell me it finished. (4) When the bridge stops speaking, start Windows Sound Recorder; the music starts about 8 s later. Stop the recording 5 s after the music starts. (5) Run: bun scripts/hold-level.ts --wav '/mnt/c/Users/<you>/Documents/Sound recordings/<file>.m4a' --track 'Feels So Good'. The ratio column is the recording over what the bridge sends, scaled to a median of 1. A ratio that stays near 1 means the phone plays the start as sent, and the car causes it. A ratio that starts high and falls through the first second means the phone's call-mode path causes it. For a check in the car, set holdMusicFadeInMs to 1500 in ~/.sidetone/config.json and restart the bridge.
 
 ## 71. Look at how the transcription card works
 ---
 id: 71
-status: open
+status: done
 created: 2026-09-28
-updated: 2026-09-28
+updated: 2026-09-29
 priority: medium
 labels: []
 ---
@@ -1617,3 +1618,45 @@ The vault note is "The Transcription Card Takes Every Utterance Until
 Unmute".
 
 Done when each of the three has a fix or a reason to leave it.
+
+### Notes
+
+- 2026-09-29 10:59: Closed at Chris's request on 29 September after the card ran and whisper-scores landed. The three findings were not changed in code; unmute is still the only way out.
+
+## 73. Switch sttModel to medium.en (5.3% word error rate vs 8.2% for small.en) and check it in the car; see docs/whisper-scores.md on job/whisper-scores
+---
+id: 73
+status: open
+created: 2026-09-29
+updated: 2026-09-29
+priority: medium
+labels: [stt, voice]
+---
+
+## 74. Warm the STT worker up on speech, not silence: vad_filter removes the silence, so the first utterance after a restart pays 330-770 ms
+---
+id: 74
+status: open
+created: 2026-09-29
+updated: 2026-09-29
+priority: medium
+labels: [stt, latency]
+---
+
+### Notes
+
+- 2026-09-29 11:09: Measured 29 September 2026, small.en on the card, 6 worker restarts, 12 clips from ~/.sidetone/heard. Each restart sends clip X, clip Y, X again, Y again; the penalty is X first minus X again. Before (warmup on silence with vad_filter=True): the warmup took 0.03 s and did no GPU work; cuBLAS was not even loaded. First utterance 612-804 ms, the same clip again 99-229 ms, penalty 498-575 ms, median 543 ms. After (warmup with vad_filter=False, word_timestamps=True and the initial prompt): the warmup takes 0.53-0.67 s. First utterance 139-274 ms, the same clip again 94-203 ms, penalty 21-71 ms, median 50 ms. A second warmup through a wav file cut the median to 34 ms, inside the noise, so it is not in.
+
+## 75. Delete the scored clips in ~/.sidetone/heard/ once whisper-scores is landed, as test 17 says
+---
+id: 75
+status: dropped
+created: 2026-09-29
+updated: 2026-09-29
+priority: medium
+labels: [stt, privacy]
+---
+
+### Notes
+
+- 2026-09-29 10:58: Chris keeps the clips in ~/.sidetone/heard/ for future use

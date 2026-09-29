@@ -26,9 +26,15 @@ def main() -> None:
     prompt = (sys.argv[3] if len(sys.argv) > 3 else "") or None
     model = WhisperModel(model_name, device="cuda", compute_type="float16", download_root=root)
 
-    # the warmup transcription, on a second of silence, so the first real one is fast
+    # the warmup transcription, so the first real one is fast. It runs without
+    # vad_filter: the filter removes a second of silence before the model sees
+    # it, the warmup then loads nothing onto the card, and the first utterance
+    # after a restart paid about half a second (item 74).
     started = time.time()
-    list(model.transcribe(np.zeros(16_000, dtype=np.float32), beam_size=1, vad_filter=True)[0])
+    list(model.transcribe(
+        np.zeros(16_000, dtype=np.float32), beam_size=1, vad_filter=False, word_timestamps=True,
+        initial_prompt=prompt,
+    )[0])
     worker.reply(ready=True, model=model_name, warmup_seconds=round(time.time() - started, 2))
 
     def handle(request: dict) -> dict:
