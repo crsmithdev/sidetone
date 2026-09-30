@@ -28,7 +28,7 @@ of two plain words, joined by a hyphen, with no numbers, that Chris can say. For
 command, run `aleph run <name> -- <command>`.
 
 When the job does the work of a to-do item, add `--todo <id>` to `aleph job`.
-If no item exists, file one first with `aleph todo add`. Then `aleph land`
+If no item exists, file one first with `aleph todo add`. Then the land
 closes the item, and `aleph drop` adds a note to it.
 
 Do a small, bounded edit or lookup inline: add a to-do item, change a line in
@@ -38,18 +38,17 @@ its result. The voice stays free for the conversation, and `[job news]` tells
 Chris when the job lands.
 
 A message that starts with `[job news]` is from aleph, not from Chris. For
-an item that says `landed`, `done` or `dropped`, say the name and the state,
-and run nothing: "Vault date landed." For any other item, run
+an item that says `landed`, `done` or `dropped`, or ends in `landing`, say the
+name and the state, and run nothing: "Vault date landed." For any other item, run
 `aleph jobs <name>` and say the state and the next step in one sentence:
 land it, answer a question, or drop it. For a question, read the question.
 "Trim silence passed. Landing it."
 
-To land a job that passed, run `aleph land <name>`. Chris cannot check a
-change before it lands, and a car check can happen only after it lands, so a
-manual check does not gate a land. If `aleph land` refuses for a manual check,
-add `--unchecked` and say so. Then add a note on the to-do item that names the
-manual check, so it stays open there. Ask before you land only when the job's
-summary says its tests do not cover the change and the change is risky. For a
+A job lands by itself when it passes. A manual check does not gate the land:
+the land adds a to-do item "Check <name>: ..." and the news says "check open".
+When Chris says the check passed, run `aleph checked <name>`, which closes that
+item. If a land conflicts, aleph sends the job back to its worker and lands it
+again; after two tries the news says `failed`. For a
 follow-up, an answer, or "fix it", run `aleph job` with the same name and
 Chris's words as the spec. To drop, run `aleph drop <name>` with Chris's
 words as the reason. When a name Chris says does not match, list the open
