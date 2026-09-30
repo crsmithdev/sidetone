@@ -857,9 +857,9 @@ full level. Chris heard it on the phone.
 ## 54. End a turn before the 1.5 s pause
 ---
 id: 54
-status: open
+status: done
 created: 2026-09-26
-updated: 2026-09-26
+updated: 2026-09-29
 priority: medium
 labels: []
 ---
@@ -903,6 +903,11 @@ shadow data of part a.
 Done when the drive of part a gives a verdict, and the chosen part is on
 `main` with a drive that shows a shorter pause and no more cut-off turns than
 today.
+
+### Notes
+
+- 2026-09-29 15:41: Part b built on job/retract-join, not landed: turnDetector "end" with turnEndProbability (0.8) and turnJoinMs (1,500 ms), spec 18.18. Replay (bun scripts/turn-replay.ts, 29 September, 998 guesses: 390 pause ends, 601 resumes): at 0.8 and 1,500 ms, 69% of pause ends end early, median pause saved 988 ms, 138 joins (one cancelled agent start each), 2 cut-offs; round trip saved 676 ms per pause end, or about 523 ms if the early transcription takes 345 ms. At 0.5: 78%, 159 joins. At 0.9: 65%, 120 joins. A window shorter than the pause turns joins into cut-offs (0.8 at 900 ms: 60 cut-offs). The record cannot show resumes after 1.5 s, the early transcription time, join quality, or the cost of an interrupt. About 7% of agent turns speak within 1 s, where a resume is a barge-in. Next: a drive with turnDetector end.
+- 2026-09-29 16:07: job retract-join landed as e5dfec6
 
 ## 55. About a second of the agent's time is not the model
 ---
@@ -1294,7 +1299,7 @@ on. The tests cover the timing; Chris has not heard it in the room yet.
 ## 72. Keep the session context across a service restart
 ---
 id: 72
-status: open
+status: done
 created: 2026-09-28
 updated: 2026-09-29
 priority: medium
@@ -1327,6 +1332,7 @@ restart and how, or the item is dropped with a reason.
 - 2026-09-29 00:52: Renumbered from 67 to 72; 67 was taken by the transcription card item, which has 67b sub-parts in b4eda34 and 77a7a74. Commit e1821cf calls this item 67.
 - 2026-09-29 11:49: Checked the skills 29 September. Changed in aleph: /aleph:handoff and /aleph:pickup take an optional name (the bridge uses sidetone), so the bridge file is ~/.aleph/handoffs/sidetone.md and cannot collide with a typed session; with a name the handoff ends with 'Handoff saved to <path>.' and no /clear line. The handoff must run as a turn in the live session, because it writes from the conversation. ExecStop= cannot do it; the SIGTERM handler in src/serve.ts must send the turn and wait inside systemd's stop timeout.
 - 2026-09-29 11:56: Built on job/restart-context 29 September: keepContext (default true); SIGTERM leaves the room, then a quiet turn /aleph:handoff sidetone with a 150 s limit; a start sends /aleph:pickup sidetone when ~/.aleph/handoffs/sidetone.md exists; a running turn is interrupted first; TimeoutStopSec=180 (installed unit updated). Spec 8.12. Tests in test/bridge.test.ts. Checked: claude -p on stream-json runs /aleph:pickup <name>. Manual check left: restart the service, then ask what we were talking about.
+- 2026-09-29 15:27: Chris restarted the service and the agent kept the context (29 September 2026, 73d51d3).
 
 ## 67. The card gets ahead of Chris, and a card of plain sentences
 ---
@@ -1555,7 +1561,7 @@ and the cause is named.
 ## 70. The hold music fades the wrong way round
 ---
 id: 70
-status: open
+status: done
 created: 2026-09-28
 updated: 2026-09-29
 priority: medium
@@ -1587,6 +1593,7 @@ car or in a recorded sample.
 - 2026-09-29 08:15: 29 September 2026, job fade-inverse. The bridge output is correct. A scratch run sent a real track (Summer Madness, gain 0.4, 48 kHz) through wavFromFile, fadeIn, encodeWav, decodeWav, resample and frameAt, as Mouth.music and Transport.frames do. RMS in 50 ms windows, first start: 0.0000, 0.0005, 0.0068, 0.0152, then 0.009 to 0.015 to 2 s. Resume at 30 s: 0.0055, 0.0152, 0.0586, 0.0681, then 0.03 to 0.08, the track's own level. Past 150 ms each window equals the track's own. The fade out of 15.10.2 does not start, because Mouth.music starts a track only when nothing is busy. Nothing falls after the start in the bridge. Second finding: five of the eight tracks open with 200 to 650 ms of silence (Let It Flow 650, Soulful Strut 550, Meditation 500, Feels So Good 300, Songbird 200). On a first start the 150 ms fade falls on the silence, and the music enters at full level. Likely cause downstream: a gain control on the received audio, in the car's hands-free unit or in the phone's call-mode downlink. It raises its gain through the silence, lets the first loud frames through, then turns the level down over about a second. The WebRTC gain control in Audio.kt acts on the microphone only, not on the received audio. Proposed fix, not built: (1) start the fade at the first sound of the track, not at sample 0, by skipping leading silence below about 0.003 RMS; (2) make holdMusicFadeInMs about 1500, so the level rises slower than the gain control falls. Checks before the build: set holdMusicFadeInMs to 1500 in ~/.sidetone/config.json, restart the bridge, and listen in the car; then listen on the phone's own speaker without the car. If it rises on the phone and falls in the car, the car causes it.
 - 2026-09-29 09:22: 29 September 2026, job fade-inverse, second run. The transport does not cause it either. scripts/hold-level.ts (7e12bfa) plays Summer Madness through a real Mouth.music and a real Transport in a room of its own, and a second Transport receives it as the phone does. Received RMS equals sent RMS to within the codec's error, for the first start (0.0000, 0.0005, 0.0060, 0.0146, then 0.009 to 0.015) and for a resume (0.0086, 0.0200, 0.0282, 0.0334, then the track's own 0.02 to 0.07). No window falls after the start in the bridge or on the wire. So the cause is after the transport: the phone's call-mode playback (VoIP downlink processing in the audio HAL under MODE_IN_COMMUNICATION) or the car's hands-free unit (downlink gain control or noise suppression, which takes steady music for noise and turns it down over about a second). The WebRTC gain control in Audio.kt acts on the microphone only. Also, a 150 ms rise is too short to hear as a rise; it is heard as the onset. Proposed fix, not built: skip leading silence below about 0.003 RMS before the fade, and make holdMusicFadeInMs about 1500 so the level rises slower than a downstream gain control falls. The phone's audio setup stays as it is (item 26). Desk test: (1) Restart the bridge, so the first hold track is the first in file-name order, Feels So Good. (2) Phone on the desk, Bluetooth off, the app on its loudspeaker, call volume at the middle. Laptop microphone 30 cm from the phone, the room quiet. (3) Say: run sleep 40 in the shell, then tell me it finished. (4) When the bridge stops speaking, start Windows Sound Recorder; the music starts about 8 s later. Stop the recording 5 s after the music starts. (5) Run: bun scripts/hold-level.ts --wav '/mnt/c/Users/<you>/Documents/Sound recordings/<file>.m4a' --track 'Feels So Good'. The ratio column is the recording over what the bridge sends, scaled to a median of 1. A ratio that stays near 1 means the phone plays the start as sent, and the car causes it. A ratio that starts high and falls through the first second means the phone's call-mode path causes it. For a check in the car, set holdMusicFadeInMs to 1500 in ~/.sidetone/config.json and restart the bridge.
 - 2026-09-29 11:10: 29 September 2026, job fade-skip. Built the proposed fix, not yet heard in the car. firstSound in src/mouth.ts skips the leading silence of each start (10 ms blocks at or below 0.003 RMS at the track's own level, so 0.0012 at gain 0.4), and the fade in starts at the first sound. The resume position counts from there. The default holdMusicFadeInMs is now 1500 (spec 15.10.4). scripts/hold-level.ts --track 'Let It Flow' --stop 10 (650 ms of silence in the file): the first start sends 0.0009, 0.0020, 0.0024, 0.0031, 0.0039, 0.0047 in the first 300 ms and rises to the track's own level by 1.5 s. Before, the first 650 ms were silence and the music entered at full level. Received equals sent within the codec's error. The script now sets audio true in its own Mouth, because the live config's audio false kept the track from starting. Open: the car check. Restart the bridge, remove any holdMusicFadeInMs from ~/.sidetone/config.json, and listen to the first start.
+- 2026-09-29 15:27: Chris heard the fade in the car 29 September 2026 and it is fixed (6cce27c).
 
 ## 71. Look at how the transcription card works
 ---
@@ -1648,7 +1655,7 @@ labels: [stt, voice]
 ## 74. Warm the STT worker up on speech, not silence: vad_filter removes the silence, so the first utterance after a restart pays 330-770 ms
 ---
 id: 74
-status: open
+status: done
 created: 2026-09-29
 updated: 2026-09-29
 priority: medium
@@ -1658,6 +1665,8 @@ labels: [stt, latency]
 ### Notes
 
 - 2026-09-29 11:09: Measured 29 September 2026, small.en on the card, 6 worker restarts, 12 clips from ~/.sidetone/heard. Each restart sends clip X, clip Y, X again, Y again; the penalty is X first minus X again. Before (warmup on silence with vad_filter=True): the warmup took 0.03 s and did no GPU work; cuBLAS was not even loaded. First utterance 612-804 ms, the same clip again 99-229 ms, penalty 498-575 ms, median 543 ms. After (warmup with vad_filter=False, word_timestamps=True and the initial prompt): the warmup takes 0.53-0.67 s. First utterance 139-274 ms, the same clip again 94-203 ms, penalty 21-71 ms, median 50 ms. A second warmup through a wav file cut the median to 34 ms, inside the noise, so it is not in.
+- 2026-09-29 15:38: 2026-09-29 check: speech/stt_worker.py:35 already warms with vad_filter=False and word_timestamps=True, the fix this item measured. It reached main in 1e6dd67. Waiting for Chris to confirm before closing.
+- 2026-09-29 15:41: The warmup in speech/stt_worker.py runs with vad_filter=False; it reached main in 1e6dd67.
 
 ## 75. Delete the scored clips in ~/.sidetone/heard/ once whisper-scores is landed, as test 17 says
 ---
@@ -1676,7 +1685,7 @@ labels: [stt, privacy]
 ## 76. A separate verbosity level for job news and other notifications
 ---
 id: 76
-status: open
+status: done
 created: 2026-09-29
 updated: 2026-09-29
 priority: medium
@@ -1686,21 +1695,31 @@ labels: [voice, design]
 ### Notes
 
 - 2026-09-29 11:52: Noted 29 September 2026. Chris wants the verbosity of job news and similar notifications set apart from the verbosity of answers. To design later.
+- 2026-09-29 15:38: 2026-09-29 decision with Chris: a separate setting for notifications with three levels. off says nothing. brief says only that a job started, finished or failed. full says everything, including the interim status.
+- 2026-09-29 15:47: job notify-verbosity landed as fd5a0ba
 
 ## 77. Project switching: Chris says 'switch to project X' and the agent applies that project's context to every later turn until he switches again. Needs design: how the bridge stores the active project, and how it differs from per-message context.
 ---
 id: 77
-status: open
+status: done
 created: 2026-09-29
 updated: 2026-09-29
 priority: medium
 labels: [design]
 ---
 
+### Notes
+
+- 2026-09-29 15:33: 2026-09-29 decisions with Chris: a switch restarts the agent with the project as its directory and resumes that project's own session. The active project lives in a bridge state file, and the handoff name is the project name (item 72). Project names come from the aleph repo registry; an unknown name is refused, and Chris adds a new project to the registry by hand or by asking the agent. The command is a Sidetone command, spoken as 'sidetone, switch to <project>', like 'sidetone, read the card'.
+- 2026-09-29 15:34: 2026-09-29 addition from Chris: a switch uses the handoff and pickup mechanism both ways. Leaving a project runs /aleph:handoff <project> in its session. Entering one runs /aleph:pickup <project>. So a rapid switch back and forth keeps each project's context. This reuses the item 72 code.
+- 2026-09-29 15:57: 2026-09-29 landed on the desk check: bun scripts/switch-check.ts passes 15 of 15 with a real bridge and a real claude -p agent. Still open for the car: whether whisper hears the project names; a real project's handoff and pickup and how long they take; the gap between 'Switching to' and 'Now in' (8 to 25 s at the desk with small scratch projects).
+- 2026-09-29 15:57: 2026-09-29 correction: the previous note said landed, but aleph land failed with a rebase conflict in docs/spec.md and src/conversation.ts, after notify-verbosity (fd5a0ba) landed first. The work is still on job/project-switch (fdb84d8), not on main.
+- 2026-09-29 16:00: job project-switch landed as 4c738ca
+
 ## 78. File preview in the app: when the agent talks about a file (for example a CLAUDE.md to pare down), the app shows that file on screen so Chris can read it while he listens. Needs design: how the agent names the file to show, how the bridge sends it, and how the app renders it.
 ---
 id: 78
-status: open
+status: done
 created: 2026-09-29
 updated: 2026-09-29
 priority: medium
@@ -1710,3 +1729,77 @@ labels: [design, app]
 ### Notes
 
 - 2026-09-29 13:48: Plan: the agent runs a command 'sidetone show <path>'; the bridge reads the file and sends the app a show message. Markdown and text render inline with Markdown.kt. A PDF is served by the bridge over HTTP and rendered with PdfRenderer. Each file shows as a card in the conversation, and a tap opens a full-screen viewer with pinch zoom, pan and page scroll. Read only. Images and editing are out of scope.
+- 2026-09-29 13:58: Built on job/file-viewer: sidetone show, POST /show, GET /shown/<id>, the card and the viewer (spec 17.23). Robolectric has no pdfium, so PdfPages is checked on the phone only.
+- 2026-09-29 14:01: job file-viewer landed as 3ee760c
+
+## 79. Keyboard open pushes the top of the app under the status bar
+---
+id: 79
+status: done
+created: 2026-09-29
+updated: 2026-09-29
+priority: medium
+labels: [android, bug]
+---
+
+### Notes
+
+- 2026-09-29 13:58: job keyboard-inset landed as 12af2ee
+
+## 80. After a switch of project (item 77), sidetone show still names a shown file by its path from the directory serve was given, not the active project (src/shown.ts, Shown.dir)
+---
+id: 80
+status: open
+created: 2026-09-29
+updated: 2026-09-29
+priority: medium
+labels: [bridge]
+---
+
+## 81. The wake-word hold takes three words at most, so 'sidetone' ... 'switch to cloud chamber' (four words) goes to the agent as speech (item 77, HOLD_WORDS in src/commands.ts)
+---
+id: 81
+status: open
+created: 2026-09-29
+updated: 2026-09-29
+priority: medium
+labels: [bridge]
+---
+
+## 82. A small performance check on each change, to catch improvements and regressions
+---
+id: 82
+status: open
+created: 2026-09-29
+updated: 2026-09-29
+priority: medium
+labels: [performance, tests]
+---
+
+### Notes
+
+- 2026-09-29 15:53: 2026-09-29 from Chris: run a small performance check, and only on changes, to see an improvement or a regression. Needs design: which measures (round trip, worker start, speech-to-text time), where the baseline is stored, and how the check runs without a phone.
+
+## 83. Chris to review the tones: end of turn, agent thinking, end of agent turn and the rest
+---
+id: 83
+status: open
+created: 2026-09-29
+updated: 2026-09-29
+priority: low
+labels: [tones, chris]
+---
+
+## 84. Bridge speaks a shutdown message, as it does at start: a fixed or pre-recorded phrase the bridge emits itself, not through the agent
+---
+id: 84
+status: open
+created: 2026-09-29
+updated: 2026-09-29
+priority: medium
+labels: [bridge, voice]
+---
+
+### Notes
+
+- 2026-09-29 16:06: Also check that the startup message works the same way: the bridge emits it itself, not through the agent.
