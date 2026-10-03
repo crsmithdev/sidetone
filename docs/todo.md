@@ -1641,9 +1641,9 @@ Done when each of the three has a fix or a reason to leave it.
 ## 73. Switch sttModel to medium.en (5.3% word error rate vs 8.2% for small.en) and check it in the car; see docs/whisper-scores.md on job/whisper-scores
 ---
 id: 73
-status: open
+status: done
 created: 2026-09-29
-updated: 2026-09-29
+updated: 2026-10-03
 priority: medium
 labels: [stt, voice]
 ---
@@ -1651,6 +1651,7 @@ labels: [stt, voice]
 ### Notes
 
 - 2026-09-29 11:09: Default switched to medium.en on job/medium-model. Measured 29 Sep through LocalWhisper on the RTX 5070: worker start (load + warmup) 4367 ms, warmup 0.02 s (it warms on silence, item 74). Last 10 clips in ~/.sidetone/heard: first decode 825 ms, then 176-341 ms, median 255 ms, worst 825 ms. SIDETONE_GPU=1 bun test speech.smoke: 10 pass. bun test: 977 pass, 0 fail. The car check stays open.
+- 2026-10-03 16:45: Car check passed (Chris, 3 Oct). Default is medium.en.
 
 ## 74. Warm the STT worker up on speech, not silence: vad_filter removes the silence, so the first utterance after a restart pays 330-770 ms
 ---
