@@ -11,7 +11,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { decodeWav } from "../src/audio.ts";
-import { STARTED } from "../src/bridge.ts";
+import { STARTED, STOPPING } from "../src/bridge.ts";
 import { DEFAULTS } from "../src/config.ts";
 import { handoffOf, pickupOf, type ProjectFiles } from "../src/project.ts";
 import { SentClips } from "../src/sent.ts";
@@ -79,6 +79,37 @@ describe("the bridge, assembled as the car assembles it", () => {
     r.channel.joined();
     await until(() => r.said.length > 0, 2_000);
     expect(r.said).toEqual([STARTED]);
+  });
+
+  test("item 84 a stop says it stops, shows it, and goes quiet after it", async () => {
+    const r = bridge();
+    await r.ready;
+    expect(await finish(r.farewell(1_000))).toBe(true);
+    expect(r.said).toEqual([STOPPING]);
+    expect(r.told).toContainEqual({ kind: "narration", text: STOPPING, announce: true });
+    expect(r.mouth.audioOn).toBe(false);
+  });
+
+  test("item 84 the stop line follows the sentence that plays, and drops the rest of the answer", async () => {
+    const r = bridge();
+    await r.ready;
+    r.blockSay(true);
+    r.mouth.say("The first sentence of the answer.");
+    r.mouth.say("The second sentence of the answer.");
+    await until(() => r.said.length > 0);
+    const done = r.farewell(1_000);
+    r.blockSay(false);
+    r.release();
+    expect(await finish(done)).toBe(true);
+    expect(r.said).toEqual(["The first sentence of the answer.", STOPPING]);
+  });
+
+  test("item 84 a stop line that cannot play gives up at the time it was given", async () => {
+    const r = bridge();
+    await r.ready;
+    r.blockSay(true);
+    expect(await finish(r.farewell(500), 2_000)).toBe(false);
+    r.release();
   });
 
   test("Chris speaking over the answer holds the rest of it (11.3, 11.9)", async () => {

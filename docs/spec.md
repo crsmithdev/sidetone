@@ -223,7 +223,7 @@ This repository is Sidetone. The earlier project bridge is on the
 
 8.12 The agent keeps its context across a restart of the bridge. Each start of the bridge starts a new agent process, and a new process has no context. So a stop asks the old agent for a handoff, and the next start gives it to the new agent.
 
-8.12.1 On SIGTERM or SIGINT the bridge leaves the room at once (17.11.11.4). Then it sends the agent one quiet turn, `/aleph:handoff <project>`, and waits for its result. `<project>` is the name of the active project (9.4.20), which is `sidetone` until Chris switches. The skill writes `~/.aleph/handoffs/<project>.md`. Then the bridge stops the agent and exits.
+8.12.1 On SIGTERM or SIGINT the bridge says that it stops (14.16.5) and leaves the room (17.11.11.4). Then it sends the agent one quiet turn, `/aleph:handoff <project>`, and waits for its result. `<project>` is the name of the active project (9.4.20), which is `sidetone` until Chris switches. The skill writes `~/.aleph/handoffs/<project>.md`. Then the bridge stops the agent and exits.
 
 8.12.2 A quiet turn is for the agent, not for Chris. Its words reach neither the voice nor the screen. A turn that Chris asks for while a quiet turn runs waits for it.
 
@@ -646,6 +646,8 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 
 14.16.4 A new process of the bridge says "Sidetone started." once, at the first moment when its workers are warm and a client is in the room. So a restart of the service is heard in the car, and Chris does not have to run `systemctl status`. A client that is in the room through the restart hears it when the workers are warm; when no client is there, the first client to join hears it. A rejoin of the same process is not a start and hears nothing. The line goes the way of a `/say` line (17.17.1): the voice says it when no turn runs and Chris does not talk, and the app shows it as a note and notifies it. It is a spoken line, not a cue, so the tones setting (15.4) does not turn it off: the cues say a state, and this line says an event that a click cannot name. With the audio off (11.12) the note is all there is.
 
+14.16.5 On SIGTERM or SIGINT the bridge says "Sidetone is stopping." before it leaves the room (item 84). The bridge says the line itself; the agent does not. The line follows the sentence that plays now, the rest of the answer is dropped, and the audio goes off after the line, so nothing the agent says later is heard. The app shows the line as a note and notifies it. The line is a kept line (11.6.1), so it is not made at the stop. The stop waits at most 5 seconds for the line, then up to 1.5 seconds for the frames that the source holds ahead to play, and then leaves the room.
+
 14.17 The app says what it received of the bridge's voice (item 56). A sentence that Chris calls garbled can then be matched to the network at that time: concealment says loss or late packets on the link, and none says the render or the car.
 
 14.17.1 While LiveKit names the bridge as an active speaker, the app reads the inbound-rtp statistics of the bridge's audio every 5 seconds, and once more when the bridge stops. The `receive` message carries the change since the last reading: `ms`, the time between the readings; `packets` and `lost`; `samples`, the samples played out; `concealed` and `events`, the samples the jitter buffer made up and the number of times it began; `inserted` and `removed`, the samples it added and took out to change speed; `bufferMs`, the mean time a sample waited in the buffer; and `codec`, the MIME type of the codec, which says whether RED is on.
@@ -806,7 +808,7 @@ To drop a pending screenshot, the client sends a `screenshot` message with `id` 
 
 17.11.11.3 "disconnected" shows when the phone's own room ends or does not open: LiveKit is not there (the container stops or restarts, or the machine or its network is down), the phone's network is gone for longer than LiveKit's own reconnect, or the connect fails for another reason. The app then tries again every 5 seconds (17.11.6). A restart of the bridge alone does not show it.
 
-17.11.11.4 A restart by the service manager sends SIGTERM, and the bridge leaves the room at once: on 26 September the phone saw it leave in less than 0.1 seconds. A bridge that is killed does not leave. It stays in the room until LiveKit drops it, and the row can say "stalled" until then. The time LiveKit takes is not measured.
+17.11.11.4 A restart by the service manager sends SIGTERM, and the bridge leaves the room once it says that it stops (14.16.5): on 26 September the phone saw it leave in less than 0.1 seconds. A bridge that is killed does not leave. It stays in the room until LiveKit drops it, and the row can say "stalled" until then. The time LiveKit takes is not measured.
 
 17.12 The app keeps a screen log: what it showed, in the order it showed it. Each change of a line on the screen is one entry. The log is in the memory of the app process. It ends when Chris quits the app (17.22.4). A leave (17.11.10) keeps it, as it keeps the lines, and the leave and the rejoin are two events in it (4.3.1).
 

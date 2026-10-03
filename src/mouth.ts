@@ -134,6 +134,7 @@ export const KEPT_LINES = [
   "This engine has only the one voice.",
   "Switched to the female voice.",
   "Switched to the male voice.",
+  "Sidetone is stopping.",
 ] as const;
 
 /**

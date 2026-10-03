@@ -43,6 +43,8 @@ import { Working, jobsRunning } from "./working.ts";
 
 /** 14.16.4 what the voice says when a new process of the bridge first has a listener */
 export const STARTED = "Sidetone started.";
+/** Item 84 what the voice says when the bridge stops, before it leaves the room */
+export const STOPPING = "Sidetone is stopping.";
 
 /** 18 the session's own line, then every event after it, appended as it happens. */
 function recorder(config: Config): (event: Event) => void {
@@ -87,6 +89,12 @@ export interface Bridge {
    * over, or `keepContext` is off.
    */
   handoff(ms: number): Promise<boolean>;
+  /**
+   * Item 84 the voice says `STOPPING` and goes quiet. The queued answer is
+   * dropped, so the line follows the sentence that plays now. True when the
+   * line was said within `ms`; false when it ran over.
+   */
+  farewell(ms: number): Promise<boolean>;
   stop(): void;
 }
 
@@ -311,6 +319,15 @@ export function assemble(
       let timer: ReturnType<typeof setTimeout> | undefined;
       const late = new Promise<false>((resolve) => { timer = setTimeout(() => resolve(false), ms); });
       try { return await Promise.race([conversation.quietly(handoffOf(projects.current.name)), late]); } finally { clearTimeout(timer); }
+    },
+    async farewell(ms: number) {
+      mouth.discard();
+      // the audio goes off after the line, so a sentence the agent streams later is not heard
+      mouth.quietAfter(STOPPING);
+      channel.tell({ kind: "narration", text: STOPPING, announce: true });
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const late = new Promise<false>((resolve) => { timer = setTimeout(() => resolve(false), ms); });
+      try { return await Promise.race([mouth.drained().then(() => true as const), late]); } finally { clearTimeout(timer); }
     },
     stop() { clearInterval(watch); clearInterval(work); conversation.stop(); stt.stop(); tts.stop(); turn?.stop(); },
   };

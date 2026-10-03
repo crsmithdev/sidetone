@@ -1794,9 +1794,9 @@ labels: [tones, chris]
 ## 84. Bridge speaks a shutdown message, as it does at start: a fixed or pre-recorded phrase the bridge emits itself, not through the agent
 ---
 id: 84
-status: open
+status: done
 created: 2026-09-29
-updated: 2026-09-29
+updated: 2026-10-03
 priority: medium
 labels: [bridge, voice]
 ---
@@ -1804,3 +1804,4 @@ labels: [bridge, voice]
 ### Notes
 
 - 2026-09-29 16:06: Also check that the startup message works the same way: the bridge emits it itself, not through the agent.
+- 2026-10-03 16:48: job shutdown-voice landed

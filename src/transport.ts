@@ -310,6 +310,11 @@ export class Transport {
     }
   }
 
+  /** Item 84 the frames the source holds ahead have played, so a close does not cut the last words. */
+  async playedOut(): Promise<void> {
+    await this.source.waitForPlayout();
+  }
+
   async close(): Promise<void> {
     this.stopped = true;
     await this.room.disconnect();

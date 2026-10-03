@@ -26,6 +26,13 @@ import { renderUnicodeCompact } from "uqr";
  */
 const HANDOFF_MS = 150_000;
 
+/**
+ * Item 84 how long a stop waits for the voice to say it stops. The line is
+ * kept, so it is made already; this is the sentence that plays now, the line,
+ * and the second of frames the source holds ahead.
+ */
+const FAREWELL_MS = 5_000;
+
 /** 12.2 one pairing, then a long-lived token the client keeps. */
 function pairingCode(): string {
   const words = "amber,anchor,basalt,cedar,cobalt,dust,ember,fathom,garnet,harbour,indigo,jetty,kelp,lantern,marlin,north,onyx,pewter,quartz,rigging,slate,tide,umber,vellum,willow,zenith".split(",");
@@ -178,6 +185,8 @@ export async function serve(dir: string, config: Config): Promise<void> {
   // Item 72 then the agent writes its handoff, which the next start picks up.
   // The room is left first: the phone sees the stop at once (17.11.11.4), and
   // a closed room ends each sentence at once, so a cut turn drains.
+  // Item 84 before the room is left, the voice says that the bridge stops, as
+  // it says that it started (14.16.4). A time limit keeps a stop from waiting on it.
   let stopping = false;
   for (const signal of ["SIGTERM", "SIGINT"] as const) {
     process.on(signal, () => {
@@ -185,7 +194,11 @@ export async function serve(dir: string, config: Config): Promise<void> {
       if (stopping) process.exit(0);
       stopping = true;
       void (async () => {
-        console.log(`[${signal}: leaving the room]`);
+        console.log(`[${signal}: saying that the bridge stops]`);
+        const said = await bridge.farewell(FAREWELL_MS);
+        if (said) await Promise.race([transport.playedOut().catch(() => {}), Bun.sleep(1_500)]);
+        else console.log("[the stop line ran over]");
+        console.log("[leaving the room]");
         try { await transport.close(); } catch { /* going anyway */ }
         if (config.keepContext) {
           console.log("[the agent writes its handoff]");
