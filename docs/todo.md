@@ -1830,3 +1830,13 @@ updated: 2026-10-20
 priority: medium
 labels: [performance]
 ---
+
+## 87. Run latency-bench from the phone over Tailscale and cellular, not loopback, so the figures include the network of the car
+---
+id: 87
+status: open
+created: 2026-10-20
+updated: 2026-10-20
+priority: medium
+labels: [performance]
+---
