@@ -1840,3 +1840,13 @@ updated: 2026-10-20
 priority: medium
 labels: [performance]
 ---
+
+## 88. Restart at once when the agent's stream ends mid-turn, not after the 60 s silence timer (docs/faults.md: the session sees the end at once)
+---
+id: 88
+status: open
+created: 2026-10-20
+updated: 2026-10-20
+priority: high
+labels: [supervisor]
+---
