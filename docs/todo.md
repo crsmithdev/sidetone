@@ -1880,3 +1880,13 @@ updated: 2026-10-20
 priority: medium
 labels: [supervisor]
 ---
+
+## 92. Fault study for the phone's network: drop and restore the link mid-answer and time the reconnect (portfolio plan P2, not in docs/faults.md)
+---
+id: 92
+status: open
+created: 2026-10-20
+updated: 2026-10-20
+priority: medium
+labels: [supervisor]
+---
