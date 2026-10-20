@@ -1820,3 +1820,13 @@ updated: 2026-10-20
 priority: medium
 labels: [performance]
 ---
+
+## 86. Explain why fake-phone heard medium.en+chatterbox at 4.8 s median while the bridge recorded 5.8 s (docs/latency.md, bench of 20 October)
+---
+id: 86
+status: open
+created: 2026-10-20
+updated: 2026-10-20
+priority: medium
+labels: [performance]
+---
