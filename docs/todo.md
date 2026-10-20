@@ -1860,3 +1860,13 @@ updated: 2026-10-20
 priority: high
 labels: [supervisor]
 ---
+
+## 90. Resume the conversation after a supervisor restart (--resume the session id); every restart loses it now (docs/faults.md)
+---
+id: 90
+status: open
+created: 2026-10-20
+updated: 2026-10-20
+priority: medium
+labels: [supervisor]
+---
