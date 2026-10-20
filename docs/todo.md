@@ -1810,3 +1810,13 @@ labels: [bridge, voice]
 
 - 2026-09-29 16:06: Also check that the startup message works the same way: the bridge emits it itself, not through the agent.
 - 2026-10-03 16:48: job shutdown-voice landed
+
+## 85. Measure GPU memory for each speech engine pair with only the bridge's workers loaded (latency-bench dropped VRAM: fake-phone loads its own copy of the engines)
+---
+id: 85
+status: open
+created: 2026-10-20
+updated: 2026-10-20
+priority: medium
+labels: [performance]
+---
