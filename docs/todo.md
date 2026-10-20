@@ -96,7 +96,7 @@ agent with no re-run of a job.
 id: 5
 status: open
 created: 2026-09-21
-updated: 2026-09-21
+updated: 2026-10-20
 priority: medium
 labels: []
 ---
@@ -141,6 +141,10 @@ shorter first sentence. Measure each one with `kind: "answered"` in
 
 Done when the first sound of a chatterbox answer comes in under a second, or a
 written reason says what it costs and Chris has said no.
+
+### Notes
+
+- 2026-10-20 15:35: 2026-10-20: docs/latency.md measures it. chatterbox's first sentence is 2.8 s at the median against 0.15 s for kokoro, and adds about 2.6 s to the round trip.
 
 ## 18. A tone at the true end of the agent's speaking
 ---
