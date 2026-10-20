@@ -25,7 +25,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { decode } from "../client/decode.js";
-import { Utterances, encodeWav } from "../src/audio.ts";
+import { Utterances, decodeWav, encodeWav } from "../src/audio.ts";
 import { loadConfig } from "../src/config.ts";
 import { LocalWhisper, textToSpeech } from "../src/speech.ts";
 import { RTC_RATE, Transport } from "../src/transport.ts";
@@ -202,12 +202,21 @@ phone.onMessage((value) => {
   if (shown.sentence) console.log(`${at()} text   | ${shown.sentence[0]}`);
 });
 
-/** Speak a line the way a person would: as sound, not as text. */
-async function say(text: string): Promise<void> {
+/**
+ * Speak a line the way a person would: as sound, not as text. It returns the
+ * moment the line's audio ends. `speak` returns earlier than that, as the
+ * source holds a second of frames ahead, and the time to make the wav is not
+ * the bridge's either.
+ */
+async function say(text: string): Promise<number> {
   const wav = join(scratch, `say-${index}-out.wav`);
   await tts.synthesize(text, wav);
   console.log(`${at()} said   | ${text}`);
-  await phone.speak(await Bun.file(wav).bytes());
+  const bytes = await Bun.file(wav).bytes();
+  const { samples, sampleRate } = decodeWav(bytes);
+  const endsAt = Date.now() + (samples.length / sampleRate) * 1000;
+  await phone.speak(bytes);
+  return endsAt;
 }
 
 const measurements: string[] = [];
@@ -227,10 +236,9 @@ for (const [n, raw] of options.lines.entries()) {
     const delay = Number(timed[1]) * (timed[2] === "s" ? 1000 : 1);
     console.log(`${at()} waiting ${(delay / 1000).toFixed(0)}s before speaking`);
     await Bun.sleep(delay);
-    const startedAt = Date.now();
     speakingSince = 0;
     burstSince = 0;
-    await say(line);
+    const startedAt = await say(line);
     const deadline = Date.now() + options.quietMs;
     while (Date.now() < deadline) {
       await Bun.sleep(250);
@@ -246,8 +254,7 @@ for (const [n, raw] of options.lines.entries()) {
   if (!bargeIn) {
     speakingSince = 0;
     burstSince = 0;
-    const askedAt = Date.now();
-    await say(line);
+    const askedAt = await say(line);
     // wait for the bridge to answer and then go quiet
     const deadline = Date.now() + options.quietMs;
     while (Date.now() < deadline) {
