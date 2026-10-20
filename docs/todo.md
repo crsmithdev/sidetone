@@ -1870,3 +1870,13 @@ updated: 2026-10-20
 priority: medium
 labels: [supervisor]
 ---
+
+## 91. Kill a stopped (SIGSTOP) agent with SIGKILL at restart: SIGTERM leaves it behind (docs/faults.md, hang-reply)
+---
+id: 91
+status: open
+created: 2026-10-20
+updated: 2026-10-20
+priority: medium
+labels: [supervisor]
+---
