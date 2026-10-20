@@ -1850,3 +1850,13 @@ updated: 2026-10-20
 priority: high
 labels: [supervisor]
 ---
+
+## 89. Release the silence timer's tool hold when the process dies: a crash in a tool call takes 642 s to find, by the ceiling ladder (docs/faults.md)
+---
+id: 89
+status: open
+created: 2026-10-20
+updated: 2026-10-20
+priority: high
+labels: [supervisor]
+---
