@@ -1776,7 +1776,7 @@ labels: [bridge]
 id: 82
 status: open
 created: 2026-09-29
-updated: 2026-09-29
+updated: 2026-10-20
 priority: medium
 labels: [performance, tests]
 ---
@@ -1784,6 +1784,7 @@ labels: [performance, tests]
 ### Notes
 
 - 2026-09-29 15:53: 2026-09-29 from Chris: run a small performance check, and only on changes, to see an improvement or a regression. Needs design: which measures (round trip, worker start, speech-to-text time), where the baseline is stored, and how the check runs without a phone.
+- 2026-10-20 15:35: 2026-10-20: scripts/latency-bench.ts is a first form of the check: it runs pairs of speech engines through fake-phone and prints the split. Still open: the baseline store, and a run on each change.
 
 ## 83. Chris to review the tones: end of turn, agent thinking, end of agent turn and the rest
 ---
