@@ -1890,3 +1890,15 @@ updated: 2026-10-20
 priority: medium
 labels: [supervisor]
 ---
+
+## 93. Desktop app that controls the goal-to-shipped system
+---
+id: 93
+status: open
+created: 2026-10-25
+updated: 2026-10-25
+priority: medium
+labels: [desktop]
+---
+
+Plan: aleph docs/specs/2026-10-25-goal-to-shipped.md, piece 5. Voice and window for the loop: start a goal and answer its grill by voice, hear and read the morning report, approve what waits, watch runs. A client of the work store and the factory; owns no state; reuses the bridge for speech. Needs a detailed plan before any build.
