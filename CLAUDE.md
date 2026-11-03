@@ -27,8 +27,8 @@ your scratchpad and run `aleph job <repo> <name> --spec <file>`. Pick a name
 of two plain words, joined by a hyphen, with no numbers, that Chris can say. For a plain
 command, run `aleph run <name> -- <command>`.
 
-When the job does the work of a to-do item, add `--todo <id>` to `aleph job`.
-If no item exists, file one first with `aleph todo add`. Then the land
+When the job does the work of an issue, add `--on <id>` to `aleph job`.
+If no issue exists, file one first with `aleph issue add`. Then the land
 closes the item, and `aleph drop` adds a note to it.
 
 Do a small, bounded edit or lookup inline: add a to-do item, change a line in
